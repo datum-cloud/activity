@@ -1,0 +1,226 @@
+version: '3'
+
+# Migration Management Tasks
+# These tasks handle ClickHouse schema migrations for the Activity API
+
+vars:
+  CLICKHOUSE_DATABASE: "{{.CLICKHOUSE_DATABASE | default \"audit\"}}"
+  CLICKHOUSE_USERNAME: "{{.CLICKHOUSE_USERNAME | default \"default\"}}"
+  CLICKHOUSE_PASSWORD: "{{.CLICKHOUSE_PASSWORD | default \"\"}}"
+  MIGRATIONS_DIR: "{{.USER_WORKING_DIR}}"
+  # Root directory - passed from parent Taskfile or computed
+  ROOT_DIR: "{{.ROOT_DIR}}"
+
+tasks:
+  local:
+    desc: Run ClickHouse migrations against local Docker instance
+    cmds:
+      - |
+        set -e
+        echo "🔄 Running ClickHouse migrations locally..."
+
+        # Check if ClickHouse is running
+        if ! docker ps | grep -q activity-clickhouse; then
+          echo "ClickHouse container is not running. Starting it..."
+          task test:clickhouse:up
+          echo "Waiting for ClickHouse to be fully ready..."
+          sleep 5
+        fi
+
+        # Run migrations using the migration script
+        docker run --rm \
+          --network container:activity-clickhouse \
+          -v "{{.MIGRATIONS_DIR}}:/migrations:ro" \
+          -e CLICKHOUSE_HOST=localhost \
+          -e CLICKHOUSE_PORT=9000 \
+          -e CLICKHOUSE_USER={{.CLICKHOUSE_USERNAME}} \
+          -e CLICKHOUSE_PASSWORD={{.CLICKHOUSE_PASSWORD}} \
+          -e CLICKHOUSE_DATABASE={{.CLICKHOUSE_DATABASE}} \
+          -e MIGRATIONS_DIR=/migrations \
+          clickhouse/clickhouse-server:latest \
+          bash /migrations/migrate.sh
+
+        echo ""
+        echo "✅ Migrations completed successfully!"
+    silent: true
+
+  verify:
+    desc: Verify ClickHouse schema and show migration status
+    cmds:
+      - |
+        set -e
+        echo "📊 Verifying ClickHouse schema..."
+
+        if ! docker ps | grep -q activity-clickhouse; then
+          echo "❌ ClickHouse container is not running"
+          echo "Start it with: task test:clickhouse:up"
+          exit 1
+        fi
+
+        echo ""
+        echo "=== Applied Migrations ==="
+        docker exec -i activity-clickhouse clickhouse-client --query \
+          "SELECT version, name, applied_at FROM {{.CLICKHOUSE_DATABASE}}.schema_migrations ORDER BY version FORMAT PrettyCompact" \
+          2>/dev/null || echo "No migrations applied yet"
+
+        echo ""
+        echo "=== Database Tables ==="
+        docker exec -i activity-clickhouse clickhouse-client --query \
+          "SHOW TABLES FROM {{.CLICKHOUSE_DATABASE}} FORMAT PrettyCompact"
+
+        echo ""
+        echo "=== Events Table Structure ==="
+        docker exec -i activity-clickhouse clickhouse-client --query \
+          "DESCRIBE TABLE {{.CLICKHOUSE_DATABASE}}.events FORMAT PrettyCompact" \
+          2>/dev/null || echo "Table 'events' does not exist yet"
+
+        echo ""
+        echo "✅ Schema verification complete"
+    silent: true
+
+  cluster:
+    desc: Run migrations in the Kubernetes cluster using a Job
+    cmds:
+      - |
+        set -e
+        echo "🚀 Running migrations in Kubernetes cluster..."
+
+        # Generate a unique job name with timestamp
+        JOB_NAME="clickhouse-migrate-$(date +%s)"
+
+        echo "Creating migration job: ${JOB_NAME}"
+        task test-infra:kubectl -- create job \
+          --from=job/clickhouse-migrate \
+          "${JOB_NAME}" \
+          -n activity-system
+
+        echo ""
+        echo "⏳ Waiting for migration job to complete..."
+        task test-infra:kubectl -- wait --for=condition=complete \
+          job/"${JOB_NAME}" \
+          -n activity-system \
+          --timeout=120s || true
+
+        echo ""
+        echo "📋 Migration job logs:"
+        task test-infra:kubectl -- logs job/"${JOB_NAME}" -n activity-system
+
+        # Check if job succeeded
+        if task test-infra:kubectl -- get job "${JOB_NAME}" -n activity-system -o jsonpath='{.status.succeeded}' | grep -q "1"; then
+          echo ""
+          echo "✅ Migrations completed successfully in cluster!"
+        else
+          echo ""
+          echo "❌ Migration job failed. Check logs above for details."
+          exit 1
+        fi
+    silent: true
+
+  cluster:verify:
+    desc: Verify schema in the Kubernetes cluster
+    cmds:
+      - |
+        set -e
+        echo "📊 Verifying ClickHouse schema in Kubernetes cluster..."
+
+        # Get the ClickHouse pod name
+        POD_NAME=$(task test-infra:kubectl -- get pods \
+          -n activity-system \
+          -l clickhouse.altinity.com/chi=activity-clickhouse \
+          -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+
+        if [ -z "${POD_NAME}" ]; then
+          echo "❌ Could not find ClickHouse pod"
+          echo "Ensure ClickHouse is deployed with: task dev:deploy"
+          exit 1
+        fi
+
+        echo "Using ClickHouse pod: ${POD_NAME}"
+        echo ""
+
+        echo "=== Applied Migrations ==="
+        task test-infra:kubectl -- exec -i "${POD_NAME}" -n activity-system -- \
+          clickhouse-client --query \
+          "SELECT version, name, applied_at FROM {{.CLICKHOUSE_DATABASE}}.schema_migrations ORDER BY version FORMAT PrettyCompact" \
+          2>/dev/null || echo "No migrations applied yet"
+
+        echo ""
+        echo "=== Database Tables ==="
+        task test-infra:kubectl -- exec -i "${POD_NAME}" -n activity-system -- \
+          clickhouse-client --query \
+          "SHOW TABLES FROM {{.CLICKHOUSE_DATABASE}} FORMAT PrettyCompact"
+
+        echo ""
+        echo "=== Events Table Structure ==="
+        task test-infra:kubectl -- exec -i "${POD_NAME}" -n activity-system -- \
+          clickhouse-client --query \
+          "DESCRIBE TABLE {{.CLICKHOUSE_DATABASE}}.events FORMAT PrettyCompact" \
+          2>/dev/null || echo "Table 'events' does not exist yet"
+
+        echo ""
+        echo "✅ Schema verification complete"
+    silent: true
+
+  new:
+    desc: Create a new migration file (usage - task migrations:new NAME=add_field_name)
+    cmds:
+      - |
+        #!/usr/bin/env bash
+        set -e
+
+        # Check if NAME is provided
+        if [ -z "{{.NAME}}" ]; then
+          echo "❌ Error: Migration name is required"
+          echo "Usage: task migrations:new NAME=description_of_migration"
+          echo "Example: task migrations:new NAME=add_source_ip"
+          exit 1
+        fi
+
+        # Find the latest migration version (sed strips leading zeros)
+        LATEST_VERSION=$(ls *.sql 2>/dev/null | sed 's/^0*\([0-9]*\)_.*/\1/' | sort -n | tail -1)
+
+        if [ -z "${LATEST_VERSION}" ]; then
+          NEXT_VERSION="001"
+        else
+          # LATEST_VERSION already has leading zeros stripped by sed
+          # Just add 1 and format with leading zeros
+          NEXT_NUM=$((LATEST_VERSION + 1))
+          NEXT_VERSION=$(printf "%03d" ${NEXT_NUM})
+        fi
+
+        MIGRATION_FILE="${NEXT_VERSION}_{{.NAME}}.sql"
+
+        echo "📝 Creating new migration: migrations/${MIGRATION_FILE}"
+
+        cat > "${MIGRATION_FILE}" <<EOF
+-- Migration: ${NEXT_VERSION}_{{.NAME}}
+-- Description: TODO - Add description of what this migration does
+-- Author: $(git config user.name 2>/dev/null || echo "Unknown")
+-- Date: $(date +%Y-%m-%d)
+
+-- TODO: Add your migration SQL here
+-- Example: ALTER TABLE audit.events ADD COLUMN IF NOT EXISTS new_field String;
+EOF
+
+        echo "✅ Migration file created: ${MIGRATION_FILE}"
+        echo ""
+        echo "Next steps:"
+        echo "  1. Edit the migration file and add your SQL statements"
+        echo "  2. Test locally: task migrations:local"
+        echo "  3. Verify: task migrations:verify"
+        echo "  4. Generate ConfigMap: task migrations:generate"
+        echo "  5. Update config/components/clickhouse-migrations/job.yaml"
+        echo "     - Add the new migration file to volumes.migrations.items"
+        echo "  6. Deploy: task dev:deploy"
+        echo "  7. Verify in cluster: task migrations:cluster:verify"
+    silent: true
+
+  generate:
+    desc: Generate ConfigMap from migrations directory (source of truth)
+    cmds:
+      - |
+        set -e
+        echo "🔄 Generating ClickHouse migrations ConfigMap..."
+        {{.ROOT_DIR}}/hack/generate-migrations-configmap.sh
+        echo "✅ Migrations ConfigMap generated"
+    silent: true
