@@ -1,16 +1,24 @@
-# Activity API
+# Activity
 
-Ever wonder who changed that production secret? Or need to track down who deleted a deployment last week? The Activity
-API makes it easy to ask questions about what's happening in your Kubernetes clusters.
+Ever wonder who changed that production secret? Or need to track down who deleted a deployment last week? Activity
+makes it easy to ask questions about what's happening in your Kubernetes clusters.
 
 ## What is this?
 
-Activity API is a Kubernetes extension that lets you query your cluster's audit logs using familiar Kubernetes tools.
-Instead of digging through log files, you can use `kubectl` to ask questions like "show me all the deletions in
+Activity is a Kubernetes extension that lets you query your cluster's audit logs using familiar Kubernetes
+tools. Instead of digging through log files, you can use `kubectl` to ask questions like "show me all the deletions in
 production" or "who accessed secrets in the last hour?"
 
 Think of it as a search engine for everything that happens in your cluster. It's built as an aggregated API server,
 which means it feels like a natural part of Kubernetes, not a bolt-on tool.
+
+## Components
+
+Activity consists of several components that work together:
+
+- **activity-apiserver**: Kubernetes aggregated API server that processes audit log queries
+- **activity-ui**: React component library for building web interfaces
+- **kubectl-activity**: kubectl plugin for command-line querying
 
 ## What can it do right now?
 
