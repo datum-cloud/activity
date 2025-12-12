@@ -193,14 +193,14 @@ tasks:
         echo "📝 Creating new migration: migrations/${MIGRATION_FILE}"
 
         cat > "${MIGRATION_FILE}" <<EOF
--- Migration: ${NEXT_VERSION}_{{.NAME}}
--- Description: TODO - Add description of what this migration does
--- Author: $(git config user.name 2>/dev/null || echo "Unknown")
--- Date: $(date +%Y-%m-%d)
+        -- Migration: ${NEXT_VERSION}_{{.NAME}}
+        -- Description: TODO - Add description of what this migration does
+        -- Author: $(git config user.name 2>/dev/null || echo "Unknown")
+        -- Date: $(date +%Y-%m-%d)
 
--- TODO: Add your migration SQL here
--- Example: ALTER TABLE audit.events ADD COLUMN IF NOT EXISTS new_field String;
-EOF
+        -- TODO: Add your migration SQL here
+        -- Example: ALTER TABLE audit.events ADD COLUMN IF NOT EXISTS new_field String;
+        EOF
 
         echo "✅ Migration file created: ${MIGRATION_FILE}"
         echo ""
