@@ -17,8 +17,8 @@ Creates a ClickHouse instance with:
 
 ## Storage Configuration
 
-**Hot Storage**: Recent data on local disks for fast queries
-**Cold Storage**: Old data on S3 for cost-effective archival
+- **Hot Storage**: Recent data on local disks for fast queries
+- **Cold Storage**: Old data on S3 for cost-effective archival
 
 The storage policy is configured via patches in each overlay (test-infra, production, etc).
 
