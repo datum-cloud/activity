@@ -1,0 +1,54 @@
+---
+# Kubernetes Job to create S3 bucket in RustFS
+# Uses MinIO client (mc) to create a bucket named "clickhouse-cold"
+# This runs once during deployment to initialize the bucket
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: rustfs-bucket-init
+  # No explicit namespace - will inherit from kustomize overlay (activity-system)
+spec:
+  # Keep job around for debugging, but clean up after 1 day
+  ttlSecondsAfterFinished: 86400
+
+  template:
+    metadata:
+      labels:
+        app: rustfs-bucket-init
+    spec:
+      restartPolicy: OnFailure
+
+      containers:
+      - name: mc
+        # MinIO client official image
+        image: minio/mc:latest
+
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -e
+          echo "Configuring mc alias for RustFS..."
+          mc alias set rustfs http://rustfs.rustfs-system.svc.cluster.local:9000 ${RUSTFS_ACCESS_KEY} ${RUSTFS_SECRET_KEY}
+
+          echo "Creating bucket: clickhouse-cold..."
+          mc mb rustfs/clickhouse-cold --ignore-existing
+
+          echo "Verifying bucket exists..."
+          mc ls rustfs/clickhouse-cold
+
+          echo "✅ Bucket initialization complete!"
+
+        env:
+        - name: RUSTFS_ACCESS_KEY
+          value: "myadminuser"
+        - name: RUSTFS_SECRET_KEY
+          value: "mysecretpassword"
+
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi

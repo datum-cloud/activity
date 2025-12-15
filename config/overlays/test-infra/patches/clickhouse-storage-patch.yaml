@@ -1,0 +1,60 @@
+---
+# Test-infra specific patch for ClickHouse storage configuration
+# Configures S3 cold storage to use RustFS
+apiVersion: clickhouse.altinity.com/v1
+kind: ClickHouseInstallation
+metadata:
+  name: activity-clickhouse
+  namespace: activity-system
+spec:
+  configuration:
+    files:
+      # Override storage configuration to use RustFS endpoint
+      config.d/storage.xml: |
+        <clickhouse>
+          <storage_configuration>
+            <disks>
+              <!-- Local disk for hot data -->
+              <default>
+                <keep_free_space_bytes>1073741824</keep_free_space_bytes>
+              </default>
+
+              <!-- S3-compatible cold storage using RustFS (test-infra only) -->
+              <!-- In production, this would use AWS S3, MinIO, or another S3 provider -->
+              <s3_cold>
+                <type>s3</type>
+                <!-- RustFS endpoint in rustfs-system namespace -->
+                <endpoint>http://rustfs.rustfs-system.svc.cluster.local:9000/clickhouse-cold</endpoint>
+                <access_key_id from_env="AWS_ACCESS_KEY_ID"/>
+                <secret_access_key from_env="AWS_SECRET_ACCESS_KEY"/>
+                <region>us-east-1</region>
+                <use_environment_credentials>false</use_environment_credentials>
+                <metadata_path>/var/lib/clickhouse/disks/s3_cold/</metadata_path>
+                <!-- Cache layer for S3 data -->
+                <cache_enabled>true</cache_enabled>
+                <cache_path>/var/lib/clickhouse/disks/s3_cold_cache/</cache_path>
+                <max_cache_size>10737418240</max_cache_size> <!-- 10GB cache -->
+              </s3_cold>
+            </disks>
+
+            <policies>
+              <!-- Hot/Cold tiering policy -->
+              <hot_cold>
+                <volumes>
+                  <!-- Hot volume: recent data on local SSD -->
+                  <hot>
+                    <disk>default</disk>
+                    <!-- Move to cold storage after 7 days -->
+                    <max_data_part_size_bytes>0</max_data_part_size_bytes>
+                    <move_factor>0.2</move_factor>
+                  </hot>
+                  <!-- Cold volume: older data on S3 -->
+                  <cold>
+                    <disk>s3_cold</disk>
+                  </cold>
+                </volumes>
+                <move_factor>0.2</move_factor>
+              </hot_cold>
+            </policies>
+          </storage_configuration>
+        </clickhouse>
