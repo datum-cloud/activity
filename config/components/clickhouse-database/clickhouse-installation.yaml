@@ -1,0 +1,128 @@
+apiVersion: clickhouse.altinity.com/v1
+kind: ClickHouseInstallation
+metadata:
+  name: activity-clickhouse
+  namespace: activity-system
+spec:
+  configuration:
+    clusters:
+      - name: activity
+        layout:
+          shardsCount: 1
+          replicasCount: 1
+    users:
+      default/password: ""  # Empty password for test environments
+      default/networks/ip:
+        - "0.0.0.0/0"
+    settings:
+      # Default settings for ClickHouse
+      default/default_database: audit
+    profiles:
+      default/max_memory_usage: 3000000000  # 3GB max memory usage
+    files:
+      # Storage configuration for hot/cold tiering with S3
+      # Hot storage: local disk for recent data (fast queries)
+      # Cold storage: S3-compatible storage for older data (cost-effective archival)
+      # S3 credentials are provided via environment variables from Secret/ConfigMap
+      config.d/storage.xml: |
+        <clickhouse>
+          <storage_configuration>
+            <disks>
+              <!-- Local disk for hot data -->
+              <default>
+                <keep_free_space_bytes>1073741824</keep_free_space_bytes>
+              </default>
+
+              <!-- S3-compatible cold storage -->
+              <!-- Credentials from clickhouse-cold Secret (injected via envFrom) -->
+              <!-- Endpoint configured via overlay patches (e.g., RustFS, MinIO, AWS S3) -->
+              <s3_cold>
+                <type>s3</type>
+                <endpoint>PLACEHOLDER_S3_ENDPOINT</endpoint>
+                <access_key_id from_env="AWS_ACCESS_KEY_ID"/>
+                <secret_access_key from_env="AWS_SECRET_ACCESS_KEY"/>
+                <region>us-east-1</region>
+                <use_environment_credentials>false</use_environment_credentials>
+                <metadata_path>/var/lib/clickhouse/disks/s3_cold/</metadata_path>
+                <!-- Cache layer for S3 data -->
+                <cache_enabled>true</cache_enabled>
+                <cache_path>/var/lib/clickhouse/disks/s3_cold_cache/</cache_path>
+                <max_cache_size>10737418240</max_cache_size> <!-- 10GB cache -->
+              </s3_cold>
+            </disks>
+
+            <policies>
+              <hot_cold>
+                <volumes>
+                  <hot>
+                    <disk>default</disk>
+                    <max_data_part_size_bytes>0</max_data_part_size_bytes>
+                    <move_factor>0.2</move_factor>
+                  </hot>
+                  <cold>
+                    <disk>s3_cold</disk>
+                  </cold>
+                </volumes>
+                <move_factor>0.2</move_factor>
+              </hot_cold>
+            </policies>
+          </storage_configuration>
+        </clickhouse>
+  defaults:
+    templates:
+      dataVolumeClaimTemplate: data-volume
+      podTemplate: clickhouse-pod
+  templates:
+    podTemplates:
+      - name: clickhouse-pod
+        spec:
+          containers:
+            - name: clickhouse
+              image: clickhouse/clickhouse-server:latest
+              # Inject S3 credentials from S3-compatible storage
+              envFrom:
+                - configMapRef:
+                    name: clickhouse-cold
+                    optional: true  # Allow ClickHouse to start even if bucket isn't ready yet
+                - secretRef:
+                    name: clickhouse-cold
+                    optional: true
+              # Note: S3_ENDPOINT is now provided by the clickhouse-cold ConfigMap
+              # No need to override it here
+              resources:
+                requests:
+                  cpu: 200m
+                  memory: 512Mi
+                limits:
+                  cpu: 2000m
+                  memory: 4Gi
+    volumeClaimTemplates:
+      - name: data-volume
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 5Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: clickhouse
+  namespace: activity-system
+  labels:
+    app: clickhouse
+    app.kubernetes.io/component: database
+spec:
+  type: ClusterIP
+  ports:
+  - name: native
+    port: 9000
+    targetPort: 9000
+    protocol: TCP
+  - name: http
+    port: 8123
+    targetPort: 8123
+    protocol: TCP
+  selector:
+    clickhouse.altinity.com/chi: activity-clickhouse

@@ -1,0 +1,68 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: clickhouse-migrate
+  namespace: activity-system
+  labels:
+    app: clickhouse-migrations
+    app.kubernetes.io/component: database
+spec:
+  # Keep completed jobs for debugging (adjust as needed)
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: clickhouse-migrations
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: migrate
+        image: clickhouse/clickhouse-server:latest
+        command: ["/bin/bash", "/scripts/migrate.sh"]
+        env:
+        - name: CLICKHOUSE_HOST
+          value: "clickhouse.activity-system.svc.cluster.local"
+        - name: CLICKHOUSE_PORT
+          value: "9000"
+        - name: CLICKHOUSE_USER
+          value: "default"
+        - name: CLICKHOUSE_PASSWORD
+          value: ""
+        - name: CLICKHOUSE_DATABASE
+          value: "audit"
+        - name: MIGRATIONS_DIR
+          value: "/migrations"
+        volumeMounts:
+        - name: migrations
+          mountPath: /migrations
+          readOnly: true
+        - name: scripts
+          mountPath: /scripts
+          readOnly: true
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+      volumes:
+      # Migrations volume - ConfigMap name will have hash suffix from ConfigMapGenerator
+      - name: migrations
+        configMap:
+          name: clickhouse-migrations
+          items:
+          - key: 001_initial_schema.sql
+            path: 001_initial_schema.sql
+          # Add more migrations here as they are created:
+          # - key: 002_add_field.sql
+          #   path: 002_add_field.sql
+      # Scripts volume - same ConfigMap, separate mount
+      - name: scripts
+        configMap:
+          name: clickhouse-migrations
+          defaultMode: 0755
+          items:
+          - key: migrate.sh
+            path: migrate.sh

@@ -1,0 +1,18 @@
+---
+# ConfigMap containing S3 bucket endpoint information
+# ClickHouse pods reference this via envFrom
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: clickhouse-cold
+  # No explicit namespace - will inherit from kustomize overlay (activity-system)
+data:
+  # RustFS service endpoint
+  BUCKET_HOST: "rustfs.rustfs-system.svc.cluster.local"
+  BUCKET_PORT: "9000"
+  BUCKET_NAME: "clickhouse-cold"
+  BUCKET_REGION: "us-east-1"
+
+  # S3 endpoint for ClickHouse (includes bucket name in path)
+  # ClickHouse S3 format: http://host:port/bucket-name
+  S3_ENDPOINT: "http://rustfs.rustfs-system.svc.cluster.local:9000/clickhouse-cold"

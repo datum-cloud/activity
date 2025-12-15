@@ -1,0 +1,84 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: clickhouse-operator
+  namespace: clickhouse-system
+spec:
+  interval: 5m
+  timeout: 10m
+
+  chart:
+    spec:
+      chart: altinity-clickhouse-operator
+      version: 0.23.x  # Use latest 0.23.x version
+      sourceRef:
+        kind: HelmRepository
+        name: altinity-clickhouse-operator
+        namespace: clickhouse-system
+      interval: 1h
+
+  # Helm values configuration
+  values:
+    # Operator configuration
+    operator:
+      image:
+        repository: altinity/clickhouse-operator
+        tag: ""  # Uses chart appVersion
+        pullPolicy: IfNotPresent
+
+      # Resource limits
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+
+      # Enable metrics
+      metrics:
+        enabled: true
+
+    # Metrics exporter configuration
+    metricsExporter:
+      enabled: true
+      image:
+        repository: altinity/metrics-exporter
+        tag: ""  # Uses chart appVersion
+        pullPolicy: IfNotPresent
+
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          cpu: 200m
+          memory: 256Mi
+
+    # Configure operator watch namespaces directly in config.yaml
+    configs:
+      files:
+        config.yaml:
+          watch:
+            namespaces:
+              - '.*'
+
+  # Install CRDs
+  install:
+    crds: Create
+    createNamespace: false  # We create it explicitly above
+
+  # Upgrade CRDs
+  upgrade:
+    crds: CreateReplace
+
+  # Uninstall configuration
+  uninstall:
+    keepHistory: false
+
+  # Health checks
+  test:
+    enable: false
+
+  # Post-install/upgrade actions
+  postRenderers: []

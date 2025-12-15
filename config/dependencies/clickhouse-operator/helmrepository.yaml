@@ -1,0 +1,9 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: altinity-clickhouse-operator
+  namespace: clickhouse-system
+spec:
+  interval: 1h
+  url: https://docs.altinity.com/clickhouse-operator/
+  timeout: 3m
