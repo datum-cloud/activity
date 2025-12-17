@@ -1,0 +1,49 @@
+---
+apiVersion: jetstream.nats.io/v1beta2
+kind: Stream
+metadata:
+  name: audit-events
+  namespace: nats-system
+spec:
+  # Stream name in NATS
+  name: AUDIT_EVENTS
+
+  # Subjects to consume - wildcard for all Kubernetes audit events
+  subjects:
+    - audit.k8s.>
+
+  # Retention policy: limits-based (time + size)
+  retention: limits
+
+  # Storage: file-based for durability
+  storage: file
+
+  # Maximum age: 7 days retention as per architecture
+  maxAge: 168h  # 7 days = 168 hours
+
+  # Maximum bytes: 100GB as per architecture
+  maxBytes: 107374182400  # 100 * 1024 * 1024 * 1024
+
+  # Number of replicas for high availability
+  replicas: 1  # Can be increased to 3 for production HA
+
+  # Discard policy when limits are reached
+  discard: old
+
+  # Allow direct access for queries
+  allowDirect: true
+
+  # Deduplication window - prevents duplicate messages
+  duplicateWindow: 2m
+
+  # Maximum number of consumers
+  maxConsumers: 10
+
+  # Maximum message size (10MB - large enough for batch audit events)
+  maxMsgSize: 10485760  # 10 * 1024 * 1024
+
+  # No message limit - rely on age and size limits
+  maxMsgs: -1
+
+  # Performance tuning
+  noAck: false  # Require acknowledgments for durability

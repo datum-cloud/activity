@@ -1,0 +1,158 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: vector-sidecar
+  namespace: activity-system
+spec:
+  interval: 5m
+  timeout: 1m
+
+  chart:
+    spec:
+      chart: vector
+      version: 0.49.x
+      sourceRef:
+        kind: HelmRepository
+        name: vector-sidecar
+        namespace: activity-system
+      interval: 1h
+
+  values:
+    role: Agent
+    daemonset:
+      enabled: true
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+    podMonitor:
+      enabled: true
+      port: internal-promet
+
+    service:
+      enabled: true
+      type: ClusterIP
+      ports:
+        - name: metrics
+          port: 9090
+          protocol: TCP
+        - name: webhook
+          port: 8080
+          protocol: TCP
+
+    customConfig:
+      data_dir: /vector-data-dir
+
+      api:
+        enabled: true
+        address: 0.0.0.0:8686
+
+      sources:
+        # Webhook endpoint for receiving logs via HTTP
+        webhook:
+          type: http_server
+          address: 0.0.0.0:8080
+          path: /events
+          strict_path: true
+          decoding:
+            codec: json
+          framing:
+            method: bytes
+
+        internal_metrics:
+          type: internal_metrics
+          namespace: vector
+
+      transforms:
+        # Extract individual events from webhook EventList batch
+        # The Kubernetes API server webhook sends batches in this format:
+        # {
+        #   "kind": "EventList",
+        #   "apiVersion": "audit.k8s.io/v1",
+        #   "items": [
+        #     { "kind": "Event", ... },
+        #     { "kind": "Event", ... }
+        #   ]
+        # }
+        # This transform splits the items array into individual events
+        parse_webhook_batch:
+          type: remap
+          inputs:
+            - webhook
+          source: |
+            # Check if this is an EventList batch from Kubernetes webhook
+            if exists(.kind) && .kind == "EventList" && exists(.items) {
+              # Extract the items array and emit each item as a separate event
+              . = unnest!(.items)
+            }
+
+        # Add source metadata
+        add_source_metadata:
+          type: remap
+          inputs:
+            - parse_webhook_batch
+          source: |
+            .source = "webhook"
+            .cluster = get_env_var!("CLUSTER_NAME")
+
+      sinks:
+        # Publish to NATS JetStream
+        nats_jetstream:
+          type: nats
+          inputs:
+            - add_source_metadata
+          url: nats://nats.nats-system.svc.cluster.local:4222
+          connection_name: vector-sidecar
+          subject: audit.k8s.activity
+          encoding:
+            codec: json
+          healthcheck:
+            enabled: true
+
+          # Buffer for durability
+          # 10GB disk buffer to survive NATS outages
+          buffer:
+            type: disk
+            max_size: 10737418240
+            when_full: block
+
+        internal_prometheus:
+          type: prometheus_exporter
+          inputs:
+            - internal_metrics
+          address: 0.0.0.0:9091
+          default_namespace: vector_internal
+
+    env:
+      - name: CLUSTER_NAME
+        value: "default"
+      - name: VECTOR_LOG
+        value: "info"
+      - name: VECTOR_LOG_FORMAT
+        value: "json"
+
+    persistence:
+      enabled: true
+      storageClassName: ""
+      accessModes:
+        - ReadWriteOnce
+      size: 15Gi
+
+    extraVolumes: []
+    extraVolumeMounts: []
+
+  install:
+    crds: Create
+    createNamespace: false
+
+  upgrade:
+    crds: CreateReplace
+
+  uninstall:
+    keepHistory: false

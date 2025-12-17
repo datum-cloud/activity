@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: nats-system
+
+resources:
+  - namespace.yaml
+  - helmrepository.yaml
+  - nats-hr.yaml         # NATS JetStream server
+  - nack-hr.yaml         # NACK controller for CRD-based stream management
+
+# Note: This deploys the NATS infrastructure (server + controller).
+# Application-specific stream configurations are in config/components/nats-streams/
+# The old Job-based approach (stream-audit-events.yaml and stream-setup-job.yaml)
+# is deprecated in favor of the CRD-based approach.
