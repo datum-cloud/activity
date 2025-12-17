@@ -3,18 +3,43 @@ kind: Kustomization
 
 namespace: activity-system
 
-# Include components for test-infra (migrations only for now)
-components:
-  - ../../components/rustfs-bucket          # RustFS S3 bucket for ClickHouse cold storage
-  - ../../components/clickhouse-database    # ClickHouse database instance
-  - ../../components/clickhouse-migrations  # Database schema migrations
+# Base resources (API server, service, APIService, etc.)
+resources:
+  - ../../base
 
+components:
+  - ../../components/namespace
+  - ../../components/api-registration
+  - ../../components/cert-manager-ca
+  - ../../components/rustfs-bucket
+  - ../../components/clickhouse-database
+  - ../../components/clickhouse-migrations
+  - ../../components/grafana-clickhouse
+  - ../../components/vector-sidecar
+  - ../../components/vector-aggregator
+  - ../../components/observability
+  - ../../components/tracing
+
+# Note: NATS stream configuration (nats-streams) is in a different namespace (nats-system)
+# and must be applied separately. See dev:deploy task in Taskfile.yaml
+# Note: Vector sidecar is deployed to kube-system namespace
 # Note: RustFS bucket initialization job will create the S3 bucket on first deployment
+
+# Image overrides for test-infra environment
+images:
+  - name: ghcr.io/datum-cloud/activity
+    newName: ghcr.io/datum-cloud/activity
+    newTag: dev
 
 # Patches specific to test-infra environment
 patches:
-  - path: patches/clickhouse-storage-patch.yaml  # Configure ClickHouse to use RustFS
+  - path: patches/deployment-patch.yaml
+  - path: patches/apiservice-patch.yaml
+  - path: patches/vector-sidecar-patch.yaml
+  - path: patches/clickhouse-storage-patch.yaml
 
-# Additional labels for test-infra environment
-commonLabels:
-  environment: test-infra
+labels:
+  - includeSelectors: true
+    includeTemplates: true
+    pairs:
+      environment: test-infra

@@ -1,0 +1,38 @@
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDatasource
+metadata:
+  name: clickhouse-datasource
+  labels:
+    dashboards: grafana
+spec:
+  allowCrossNamespaceImport: true
+  instanceSelector:
+    matchLabels:
+      dashboards: grafana
+  datasource:
+    name: ClickHouse
+    type: grafana-clickhouse-datasource
+    access: proxy
+    uid: clickhouse-datasource
+    editable: false
+    isDefault: false
+    jsonData:
+      # ClickHouse server configuration
+      server: clickhouse.activity-system.svc.cluster.local
+      port: 9000
+      protocol: native
+      secure: false
+      # Default database
+      defaultDatabase: audit
+      # Connection settings
+      dialTimeout: "10"
+      queryTimeout: 60
+      # Enable additional features
+      logs:
+        defaultDatabase: audit
+        defaultTable: events
+      traces:
+        enabled: false
+  plugins:
+    - name: grafana-clickhouse-datasource
+      version: 4.11.2
