@@ -1,0 +1,44 @@
+name: Build and Publish Docker Image
+
+on:
+  push:
+  release:
+    types: ["published"]
+
+jobs:
+  validate-kustomize:
+    uses: datum-cloud/actions/.github/workflows/validate-kustomize.yaml@v1.7.2
+
+  publish-container-image:
+    # No point in trying to build the container image if the deployment
+    # manifests are invalid.
+    needs:
+      - validate-kustomize
+    permissions:
+      id-token: write
+      contents: read
+      packages: write
+      attestations: write
+    uses: datum-cloud/actions/.github/workflows/publish-docker.yaml@v1.7.2
+    with:
+      image-name: activity
+    secrets: inherit
+
+  publish-kustomize-bundles:
+    # Ensure the kustomize manifests are valid and the container is published
+    # before we publish the kustomize manifests. We expect publishing the
+    # kustomize manifests to result in new deployments going out.
+    needs:
+      - validate-kustomize
+      - publish-container-image
+    permissions:
+      id-token: write
+      contents: read
+      packages: write
+    uses: datum-cloud/actions/.github/workflows/publish-kustomize-bundle.yaml@v1.7.2
+    with:
+      bundle-name: ghcr.io/datum-cloud/activity-kustomize
+      bundle-path: config
+      image-overlays: config/base
+      image-name: ghcr.io/datum-cloud/activity
+    secrets: inherit
