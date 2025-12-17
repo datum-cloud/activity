@@ -1,0 +1,360 @@
+version: '3'
+
+vars:
+  TOOL_DIR: "{{.USER_WORKING_DIR}}/bin"
+  # Container image configuration
+  ACTIVITY_IMAGE_NAME: "ghcr.io/datum-cloud/activity"
+  ACTIVITY_IMAGE_TAG: "dev"
+  TEST_INFRA_CLUSTER_NAME: "test-infra"
+  # Test infra repository configuration - can be overridden with environment variable
+  TEST_INFRA_REPO_REF: 'feat/global-grafana-watch'
+  # ClickHouse configuration for testing
+  CLICKHOUSE_DATABASE: "audit"
+  CLICKHOUSE_TABLE: "events"
+  CLICKHOUSE_USERNAME: "default"
+  CLICKHOUSE_PASSWORD: ""
+
+includes:
+  # Must set TASK_X_REMOTE_TASKFILES=1 to use this feature.
+  #
+  # See: https://taskfile.dev/experiments/remote-taskfiles
+  test-infra:
+    taskfile: https://raw.githubusercontent.com/datum-cloud/test-infra/{{.TEST_INFRA_REPO_REF}}/Taskfile.yml
+    checksum: a1cf6063def6ee21ba42f8a0818127c92a9a5c313c293387f2294e42480dd3d5
+    vars:
+      REPO_REF: "{{.TEST_INFRA_REPO_REF}}"
+
+  # Database migrations
+  migrations:
+    taskfile: ./migrations/Taskfile.yaml
+    dir: ./migrations
+    vars:
+      CLICKHOUSE_DATABASE: "{{.CLICKHOUSE_DATABASE}}"
+      CLICKHOUSE_USERNAME: "{{.CLICKHOUSE_USERNAME}}"
+      CLICKHOUSE_PASSWORD: "{{.CLICKHOUSE_PASSWORD}}"
+      ROOT_DIR: "{{.USER_WORKING_DIR}}"
+
+tasks:
+  default:
+    desc: List all available tasks
+    cmds:
+      - task --list
+    silent: true
+
+  # Build tasks
+  build:
+    desc: Build the activity binary
+    cmds:
+      - |
+        set -e
+        echo "Building activity..."
+        mkdir -p {{.TOOL_DIR}}
+
+        # Get git information for version injection
+        GIT_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
+        VERSION="v0.0.0-dev+${GIT_COMMIT:0:7}"
+        GIT_TREE_STATE="clean"
+        if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
+          GIT_TREE_STATE="dirty"
+        fi
+        BUILD_DATE=$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo "unknown")
+
+        echo "Version: ${VERSION}, Commit: ${GIT_COMMIT:0:7}, Tree: ${GIT_TREE_STATE}"
+
+        go build \
+          -ldflags="-X 'go.miloapis.com/activity/internal/version.Version=${VERSION}' \
+                    -X 'go.miloapis.com/activity/internal/version.GitCommit=${GIT_COMMIT}' \
+                    -X 'go.miloapis.com/activity/internal/version.GitTreeState=${GIT_TREE_STATE}' \
+                    -X 'go.miloapis.com/activity/internal/version.BuildDate=${BUILD_DATE}'" \
+          -o {{.TOOL_DIR}}/activity ./cmd/activity
+        echo "✅ Binary built: {{.TOOL_DIR}}/activity"
+    silent: true
+
+  # Development tasks
+  dev:build:
+    desc: Build the Activity server container image for development
+    silent: true
+    cmds:
+      - |
+        set -e
+        echo "Building Activity server container image: {{.ACTIVITY_IMAGE_NAME}}:{{.ACTIVITY_IMAGE_TAG}}"
+
+        # Get git information for version injection
+        GIT_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
+        VERSION="v0.0.0-dev+${GIT_COMMIT:0:7}"
+        GIT_TREE_STATE="clean"
+        if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
+          GIT_TREE_STATE="dirty"
+        fi
+        BUILD_DATE=$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo "unknown")
+
+        echo "Version info: ${VERSION}, commit: ${GIT_COMMIT:0:7}, tree: ${GIT_TREE_STATE}"
+
+        # Build using a simple Dockerfile (to be created)
+        if [ ! -f "Dockerfile" ]; then
+          echo "⚠️  Warning: Dockerfile not found - skipping container build"
+          echo "Please create a Dockerfile to enable container builds"
+          exit 1
+        fi
+
+        docker build \
+          --build-arg VERSION="${VERSION}" \
+          --build-arg GIT_COMMIT="${GIT_COMMIT}" \
+          --build-arg GIT_TREE_STATE="${GIT_TREE_STATE}" \
+          --build-arg BUILD_DATE="${BUILD_DATE}" \
+          -t "{{.ACTIVITY_IMAGE_NAME}}:{{.ACTIVITY_IMAGE_TAG}}" .
+        echo "Successfully built {{.ACTIVITY_IMAGE_NAME}}:{{.ACTIVITY_IMAGE_TAG}}"
+
+  dev:load:
+    desc: Load the Activity server container image into the kind cluster
+    silent: true
+    cmds:
+      - |
+        set -e
+        echo "Loading image {{.ACTIVITY_IMAGE_NAME}}:{{.ACTIVITY_IMAGE_TAG}} into kind cluster '{{.TEST_INFRA_CLUSTER_NAME}}'..."
+        kind load docker-image "{{.ACTIVITY_IMAGE_NAME}}:{{.ACTIVITY_IMAGE_TAG}}" --name "{{.TEST_INFRA_CLUSTER_NAME}}"
+        echo "Successfully loaded image into kind cluster"
+
+  dev:setup:
+    desc: Complete setup of test-infra cluster with Activity server and all dependencies
+    silent: true
+    cmds:
+      - task: test-infra:cluster-up
+      - task: test-infra:install-observability
+      - task: dev:install-dependencies
+      - task: dev:build
+      - task: dev:load
+      - task: dev:deploy
+      - task: observability:deploy
+
+  dev:install-dependencies:
+    desc: Install all infrastructure dependencies (ClickHouse operator, NATS)
+    silent: true
+    cmds:
+      - |
+        set -e
+        echo "📦 Installing infrastructure dependencies..."
+        echo ""
+
+        # ============================================================
+        # Install ClickHouse Operator
+        # ============================================================
+        echo "📦 Installing ClickHouse operator via Flux HelmRelease..."
+
+        echo "Applying Flux HelmRelease for ClickHouse operator..."
+        task test-infra:kubectl -- apply -k config/dependencies/clickhouse-operator
+
+        echo "Waiting for operator HelmRelease to be ready..."
+        task test-infra:kubectl -- wait --for=condition=ready helmrelease/clickhouse-operator -n clickhouse-system --timeout=300s 2>/dev/null || echo "⚠️  HelmRelease not ready yet (may need Flux installed)"
+
+        echo "Waiting for operator deployment to be ready..."
+        task test-infra:kubectl -- wait --for=condition=available deployment/clickhouse-operator -n clickhouse-system --timeout=120s 2>/dev/null || echo "⚠️  Operator deployment not ready yet"
+
+        echo "✅ ClickHouse operator installed"
+        echo ""
+
+        # ============================================================
+        # Install NATS
+        # ============================================================
+        echo "📦 Installing NATS for event streaming..."
+
+        echo "Applying NATS resources..."
+        task test-infra:kubectl -- apply -k config/dependencies/nats
+
+        echo "Waiting for NATS namespace to be created..."
+        task test-infra:kubectl -- wait --for=jsonpath='{.status.phase}'=Active namespace/nats-system --timeout=30s 2>/dev/null || echo "⚠️  Namespace not ready yet"
+
+        echo "Waiting for NATS HelmRelease to be ready..."
+        task test-infra:kubectl -- wait --for=condition=ready helmrelease/nats -n nats-system --timeout=300s 2>/dev/null || echo "⚠️  NATS HelmRelease not ready yet (may need Flux installed)"
+
+        echo "Waiting for NATS pods to be ready..."
+        task test-infra:kubectl -- wait --for=condition=ready pod -l app.kubernetes.io/name=nats -n nats-system --timeout=120s 2>/dev/null || echo "⚠️  NATS pods not ready yet"
+
+        echo "✅ NATS installed"
+        echo ""
+
+        # Note: NACK controller is now installed as part of NATS dependencies kustomization above
+        # Stream configurations will be deployed as part of dev:deploy step
+
+        # ============================================================
+        # Install RustFS for S3-compatible object storage
+        # ============================================================
+        echo "📦 Installing RustFS for S3-compatible object storage..."
+
+        echo "Applying RustFS resources..."
+        task test-infra:kubectl -- apply -k config/dependencies/rustfs
+
+        echo "Waiting for rustfs-system namespace to be created..."
+        task test-infra:kubectl -- wait --for=jsonpath='{.status.phase}'=Active namespace/rustfs-system --timeout=30s 2>/dev/null || echo "⚠️  Namespace not ready yet"
+
+        echo "Waiting for RustFS HelmRelease to be ready..."
+        task test-infra:kubectl -- wait --for=condition=ready helmrelease/rustfs -n rustfs-system --timeout=300s 2>/dev/null || echo "⚠️  RustFS HelmRelease not ready yet (may need Flux installed)"
+
+        echo "Waiting for RustFS deployment to be ready..."
+        task test-infra:kubectl -- wait --for=condition=available deployment/rustfs -n rustfs-system --timeout=180s 2>/dev/null || echo "⚠️  RustFS deployment not ready yet"
+
+        echo "✅ RustFS storage installed"
+        echo ""
+        # echo "📝 Note: S3 bucket will be created when deploying ClickHouse (task dev:deploy)"
+        # echo ""
+
+        # ============================================================
+        # Summary
+        # ============================================================
+        echo "✅ All infrastructure dependencies installed successfully!"
+        echo ""
+        echo "📊 Check status:"
+        echo "  ClickHouse operator: task test-infra:kubectl -- get pods -n clickhouse-system"
+        echo "  NATS:                task test-infra:kubectl -- get pods -n nats-system"
+        echo "  NACK controller:     task test-infra:kubectl -- get pods -n nats-system -l app.kubernetes.io/name=nack"
+        echo "  RustFS:              task test-infra:kubectl -- get pods -n rustfs-system"
+        echo ""
+        echo "📋 HelmRelease status:"
+        echo "  task test-infra:kubectl -- get helmrelease -n clickhouse-system"
+        echo "  task test-infra:kubectl -- get helmrelease -n nats-system"
+        echo "  task test-infra:kubectl -- get helmrelease -n rustfs-system"
+        echo ""
+        echo "Note: JetStream stream configurations and S3 bucket will be deployed with the Activity server."
+        echo ""
+
+  dev:deploy:
+    desc: Deploy Activity server to test-infra cluster
+    silent: true
+    cmds:
+      - |
+        set -e
+        echo "🚀 Deploying Activity server to test-infra cluster..."
+
+        # Check if deployment manifests exist
+        if [ ! -d "config" ]; then
+          echo "⚠️  Warning: config directory not found"
+          exit 1
+        fi
+
+        echo "📋 Deploying NATS stream configuration..."
+        task test-infra:kubectl -- apply -k config/components/nats-streams
+
+        echo "⏳ Waiting for NATS stream to be ready..."
+        task test-infra:kubectl -- wait --for=condition=ready stream/audit-events -n nats-system --timeout=60s 2>/dev/null || echo "⚠️  Stream not ready yet"
+
+        echo ""
+        echo "📋 Deploying Activity server and components..."
+        task test-infra:kubectl -- apply -k config/overlays/test-infra
+
+        echo ""
+        echo "⏳ Waiting for RustFS bucket initialization..."
+        task test-infra:kubectl -- wait --for=condition=complete job/rustfs-bucket-init -n activity-system --timeout=120s 2>/dev/null || echo "⚠️  Bucket initialization not complete yet"
+
+        echo "⏳ Waiting for ClickHouse to be ready..."
+        task test-infra:kubectl -- wait --for=jsonpath='{.status.status}'=Completed clickhouseinstallation -n activity-system activity-clickhouse --timeout=180s 2>/dev/null || echo "⚠️  Clickhouse Installation not completed"
+        task test-infra:kubectl -- wait --for=condition=ready pod -l clickhouse.altinity.com/chi=activity-clickhouse -n activity-system --timeout=180s || echo "⚠️  ClickHouse pods not ready yet"
+
+        echo "⏳ Waiting for ClickHouse migrations to complete..."
+        task test-infra:kubectl -- wait --for=condition=complete job/clickhouse-migrate -n activity-system --timeout=120s 2>/dev/null || echo "⚠️  Migration job not complete yet"
+
+        echo "⏳ Waiting for Activity server to be ready..."
+        task test-infra:kubectl -- wait --for=condition=ready pod -l app=activity-apiserver -n activity-system --timeout=120s || echo "⚠️  API server pods not ready yet"
+
+        echo "⏳ Waiting for Vector aggregator to be ready..."
+        task test-infra:kubectl -- wait --for=condition=ready pod -l app.kubernetes.io/instance=vector-aggregator -n activity-system --timeout=120s 2>/dev/null || echo "⚠️  Vector aggregator pods not ready yet"
+
+        echo ""
+        echo "⏳ Waiting for Grafana ClickHouse datasource to be synced..."
+        sleep 5
+        task test-infra:kubectl -- wait --for=condition=DatasourceSynchronized grafanadatasource/clickhouse-datasource -n activity-system --timeout=60s 2>/dev/null || echo "⚠️  Datasource not synced yet (may need to restart Grafana pod for plugin to load)"
+
+        echo ""
+        echo "✅ Activity server and all dependencies deployed successfully!"
+        echo ""
+        echo "📊 Check status:"
+        echo "  All resources:     task test-infra:kubectl -- get all -n activity-system"
+        echo "  API server pods:   task test-infra:kubectl -- get pods -l app=activity-apiserver -n activity-system"
+        echo "  ClickHouse pods:   task test-infra:kubectl -- get pods -l clickhouse.altinity.com/chi=activity-clickhouse -n activity-system"
+        echo "  Vector pods:       task test-infra:kubectl -- get pods -l app.kubernetes.io/instance=vector-aggregator -n activity-system"
+        echo "  NATS pods:         task test-infra:kubectl -- get pods -n nats-system"
+        echo "  NATS streams:      task test-infra:kubectl -- get streams -n nats-system"
+        echo "  S3 bucket:         task test-infra:kubectl -- get objectbucketclaim -n activity-system"
+        echo "  API service:       kubectl get apiservice v1alpha1.activity.datum.net"
+        echo "  Grafana datasrc:   task test-infra:kubectl -- get grafanadatasource clickhouse-datasource -n activity-system"
+        echo ""
+        echo "📋 View logs:"
+        echo "  API server:        task test-infra:kubectl -- logs -l app=activity-apiserver -n activity-system -f"
+        echo "  ClickHouse:        task test-infra:kubectl -- logs -l clickhouse.altinity.com/chi=activity-clickhouse -n activity-system -f"
+        echo "  Vector:            task test-infra:kubectl -- logs -l app.kubernetes.io/instance=vector-aggregator -n activity-system -f"
+        echo "  NATS:              task test-infra:kubectl -- logs -l app.kubernetes.io/name=nats -n nats-system -f"
+        echo ""
+        echo "📊 Observability:"
+        echo "  Access Grafana:    task test-infra:kubectl -- port-forward -n telemetry-system svc/grafana-service 3000:3000"
+        echo "  Grafana URL:       http://localhost:3000 (admin / datum123)"
+        echo "  Verify datasource: task test-infra:kubectl -- get grafanadatasource -n activity-system"
+        echo ""
+        echo "🔗 Milo Integration:"
+        echo "  If you have Milo deployed, integrate its audit logs:"
+        echo "    task dev:integrate-milo"
+        echo ""
+
+  dev:redeploy:
+    desc: Quick rebuild and redeploy for development iterations
+    deps:
+      - dev:build
+      - dev:load
+    cmds:
+      - |
+        set -e
+        echo "Redeploying Activity server..."
+
+        # Restart the deployment to pick up new image
+        task test-infra:kubectl -- rollout restart -n activity-system deployment/activity-apiserver || echo "⚠️  Deployment not found, run 'task dev:deploy' first"
+
+        # Wait for rollout to complete
+        echo "Waiting for rollout to complete..."
+        task test-infra:kubectl -- rollout status -n activity-system deployment/activity-apiserver --timeout=120s || true
+
+        echo "✅ Redeployment complete!"
+        echo "Check logs with: task test-infra:kubectl -- logs -l app=activity-apiserver"
+    silent: true
+
+  # OpenAPI code generation
+  generate:openapi:
+    desc: Generate Kubernetes OpenAPI definitions
+    cmds:
+      - |
+        set -e
+        echo "🔄 Generating Kubernetes OpenAPI definitions..."
+        ./hack/update-codegen.sh
+        echo "✅ OpenAPI generation complete"
+    silent: true
+
+  # API documentation generation
+  generate:docs:
+    desc: Generate API reference documentation
+    cmds:
+      - |
+        set -e
+        echo "🔄 Generating API reference documentation..."
+        chmod +x ./hack/generate-api-docs.sh
+        ./hack/generate-api-docs.sh
+        echo "✅ API documentation generation complete"
+    silent: true
+
+  # Unified code generation task - composes all generate:* subtasks
+  generate:
+    desc: Run all code generation tasks (OpenAPI, migrations ConfigMap, API docs, etc.)
+    deps:
+      - generate:openapi
+      - migrations:generate
+      - generate:docs
+    cmds:
+      - |
+        echo ""
+        echo "🎉 All code generation complete!"
+        echo ""
+        echo "Generated files:"
+        echo "  - pkg/generated/openapi/zz_generated.openapi.go"
+        echo "  - config/components/clickhouse-migrations/configmap.yaml"
+        echo "  - docs/api.md"
+        echo ""
+        echo "Next steps:"
+        echo "  - Review generated files"
+        echo "  - Commit: git add pkg/ config/ docs/ && git commit -m 'chore: regenerate code and docs'"
+    silent: true
