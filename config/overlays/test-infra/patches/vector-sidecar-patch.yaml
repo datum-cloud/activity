@@ -1,0 +1,71 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: vector-sidecar
+  namespace: activity-system
+spec:
+  values:
+    env:
+      - name: CLUSTER_NAME
+        value: "test-infra"
+      - name: VECTOR_LOG
+        value: "info"
+      - name: VECTOR_LOG_FORMAT
+        value: "json"
+
+    extraVolumes:
+      - name: audit-logs
+        hostPath:
+          path: /var/log/kubernetes
+          type: DirectoryOrCreate
+
+    extraVolumeMounts:
+      - name: audit-logs
+        mountPath: /var/log/kubernetes
+        readOnly: true
+
+    customConfig:
+      sources:
+        # File-based audit log collection from kind cluster
+        apiserver_audit_logs:
+          type: file
+          include:
+            - /var/log/kubernetes/kube-apiserver-audit.log
+            - /var/log/kubernetes/kube-apiserver-audit.log.*
+          read_from: beginning
+          fingerprint:
+            strategy: device_and_inode
+          max_line_bytes: 1048576
+
+      transforms:
+        # Parse JSON from file lines
+        parse_json_from_file:
+          type: remap
+          inputs:
+            - apiserver_audit_logs
+          source: |
+            . = parse_json!(.message)
+
+        # Add source metadata to file events
+        add_file_source_metadata:
+          type: remap
+          inputs:
+            - parse_json_from_file
+          source: |
+            .source = "test-infra-apiserver"
+            .cluster = get_env_var!("CLUSTER_NAME")
+
+        # Update webhook metadata to merge both sources
+        add_source_metadata:
+          type: remap
+          inputs:
+            - parse_webhook_batch
+            - add_file_source_metadata
+          source: |
+            if !exists(.source) {
+              .source = "test-infra-webhook"
+            }
+            if !exists(.cluster) {
+              .cluster = get_env_var!("CLUSTER_NAME")
+            }

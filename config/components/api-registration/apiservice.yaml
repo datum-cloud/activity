@@ -1,0 +1,14 @@
+apiVersion: apiregistration.k8s.io/v1
+kind: APIService
+metadata:
+  name: v1alpha1.activity.miloapis.com
+spec:
+  service:
+    name: activity-apiserver
+    namespace: activity-system
+    port: 443
+  group: activity.miloapis.com
+  version: v1alpha1
+  insecureSkipTLSVerify: false
+  groupPriorityMinimum: 1000
+  versionPriority: 15

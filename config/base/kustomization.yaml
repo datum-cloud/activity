@@ -1,0 +1,41 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: activity-system
+
+resources:
+  - serviceaccount.yaml
+  - deployment.yaml
+  - service.yaml
+  - secret.yaml
+  - rbac-auth-reader.yaml
+  - rbac-cluster.yaml
+
+labels:
+  - includeSelectors: true
+    includeTemplates: true
+    pairs:
+      app.kubernetes.io/name: activity
+      app.kubernetes.io/instance: activity-apiserver
+      app.kubernetes.io/component: apiserver
+      app.kubernetes.io/part-of: activity.miloapis.com
+      app.kubernetes.io/managed-by: kustomize
+
+# Images (will be replaced by overlays for different environments)
+images:
+  - name: ghcr.io/datum-cloud/activity
+    newTag: latest
+
+# JSON patches to ensure rbac-auth-reader stays in kube-system
+# These are applied AFTER all other transformations
+patches:
+  - target:
+      kind: RoleBinding
+      name: activity-apiserver-auth-reader
+    patch: |-
+      - op: replace
+        path: /metadata/namespace
+        value: kube-system
+      - op: replace
+        path: /subjects/0/namespace
+        value: activity-system

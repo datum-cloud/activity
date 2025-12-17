@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: activity-tracing-config
+  namespace: activity-system
+data:
+  config.yaml: |
+    apiVersion: apiserver.config.k8s.io/v1beta1
+    kind: TracingConfiguration
+    # OTLP gRPC endpoint for trace export
+    endpoint: "telemetry-system-tempo.telemetry-system.svc.cluster.local:4317"
+    # Sampling rate: 100000 = 100% of traces (1,000,000 per million)
+    #
+    # Adjust based on environment:
+    # - Development: 1000000 (100%)
+    # - Staging: 100000 (10%)
+    # - Production: 10000 (1%)
+    samplingRatePerMillion: 1000000
