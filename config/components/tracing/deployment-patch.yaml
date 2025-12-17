@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: activity-apiserver
+  namespace: activity-system
+spec:
+  template:
+    spec:
+      containers:
+      - name: apiserver
+        # Mount the tracing configuration
+        volumeMounts:
+        - name: tracing-config
+          mountPath: /etc/kubernetes/tracing
+          readOnly: true
+        # Add tracing config file environment variable and pod metadata
+        env:
+        - name: TRACING_CONFIG_FILE
+          value: "/etc/kubernetes/tracing/config.yaml"
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: OTEL_RESOURCE_ATTRIBUTES
+          value: "k8s.cluster.name=test-infra,k8s.namespace.name=$(POD_NAMESPACE),k8s.pod.name=$(POD_NAME)"
+      volumes:
+      - name: tracing-config
+        configMap:
+          name: activity-tracing-config

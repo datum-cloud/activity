@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+resources:
+  - ca-certificate.yaml
+  - issuer.yaml
+
+# Patches to update the deployment to use the namespaced CA issuer
+patches:
+  - target:
+      kind: Deployment
+      name: activity-apiserver
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/volumes/0/csi/volumeAttributes/csi.cert-manager.io~1issuer-name
+        value: activity-ca-issuer
+      - op: replace
+        path: /spec/template/spec/volumes/0/csi/volumeAttributes/csi.cert-manager.io~1issuer-kind
+        value: Issuer

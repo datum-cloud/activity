@@ -1,0 +1,9 @@
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: activity-ca-issuer
+  namespace: activity-system
+spec:
+  ca:
+    # Reference the secret created by the CA Certificate
+    secretName: activity-ca-secret

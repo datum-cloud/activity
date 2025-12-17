@@ -1,0 +1,176 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: vector-aggregator
+  namespace: activity-system
+spec:
+  interval: 1h
+  timeout: 1m
+  chart:
+    spec:
+      chart: vector
+      version: 0.49.x
+      sourceRef:
+        kind: HelmRepository
+        name: vector
+        namespace: activity-system
+      interval: 1h
+  values:
+    # Role: Aggregator (stateless, can run as Deployment)
+    role: Stateless-Aggregator
+    replicas: 2
+    resources:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+    podDisruptionBudget:
+      enabled: true
+      minAvailable: 1
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 5
+      targetCPUUtilizationPercentage: 70
+      targetMemoryUtilizationPercentage: 80
+    service:
+      enabled: true
+      type: ClusterIP
+      ports:
+        - name: metrics
+          port: 9090
+          protocol: TCP
+    podMonitor:
+      enabled: true
+      port: internal-promet
+    customConfig:
+      data_dir: /vector-data-dir
+
+      # API for health checks
+      api:
+        enabled: true
+        address: 0.0.0.0:8686
+
+      sources:
+        # NATS JetStream consumer (pull-based with proper acknowledgements)
+        # Vector v0.50.0+ supports JetStream with automatic message acknowledgement
+        # Messages are only ACKed after successful processing through the entire pipeline
+        nats_consumer:
+          type: nats
+          connection_name: vector-aggregator
+          url: nats://nats.nats-system.svc.cluster.local:4222
+
+          # Subject filter (required even with JetStream)
+          # This filters which messages from the stream to consume
+          subject: audit.k8s.>
+
+          # JetStream configuration (enables pull-based consumption with ACKs)
+          jetstream:
+            # Name of the JetStream stream to consume from
+            stream: AUDIT_EVENTS
+            # Name of the durable consumer (must be pre-created)
+            consumer: clickhouse-ingest
+
+            batch_config:
+              batch: 1000
+              # Maximum 10MB per batch
+              max_bytes: 10485760
+          decoding:
+            codec: json
+        internal_metrics:
+          type: internal_metrics
+          namespace: vector
+      transforms:
+        # Filter to ResponseComplete stage only (recommended strategy for 75% data reduction)
+        # This reduces storage and query costs while keeping all necessary audit information
+        filter_response_complete:
+          type: filter
+          inputs:
+            - nats_consumer
+          condition:
+            type: vrl
+            source: |
+              .stage == "ResponseComplete"
+
+        # Prepare events for ClickHouse
+        prepare_for_clickhouse:
+          type: remap
+          inputs:
+            - filter_response_complete
+          source: |
+            # Wrap entire event as event_json for ClickHouse
+            .event_json = encode_json(.)
+            . = {
+              "event_json": .event_json
+            }
+
+      sinks:
+        # Export audit events to clickhouse
+        clickhouse:
+          type: clickhouse
+          inputs:
+            - prepare_for_clickhouse
+          endpoint: http://clickhouse.activity-system.svc.cluster.local:8123
+          database: audit
+          table: events
+          encoding:
+            only_fields:
+              - event_json
+          batch:
+            max_bytes: 10485760
+            max_events: 10000
+            timeout_secs: 10
+          buffer:
+            type: disk
+            max_size: 10737418240
+            when_full: block
+          request:
+            retry_attempts: 9999999
+            retry_initial_backoff_secs: 1
+            retry_max_duration_secs: 300
+            timeout_secs: 60
+          healthcheck:
+            enabled: true
+          compression: gzip
+
+        # Export metrics over prometheus
+        internal_prometheus:
+          type: prometheus_exporter
+          inputs:
+            - internal_metrics
+          address: 0.0.0.0:9091
+          default_namespace: vector_internal
+
+    env:
+      - name: CLICKHOUSE_USERNAME
+        value: "default"
+      - name: CLICKHOUSE_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: clickhouse-credentials
+            key: password
+            optional: true
+      - name: VECTOR_LOG
+        value: "info"
+      - name: VECTOR_LOG_FORMAT
+        value: "json"
+
+    # Persistence for buffer
+    persistence:
+      enabled: true
+      storageClassName: ""  # Use default storage class
+      accessModes:
+        - ReadWriteOnce
+      size: 10Gi
+
+  install:
+    crds: Create
+    createNamespace: false
+
+  upgrade:
+    crds: CreateReplace
+
+  uninstall:
+    keepHistory: false

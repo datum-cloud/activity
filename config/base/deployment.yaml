@@ -1,0 +1,126 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: activity-apiserver
+  namespace: activity-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: activity-apiserver
+  template:
+    metadata:
+      labels:
+        app: activity-apiserver
+    spec:
+      serviceAccountName: activity-apiserver
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: apiserver
+        image: ghcr.io/datum-cloud/activity:latest
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 65532
+          capabilities:
+            drop:
+            - ALL
+        ports:
+        - containerPort: 8443
+          name: https
+          protocol: TCP
+        command:
+        - /activity
+        - serve
+        args:
+        - --secure-port=$(SECURE_PORT)
+        - --tls-cert-file=$(TLS_CERT_FILE)
+        - --tls-private-key-file=$(TLS_PRIVATE_KEY_FILE)
+        - --clickhouse-address=$(CLICKHOUSE_ADDRESS)
+        - --clickhouse-database=$(CLICKHOUSE_DATABASE)
+        - --clickhouse-table=$(CLICKHOUSE_TABLE)
+        - --clickhouse-username=$(CLICKHOUSE_USERNAME)
+        - --clickhouse-password=$(CLICKHOUSE_PASSWORD)
+        - --authentication-tolerate-lookup-failure=$(AUTHENTICATION_TOLERATE_LOOKUP_FAILURE)
+        - --authorization-always-allow-paths=$(AUTHORIZATION_ALWAYS_ALLOW_PATHS)
+        - --logging-format=$(LOGGING_FORMAT)
+        - --tracing-config-file=$(TRACING_CONFIG_FILE)
+        env:
+        - name: SECURE_PORT
+          value: "8443"
+        - name: TLS_CERT_FILE
+          value: "/var/run/activity-apiserver/tls/tls.crt"
+        - name: TLS_PRIVATE_KEY_FILE
+          value: "/var/run/activity-apiserver/tls/tls.key"
+        - name: AUTHENTICATION_TOLERATE_LOOKUP_FAILURE
+          value: "false"
+        - name: AUTHORIZATION_ALWAYS_ALLOW_PATHS
+          value: "/healthz,/readyz,/livez"
+        - name: LOGGING_FORMAT
+          value: "json"
+        - name: TRACING_CONFIG_FILE
+          value: ""
+        - name: CLICKHOUSE_ADDRESS
+          value: "clickhouse.activity-system.svc.cluster.local:9000"
+        - name: CLICKHOUSE_DATABASE
+          value: "audit"
+        - name: CLICKHOUSE_TABLE
+          value: "events"
+        - name: CLICKHOUSE_USERNAME
+          value: "default"
+        - name: CLICKHOUSE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: clickhouse-credentials
+              key: password
+              optional: true
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: https
+            scheme: HTTPS
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: https
+            scheme: HTTPS
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        volumeMounts:
+        - name: tls-certs
+          mountPath: /var/run/activity-apiserver/tls
+          readOnly: true
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: tls-certs
+        csi:
+          driver: csi.cert-manager.io
+          readOnly: true
+          volumeAttributes:
+            csi.cert-manager.io/issuer-name: selfsigned-cluster-issuer
+            csi.cert-manager.io/issuer-kind: ClusterIssuer
+            csi.cert-manager.io/common-name: activity-apiserver.activity-system.svc
+            csi.cert-manager.io/dns-names: "activity-apiserver,activity-apiserver.activity-system,activity-apiserver.activity-system.svc,activity-apiserver.activity-system.svc.cluster.local"
+            csi.cert-manager.io/duration: "8760h"
+            csi.cert-manager.io/renew-before: "720h"
+            csi.cert-manager.io/fs-group: "65532"
+      - name: tmp
+        emptyDir: {}
