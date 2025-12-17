@@ -1,0 +1,63 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+dist/
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage.txt
+coverage.html
+
+# Go workspace file
+go.work
+
+# Dependency directories
+vendor/
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Build outputs
+./activity
+
+# Kubernetes secrets
+*.key
+*.crt
+*.pem
+
+# Temporary files
+tmp/
+temp/
+
+# Local environment files
+.env
+.env.local
+
+# ClickHouse data
+clickhouse-data/
+
+# Dashboard build outputs
+dashboards/vendor/
+dashboards/jsonnetfile.lock.json
+config/components/observability/dashboards/generated/
+
+# Directory used for the test-infra repo to manage the test-infra environment.
+.test-infra
+
+# Directory used by the taskfile for remote taskfile storage
+.task
