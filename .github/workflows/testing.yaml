@@ -3,7 +3,7 @@ on:
   push:
 
 jobs:
-  iam_integration_tests:
+  execute-tests:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
