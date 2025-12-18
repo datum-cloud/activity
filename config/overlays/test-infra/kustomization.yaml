@@ -17,7 +17,6 @@ components:
   - ../../components/grafana-clickhouse
   - ../../components/vector-sidecar
   - ../../components/vector-aggregator
-  - ../../components/observability
   - ../../components/tracing
 
 # Note: NATS stream configuration (nats-streams) is in a different namespace (nats-system)
