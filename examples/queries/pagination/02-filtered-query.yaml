@@ -1,0 +1,13 @@
+apiVersion: activity.miloapis.com/v1alpha1
+kind: AuditLogQuery
+metadata:
+  name: recent-pod-events
+spec:
+  # Query the last 24 hours
+  startTime: "now-24h"
+  endTime: "now"
+
+  # Filter and limit - get recent pod operations
+  filter: "verb == 'delete' || verb == 'list'"
+
+  limit: 50

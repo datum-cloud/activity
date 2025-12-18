@@ -1,0 +1,14 @@
+apiVersion: activity.miloapis.com/v1alpha1
+kind: AuditLogQuery
+metadata:
+  name: mixed-time-formats
+spec:
+  # You can mix absolute and relative time formats
+  # This example: from a specific date until now
+  startTime: "2024-12-01T00:00:00Z"
+  endTime: "now"
+
+  # Track production namespace changes since December
+  filter: "objectRef.namespace == 'production'"
+
+  limit: 1000

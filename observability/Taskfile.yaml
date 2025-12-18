@@ -1,0 +1,274 @@
+version: '3'
+
+vars:
+  ROOT_DIR: "{{.USER_WORKING_DIR}}"
+
+tasks:
+  install-jsonnet:
+    desc: Install Jsonnet tooling for dashboard generation
+    cmds:
+      - |
+        set -e
+        echo "📦 Installing Jsonnet tooling..."
+
+        # Check if go-jsonnet is installed
+        if ! command -v jsonnet &> /dev/null; then
+          echo "Installing go-jsonnet..."
+          go install github.com/google/go-jsonnet/cmd/jsonnet@latest
+        else
+          echo "✓ jsonnet already installed"
+        fi
+
+        # Check if jsonnet-bundler is installed
+        if ! command -v jb &> /dev/null; then
+          echo "Installing jsonnet-bundler..."
+          go install github.com/jsonnet-bundler/jsonnet-bundler/cmd/jb@latest
+        else
+          echo "✓ jb already installed"
+        fi
+
+        echo "✅ Jsonnet tooling installed"
+    silent: true
+
+  init:
+    desc: Initialize Grafonnet library for dashboard generation
+    cmds:
+      - |
+        set -e
+        echo "🔧 Initializing Grafonnet library..."
+
+        # Initialize jsonnet-bundler if not already done
+        if [ ! -f jsonnetfile.json ]; then
+          jb init
+        fi
+
+        # Install Grafonnet library
+        jb install github.com/grafana/grafonnet-lib/grafonnet
+
+        echo "✅ Grafonnet library installed"
+    deps: [install-jsonnet]
+    silent: true
+
+  build-dashboards:
+    desc: Build Grafana dashboards from Jsonnet source
+    cmds:
+      - |
+        set -e
+        echo "🏗️  Building Grafana dashboards from Jsonnet..."
+
+        # Create output directory
+        mkdir -p {{.ROOT_DIR}}/config/components/observability/dashboards/generated
+
+        # Build each dashboard
+        for file in *.jsonnet; do
+          if [ -f "$file" ]; then
+            output=$(basename "$file" .jsonnet).json
+            echo "  Building $file → $output"
+            jsonnet -J vendor "$file" > "{{.ROOT_DIR}}/config/components/observability/dashboards/generated/$output"
+          fi
+        done
+
+        echo "✅ Dashboards built in config/components/observability/dashboards/generated/"
+    deps: [init]
+    silent: true
+
+  validate-dashboards:
+    desc: Validate generated dashboard JSON
+    dir: "{{.ROOT_DIR}}/config/components/observability/dashboards/generated"
+    cmds:
+      - |
+        set -e
+        echo "🔍 Validating dashboard JSON..."
+
+        if [ ! -d "{{.ROOT_DIR}}/config/components/observability/dashboards/generated" ] || [ -z "$(ls -A {{.ROOT_DIR}}/config/components/observability/dashboards/generated 2>/dev/null)" ]; then
+          echo "⚠️  No dashboards found. Run 'task observability:build-dashboards' first."
+          exit 1
+        fi
+
+        for file in {{.ROOT_DIR}}/config/components/observability/dashboards/generated/*.json; do
+          if [ -f "$file" ]; then
+            echo "  Validating $file..."
+            jq . "$file" > /dev/null || {
+              echo "❌ Invalid JSON in $file"
+              exit 1
+            }
+          fi
+        done
+
+        echo "✅ All dashboards are valid JSON"
+    silent: true
+
+  build-alerts:
+    desc: Build Prometheus alert rules from Jsonnet mixin
+    cmds:
+      - |
+        set -e
+        echo "🏗️  Building Prometheus alert rules from mixin..."
+
+        # Create output directory
+        mkdir -p {{.ROOT_DIR}}/config/components/observability/alerts/generated
+
+        # Generate alerts
+        echo "  Building alerts → activity-alerts.yaml"
+        jsonnet -J vendor \
+          -e 'std.manifestYamlDoc((import "mixin.libsonnet").prometheusAlerts)' \
+          | jq -r . > "{{.ROOT_DIR}}/config/components/observability/alerts/generated/activity-alerts.yaml"
+
+        echo "✅ Alerts built in config/components/observability/alerts/generated/"
+    deps: [init]
+    silent: true
+
+  build-rules:
+    desc: Build Prometheus recording rules from Jsonnet mixin
+    cmds:
+      - |
+        set -e
+        echo "🏗️  Building Prometheus recording rules from mixin..."
+
+        # Create output directory
+        mkdir -p {{.ROOT_DIR}}/config/components/observability/alerts/generated
+
+        # Generate recording rules
+        echo "  Building recording rules → activity-recordings.yaml"
+        jsonnet -J vendor \
+          -e 'std.manifestYamlDoc((import "mixin.libsonnet").prometheusRules)' \
+          | jq -r . > "{{.ROOT_DIR}}/config/components/observability/alerts/generated/activity-recordings.yaml"
+
+        echo "✅ Recording rules built in config/components/observability/alerts/generated/"
+    deps: [init]
+    silent: true
+
+  build-mixin:
+    desc: Build all mixin components (alerts, recording rules, dashboards)
+    deps:
+      - build-alerts
+      - build-rules
+      - build-dashboards
+    cmds:
+      - |
+        echo ""
+        echo "🎉 All observability components built successfully!"
+        echo ""
+        echo "Generated files:"
+        echo "  - config/components/observability/alerts/generated/activity-alerts.yaml"
+        echo "  - config/components/observability/alerts/generated/activity-recordings.yaml"
+        echo "  - config/components/observability/dashboards/generated/*.json"
+        echo ""
+    silent: true
+
+  validate-mixin:
+    desc: Validate all generated mixin outputs
+    deps:
+      - validate-dashboards
+    cmds:
+      - |
+        set -e
+        echo "🔍 Validating alert and recording rule YAML..."
+
+        # Validate alerts
+        if [ -f "{{.ROOT_DIR}}/config/components/observability/alerts/generated/activity-alerts.yaml" ]; then
+          echo "  Validating activity-alerts.yaml..."
+          yq eval . "{{.ROOT_DIR}}/config/components/observability/alerts/generated/activity-alerts.yaml" > /dev/null || {
+            echo "❌ Invalid YAML in activity-alerts.yaml"
+            exit 1
+          }
+        fi
+
+        # Validate recording rules
+        if [ -f "{{.ROOT_DIR}}/config/components/observability/alerts/generated/activity-recordings.yaml" ]; then
+          echo "  Validating activity-recordings.yaml..."
+          yq eval . "{{.ROOT_DIR}}/config/components/observability/alerts/generated/activity-recordings.yaml" > /dev/null || {
+            echo "❌ Invalid YAML in activity-recordings.yaml"
+            exit 1
+          }
+        fi
+
+        echo "✅ All mixin outputs are valid"
+    silent: true
+
+  deploy:
+    desc: Deploy observability components (ServiceMonitors, Alerts, Dashboards)
+    cmds:
+      - |
+        set -e
+        echo "🚀 Deploying observability components..."
+
+        echo "Deploying ServiceMonitors and Alerts..."
+        task -d {{.ROOT_DIR}} test-infra:kubectl -- apply -k config/components/observability
+
+        echo "✅ Observability components deployed"
+        echo ""
+        echo "📊 To view metrics:"
+        echo "  task observability:port-forward-vmsingle"
+        echo ""
+        echo "📈 To view dashboards:"
+        echo "  task observability:port-forward-grafana"
+    silent: true
+
+  port-forward-vmsingle:
+    desc: Port-forward Victoria Metrics for querying
+    cmds:
+      - |
+        echo "🔗 Port-forwarding Victoria Metrics..."
+        echo "Access at: http://localhost:8428/vmui"
+        task -d {{.ROOT_DIR}} test-infra:kubectl -- port-forward -n telemetry-system svc/vmsingle-telemetry-system-vm 8428:8428
+
+  port-forward-grafana:
+    desc: Port-forward Grafana for viewing dashboards
+    cmds:
+      - |
+        echo "🔗 Port-forwarding Grafana..."
+        echo "Access at: http://localhost:3000"
+        echo "Default credentials: admin / datum123"
+        task -d {{.ROOT_DIR}} test-infra:kubectl -- port-forward -n telemetry-system svc/grafana-service 3000:3000
+
+  port-forward-vmalert:
+    desc: Port-forward VMAlert to view alert rules
+    cmds:
+      - |
+        echo "🔗 Port-forwarding VMAlert..."
+        echo "Access at: http://localhost:8080"
+        task -d {{.ROOT_DIR}} test-infra:kubectl -- port-forward -n telemetry-system svc/vmalert-telemetry-system-vm 8080:8080
+
+  status:
+    desc: Show status of observability components
+    cmds:
+      - |
+        set -e
+        echo "📊 Observability Component Status"
+        echo "=================================="
+        echo ""
+
+        echo "ServiceMonitors:"
+        task -d {{.ROOT_DIR}} test-infra:kubectl -- get servicemonitors -n activity-system -o wide || echo "  None found"
+        echo ""
+
+        echo "PrometheusRules:"
+        task -d {{.ROOT_DIR}} test-infra:kubectl -- get prometheusrules -n activity-system -o wide || echo "  None found"
+        echo ""
+
+        echo "Victoria Metrics Stack:"
+        task -d {{.ROOT_DIR}} test-infra:kubectl -- get pods -n telemetry-system -l 'app.kubernetes.io/name in (vmagent,vmsingle,vmalert)' || echo "  Not running"
+        echo ""
+
+        echo "Grafana:"
+        task -d {{.ROOT_DIR}} test-infra:kubectl -- get pods -n telemetry-system -l app.kubernetes.io/name=grafana || echo "  Not running"
+    silent: true
+
+  query:
+    desc: "Query metrics from Victoria Metrics"
+    cmds:
+      - |
+        set -e
+        QUERY="${QUERY:-up}"
+
+        echo "🔍 Querying Victoria Metrics: $QUERY"
+        echo ""
+
+        kubectl port-forward -n telemetry-system svc/vmsingle-telemetry-system-vm 18428:8428 > /dev/null 2>&1 &
+        PF_PID=$!
+        sleep 2
+
+        curl -s "http://localhost:18428/api/v1/query?query=$(echo "$QUERY" | jq -sRr @uri)" | jq .
+
+        kill $PF_PID 2>/dev/null || true

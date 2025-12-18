@@ -1,0 +1,13 @@
+apiVersion: activity.miloapis.com/v1alpha1
+kind: AuditLogQuery
+metadata:
+  name: rbac-audit-trail
+spec:
+  # Query the last 7 days
+  startTime: "now-7d"
+  endTime: "now"
+  # Complete audit trail of RBAC changes for compliance
+  filter: |
+    objectRef.resource in ['roles', 'rolebindings', 'clusterroles', 'clusterrolebindings'] &&
+    verb in ['create', 'update', 'patch', 'delete']
+  limit: 200

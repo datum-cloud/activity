@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: activity-system
+
+configMapGenerator:
+  - name: audit-pipeline-dashboard
+    files:
+      - generated/audit-pipeline.json
+    options:
+      labels:
+        grafana_dashboard: "1"
+      disableNameSuffixHash: true
+
+  - name: activity-apiserver-dashboard
+    files:
+      - generated/activity-apiserver.json
+    options:
+      labels:
+        grafana_dashboard: "1"
+      disableNameSuffixHash: true
+
+resources:
+  - audit-pipeline-grafanadashboard.yaml
+  - activity-apiserver-grafanadashboard.yaml

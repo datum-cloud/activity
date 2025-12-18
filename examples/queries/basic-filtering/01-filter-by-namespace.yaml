@@ -1,0 +1,14 @@
+apiVersion: activity.miloapis.com/v1alpha1
+kind: AuditLogQuery
+metadata:
+  name: events-in-production-namespace
+spec:
+  # Query the last 7 days
+  startTime: "now-7d"
+  endTime: "now"
+
+  # Filter events that occurred in the default namespace
+  filter: "objectRef.namespace == 'default'"
+
+  # Limit results to 100 (results always ordered by timestamp DESC)
+  limit: 100

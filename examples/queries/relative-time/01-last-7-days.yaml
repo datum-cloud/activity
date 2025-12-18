@@ -1,0 +1,14 @@
+apiVersion: activity.miloapis.com/v1alpha1
+kind: AuditLogQuery
+metadata:
+  name: last-7-days
+spec:
+  # Query the last 7 days using relative time
+  # This query is time-agnostic and can be reused daily
+  startTime: "now+7d"
+  endTime: "now"
+
+  # Optional: filter for specific operations
+  filter: "verb in ['create', 'update', 'delete']"
+
+  limit: 10

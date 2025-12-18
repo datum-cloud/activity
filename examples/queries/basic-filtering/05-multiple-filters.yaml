@@ -1,0 +1,15 @@
+apiVersion: activity.miloapis.com/v1alpha1
+kind: AuditLogQuery
+metadata:
+  name: production-pod-creates
+spec:
+  # Query the last 24 hours
+  startTime: "now-24h"
+  endTime: "now"
+
+  # Combine multiple filters using CEL (AND logic)
+  # Find all pod creations in production namespace
+  filter: "objectRef.namespace == 'production' && objectRef.resource == 'pods' && verb == 'create'"
+
+  # Limit results (always ordered by timestamp DESC)
+  limit: 50

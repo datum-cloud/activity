@@ -1,0 +1,14 @@
+apiVersion: activity.miloapis.com/v1alpha1
+kind: AuditLogQuery
+metadata:
+  name: weekly-compliance-audit
+spec:
+  # Weekly compliance audit query
+  # This can be run automatically in GitOps workflows
+  startTime: "now-7d"
+  endTime: "now"
+
+  # Audit privileged operations
+  filter: "verb in ['create', 'update', 'delete', 'patch'] && objectRef.resource in ['roles', 'rolebindings', 'clusterroles', 'clusterrolebindings', 'secrets']"
+
+  limit: 5000

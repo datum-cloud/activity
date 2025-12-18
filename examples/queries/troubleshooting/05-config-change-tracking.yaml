@@ -1,0 +1,13 @@
+apiVersion: activity.miloapis.com/v1alpha1
+kind: AuditLogQuery
+metadata:
+  name: configmap-secret-changes
+spec:
+  # Query the last 7 days
+  startTime: "now-7d"
+  endTime: "now"
+  # Track configuration changes
+  filter: |
+    objectRef.resource in ['configmaps', 'secrets'] &&
+    verb in ['create', 'update', 'patch', 'delete']
+  limit: 100

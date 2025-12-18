@@ -1,0 +1,11 @@
+apiVersion: activity.miloapis.com/v1alpha1
+kind: AuditLogQuery
+metadata:
+  name: recent-events
+spec:
+  # Query the last 24 hours
+  startTime: "now-24h"
+  endTime: "now"
+
+  # Basic query - returns most recent events (always ordered by timestamp DESC)
+  limit: 500

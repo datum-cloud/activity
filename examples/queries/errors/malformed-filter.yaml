@@ -1,0 +1,49 @@
+# Example: Malformed CEL Filter Query
+# This query demonstrates what happens when you submit an invalid CEL expression.
+#
+# The error: Using single '=' instead of '==' for comparison
+# Correct: verb == "delete" || verb == "list"
+# Wrong:   verb == "delete" || verb = "list"  (single = is invalid)
+#
+# Expected response: HTTP 422 (Invalid) with structured error details
+
+apiVersion: activity.miloapis.com/v1alpha1
+kind: AuditLogQuery
+metadata:
+  name: malformed-filter-example
+spec:
+  # Query the last hour
+  startTime: "now-1h"
+  endTime: "now"
+
+  # This filter has a syntax error - single '=' instead of '=='
+  filter: "verb == \"delete\" || verb = \"list\""
+
+  limit: 10
+
+# When you submit this query, you'll receive a structured error response:
+#
+# {
+#   "kind": "Status",
+#   "apiVersion": "v1",
+#   "metadata": {},
+#   "status": "Failure",
+#   "message": "AuditLogQuery.activity.miloapis.com \"malformed-filter-example\" is invalid: spec.filter: Invalid value: ...",
+#   "reason": "Invalid",
+#   "code": 422,
+#   "details": {
+#     "name": "malformed-filter-example",
+#     "group": "activity.miloapis.com",
+#     "kind": "AuditLogQuery",
+#     "causes": [
+#       {
+#         "reason": "FieldValueInvalid",
+#         "message": "Invalid CEL expression at position 25: Syntax error: token recognition error at: '= '\n\nHint: Use '==' for equality comparison (not single '=')\n\nAvailable fields:\n- Top-level: auditID, verb, level, stage, requestURI, userAgent, sourceIPs, stageTimestamp\n- Nested (use dot notation):\n  * objectRef.namespace, objectRef.resource, objectRef.name, objectRef.uid, objectRef.apiGroup\n  * user.username, user.groups\n  * responseStatus.code\n\nExample filters:\n- verb == 'delete' && objectRef.namespace == 'default'\n- objectRef.resource == 'pods' && responseStatus.code >= 400\n- user.username.startsWith('system:') || verb in ['create', 'update']",
+#         "field": "spec.filter"
+#       }
+#     ]
+#   }
+# }
+#
+# To fix this query, change the filter to:
+# filter: "verb == \"delete\" || verb == \"list\""

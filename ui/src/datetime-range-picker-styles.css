@@ -1,0 +1,158 @@
+/* DateTimeRangePicker Styles */
+
+.datetime-range-picker {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+}
+
+.preset-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.preset-button {
+  padding: 0.5rem 1rem;
+  background-color: white;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.preset-button:hover {
+  background-color: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.preset-button.active {
+  background-color: #3b82f6;
+  border-color: #3b82f6;
+  color: white;
+}
+
+.preset-button.active:hover {
+  background-color: #2563eb;
+  border-color: #2563eb;
+}
+
+.custom-range-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+  margin-top: 1rem;
+}
+
+.datetime-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.datetime-input-group label {
+  font-size: 0.875rem;
+  color: #374151;
+}
+
+.datetime-input {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  color: #1f2937;
+  background-color: white;
+  transition: border-color 0.15s ease;
+}
+
+.datetime-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.datetime-input:hover {
+  border-color: #9ca3af;
+}
+
+.apply-custom-button {
+  padding: 0.625rem 1.25rem;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  align-self: flex-start;
+}
+
+.apply-custom-button:hover:not(:disabled) {
+  background-color: #2563eb;
+}
+
+.apply-custom-button:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Responsive layout for smaller screens */
+@media (max-width: 640px) {
+  .preset-buttons {
+    flex-direction: column;
+  }
+
+  .preset-button {
+    width: 100%;
+  }
+}
+
+/* Dark mode support (optional) */
+@media (prefers-color-scheme: dark) {
+  .datetime-range-picker {
+    background-color: #1f2937;
+    border-color: #374151;
+  }
+
+  .preset-button {
+    background-color: #374151;
+    border-color: #4b5563;
+    color: #e5e7eb;
+  }
+
+  .preset-button:hover {
+    background-color: #4b5563;
+    border-color: #6b7280;
+  }
+
+  .custom-range-inputs {
+    background-color: #374151;
+    border-color: #4b5563;
+  }
+
+  .datetime-input-group label {
+    color: #e5e7eb;
+  }
+
+  .datetime-input {
+    background-color: #1f2937;
+    border-color: #4b5563;
+    color: #f9fafb;
+  }
+
+  .datetime-input:hover {
+    border-color: #6b7280;
+  }
+}

@@ -1,0 +1,14 @@
+apiVersion: activity.miloapis.com/v1alpha1
+kind: AuditLogQuery
+metadata:
+  name: recent-errors
+spec:
+  # Monitor errors in the last hour
+  # Useful for real-time troubleshooting
+  startTime: "now-1h"
+  endTime: "now"
+
+  # Filter for errors only
+  filter: "responseStatus.code >= 400"
+
+  limit: 500

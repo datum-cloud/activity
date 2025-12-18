@@ -51,10 +51,11 @@ temp/
 # ClickHouse data
 clickhouse-data/
 
-# Dashboard build outputs
-dashboards/vendor/
-dashboards/jsonnetfile.lock.json
+# Observability build outputs (generated from Jsonnet mixin)
+observability/vendor/
+observability/jsonnetfile.lock.json
 config/components/observability/dashboards/generated/
+config/components/observability/alerts/generated/
 
 # Directory used for the test-infra repo to manage the test-infra environment.
 .test-infra

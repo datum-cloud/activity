@@ -1,0 +1,11 @@
+apiVersion: activity.miloapis.com/v1alpha1
+kind: AuditLogQuery
+metadata:
+  name: specific-user-audit
+spec:
+  # Query the last 7 days
+  startTime: "now-7d"
+  endTime: "now"
+  # Generate compliance report for specific user activity
+  filter: "user.username == 'john.doe@example.com'"
+  limit: 500

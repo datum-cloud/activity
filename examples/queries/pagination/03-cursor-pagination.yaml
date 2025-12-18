@@ -1,0 +1,14 @@
+apiVersion: activity.miloapis.com/v1alpha1
+kind: AuditLogQuery
+metadata:
+  name: paginated-query
+spec:
+  # Query the last 7 days
+  startTime: "now-7d"
+  endTime: "now"
+  # Cursor-based pagination - get next page
+  # After getting results, use status.continue value in next query
+  limit: 100
+  
+  # To get next page, set continue to the timestamp from previous response
+  # Example: continue: "2024-01-15T10:30:45.123456789Z"
