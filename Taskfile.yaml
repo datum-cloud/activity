@@ -7,7 +7,7 @@ vars:
   ACTIVITY_IMAGE_TAG: "dev"
   TEST_INFRA_CLUSTER_NAME: "test-infra"
   # Test infra repository configuration - can be overridden with environment variable
-  TEST_INFRA_REPO_REF: 'feat/global-grafana-watch'
+  TEST_INFRA_REPO_REF: 'v0.6.0'
   # ClickHouse configuration for testing
   CLICKHOUSE_DATABASE: "audit"
   CLICKHOUSE_TABLE: "events"
