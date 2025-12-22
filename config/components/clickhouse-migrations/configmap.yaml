@@ -33,6 +33,10 @@ data:
     CLICKHOUSE_PASSWORD="${CLICKHOUSE_PASSWORD:-}"
     CLICKHOUSE_DATABASE="${CLICKHOUSE_DATABASE:-audit}"
     MIGRATIONS_DIR="${MIGRATIONS_DIR:-/migrations}"
+    CLICKHOUSE_SECURE="${CLICKHOUSE_SECURE:-false}"
+    CLICKHOUSE_TLS_CERT="${CLICKHOUSE_TLS_CERT:-}"
+    CLICKHOUSE_TLS_KEY="${CLICKHOUSE_TLS_KEY:-}"
+    CLICKHOUSE_TLS_CA="${CLICKHOUSE_TLS_CA:-}"
 
     # Colors for output
     RED='\033[0;31m'
@@ -64,6 +68,23 @@ data:
 
         if [ -n "${CLICKHOUSE_PASSWORD}" ]; then
             cmd="${cmd} --password=${CLICKHOUSE_PASSWORD}"
+        fi
+
+        # Add TLS/SSL options if secure connection is enabled
+        if [ "${CLICKHOUSE_SECURE}" = "true" ]; then
+            cmd="${cmd} --secure"
+
+            if [ -n "${CLICKHOUSE_TLS_CERT}" ] && [ -f "${CLICKHOUSE_TLS_CERT}" ]; then
+                cmd="${cmd} --openssl-cert=${CLICKHOUSE_TLS_CERT}"
+            fi
+
+            if [ -n "${CLICKHOUSE_TLS_KEY}" ] && [ -f "${CLICKHOUSE_TLS_KEY}" ]; then
+                cmd="${cmd} --openssl-key=${CLICKHOUSE_TLS_KEY}"
+            fi
+
+            if [ -n "${CLICKHOUSE_TLS_CA}" ] && [ -f "${CLICKHOUSE_TLS_CA}" ]; then
+                cmd="${cmd} --openssl-ca=${CLICKHOUSE_TLS_CA}"
+            fi
         fi
 
         echo "${query}" | ${cmd}
