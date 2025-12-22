@@ -830,9 +830,9 @@ func TestQueryStorage_Create_EffectiveTimestamps(t *testing.T) {
 			},
 		},
 		{
-			name:      "mixed times - relative start, absolute end",
+			name:      "mixed times - relative start, relative end",
 			startTime: "now-48h",
-			endTime:   "2025-12-17T12:00:00Z",
+			endTime:   "now-24h",
 			checkFunc: func(t *testing.T, query *v1alpha1.AuditLogQuery) {
 				// EffectiveStartTime should be RFC3339 formatted (from relative time)
 				if query.Status.EffectiveStartTime == "" {
@@ -851,9 +851,25 @@ func TestQueryStorage_Create_EffectiveTimestamps(t *testing.T) {
 					t.Errorf("Time from start to now = %v, want ~%v", duration, expectedDuration)
 				}
 
-				// EffectiveEndTime should match the absolute input exactly
-				if query.Status.EffectiveEndTime != "2025-12-17T12:00:00Z" {
-					t.Errorf("EffectiveEndTime = %q, want %q", query.Status.EffectiveEndTime, "2025-12-17T12:00:00Z")
+				// EffectiveEndTime should be RFC3339 formatted (from relative time)
+				if query.Status.EffectiveEndTime == "" {
+					t.Error("EffectiveEndTime is empty")
+				}
+				endTime, err := time.Parse(time.RFC3339, query.Status.EffectiveEndTime)
+				if err != nil {
+					t.Errorf("EffectiveEndTime is not valid RFC3339: %v", err)
+				}
+
+				// Should be approximately 24 hours before now
+				duration = now.Sub(endTime)
+				expectedDuration = 24 * time.Hour
+				if duration < expectedDuration-time.Second || duration > expectedDuration+time.Second {
+					t.Errorf("Time from end to now = %v, want ~%v", duration, expectedDuration)
+				}
+
+				// Verify startTime is before endTime
+				if !startTime.Before(endTime) {
+					t.Errorf("startTime %v should be before endTime %v", startTime, endTime)
 				}
 			},
 		},
