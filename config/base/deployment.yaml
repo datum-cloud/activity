@@ -55,6 +55,10 @@ spec:
         - --clickhouse-tls-ca-file=$(CLICKHOUSE_TLS_CA_FILE)
         - --authentication-tolerate-lookup-failure=$(AUTHENTICATION_TOLERATE_LOOKUP_FAILURE)
         - --authorization-always-allow-paths=$(AUTHORIZATION_ALWAYS_ALLOW_PATHS)
+        - --requestheader-client-ca-file=$(REQUESTHEADER_CLIENT_CA_FILE)
+        - --requestheader-username-headers=$(REQUESTHEADER_USERNAME_HEADERS)
+        - --requestheader-group-headers=$(REQUESTHEADER_GROUP_HEADERS)
+        - --requestheader-extra-headers-prefix=$(REQUESTHEADER_EXTRA_HEADERS_PREFIX)
         - --logging-format=$(LOGGING_FORMAT)
         - --tracing-config-file=$(TRACING_CONFIG_FILE)
         env:
@@ -68,6 +72,14 @@ spec:
           value: "false"
         - name: AUTHORIZATION_ALWAYS_ALLOW_PATHS
           value: "/healthz,/readyz,/livez"
+        - name: REQUESTHEADER_CLIENT_CA_FILE
+          value: ""
+        - name: REQUESTHEADER_USERNAME_HEADERS
+          value: "X-Remote-User"
+        - name: REQUESTHEADER_GROUP_HEADERS
+          value: "X-Remote-Group"
+        - name: REQUESTHEADER_EXTRA_HEADERS_PREFIX
+          value: "X-Remote-Extra-"
         - name: LOGGING_FORMAT
           value: "json"
         - name: TRACING_CONFIG_FILE
