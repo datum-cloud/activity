@@ -3,9 +3,12 @@ package storage
 import (
 	"context"
 	"crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -116,6 +119,12 @@ type ClickHouseConfig struct {
 	Password string
 	Table    string
 
+	// TLS configuration (optional - disabled by default)
+	TLSEnabled  bool   // Enable TLS for ClickHouse connection
+	TLSCertFile string // Path to client certificate file
+	TLSKeyFile  string // Path to client key file
+	TLSCAFile   string // Path to CA certificate file
+
 	MaxQueryWindow time.Duration // Maximum allowed time range for queries
 	MaxPageSize    int32         // Maximum results per page
 }
@@ -128,7 +137,7 @@ type ClickHouseStorage struct {
 
 // NewClickHouseStorage establishes a connection to ClickHouse and validates connectivity.
 func NewClickHouseStorage(config ClickHouseConfig) (*ClickHouseStorage, error) {
-	conn, err := clickhouse.Open(&clickhouse.Options{
+	options := &clickhouse.Options{
 		Addr: []string{config.Address},
 		Auth: clickhouse.Auth{
 			Database: config.Database,
@@ -142,7 +151,19 @@ func NewClickHouseStorage(config ClickHouseConfig) (*ClickHouseStorage, error) {
 		Compression: &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		},
-	})
+	}
+
+	// Configure TLS if enabled
+	if config.TLSEnabled {
+		tlsConfig, err := loadTLSConfig(config)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load TLS configuration: %w", err)
+		}
+		options.TLS = tlsConfig
+		klog.V(2).Info("ClickHouse TLS enabled")
+	}
+
+	conn, err := clickhouse.Open(options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to ClickHouse: %w", err)
 	}
@@ -155,6 +176,38 @@ func NewClickHouseStorage(config ClickHouseConfig) (*ClickHouseStorage, error) {
 		conn:   conn,
 		config: config,
 	}, nil
+}
+
+// loadTLSConfig loads TLS certificates and creates a tls.Config for ClickHouse connection.
+func loadTLSConfig(config ClickHouseConfig) (*tls.Config, error) {
+	tlsConfig := &tls.Config{}
+
+	// Load client certificate and key if provided
+	if config.TLSCertFile != "" && config.TLSKeyFile != "" {
+		cert, err := tls.LoadX509KeyPair(config.TLSCertFile, config.TLSKeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load client certificate: %w", err)
+		}
+		tlsConfig.Certificates = []tls.Certificate{cert}
+		klog.V(2).Infof("Loaded client certificate from %s", config.TLSCertFile)
+	}
+
+	// Load CA certificate if provided
+	if config.TLSCAFile != "" {
+		caCert, err := os.ReadFile(config.TLSCAFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read CA certificate: %w", err)
+		}
+
+		caCertPool := x509.NewCertPool()
+		if !caCertPool.AppendCertsFromPEM(caCert) {
+			return nil, fmt.Errorf("failed to parse CA certificate")
+		}
+		tlsConfig.RootCAs = caCertPool
+		klog.V(2).Infof("Loaded CA certificate from %s", config.TLSCAFile)
+	}
+
+	return tlsConfig, nil
 }
 
 func (s *ClickHouseStorage) Close() error {
