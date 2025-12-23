@@ -129,6 +129,12 @@ type ActivityServerOptions struct {
 	ClickHousePassword string
 	ClickHouseTable    string
 
+	// TLS configuration for ClickHouse connection
+	ClickHouseTLSEnabled  bool
+	ClickHouseTLSCertFile string
+	ClickHouseTLSKeyFile  string
+	ClickHouseTLSCAFile   string
+
 	MaxQueryWindow time.Duration // Maximum time range allowed for queries
 	MaxPageSize    int32         // Maximum number of results per page
 }
@@ -172,6 +178,15 @@ func (o *ActivityServerOptions) AddFlags(fs *pflag.FlagSet) {
 		"Password for ClickHouse authentication")
 	fs.StringVar(&o.ClickHouseTable, "clickhouse-table", o.ClickHouseTable,
 		"Table containing audit events")
+
+	fs.BoolVar(&o.ClickHouseTLSEnabled, "clickhouse-tls-enabled", o.ClickHouseTLSEnabled,
+		"Enable TLS for ClickHouse connection")
+	fs.StringVar(&o.ClickHouseTLSCertFile, "clickhouse-tls-cert-file", o.ClickHouseTLSCertFile,
+		"Path to client certificate file for ClickHouse TLS")
+	fs.StringVar(&o.ClickHouseTLSKeyFile, "clickhouse-tls-key-file", o.ClickHouseTLSKeyFile,
+		"Path to client private key file for ClickHouse TLS")
+	fs.StringVar(&o.ClickHouseTLSCAFile, "clickhouse-tls-ca-file", o.ClickHouseTLSCAFile,
+		"Path to CA certificate file for ClickHouse TLS")
 
 	fs.DurationVar(&o.MaxQueryWindow, "max-query-window", o.MaxQueryWindow,
 		"Maximum time range for a single query (e.g., 720h for 30 days)")
@@ -234,6 +249,10 @@ func (o *ActivityServerOptions) Config() (*activityapiserver.Config, error) {
 				Username:       o.ClickHouseUsername,
 				Password:       o.ClickHousePassword,
 				Table:          o.ClickHouseTable,
+				TLSEnabled:     o.ClickHouseTLSEnabled,
+				TLSCertFile:    o.ClickHouseTLSCertFile,
+				TLSKeyFile:     o.ClickHouseTLSKeyFile,
+				TLSCAFile:      o.ClickHouseTLSCAFile,
 				MaxQueryWindow: o.MaxQueryWindow,
 				MaxPageSize:    o.MaxPageSize,
 			},
