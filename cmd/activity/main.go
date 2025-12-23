@@ -236,6 +236,11 @@ func (o *ActivityServerOptions) Config() (*activityapiserver.Config, error) {
 	genericConfig.OpenAPIV3Config.Info.Title = "Activity"
 	genericConfig.OpenAPIV3Config.Info.Version = version.Version
 
+	// Configure OpenAPI v2
+	genericConfig.OpenAPIConfig = genericapiserver.DefaultOpenAPIConfig(openapi.GetOpenAPIDefinitions, namer)
+	genericConfig.OpenAPIConfig.Info.Title = "Activity"
+	genericConfig.OpenAPIConfig.Info.Version = version.Version
+
 	if err := o.RecommendedOptions.ApplyTo(genericConfig); err != nil {
 		return nil, fmt.Errorf("failed to apply recommended options: %w", err)
 	}
