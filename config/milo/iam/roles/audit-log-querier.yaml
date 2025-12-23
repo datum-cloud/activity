@@ -1,0 +1,9 @@
+apiVersion: iam.miloapis.com/v1alpha1
+kind: Role
+metadata:
+  name: activity.miloapis.com-audit-log-querier
+  namespace: milo-system
+spec:
+  launchStage: Beta
+  includedPermissions:
+    - activity.miloapis.com/auditlogqueries.create
