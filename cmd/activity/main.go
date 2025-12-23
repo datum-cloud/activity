@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"os"
 	"time"
@@ -19,7 +18,6 @@ import (
 	"k8s.io/apiserver/pkg/server/options"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/component-base/cli"
-	cliflag "k8s.io/component-base/cli/flag"
 	basecompatibility "k8s.io/component-base/compatibility"
 	"k8s.io/component-base/logs"
 	logsapi "k8s.io/component-base/logs/api/v1"
@@ -79,18 +77,11 @@ historical Kubernetes audit events through kubectl.`,
 		},
 	}
 
-	namedFlagSets := &cliflag.NamedFlagSets{}
-
 	flags := cmd.Flags()
 	options.AddFlags(flags)
 
-	logsapi.AddFlags(options.Logs, namedFlagSets.FlagSet("logs"))
-	klog.InitFlags(nil)
-	flags.AddGoFlagSet(flag.CommandLine)
-
-	for _, f := range namedFlagSets.FlagSets {
-		flags.AddFlagSet(f)
-	}
+	// Add logging flags - this includes the -v flag for verbosity
+	logsapi.AddFlags(options.Logs, flags)
 
 	return cmd
 }
@@ -235,6 +226,11 @@ func (o *ActivityServerOptions) Config() (*activityapiserver.Config, error) {
 	genericConfig.OpenAPIV3Config = genericapiserver.DefaultOpenAPIV3Config(openapi.GetOpenAPIDefinitions, namer)
 	genericConfig.OpenAPIV3Config.Info.Title = "Activity"
 	genericConfig.OpenAPIV3Config.Info.Version = version.Version
+
+	// Configure OpenAPI v2
+	genericConfig.OpenAPIConfig = genericapiserver.DefaultOpenAPIConfig(openapi.GetOpenAPIDefinitions, namer)
+	genericConfig.OpenAPIConfig.Info.Title = "Activity"
+	genericConfig.OpenAPIConfig.Info.Version = version.Version
 
 	if err := o.RecommendedOptions.ApplyTo(genericConfig); err != nil {
 		return nil, fmt.Errorf("failed to apply recommended options: %w", err)
