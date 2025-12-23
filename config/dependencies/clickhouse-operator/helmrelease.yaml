@@ -55,6 +55,17 @@ spec:
           cpu: 200m
           memory: 256Mi
 
+    # ServiceMonitor for Prometheus Operator
+    serviceMonitor:
+      enabled: true
+      # Scrape interval for metrics
+      clickhouseMetrics:
+        interval: 30s
+        scrapeTimeout: 10s
+      operatorMetrics:
+        interval: 30s
+        scrapeTimeout: 10s
+
     # Configure operator watch namespaces directly in config.yaml
     configs:
       files:
