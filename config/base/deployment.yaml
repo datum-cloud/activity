@@ -61,6 +61,7 @@ spec:
         - --requestheader-extra-headers-prefix=$(REQUESTHEADER_EXTRA_HEADERS_PREFIX)
         - --logging-format=$(LOGGING_FORMAT)
         - --tracing-config-file=$(TRACING_CONFIG_FILE)
+        - -v=$(LOG_LEVEL)
         env:
         - name: SECURE_PORT
           value: "8443"
@@ -82,6 +83,8 @@ spec:
           value: "X-Remote-Extra-"
         - name: LOGGING_FORMAT
           value: "json"
+        - name: LOG_LEVEL
+          value: "4"
         - name: TRACING_CONFIG_FILE
           value: ""
         - name: CLICKHOUSE_ADDRESS
