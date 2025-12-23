@@ -49,6 +49,10 @@ spec:
         - --clickhouse-table=$(CLICKHOUSE_TABLE)
         - --clickhouse-username=$(CLICKHOUSE_USERNAME)
         - --clickhouse-password=$(CLICKHOUSE_PASSWORD)
+        - --clickhouse-tls-enabled=$(CLICKHOUSE_TLS_ENABLED)
+        - --clickhouse-tls-cert-file=$(CLICKHOUSE_TLS_CERT_FILE)
+        - --clickhouse-tls-key-file=$(CLICKHOUSE_TLS_KEY_FILE)
+        - --clickhouse-tls-ca-file=$(CLICKHOUSE_TLS_CA_FILE)
         - --authentication-tolerate-lookup-failure=$(AUTHENTICATION_TOLERATE_LOOKUP_FAILURE)
         - --authorization-always-allow-paths=$(AUTHORIZATION_ALWAYS_ALLOW_PATHS)
         - --logging-format=$(LOGGING_FORMAT)
@@ -82,6 +86,14 @@ spec:
               name: clickhouse-credentials
               key: password
               optional: true
+        - name: CLICKHOUSE_TLS_ENABLED
+          value: "false"
+        - name: CLICKHOUSE_TLS_CERT_FILE
+          value: ""
+        - name: CLICKHOUSE_TLS_KEY_FILE
+          value: ""
+        - name: CLICKHOUSE_TLS_CA_FILE
+          value: ""
         resources:
           requests:
             cpu: 100m
