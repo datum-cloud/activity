@@ -53,6 +53,7 @@ spec:
         - --clickhouse-tls-cert-file=$(CLICKHOUSE_TLS_CERT_FILE)
         - --clickhouse-tls-key-file=$(CLICKHOUSE_TLS_KEY_FILE)
         - --clickhouse-tls-ca-file=$(CLICKHOUSE_TLS_CA_FILE)
+        - --kubeconfig=$(KUBECONFIG)
         - --authentication-kubeconfig=$(AUTHENTICATION_KUBECONFIG)
         - --authentication-skip-lookup=$(AUTHENTICATION_SKIP_LOOKUP)
         - --authentication-tolerate-lookup-failure=$(AUTHENTICATION_TOLERATE_LOOKUP_FAILURE)
@@ -72,6 +73,8 @@ spec:
           value: "/var/run/activity-apiserver/tls/tls.crt"
         - name: TLS_PRIVATE_KEY_FILE
           value: "/var/run/activity-apiserver/tls/tls.key"
+        - name: KUBECONFIG
+          value: ""
         - name: AUTHENTICATION_KUBECONFIG
           value: ""
         - name: AUTHENTICATION_SKIP_LOOKUP
