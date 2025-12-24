@@ -53,7 +53,11 @@ spec:
         - --clickhouse-tls-cert-file=$(CLICKHOUSE_TLS_CERT_FILE)
         - --clickhouse-tls-key-file=$(CLICKHOUSE_TLS_KEY_FILE)
         - --clickhouse-tls-ca-file=$(CLICKHOUSE_TLS_CA_FILE)
+        - --kubeconfig=$(KUBECONFIG)
+        - --authentication-kubeconfig=$(AUTHENTICATION_KUBECONFIG)
+        - --authentication-skip-lookup=$(AUTHENTICATION_SKIP_LOOKUP)
         - --authentication-tolerate-lookup-failure=$(AUTHENTICATION_TOLERATE_LOOKUP_FAILURE)
+        - --authorization-kubeconfig=$(AUTHORIZATION_KUBECONFIG)
         - --authorization-always-allow-paths=$(AUTHORIZATION_ALWAYS_ALLOW_PATHS)
         - --requestheader-client-ca-file=$(REQUESTHEADER_CLIENT_CA_FILE)
         - --requestheader-username-headers=$(REQUESTHEADER_USERNAME_HEADERS)
@@ -69,8 +73,16 @@ spec:
           value: "/var/run/activity-apiserver/tls/tls.crt"
         - name: TLS_PRIVATE_KEY_FILE
           value: "/var/run/activity-apiserver/tls/tls.key"
+        - name: KUBECONFIG
+          value: ""
+        - name: AUTHENTICATION_KUBECONFIG
+          value: ""
+        - name: AUTHENTICATION_SKIP_LOOKUP
+          value: "false"
         - name: AUTHENTICATION_TOLERATE_LOOKUP_FAILURE
           value: "false"
+        - name: AUTHORIZATION_KUBECONFIG
+          value: ""
         - name: AUTHORIZATION_ALWAYS_ALLOW_PATHS
           value: "/healthz,/readyz,/livez"
         - name: REQUESTHEADER_CLIENT_CA_FILE
@@ -134,6 +146,9 @@ spec:
         - name: tls-certs
           mountPath: /var/run/activity-apiserver/tls
           readOnly: true
+        - name: control-plane-ca
+          mountPath: /etc/kubernetes/pki/requestheader
+          readOnly: true
         - name: tmp
           mountPath: /tmp
       volumes:
@@ -149,5 +164,9 @@ spec:
             csi.cert-manager.io/duration: "8760h"
             csi.cert-manager.io/renew-before: "720h"
             csi.cert-manager.io/fs-group: "65532"
+      - name: control-plane-ca
+        configMap:
+          name: control-plane-ca
+          optional: true
       - name: tmp
         emptyDir: {}
