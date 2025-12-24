@@ -89,24 +89,15 @@ spec:
             # Check if this is an EventList batch from Kubernetes webhook
             if exists(.kind) && .kind == "EventList" && exists(.items) {
               # Extract the items array and emit each item as a separate event
-              . = unnest!(.items)
+              . = .items
             }
-
-        # Add source metadata
-        add_source_metadata:
-          type: remap
-          inputs:
-            - parse_webhook_batch
-          source: |
-            .source = "webhook"
-            .cluster = get_env_var!("CLUSTER_NAME")
 
       sinks:
         # Publish to NATS JetStream
         nats_jetstream:
           type: nats
           inputs:
-            - add_source_metadata
+            - parse_webhook_batch
           url: nats://nats.nats-system.svc.cluster.local:4222
           connection_name: vector-sidecar
           subject: audit.k8s.activity
