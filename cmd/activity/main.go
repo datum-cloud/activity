@@ -30,6 +30,7 @@ import (
 func init() {
 	utilruntime.Must(logsapi.AddFeatureGates(utilfeature.DefaultMutableFeatureGate))
 	utilfeature.DefaultMutableFeatureGate.Set("LoggingBetaOptions=true")
+	utilfeature.DefaultMutableFeatureGate.Set("RemoteRequestHeaderUID=true")
 }
 
 func main() {
