@@ -62,6 +62,7 @@ spec:
         - --requestheader-client-ca-file=$(REQUESTHEADER_CLIENT_CA_FILE)
         - --requestheader-username-headers=$(REQUESTHEADER_USERNAME_HEADERS)
         - --requestheader-group-headers=$(REQUESTHEADER_GROUP_HEADERS)
+        - --requestheader-uid-headers=$(REQUESTHEADER_UID_HEADERS)
         - --requestheader-extra-headers-prefix=$(REQUESTHEADER_EXTRA_HEADERS_PREFIX)
         - --logging-format=$(LOGGING_FORMAT)
         - --tracing-config-file=$(TRACING_CONFIG_FILE)
@@ -91,6 +92,8 @@ spec:
           value: "X-Remote-User"
         - name: REQUESTHEADER_GROUP_HEADERS
           value: "X-Remote-Group"
+        - name: REQUESTHEADER_UID_HEADERS
+          value: "X-Remote-Uid"
         - name: REQUESTHEADER_EXTRA_HEADERS_PREFIX
           value: "X-Remote-Extra-"
         - name: LOGGING_FORMAT
