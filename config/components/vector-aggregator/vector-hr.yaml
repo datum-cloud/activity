@@ -83,12 +83,27 @@ spec:
           type: internal_metrics
           namespace: vector
       transforms:
+        # Ensure timestamp is set from stageTimestamp for accurate lag tracking
+        #
+        # Events from NATS should already have .timestamp set by the sidecar,
+        # but we ensure it here as a safety measure
+        set_event_timestamp:
+          type: remap
+          inputs:
+            - nats_consumer
+          source: |
+            # If timestamp wasn't set by sidecar, set it from stageTimestamp
+            # This is critical for vector_source_lag_time_seconds accuracy
+            if !exists(.timestamp) && exists(.stageTimestamp) {
+              .timestamp = parse_timestamp!(.stageTimestamp, format: "%+")
+            }
+
         # Filter to ResponseComplete stage only (recommended strategy for 75% data reduction)
         # This reduces storage and query costs while keeping all necessary audit information
         filter_response_complete:
           type: filter
           inputs:
-            - nats_consumer
+            - set_event_timestamp
           condition:
             type: vrl
             source: |

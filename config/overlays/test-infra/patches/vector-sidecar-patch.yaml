@@ -47,11 +47,25 @@ spec:
           source: |
             . = parse_json!(.message)
 
+        # Set event timestamp from audit log stageTimestamp
+        # This is critical for accurate lag metrics - Vector will use this timestamp
+        # to calculate source_lag_time_seconds
+        set_event_timestamp:
+          type: remap
+          inputs:
+            - parse_json_from_file
+          source: |
+            # Parse stageTimestamp from the audit event and set as Vector's timestamp
+            # This allows Vector to calculate accurate lag metrics
+            if exists(.stageTimestamp) {
+              .timestamp = parse_timestamp!(.stageTimestamp, format: "%+")
+            }
+
         # Add source metadata to file events
         add_file_source_metadata:
           type: remap
           inputs:
-            - parse_json_from_file
+            - set_event_timestamp
           source: |
             .source = "test-infra-apiserver"
             .cluster = get_env_var!("CLUSTER_NAME")
@@ -68,4 +82,8 @@ spec:
             }
             if !exists(.cluster) {
               .cluster = get_env_var!("CLUSTER_NAME")
+            }
+            # Also set timestamp for webhook events
+            if !exists(.timestamp) && exists(.stageTimestamp) {
+              .timestamp = parse_timestamp!(.stageTimestamp, format: "%+")
             }
