@@ -92,12 +92,27 @@ spec:
               . = .items
             }
 
+        # Set event timestamp from audit log stageTimestamp
+        #
+        # This is critical for accurate lag metrics - Vector will use this timestamp
+        # to calculate source_lag_time_seconds
+        set_event_timestamp:
+          type: remap
+          inputs:
+            - parse_webhook_batch
+          source: |
+            # Parse stageTimestamp from the audit event and set as Vector's timestamp
+            # This allows Vector to calculate accurate lag metrics
+            if exists(.stageTimestamp) {
+              .timestamp = parse_timestamp!(.stageTimestamp, format: "%+")
+            }
+
       sinks:
         # Publish to NATS JetStream
         nats_jetstream:
           type: nats
           inputs:
-            - parse_webhook_batch
+            - set_event_timestamp
           url: nats://nats.nats-system.svc.cluster.local:4222
           connection_name: vector-sidecar
           subject: audit.k8s.activity
