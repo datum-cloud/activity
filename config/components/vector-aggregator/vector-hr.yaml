@@ -83,27 +83,56 @@ spec:
           type: internal_metrics
           namespace: vector
       transforms:
-        # Ensure timestamp is set from stageTimestamp for accurate lag tracking
-        #
-        # Events from NATS should already have .timestamp set by the sidecar,
-        # but we ensure it here as a safety measure
-        set_event_timestamp:
+        # Calculate end-to-end latency from K8s event generation to aggregator processing.
+        # The NATS source doesn't preserve .timestamp from JSON payloads, so we must
+        # calculate latency here rather than relying on vector_source_lag_time_seconds.
+        # This measures true pipeline latency: API Server → Sidecar → NATS → Aggregator.
+        calculate_end_to_end_latency:
           type: remap
           inputs:
             - nats_consumer
           source: |
-            # If timestamp wasn't set by sidecar, set it from stageTimestamp
-            # This is critical for vector_source_lag_time_seconds accuracy
-            if !exists(.timestamp) && exists(.stageTimestamp) {
-              .timestamp = parse_timestamp!(.stageTimestamp, format: "%+")
+            if exists(.stageTimestamp) {
+              stage_ts, parse_err = parse_timestamp(.stageTimestamp, format: "%+")
+
+              if parse_err == null {
+                # Calculate latency by converting timestamps to Unix time (seconds)
+                # VRL doesn't support direct timestamp subtraction
+                current_unix = to_unix_timestamp(now(), unit: "seconds")
+                stage_unix = to_unix_timestamp(stage_ts, unit: "seconds")
+
+                # Calculate latency in seconds (already in seconds, no conversion needed)
+                .end_to_end_latency_seconds = current_unix - stage_unix
+                .timestamp = stage_ts
+              } else {
+                log("Failed to parse stageTimestamp '" + string!(.stageTimestamp) + "': " + string!(parse_err), level: "warn")
+                .timestamp = now()
+              }
+            } else {
+              log("Missing stageTimestamp field in audit event", level: "warn")
+              .timestamp = now()
             }
+
+        # Convert the latency field to a histogram metric
+        latency_to_metric:
+          type: log_to_metric
+          inputs:
+            - calculate_end_to_end_latency
+          metrics:
+            - type: histogram
+              field: end_to_end_latency_seconds
+              name: end_to_end_latency_seconds
+              namespace: activity_pipeline
+              tags:
+                stage: nats_to_aggregator
+                component_id: nats_consumer
 
         # Filter to ResponseComplete stage only (recommended strategy for 75% data reduction)
         # This reduces storage and query costs while keeping all necessary audit information
         filter_response_complete:
           type: filter
           inputs:
-            - set_event_timestamp
+            - calculate_end_to_end_latency
           condition:
             type: vrl
             source: |
@@ -155,8 +184,10 @@ spec:
           type: prometheus_exporter
           inputs:
             - internal_metrics
+            - latency_to_metric
           address: 0.0.0.0:9091
           default_namespace: vector_internal
+          buckets: [0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 15.0, 30.0, 60.0, 120.0, 180.0, 240.0, 300.0]
 
     env:
       - name: CLICKHOUSE_USERNAME
