@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	rootCmd := cmd.NewActivityCommand()
+	rootCmd := cmd.NewActivityCommand(cmd.ActivityCommandOptions{})
 	rootCmd.Use = "kubectl-activity"
 
 	if err := rootCmd.Execute(); err != nil {
