@@ -10,6 +10,7 @@ import (
 	auditv1 "k8s.io/apiserver/pkg/apis/audit/v1"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/cli-runtime/pkg/printers"
+	"k8s.io/kubectl/pkg/cmd/util"
 
 	activityv1alpha1 "go.miloapis.com/activity/pkg/apis/activity/v1alpha1"
 	clientset "go.miloapis.com/activity/pkg/client/clientset/versioned"
@@ -26,24 +27,24 @@ type QueryOptions struct {
 
 	PrintFlags *genericclioptions.PrintFlags
 	genericclioptions.IOStreams
-	configFlags *genericclioptions.ConfigFlags
+	Factory util.Factory
 }
 
 // NewQueryOptions creates a new QueryOptions with default values
-func NewQueryOptions(ioStreams genericclioptions.IOStreams) *QueryOptions {
+func NewQueryOptions(f util.Factory, ioStreams genericclioptions.IOStreams) *QueryOptions {
 	return &QueryOptions{
-		IOStreams:   ioStreams,
-		configFlags: genericclioptions.NewConfigFlags(true),
-		PrintFlags:  genericclioptions.NewPrintFlags(""),
-		Limit:       25,
-		StartTime:   "now-24h",
-		EndTime:     "now",
+		IOStreams:  ioStreams,
+		Factory:    f,
+		PrintFlags: genericclioptions.NewPrintFlags(""),
+		Limit:      25,
+		StartTime:  "now-24h",
+		EndTime:    "now",
 	}
 }
 
 // NewQueryCommand creates the query command
-func NewQueryCommand(ioStreams genericclioptions.IOStreams) *cobra.Command {
-	o := NewQueryOptions(ioStreams)
+func NewQueryCommand(f util.Factory, ioStreams genericclioptions.IOStreams) *cobra.Command {
+	o := NewQueryOptions(f, ioStreams)
 
 	cmd := &cobra.Command{
 		Use:   "query",
@@ -115,9 +116,6 @@ Common Filters:
 	// Add printer flags (handles -o json, -o yaml, -o wide, etc.)
 	o.PrintFlags.AddFlags(cmd)
 
-	// Add kubeconfig flags
-	o.configFlags.AddFlags(cmd.Flags())
-
 	return cmd
 }
 
@@ -157,8 +155,8 @@ func (o *QueryOptions) Validate() error {
 
 // Run executes the query
 func (o *QueryOptions) Run(ctx context.Context) error {
-	// Get REST config
-	config, err := o.configFlags.ToRESTConfig()
+	// Get REST config from factory
+	config, err := o.Factory.ToRESTConfig()
 	if err != nil {
 		return fmt.Errorf("failed to get kubeconfig: %w", err)
 	}
