@@ -1,0 +1,15 @@
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: pipeline-red-dashboard
+  labels:
+    dashboards: grafana
+spec:
+  allowCrossNamespaceImport: true
+  instanceSelector:
+    matchLabels:
+      dashboards: grafana
+  resyncPeriod: 30s
+  configMapRef:
+    name: pipeline-red-dashboard
+    key: pipeline-red.json

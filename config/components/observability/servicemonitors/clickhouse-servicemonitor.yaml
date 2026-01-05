@@ -1,0 +1,42 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: clickhouse
+  namespace: activity-system
+  labels:
+    app: clickhouse
+    clickhouse.altinity.com/chi: activity-clickhouse
+    monitoring: "true"
+spec:
+  selector:
+    matchLabels:
+      clickhouse.altinity.com/chi: activity-clickhouse
+  endpoints:
+    # ClickHouse exposes metrics on the HTTP port (8123) in Prometheus format
+    - port: http
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
+      scheme: http
+      relabelings:
+        # Add pod name label
+        - sourceLabels: [__meta_kubernetes_pod_name]
+          targetLabel: pod
+        # Add node name label
+        - sourceLabels: [__meta_kubernetes_pod_node_name]
+          targetLabel: node
+        # Add namespace label
+        - sourceLabels: [__meta_kubernetes_namespace]
+          targetLabel: namespace
+        # Add ClickHouse cluster name
+        - sourceLabels: [__meta_kubernetes_pod_label_clickhouse_altinity_com_chi]
+          targetLabel: clickhouse_cluster
+        # Add ClickHouse shard label
+        - sourceLabels: [__meta_kubernetes_pod_label_clickhouse_altinity_com_shard]
+          targetLabel: shard
+        # Add ClickHouse replica label
+        - sourceLabels: [__meta_kubernetes_pod_label_clickhouse_altinity_com_replica]
+          targetLabel: replica
+  namespaceSelector:
+    matchNames:
+      - activity-system

@@ -1,0 +1,1185 @@
+{
+   "description": "High-level RED (Rate, Errors, Duration) metrics dashboard for the audit log pipeline. Focused on SLIs and executive visibility.",
+   "editable": true,
+   "panels": [
+      {
+         "collapsed": true,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 0
+         },
+         "id": 1,
+         "title": "About This Dashboard",
+         "type": "row"
+      },
+      {
+         "datasource": {
+            "type": "datasource",
+            "uid": "-- Mixed --"
+         },
+         "gridPos": {
+            "h": 12,
+            "w": 24,
+            "x": 0,
+            "y": 1
+         },
+         "id": 2,
+         "options": {
+            "content": "# Pipeline RED Metrics Dashboard\n\nThis dashboard provides high-level visibility into the audit log pipeline using **RED metrics** (Rate, Errors, Duration).\n\n## What is the Audit Log Pipeline?\n\nThe pipeline processes Kubernetes audit events through these stages:\n\n1. **Ingestion**: Vector sidecars collect audit logs from API servers\n2. **Queue**: NATS JetStream provides durable buffering\n3. **Aggregation**: Vector aggregator processes and enriches events\n4. **Storage**: Events are written to ClickHouse for long-term storage\n5. **Query**: Activity API serves queries from ClickHouse\n\n## RED Metrics Explained\n\n- **Rate**: Throughput (events/sec) - how much traffic is the system handling?\n- **Errors**: Failure rate (% or count) - how often are requests failing?\n- **Duration**: Latency (seconds) - how long does processing take?\n\n## Using This Dashboard\n\n- **Top Row (Overview)**: Quick health check - is the system healthy?\n- **Rate Section**: Monitor throughput and queue depth - is traffic normal?\n- **Errors Section**: Track failure rates - are errors within SLO?\n- **Duration Section**: Check latency - are events processed quickly?\n- **SLI/SLO Section**: 7-day reliability metrics - are we meeting targets?\n\n## Healthy Baseline Values\n\n- **Throughput**: Varies by cluster (1-1000s events/sec)\n- **Error Rate**: < 0.1% (Target: < 0.01%)\n- **Pipeline Lag**: < 30s (Target: < 10s)\n- **Query Latency**: < 1s (Target: < 10s)\n- **Write SLI**: > 99.9%\n- **Read SLI**: > 99.9%\n",
+            "mode": "markdown"
+         },
+         "pluginVersion": "v11.4.0",
+         "title": "Dashboard Overview",
+         "type": "text"
+      },
+      {
+         "collapsed": false,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 13
+         },
+         "id": 3,
+         "title": "Pipeline Health Overview",
+         "type": "row"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Overall pipeline health based on throughput and error rate",
+         "fieldConfig": {
+            "defaults": {
+               "mappings": [
+                  {
+                     "options": {
+                        "0": {
+                           "color": "red",
+                           "text": "DEGRADED"
+                        }
+                     },
+                     "type": "value"
+                  },
+                  {
+                     "options": {
+                        "1": {
+                           "color": "green",
+                           "text": "HEALTHY"
+                        }
+                     },
+                     "type": "value"
+                  },
+                  {
+                     "match": "null",
+                     "result": {
+                        "color": "orange",
+                        "text": "NO DATA"
+                     },
+                     "type": "special"
+                  }
+               ]
+            }
+         },
+         "gridPos": {
+            "h": 4,
+            "w": 6,
+            "x": 0,
+            "y": 14
+         },
+         "id": 4,
+         "options": {
+            "colorMode": "background",
+            "reduceOptions": {
+               "calcs": [
+                  "lastNotNull"
+               ]
+            },
+            "textMode": "value_and_name"
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "(rate(vector_component_sent_events_total{component_id=\"clickhouse\"}[5m]) > 0) * (rate(vector_http_client_errors_total{component_id=\"clickhouse\"}[5m]) < 0.01)",
+               "legendFormat": "Status"
+            }
+         ],
+         "title": "Pipeline Status",
+         "type": "stat"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Events per second flowing through the pipeline",
+         "fieldConfig": {
+            "defaults": {
+               "color": {
+                  "mode": "thresholds"
+               },
+               "thresholds": {
+                  "mode": "absolute",
+                  "steps": [
+                     {
+                        "color": "red",
+                        "value": null
+                     },
+                     {
+                        "color": "yellow",
+                        "value": 1
+                     },
+                     {
+                        "color": "green",
+                        "value": 10
+                     }
+                  ]
+               },
+               "unit": "ops"
+            }
+         },
+         "gridPos": {
+            "h": 4,
+            "w": 6,
+            "x": 6,
+            "y": 14
+         },
+         "id": 5,
+         "options": {
+            "colorMode": "value",
+            "graphMode": "area"
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(vector_component_sent_events_total{component_id=\"clickhouse\"}[5m]))",
+               "legendFormat": "Events/sec"
+            }
+         ],
+         "title": "Throughput (5m avg)",
+         "type": "stat"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Combined error rate across all pipeline components",
+         "fieldConfig": {
+            "defaults": {
+               "color": {
+                  "mode": "thresholds"
+               },
+               "thresholds": {
+                  "mode": "absolute",
+                  "steps": [
+                     {
+                        "color": "green",
+                        "value": null
+                     },
+                     {
+                        "color": "yellow",
+                        "value": 0.01
+                     },
+                     {
+                        "color": "red",
+                        "value": 0.050000000000000003
+                     }
+                  ]
+               },
+               "unit": "percentunit"
+            }
+         },
+         "gridPos": {
+            "h": 4,
+            "w": 6,
+            "x": 12,
+            "y": 14
+         },
+         "id": 6,
+         "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(vector_http_client_errors_total{component_id=\"clickhouse\"}[5m]) + rate(activity_clickhouse_query_errors_total[5m])) / sum(rate(vector_component_sent_events_total{component_id=\"clickhouse\"}[5m]) + rate(activity_clickhouse_query_total[5m]))",
+               "legendFormat": "Error Rate"
+            }
+         ],
+         "title": "Error Rate (5m)",
+         "type": "stat"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "99th percentile latency from event generation to ClickHouse",
+         "fieldConfig": {
+            "defaults": {
+               "color": {
+                  "mode": "thresholds"
+               },
+               "thresholds": {
+                  "mode": "absolute",
+                  "steps": [
+                     {
+                        "color": "green",
+                        "value": null
+                     },
+                     {
+                        "color": "yellow",
+                        "value": 30
+                     },
+                     {
+                        "color": "orange",
+                        "value": 60
+                     },
+                     {
+                        "color": "red",
+                        "value": 120
+                     }
+                  ]
+               },
+               "unit": "s"
+            }
+         },
+         "gridPos": {
+            "h": 4,
+            "w": 6,
+            "x": 18,
+            "y": 14
+         },
+         "id": 7,
+         "options": {
+            "colorMode": "value",
+            "graphMode": "area"
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "histogram_quantile(0.99, sum(rate(vector_source_lag_time_seconds_bucket{component_id=\"nats_consumer\"}[5m])) by (le))",
+               "legendFormat": "p99 Latency"
+            }
+         ],
+         "title": "End-to-End Latency (p99)",
+         "type": "stat"
+      },
+      {
+         "collapsed": false,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 18
+         },
+         "id": 8,
+         "title": "Rate - Throughput",
+         "type": "row"
+      },
+      {
+         "datasource": {
+            "type": "datasource",
+            "uid": "-- Mixed --"
+         },
+         "gridPos": {
+            "h": 4,
+            "w": 24,
+            "x": 0,
+            "y": 19
+         },
+         "id": 9,
+         "options": {
+            "content": "## Understanding Rate Metrics\n\n**Rate** measures throughput - how many events flow through the system.\n\n### What to Look For:\n\n- **Normal Pattern**: Steady throughput during business hours, lower at night\n- **Ingestion vs Write**: Should match closely (within 5-10%)\n- **NATS Queue Depth**: Rising queue means backpressure - aggregator can't keep up\n- **Query Rate**: User activity - spikes during investigations\n\n### Troubleshooting:\n\n- **Queue Depth Rising**: Scale Vector aggregator or ClickHouse\n- **Ingestion >> Write**: Check for Vector errors or ClickHouse bottlenecks\n- **Zero Throughput**: Check Vector sidecar health, API server audit policy\n",
+            "mode": "markdown"
+         },
+         "pluginVersion": "v11.4.0",
+         "title": "Rate Metrics Help",
+         "type": "text"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Events entering the pipeline (audit events from k8s API servers)",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10,
+                  "lineWidth": 2,
+                  "showPoints": "never"
+               },
+               "unit": "ops"
+            }
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 23
+         },
+         "id": 10,
+         "options": {
+            "legend": {
+               "calcs": [
+                  "mean",
+                  "lastNotNull",
+                  "max"
+               ],
+               "displayMode": "table",
+               "placement": "bottom",
+               "showLegend": true
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(vector_component_sent_events_total{component_id=\"nats_jetstream\",pod=~\"vector-sidecar.*\"}[5m]))",
+               "legendFormat": "Events Ingested/sec"
+            }
+         ],
+         "title": "Ingestion Rate",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Events written to ClickHouse storage",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10,
+                  "lineWidth": 2,
+                  "showPoints": "never"
+               },
+               "unit": "ops"
+            }
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 23
+         },
+         "id": 11,
+         "options": {
+            "legend": {
+               "calcs": [
+                  "mean",
+                  "lastNotNull",
+                  "max"
+               ],
+               "displayMode": "table",
+               "placement": "bottom",
+               "showLegend": true
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(chi_clickhouse_event_InsertedRows{chi=\"activity-clickhouse\"}[5m]))",
+               "legendFormat": "Rows Written/sec"
+            }
+         ],
+         "title": "Write Rate to ClickHouse",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Queries per second on the Activity API",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10,
+                  "lineWidth": 2,
+                  "showPoints": "never",
+                  "stacking": {
+                     "mode": "normal"
+                  }
+               },
+               "unit": "ops"
+            }
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 23
+         },
+         "id": 12,
+         "options": {
+            "legend": {
+               "calcs": [
+                  "mean",
+                  "lastNotNull",
+                  "max"
+               ],
+               "displayMode": "table",
+               "placement": "bottom",
+               "showLegend": true
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(activity_clickhouse_query_total{status=\"success\"}[5m]))",
+               "legendFormat": "Successful"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(activity_clickhouse_query_total{status=\"error\"}[5m]))",
+               "legendFormat": "Failed"
+            }
+         ],
+         "title": "Query Rate",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Pending messages in NATS queue (indicator of backpressure)",
+         "fieldConfig": {
+            "defaults": {
+               "color": {
+                  "mode": "thresholds"
+               },
+               "custom": {
+                  "fillOpacity": 10,
+                  "lineWidth": 2,
+                  "showPoints": "never"
+               },
+               "thresholds": {
+                  "mode": "absolute",
+                  "steps": [
+                     {
+                        "color": "green",
+                        "value": null
+                     },
+                     {
+                        "color": "yellow",
+                        "value": 1000
+                     },
+                     {
+                        "color": "orange",
+                        "value": 10000
+                     },
+                     {
+                        "color": "red",
+                        "value": 50000
+                     }
+                  ]
+               },
+               "unit": "short"
+            }
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 23
+         },
+         "id": 13,
+         "options": {
+            "legend": {
+               "calcs": [
+                  "mean",
+                  "lastNotNull",
+                  "max"
+               ],
+               "displayMode": "table",
+               "placement": "bottom",
+               "showLegend": true
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "nats_consumer_num_pending{consumer_name=\"clickhouse-ingest\"}",
+               "legendFormat": "Pending Messages"
+            }
+         ],
+         "title": "NATS Queue Depth",
+         "type": "timeseries"
+      },
+      {
+         "collapsed": false,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 31
+         },
+         "id": 14,
+         "title": "Errors - Failure Rates",
+         "type": "row"
+      },
+      {
+         "datasource": {
+            "type": "datasource",
+            "uid": "-- Mixed --"
+         },
+         "gridPos": {
+            "h": 4,
+            "w": 24,
+            "x": 0,
+            "y": 32
+         },
+         "id": 15,
+         "options": {
+            "content": "## Understanding Error Metrics\n\n**Errors** track failure rates - how often operations fail.\n\n### Error Types:\n\n- **Vector → ClickHouse**: Write failures (HTTP 500s, network issues, schema mismatches)\n- **Activity Query Errors**: Query execution failures (invalid SQL, timeouts, OOM)\n- **CEL Filter Errors**: Client-side filter parsing errors (syntax errors in CEL expressions)\n\n### What to Look For:\n\n- **Target Error Rate**: < 0.1% for writes, < 0.01% for reads\n- **Write Errors**: Usually indicate ClickHouse issues (disk full, out of memory, schema changes)\n- **Query Errors**: Often user errors (bad filters) or resource exhaustion\n- **Error Rate as %**: More meaningful than absolute count - shows reliability\n\n### Troubleshooting:\n\n- **Sudden Spike**: Check ClickHouse logs, recent deployments, schema migrations\n- **Gradual Increase**: Resource exhaustion, scaling needed\n- **100% Errors**: Total outage - check ClickHouse availability, network connectivity\n",
+            "mode": "markdown"
+         },
+         "pluginVersion": "v11.4.0",
+         "title": "Error Metrics Help",
+         "type": "text"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Errors across all pipeline components (Vector, ClickHouse writes, Activity queries)",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 30,
+                  "lineWidth": 2,
+                  "showPoints": "never",
+                  "stacking": {
+                     "mode": "normal"
+                  }
+               },
+               "unit": "ops"
+            }
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 36
+         },
+         "id": 16,
+         "options": {
+            "legend": {
+               "calcs": [
+                  "mean",
+                  "lastNotNull",
+                  "max"
+               ],
+               "displayMode": "table",
+               "placement": "bottom",
+               "showLegend": true
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(vector_http_client_errors_total{component_id=\"clickhouse\"}[5m]))",
+               "legendFormat": "Vector → ClickHouse"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(activity_clickhouse_query_errors_total[5m]))",
+               "legendFormat": "Activity Query Errors"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(activity_cel_filter_errors_total[5m]))",
+               "legendFormat": "CEL Filter Errors"
+            }
+         ],
+         "title": "Pipeline Error Rate",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Error percentage - SLI for reliability",
+         "fieldConfig": {
+            "defaults": {
+               "color": {
+                  "mode": "thresholds"
+               },
+               "custom": {
+                  "fillOpacity": 10,
+                  "lineWidth": 2,
+                  "showPoints": "never"
+               },
+               "max": 0.10000000000000001,
+               "thresholds": {
+                  "mode": "absolute",
+                  "steps": [
+                     {
+                        "color": "green",
+                        "value": null
+                     },
+                     {
+                        "color": "yellow",
+                        "value": 0.01
+                     },
+                     {
+                        "color": "orange",
+                        "value": 0.050000000000000003
+                     },
+                     {
+                        "color": "red",
+                        "value": 0.10000000000000001
+                     }
+                  ]
+               },
+               "unit": "percentunit"
+            }
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 36
+         },
+         "id": 17,
+         "options": {
+            "legend": {
+               "calcs": [
+                  "mean",
+                  "lastNotNull",
+                  "max"
+               ],
+               "displayMode": "table",
+               "placement": "bottom",
+               "showLegend": true
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(vector_http_client_errors_total{component_id=\"clickhouse\"}[5m])) / sum(rate(vector_component_sent_events_total{component_id=\"clickhouse\"}[5m]))",
+               "legendFormat": "Write Path Error %"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(activity_clickhouse_query_errors_total[5m])) / sum(rate(activity_clickhouse_query_total[5m]))",
+               "legendFormat": "Read Path Error %"
+            }
+         ],
+         "title": "Error Rate as % of Traffic",
+         "type": "timeseries"
+      },
+      {
+         "collapsed": false,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 44
+         },
+         "id": 18,
+         "title": "Duration - Latency",
+         "type": "row"
+      },
+      {
+         "datasource": {
+            "type": "datasource",
+            "uid": "-- Mixed --"
+         },
+         "gridPos": {
+            "h": 4,
+            "w": 24,
+            "x": 0,
+            "y": 45
+         },
+         "id": 19,
+         "options": {
+            "content": "## Understanding Duration/Latency Metrics\n\n**Duration** measures how long operations take - response time and processing lag.\n\n### Latency Types:\n\n- **Write Path (Pipeline Lag)**: Time from event generation to stored in ClickHouse\n  - Measured by Vector's `source_lag_time_seconds` using event's `stageTimestamp`\n  - Includes: file ingestion, NATS queue time, Vector processing, ClickHouse insert\n- **Read Path (Query Latency)**: Time to execute queries on Activity API\n  - ClickHouse query execution time only (not network time)\n\n### What to Look For:\n\n- **Write Path**: p99 < 30s is good, < 10s is excellent\n- **Read Path**: p99 < 1s is good, < 100ms is excellent\n- **Increasing p99**: System under load, may need scaling\n- **Wide p50-p99 gap**: High variability, some requests are very slow\n\n### Troubleshooting:\n\n- **High Write Latency**: Check NATS queue depth, ClickHouse insert performance\n- **High Query Latency**: Check ClickHouse CPU/memory, query complexity, table merge activity\n- **Sudden Spikes**: Often correlated with ClickHouse merges or large queries\n",
+            "mode": "markdown"
+         },
+         "pluginVersion": "v11.4.0",
+         "title": "Latency Metrics Help",
+         "type": "text"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Time from event generation to stored in ClickHouse",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10,
+                  "lineWidth": 2,
+                  "showPoints": "never"
+               },
+               "unit": "s"
+            }
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 49
+         },
+         "id": 20,
+         "options": {
+            "legend": {
+               "calcs": [
+                  "mean",
+                  "lastNotNull"
+               ],
+               "displayMode": "table",
+               "placement": "bottom",
+               "showLegend": true
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "histogram_quantile(0.99, sum(rate(vector_source_lag_time_seconds_bucket{component_id=\"nats_consumer\"}[5m])) by (le))",
+               "legendFormat": "p99 Pipeline Lag"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "histogram_quantile(0.95, sum(rate(vector_source_lag_time_seconds_bucket{component_id=\"nats_consumer\"}[5m])) by (le))",
+               "legendFormat": "p95 Pipeline Lag"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "histogram_quantile(0.50, sum(rate(vector_source_lag_time_seconds_bucket{component_id=\"nats_consumer\"}[5m])) by (le))",
+               "legendFormat": "p50 Pipeline Lag"
+            }
+         ],
+         "title": "Write Path Latency",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Query latency on Activity API (reading from ClickHouse)",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10,
+                  "lineWidth": 2,
+                  "showPoints": "never"
+               },
+               "unit": "s"
+            }
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 49
+         },
+         "id": 21,
+         "options": {
+            "legend": {
+               "calcs": [
+                  "mean",
+                  "lastNotNull"
+               ],
+               "displayMode": "table",
+               "placement": "bottom",
+               "showLegend": true
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "histogram_quantile(0.99, sum(rate(activity_clickhouse_query_duration_seconds_bucket[5m])) by (le))",
+               "legendFormat": "p99 Query Latency"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "histogram_quantile(0.95, sum(rate(activity_clickhouse_query_duration_seconds_bucket[5m])) by (le))",
+               "legendFormat": "p95 Query Latency"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "histogram_quantile(0.50, sum(rate(activity_clickhouse_query_duration_seconds_bucket[5m])) by (le))",
+               "legendFormat": "p50 Query Latency"
+            }
+         ],
+         "title": "Read Path Latency",
+         "type": "timeseries"
+      },
+      {
+         "collapsed": false,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 57
+         },
+         "id": 22,
+         "title": "SLI/SLO Tracking",
+         "type": "row"
+      },
+      {
+         "datasource": {
+            "type": "datasource",
+            "uid": "-- Mixed --"
+         },
+         "gridPos": {
+            "h": 6,
+            "w": 24,
+            "x": 0,
+            "y": 58
+         },
+         "id": 23,
+         "options": {
+            "content": "## Understanding SLI/SLO Metrics\n\n**SLI** (Service Level Indicator): A quantitative measure of service reliability\n**SLO** (Service Level Objective): Target values for SLIs - the promises we make\n\n### Our SLOs:\n\n- **Write Path SLI**: 99.9% of events successfully written to ClickHouse\n  - Measures: Vector → ClickHouse write success rate over 7 days\n- **Read Path SLI**: 99.9% of queries successfully executed\n  - Measures: Activity API query success rate over 7 days\n- **Latency SLI**: 99% of queries complete in < 10 seconds\n  - Measures: Query performance over 7 days\n- **Availability**: 99.9% uptime for Activity API server\n  - Measures: Service availability over 7 days\n\n### Using SLI Metrics:\n\n- **Green (>99.9%)**: Meeting SLO - system healthy\n- **Yellow (99.5-99.9%)**: Warning - approaching SLO violation\n- **Red (<99.5%)**: SLO violation - incident response required\n\n### Error Budget:\n\nWith 99.9% SLO, you have a **0.1% error budget** (72 minutes/month downtime allowed).\n- Write Path: Can tolerate ~43k failed events/month at 100 events/sec\n- Read Path: Can tolerate ~2.5k failed queries/month at 1 query/sec\n\nThese 7-day rolling windows help you track reliability trends and error budget consumption.\n",
+            "mode": "markdown"
+         },
+         "pluginVersion": "v11.4.0",
+         "title": "SLI/SLO Metrics Help",
+         "type": "text"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "% of events successfully written to ClickHouse (Target: 99.9%)",
+         "fieldConfig": {
+            "defaults": {
+               "color": {
+                  "mode": "thresholds"
+               },
+               "max": 1,
+               "min": 0.98999999999999999,
+               "thresholds": {
+                  "mode": "absolute",
+                  "steps": [
+                     {
+                        "color": "red",
+                        "value": null
+                     },
+                     {
+                        "color": "yellow",
+                        "value": 0.995
+                     },
+                     {
+                        "color": "green",
+                        "value": 0.999
+                     }
+                  ]
+               },
+               "unit": "percentunit"
+            }
+         },
+         "gridPos": {
+            "h": 6,
+            "w": 6,
+            "x": 0,
+            "y": 64
+         },
+         "id": 24,
+         "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "1 - (sum(increase(vector_http_client_errors_total{component_id=\"clickhouse\"}[7d])) / sum(increase(vector_component_sent_events_total{component_id=\"clickhouse\"}[7d])))",
+               "legendFormat": "Success Rate"
+            }
+         ],
+         "title": "Write Path SLI (7d)",
+         "type": "stat"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "% of queries successfully executed (Target: 99.9%)",
+         "fieldConfig": {
+            "defaults": {
+               "color": {
+                  "mode": "thresholds"
+               },
+               "max": 1,
+               "min": 0.98999999999999999,
+               "thresholds": {
+                  "mode": "absolute",
+                  "steps": [
+                     {
+                        "color": "red",
+                        "value": null
+                     },
+                     {
+                        "color": "yellow",
+                        "value": 0.995
+                     },
+                     {
+                        "color": "green",
+                        "value": 0.999
+                     }
+                  ]
+               },
+               "unit": "percentunit"
+            }
+         },
+         "gridPos": {
+            "h": 6,
+            "w": 6,
+            "x": 6,
+            "y": 64
+         },
+         "id": 25,
+         "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "1 - (sum(increase(activity_clickhouse_query_errors_total[7d])) / sum(increase(activity_clickhouse_query_total[7d])))",
+               "legendFormat": "Success Rate"
+            }
+         ],
+         "title": "Read Path SLI (7d)",
+         "type": "stat"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "% of queries < 10s (Target: 99%)",
+         "fieldConfig": {
+            "defaults": {
+               "color": {
+                  "mode": "thresholds"
+               },
+               "max": 1,
+               "min": 0.94999999999999996,
+               "thresholds": {
+                  "mode": "absolute",
+                  "steps": [
+                     {
+                        "color": "red",
+                        "value": null
+                     },
+                     {
+                        "color": "yellow",
+                        "value": 0.97999999999999998
+                     },
+                     {
+                        "color": "green",
+                        "value": 0.98999999999999999
+                     }
+                  ]
+               },
+               "unit": "percentunit"
+            }
+         },
+         "gridPos": {
+            "h": 6,
+            "w": 6,
+            "x": 12,
+            "y": 64
+         },
+         "id": 26,
+         "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "1 - (sum(increase(activity_clickhouse_query_duration_seconds_bucket{le=\"10\"}[7d])) / sum(increase(activity_clickhouse_query_duration_seconds_count[7d])))",
+               "legendFormat": "< 10s"
+            }
+         ],
+         "title": "Latency SLI (7d)",
+         "type": "stat"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Overall system uptime (Target: 99.9%)",
+         "fieldConfig": {
+            "defaults": {
+               "color": {
+                  "mode": "thresholds"
+               },
+               "max": 1,
+               "min": 0.98999999999999999,
+               "thresholds": {
+                  "mode": "absolute",
+                  "steps": [
+                     {
+                        "color": "red",
+                        "value": null
+                     },
+                     {
+                        "color": "yellow",
+                        "value": 0.995
+                     },
+                     {
+                        "color": "green",
+                        "value": 0.999
+                     }
+                  ]
+               },
+               "unit": "percentunit"
+            }
+         },
+         "gridPos": {
+            "h": 6,
+            "w": 6,
+            "x": 18,
+            "y": 64
+         },
+         "id": 27,
+         "options": {
+            "colorMode": "background",
+            "graphMode": "area"
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "avg_over_time(up{job=\"activity-apiserver\"}[7d])",
+               "legendFormat": "Uptime"
+            }
+         ],
+         "title": "Pipeline Availability (7d)",
+         "type": "stat"
+      }
+   ],
+   "refresh": "30s",
+   "schemaVersion": 39,
+   "tags": [
+      "audit",
+      "pipeline",
+      "RED",
+      "SLI",
+      "observability"
+   ],
+   "templating": {
+      "list": [
+         {
+            "label": "Prometheus Datasource",
+            "name": "datasource",
+            "query": "prometheus",
+            "type": "datasource"
+         }
+      ]
+   },
+   "time": {
+      "from": "now-6h",
+      "to": "now"
+   },
+   "timezone": "utc",
+   "title": "Pipeline RED Metrics",
+   "uid": "pipeline-red"
+}
