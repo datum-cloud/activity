@@ -34,6 +34,13 @@ includes:
       CLICKHOUSE_PASSWORD: "{{.CLICKHOUSE_PASSWORD}}"
       ROOT_DIR: "{{.USER_WORKING_DIR}}"
 
+  # Performance testing with k6
+  load:
+    taskfile: ./test/load/Taskfile.yaml
+    dir: ./test/load
+    vars:
+      ROOT_DIR: "{{.USER_WORKING_DIR}}"
+
 tasks:
   default:
     desc: List all available tasks
@@ -339,10 +346,11 @@ tasks:
 
   # Unified code generation task - composes all generate:* subtasks
   generate:
-    desc: Run all code generation tasks (OpenAPI, migrations ConfigMap, API docs, etc.)
+    desc: Run all code generation tasks (OpenAPI, migrations ConfigMap, API docs, k6 tests, etc.)
     deps:
       - generate:openapi
       - migrations:generate
+      - load:generate
       - generate:docs
     cmds:
       - |
@@ -352,6 +360,7 @@ tasks:
         echo "Generated files:"
         echo "  - pkg/generated/openapi/zz_generated.openapi.go"
         echo "  - config/components/clickhouse-migrations/configmap.yaml"
+        echo "  - config/components/k6-performance-tests/generated/query-load-test.js"
         echo "  - docs/api.md"
         echo ""
         echo "Next steps:"
