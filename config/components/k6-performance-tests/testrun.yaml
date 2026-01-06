@@ -27,9 +27,6 @@ spec:
         memory: "512Mi"
         cpu: "500m"
 
-    # Service account for RBAC permissions
-    serviceAccountName: k6-test-runner
-
     # Environment variables for test configuration
     env:
       # API server endpoint (defaults to in-cluster service)
