@@ -1,0 +1,102 @@
+version: '3'
+
+tasks:
+  install:
+    desc: Install UI component library dependencies
+    dir: '{{.USER_WORKING_DIR}}/ui'
+    cmds:
+      - npm install
+
+  build:
+    desc: Build UI component library
+    dir: '{{.USER_WORKING_DIR}}/ui'
+    deps:
+      - install
+    cmds:
+      - npm run build
+
+  dev:
+    desc: Build UI components in watch mode
+    dir: '{{.USER_WORKING_DIR}}/ui'
+    deps:
+      - install
+    cmds:
+      - npm run dev
+
+  lint:
+    desc: Lint UI component library
+    dir: '{{.USER_WORKING_DIR}}/ui'
+    deps:
+      - install
+    cmds:
+      - npm run lint
+
+  type-check:
+    desc: Type check UI component library
+    dir: '{{.USER_WORKING_DIR}}/ui'
+    deps:
+      - install
+    cmds:
+      - npm run type-check
+
+  clean:
+    desc: Clean UI build artifacts
+    dir: '{{.USER_WORKING_DIR}}/ui'
+    cmds:
+      - rm -rf dist node_modules
+      - rm -rf example/dist example/node_modules
+
+  # Example app tasks
+  example:install:
+    desc: Install example app dependencies
+    dir: '{{.USER_WORKING_DIR}}/ui/example'
+    deps:
+      - build
+    cmds:
+      - npm install
+
+  example:dev:
+    desc: Start example app in development mode
+    aliases:
+      - start
+    dir: '{{.USER_WORKING_DIR}}/ui/example'
+    deps:
+      - example:install
+    cmds:
+      - npm run dev
+
+  example:build:
+    desc: Build example app for production
+    dir: '{{.USER_WORKING_DIR}}/ui/example'
+    deps:
+      - example:install
+    cmds:
+      - npm run build
+
+  example:preview:
+    desc: Preview production build of example app
+    dir: '{{.USER_WORKING_DIR}}/ui/example'
+    deps:
+      - example:build
+    cmds:
+      - npm run preview
+
+  # Combined tasks
+  test:
+    desc: Run all UI tests (lint + type-check)
+    cmds:
+      - task: lint
+      - task: type-check
+
+  all:
+    desc: Build library and example app
+    cmds:
+      - task: build
+      - task: example:build
+
+  dev:full:
+    desc: Start both component library and example app in dev mode
+    deps:
+      - build
+    cmds:
+      - task: example:dev
