@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+@theme {
+  /* Datum Brand Colors */
+  --color-canyon-clay: 0 27% 70%;        /* #C49D9D - Warm rose/clay */
+  --color-aurora-moss: 67 89% 79%;       /* #E6F59E - Light moss green */
+  --color-datum-dark: 213 59% 12%;       /* #0C1D31 - Deep blue-black */
+  --color-datum-blue: 217 91% 60%;       /* #3b82f6 - Datum blue */
+
+  /* Theme colors based on Datum brand */
+  --color-background: 0 0% 100%;
+  --color-foreground: 213 59% 12%;       /* Datum dark */
+  --color-card: 0 0% 100%;
+  --color-card-foreground: 213 59% 12%;
+  --color-popover: 0 0% 100%;
+  --color-popover-foreground: 213 59% 12%;
+  --color-primary: 0 27% 70%;            /* Canyon Clay */
+  --color-primary-foreground: 213 59% 12%;
+  --color-secondary: 67 89% 79%;         /* Aurora Moss */
+  --color-secondary-foreground: 213 59% 12%;
+  --color-muted: 0 0% 96%;
+  --color-muted-foreground: 213 20% 45%;
+  --color-accent: 67 89% 79%;            /* Aurora Moss accent */
+  --color-accent-foreground: 213 59% 12%;
+  --color-destructive: 0 84% 60%;
+  --color-destructive-foreground: 0 0% 98%;
+  --color-border: 0 0% 90%;
+  --color-input: 0 0% 90%;
+  --color-ring: 0 27% 70%;               /* Canyon Clay */
+
+  --radius-lg: 0.5rem;
+  --radius-md: calc(0.5rem - 2px);
+  --radius-sm: calc(0.5rem - 4px);
+}
+
+@layer base {
+  * {
+    border-color: hsl(var(--color-border));
+  }
+  body {
+    background-color: hsl(var(--color-background));
+    color: hsl(var(--color-foreground));
+  }
+}
