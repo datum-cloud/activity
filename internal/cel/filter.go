@@ -20,7 +20,7 @@ var tracer = otel.Tracer("activity-cel-filter")
 
 // Environment creates a CEL environment for audit event filtering.
 //
-// Available fields: auditID, verb, stage, stageTimestamp,
+// Available fields: auditID, verb, stageTimestamp,
 // objectRef.{namespace,resource,name}, user.username, responseStatus.code
 //
 // Supports standard CEL operators (==, &&, ||, in) and string methods
@@ -33,7 +33,6 @@ func Environment() (*cel.Env, error) {
 	return cel.NewEnv(
 		cel.Variable("auditID", cel.StringType),
 		cel.Variable("verb", cel.StringType),
-		cel.Variable("stage", cel.StringType),
 		cel.Variable("stageTimestamp", cel.TimestampType),
 
 		cel.Variable("objectRef", objectRefType),
@@ -321,8 +320,6 @@ func (c *sqlConverter) convertIdentExpr(ident *expr.Expr_Ident) (string, error) 
 		return "audit_id", nil
 	case "verb":
 		return "verb", nil
-	case "stage":
-		return "stage", nil
 	case "stageTimestamp":
 		return "timestamp", nil
 
@@ -379,6 +376,8 @@ func (c *sqlConverter) convertSelectExpr(sel *expr.Expr_Select) (string, error) 
 		return "resource", nil
 	case baseObject == "objectRef" && field == "name":
 		return "resource_name", nil
+	case baseObject == "objectRef" && field == "apiGroup":
+		return "api_group", nil
 
 	case baseObject == "user" && field == "username":
 		return "user", nil
@@ -388,7 +387,7 @@ func (c *sqlConverter) convertSelectExpr(sel *expr.Expr_Select) (string, error) 
 
 	default:
 		// Provide helpful suggestions for common fields that aren't filterable
-		return "", fmt.Errorf("field '%s.%s' is not available for filtering. Available fields: auditID, verb, stage, stageTimestamp, objectRef.namespace, objectRef.resource, objectRef.name, user.username, user.groups, responseStatus.code", baseObject, field)
+		return "", fmt.Errorf("field '%s.%s' is not available for filtering. Available fields: auditID, verb, stageTimestamp, objectRef.apiGroup, objectRef.namespace, objectRef.resource, objectRef.name, user.username, user.groups, responseStatus.code", baseObject, field)
 	}
 }
 
