@@ -121,16 +121,14 @@ spec:
           healthcheck:
             enabled: true
 
-          # NATS message ID for de-duplication
-          # Uses the Kubernetes auditID as the NATS message ID to enable
-          # JetStream's duplicate detection within the duplicateWindow (10m)
-          # This prevents duplicate events from webhook retries or Vector restarts
-          message_id:
-            type: vrl
-            source: |
-              # Use the Kubernetes audit ID as the NATS message ID
-              # NATS will reject duplicates within the duplicateWindow
-              to_string!(.auditID)
+          jetstream:
+            enabled: true
+            headers:
+              # NATS message ID for de-duplication
+              # Uses the Kubernetes auditID as the NATS message ID to enable
+              # JetStream's duplicate detection within the duplicateWindow (10m)
+              # This prevents duplicate events from webhook retries or Vector restarts
+              message_id: "{{ .auditID }}"
 
           # Buffer for durability
           # 10GB disk buffer to survive NATS outages
