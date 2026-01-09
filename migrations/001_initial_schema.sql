@@ -91,7 +91,8 @@ TTL timestamp + INTERVAL 90 DAY TO VOLUME 'cold'
 
 SETTINGS
     storage_policy = 'hot_cold',
-    ttl_only_drop_parts = 1;
+    ttl_only_drop_parts = 1,
+    deduplicate_merge_projection_mode = 'rebuild';
 
 -- ============================================================================
 -- Step 3: Add Platform Query Projection
