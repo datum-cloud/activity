@@ -450,6 +450,20 @@ func (s *ClickHouseStorage) QueryAuditLogs(ctx context.Context, spec v1alpha1.Au
 	}, nil
 }
 
+// hasUserFilter checks if the CEL filter contains user-based filtering
+func hasUserFilter(filter string) bool {
+	if filter == "" {
+		return false
+	}
+	// Check for common user filter patterns in CEL expressions
+	// This is a heuristic - doesn't need to be perfect, just helpful for optimization
+	return strings.Contains(filter, "user.username") ||
+		strings.Contains(filter, "user.groups") ||
+		strings.Contains(filter, "user.uid") ||
+		// Also match if someone uses the materialized column directly
+		(strings.Contains(filter, "user") && (strings.Contains(filter, "==") || strings.Contains(filter, "!=")))
+}
+
 // buildQuery constructs a ClickHouse SQL query from the query spec
 func (s *ClickHouseStorage) buildQuery(ctx context.Context, spec v1alpha1.AuditLogQuerySpec, scope ScopeContext) (string, []interface{}, error) {
 	var args []interface{}
@@ -506,6 +520,7 @@ func (s *ClickHouseStorage) buildQuery(ctx context.Context, spec v1alpha1.AuditL
 		}
 	}
 
+	// Cursor pagination - must match ORDER BY for correct results
 	if spec.Continue != "" {
 		cursorTime, cursorAuditID, err := decodeCursor(spec.Continue, spec)
 		if err != nil {
@@ -520,7 +535,28 @@ func (s *ClickHouseStorage) buildQuery(ctx context.Context, spec v1alpha1.AuditL
 		query += " WHERE " + strings.Join(conditions, " AND ")
 	}
 
-	query += " ORDER BY timestamp DESC, scope_type DESC, scope_name DESC, user DESC, audit_id DESC"
+	// Use ORDER BY that matches projection sort order to encourage ClickHouse
+	// to use the appropriate projection for better query performance
+	if scope.Type == "platform" {
+		// For platform-wide queries, choose projection based on filter content
+		if hasUserFilter(spec.Filter) {
+			// Query filters by user - use user_query_projection
+			// Sort order: (timestamp, user, api_group, resource)
+			query += " ORDER BY timestamp DESC, user DESC, api_group DESC, resource DESC"
+		} else {
+			// General platform query - use platform_query_projection
+			// Sort order: (timestamp, api_group, resource, audit_id)
+			query += " ORDER BY timestamp DESC, api_group DESC, resource DESC, audit_id DESC"
+		}
+	} else if scope.Type == "user" {
+		// User-scoped queries: ORDER BY matches user_query_projection
+		// Sort order: (timestamp, user, api_group, resource)
+		query += " ORDER BY timestamp DESC, user DESC, api_group DESC, resource DESC"
+	} else {
+		// Tenant-scoped queries (organization, project): ORDER BY matches primary key
+		// Sort order: (timestamp, scope_type, scope_name, user, audit_id, stage)
+		query += " ORDER BY timestamp DESC, scope_type DESC, scope_name DESC, user DESC, audit_id DESC"
+	}
 
 	limit := spec.Limit
 	if limit <= 0 {

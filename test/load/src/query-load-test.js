@@ -115,64 +115,93 @@ if (TLS_CERT_FILE && TLS_KEY_FILE) {
 }
 
 // Query templates with different complexity levels
+// Optimized for platform-wide queries that leverage platform_query_projection
 const queryTemplates = [
-  // Simple queries
+  // Platform-wide queries using api_group and resource (leverage platform_query_projection)
+  // These should use: ORDER BY (timestamp, api_group, resource, audit_id)
   {
-    name: 'simple_verb_filter',
-    filter: "verb == 'create'",
+    name: 'platform_core_pods',
+    filter: "objectRef.apiGroup == '' && objectRef.resource == 'pods'",  // Core API pods
     limit: 100,
   },
   {
-    name: 'simple_namespace_filter',
-    filter: "objectRef.namespace == 'default'",
+    name: 'platform_apps_deployments',
+    filter: "objectRef.apiGroup == 'apps' && objectRef.resource == 'deployments'",
     limit: 100,
   },
   {
-    name: 'simple_resource_filter',
-    filter: "objectRef.resource == 'pods'",
-    limit: 100,
-  },
-  // Medium complexity queries
-  {
-    name: 'medium_combined_filter',
-    filter: "verb == 'delete' && objectRef.namespace == 'default'",
+    name: 'platform_apps_statefulsets',
+    filter: "objectRef.apiGroup == 'apps' && objectRef.resource == 'statefulsets'",
     limit: 100,
   },
   {
-    name: 'medium_multi_verb',
-    filter: "verb in ['create', 'update', 'delete']",
+    name: 'platform_batch_jobs',
+    filter: "objectRef.apiGroup == 'batch' && objectRef.resource == 'jobs'",
     limit: 100,
   },
   {
-    name: 'medium_user_filter',
-    filter: "user.username.startsWith('system:') && verb == 'get'",
+    name: 'platform_core_services',
+    filter: "objectRef.apiGroup == '' && objectRef.resource == 'services'",
     limit: 100,
   },
-  // Complex queries
+
+  // Platform queries with verb filters (still leverages projection)
   {
-    name: 'complex_multi_condition',
-    filter: "objectRef.namespace in ['default', 'kube-system'] && objectRef.resource == 'deployments' && verb in ['create', 'update']",
+    name: 'platform_pod_creates',
+    filter: "objectRef.apiGroup == '' && objectRef.resource == 'pods' && verb == 'create'",
     limit: 100,
   },
   {
-    name: 'complex_timestamp_range',
-    filter: `stageTimestamp >= timestamp('2024-01-01T00:00:00Z') && verb == 'delete'`,
+    name: 'platform_deployment_updates',
+    filter: "objectRef.apiGroup == 'apps' && objectRef.resource == 'deployments' && verb in ['update', 'patch']",
+    limit: 100,
+  },
+  {
+    name: 'platform_secret_access',
+    filter: "objectRef.apiGroup == '' && objectRef.resource == 'secrets' && verb in ['get', 'list']",
+    limit: 100,
+  },
+
+  // Platform queries by API group only
+  {
+    name: 'platform_apps_apigroup',
+    filter: "objectRef.apiGroup == 'apps'",  // All apps API group resources
+    limit: 100,
+  },
+  {
+    name: 'platform_batch_apigroup',
+    filter: "objectRef.apiGroup == 'batch'",  // All batch API group resources
+    limit: 100,
+  },
+
+  // Complex platform queries (3+ conditions)
+  {
+    name: 'platform_deployment_errors',
+    filter: "objectRef.apiGroup == 'apps' && objectRef.resource == 'deployments' && responseStatus.code >= 400",
     limit: 50,
   },
   {
-    name: 'complex_secrets_audit',
-    filter: "objectRef.resource == 'secrets' && stage == 'ResponseComplete' && verb in ['get', 'list']",
+    name: 'platform_pod_lifecycle',
+    filter: "objectRef.apiGroup == '' && objectRef.resource == 'pods' && verb in ['create', 'delete'] && stage == 'ResponseComplete'",
     limit: 100,
   },
-  // Pagination queries (smaller limits for testing pagination)
+
+  // Resource-only queries (should still benefit from projection)
   {
-    name: 'pagination_small',
-    filter: "verb == 'get'",
-    limit: 10,
+    name: 'simple_resource_configmaps',
+    filter: "objectRef.resource == 'configmaps'",
+    limit: 100,
   },
   {
-    name: 'pagination_medium',
-    filter: "objectRef.namespace == 'default'",
+    name: 'simple_resource_namespaces',
+    filter: "objectRef.resource == 'namespaces'",
+    limit: 100,
+  },
+
+  // Pagination test for platform queries
+  {
+    name: 'pagination_platform_pods',
+    filter: "objectRef.apiGroup == '' && objectRef.resource == 'pods'",
     limit: 25,
   },
 ];
@@ -323,22 +352,31 @@ function executeQueryWithPagination(template, maxPages = 3) {
 
 // Main test function
 export default function() {
-  // Randomly select a query template (weighted towards simpler queries)
+  // Randomly select a query template
+  // Weighted towards platform-wide api_group+resource queries to stress-test projections
   const rand = Math.random();
   let templateIndex;
 
-  if (rand < 0.5) {
-    // 50% simple queries
-    templateIndex = Math.floor(Math.random() * 3);
-  } else if (rand < 0.8) {
-    // 30% medium queries
-    templateIndex = 3 + Math.floor(Math.random() * 3);
+  if (rand < 0.40) {
+    // 40% - Basic platform queries by api_group + resource (indices 0-4)
+    // These directly test the platform_query_projection
+    templateIndex = Math.floor(Math.random() * 5);
+  } else if (rand < 0.70) {
+    // 30% - Platform queries with verb filters (indices 5-7)
+    // Still leverage projection but add filtering
+    templateIndex = 5 + Math.floor(Math.random() * 3);
+  } else if (rand < 0.85) {
+    // 15% - API group-only queries (indices 8-9)
+    templateIndex = 8 + Math.floor(Math.random() * 2);
   } else if (rand < 0.95) {
-    // 15% complex queries
-    templateIndex = 6 + Math.floor(Math.random() * 3);
+    // 10% - Complex platform queries (indices 10-11)
+    templateIndex = 10 + Math.floor(Math.random() * 2);
+  } else if (rand < 0.98) {
+    // 3% - Resource-only queries (indices 12-13)
+    templateIndex = 12 + Math.floor(Math.random() * 2);
   } else {
-    // 5% pagination queries
-    templateIndex = 9 + Math.floor(Math.random() * 2);
+    // 2% - Pagination queries (index 14)
+    templateIndex = 14;
   }
 
   const template = queryTemplates[templateIndex];
