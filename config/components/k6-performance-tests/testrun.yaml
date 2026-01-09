@@ -1,0 +1,41 @@
+apiVersion: k6.io/v1alpha1
+kind: TestRun
+metadata:
+  name: activity-query-load-test
+  namespace: activity-system
+spec:
+  # Reference to the k6 test script ConfigMap
+  script:
+    configMap:
+      name: activity-k6-test-script
+      file: query-load-test.js
+
+  # Number of parallel k6 instances (pods) to run
+  parallelism: 1
+
+  # Separate k6 setup/teardown from main test execution
+  separate: false
+
+  # Resource limits for k6 test runner pods
+  runner:
+    image: grafana/k6:latest
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+
+    # Environment variables for test configuration
+    env:
+      # API server endpoint (defaults to in-cluster service)
+      - name: API_SERVER_URL
+        value: "https://activity-apiserver.activity-system.svc.cluster.local:443"
+
+      # Skip TLS verification for testing (set to 'false' in production)
+      - name: K6_INSECURE_SKIP_TLS_VERIFY
+        value: "true"
+
+  # Cleanup policy - keep the test run for debugging, delete pods after completion
+  cleanup: "post"

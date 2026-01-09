@@ -1,0 +1,24 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# Generate ConfigMap from k6 test scripts
+#
+# The ConfigMap is generated from auto-generated scripts in the generated/
+# directory. These scripts are synced from test/load/src/ via 'task
+# load:generate'. This ensures the ConfigMap stays in sync with the source
+# scripts.
+configMapGenerator:
+  - name: activity-k6-test-script
+    files:
+      - generated/query-load-test.js
+    options:
+      disableNameSuffixHash: true
+
+resources:
+  - testrun.yaml
+
+labels:
+  - pairs:
+      app.kubernetes.io/name: activity-k6-tests
+      app.kubernetes.io/component: performance-testing
+      app.kubernetes.io/part-of: activity.miloapis.com
