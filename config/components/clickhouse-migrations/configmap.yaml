@@ -398,9 +398,11 @@ data:
     )
     ENGINE = ReplacingMergeTree
     PARTITION BY toYYYYMMDD(timestamp)
-    -- Primary key optimized for tenant-scoped queries
+    -- Primary key optimized for tenant-scoped queries with hour bucketing
+    -- Hour bucketing improves compression, data locality, and deduplication efficiency
     -- Deduplication occurs on the full ORDER BY key during merges
-    ORDER BY (timestamp, scope_type, scope_name, user, audit_id)
+    ORDER BY (toStartOfHour(timestamp), scope_type, scope_name, user, audit_id, timestamp)
+    PRIMARY KEY (toStartOfHour(timestamp), scope_type, scope_name, user, audit_id)
 
     -- Move parts to cold S3-backed volume after 90 days
     TTL timestamp + INTERVAL 90 DAY TO VOLUME 'cold'

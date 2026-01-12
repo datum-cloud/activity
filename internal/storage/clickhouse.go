@@ -520,42 +520,39 @@ func (s *ClickHouseStorage) buildQuery(ctx context.Context, spec v1alpha1.AuditL
 		}
 	}
 
-	// Cursor pagination - must match ORDER BY for correct results
+	// Cursor pagination must handle hour-bucketed primary key correctly.
+	// Use timestamp comparison to avoid hour boundary edge cases where events
+	// in the same hour bucket but with different timestamps would be skipped.
 	if spec.Continue != "" {
 		cursorTime, cursorAuditID, err := decodeCursor(spec.Continue, spec)
 		if err != nil {
 			return "", nil, err
 		}
 
-		conditions = append(conditions, "(timestamp < ? OR (timestamp = ? AND audit_id < ?))")
-		args = append(args, cursorTime, cursorTime, cursorAuditID)
+		conditions = append(conditions, "(toStartOfHour(timestamp) < toStartOfHour(?) OR (toStartOfHour(timestamp) = toStartOfHour(?) AND timestamp < ?) OR (timestamp = ? AND audit_id < ?))")
+		args = append(args, cursorTime, cursorTime, cursorTime, cursorTime, cursorAuditID)
 	}
 
 	if len(conditions) > 0 {
 		query += " WHERE " + strings.Join(conditions, " AND ")
 	}
 
-	// Use ORDER BY that matches projection sort order to encourage ClickHouse
-	// to use the appropriate projection for better query performance
+	// ORDER BY must match projection/primary key sort order for ClickHouse
+	// to efficiently use indexes and projections.
 	if scope.Type == "platform" {
-		// For platform-wide queries, choose projection based on filter content
 		if hasUserFilter(spec.Filter) {
-			// Query filters by user - use user_query_projection
-			// Sort order: (timestamp, user, api_group, resource)
+			// User filter present: use user_query_projection
 			query += " ORDER BY timestamp DESC, user DESC, api_group DESC, resource DESC"
 		} else {
-			// General platform query - use platform_query_projection
-			// Sort order: (timestamp, api_group, resource, audit_id)
+			// No user filter: use platform_query_projection
 			query += " ORDER BY timestamp DESC, api_group DESC, resource DESC, audit_id DESC"
 		}
 	} else if scope.Type == "user" {
-		// User-scoped queries: ORDER BY matches user_query_projection
-		// Sort order: (timestamp, user, api_group, resource)
+		// User-scoped: use user_query_projection
 		query += " ORDER BY timestamp DESC, user DESC, api_group DESC, resource DESC"
 	} else {
-		// Tenant-scoped queries (organization, project): ORDER BY matches primary key
-		// Sort order: (timestamp, scope_type, scope_name, user, audit_id, stage)
-		query += " ORDER BY timestamp DESC, scope_type DESC, scope_name DESC, user DESC, audit_id DESC"
+		// Tenant-scoped: match hour-bucketed primary key for efficient index use
+		query += " ORDER BY toStartOfHour(timestamp) DESC, scope_type DESC, scope_name DESC, user DESC, audit_id DESC, timestamp DESC"
 	}
 
 	limit := spec.Limit
