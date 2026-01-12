@@ -97,7 +97,7 @@ Manages all ClickHouse interactions:
 Translates CEL expressions to ClickHouse SQL.
 
 **Supported fields:**
-- `auditID`, `verb`, `stage`, `stageTimestamp`
+- `auditID`, `verb`, `stageTimestamp`
 - `objectRef.{namespace,resource,name}`
 - `user.username`
 - `responseStatus.code`

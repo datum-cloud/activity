@@ -80,7 +80,6 @@ type AuditLogQuerySpec struct {
 	// Available Fields:
 	//   verb               - API action: get, list, create, update, patch, delete, watch
 	//   auditID            - unique event identifier
-	//   stage              - request phase: RequestReceived, ResponseStarted, ResponseComplete, Panic
 	//   stageTimestamp     - when this stage occurred (RFC3339 timestamp)
 	//   user.username      - who made the request (user or service account)
 	//   responseStatus.code - HTTP response code (200, 201, 404, 500, etc.)
