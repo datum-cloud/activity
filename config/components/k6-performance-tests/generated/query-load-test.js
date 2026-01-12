@@ -185,7 +185,7 @@ const queryTemplates = [
   },
   {
     name: 'platform_pod_lifecycle',
-    filter: "objectRef.apiGroup == '' && objectRef.resource == 'pods' && verb in ['create', 'delete'] && stage == 'ResponseComplete'",
+    filter: "objectRef.apiGroup == '' && objectRef.resource == 'pods' && verb in ['create', 'delete']",
     limit: 100,
   },
 
