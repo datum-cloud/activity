@@ -34,7 +34,11 @@ spec:
   allowDirect: true
 
   # Deduplication window - prevents duplicate messages
-  duplicateWindow: 2m
+  # Extended to 10 minutes to handle webhook retries with exponential backoff
+  # and Vector restarts. NATS uses message IDs (set to Kubernetes auditID) to
+  # detect duplicates within this window, providing pipeline-level de-duplication
+  # before events reach ClickHouse.
+  duplicateWindow: 10m
 
   # Maximum number of consumers
   maxConsumers: 10
