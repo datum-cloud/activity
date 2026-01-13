@@ -450,6 +450,20 @@ func (s *ClickHouseStorage) QueryAuditLogs(ctx context.Context, spec v1alpha1.Au
 	}, nil
 }
 
+// hasUserFilter checks if the CEL filter contains user-based filtering
+func hasUserFilter(filter string) bool {
+	if filter == "" {
+		return false
+	}
+	// Check for common user filter patterns in CEL expressions
+	// This is a heuristic - doesn't need to be perfect, just helpful for optimization
+	return strings.Contains(filter, "user.username") ||
+		strings.Contains(filter, "user.groups") ||
+		strings.Contains(filter, "user.uid") ||
+		// Also match if someone uses the materialized column directly
+		(strings.Contains(filter, "user") && (strings.Contains(filter, "==") || strings.Contains(filter, "!=")))
+}
+
 // buildQuery constructs a ClickHouse SQL query from the query spec
 func (s *ClickHouseStorage) buildQuery(ctx context.Context, spec v1alpha1.AuditLogQuerySpec, scope ScopeContext) (string, []interface{}, error) {
 	var args []interface{}
@@ -506,21 +520,40 @@ func (s *ClickHouseStorage) buildQuery(ctx context.Context, spec v1alpha1.AuditL
 		}
 	}
 
+	// Cursor pagination must handle hour-bucketed primary key correctly.
+	// Use timestamp comparison to avoid hour boundary edge cases where events
+	// in the same hour bucket but with different timestamps would be skipped.
 	if spec.Continue != "" {
 		cursorTime, cursorAuditID, err := decodeCursor(spec.Continue, spec)
 		if err != nil {
 			return "", nil, err
 		}
 
-		conditions = append(conditions, "(timestamp < ? OR (timestamp = ? AND audit_id < ?))")
-		args = append(args, cursorTime, cursorTime, cursorAuditID)
+		conditions = append(conditions, "(toStartOfHour(timestamp) < toStartOfHour(?) OR (toStartOfHour(timestamp) = toStartOfHour(?) AND timestamp < ?) OR (timestamp = ? AND audit_id < ?))")
+		args = append(args, cursorTime, cursorTime, cursorTime, cursorTime, cursorAuditID)
 	}
 
 	if len(conditions) > 0 {
 		query += " WHERE " + strings.Join(conditions, " AND ")
 	}
 
-	query += " ORDER BY timestamp DESC, scope_type DESC, scope_name DESC, user DESC, audit_id DESC"
+	// ORDER BY must match projection/primary key sort order for ClickHouse
+	// to efficiently use indexes and projections.
+	if scope.Type == "platform" {
+		if hasUserFilter(spec.Filter) {
+			// User filter present: use user_query_projection
+			query += " ORDER BY timestamp DESC, user DESC, api_group DESC, resource DESC"
+		} else {
+			// No user filter: use platform_query_projection
+			query += " ORDER BY timestamp DESC, api_group DESC, resource DESC, audit_id DESC"
+		}
+	} else if scope.Type == "user" {
+		// User-scoped: use user_query_projection
+		query += " ORDER BY timestamp DESC, user DESC, api_group DESC, resource DESC"
+	} else {
+		// Tenant-scoped: match hour-bucketed primary key for efficient index use
+		query += " ORDER BY toStartOfHour(timestamp) DESC, scope_type DESC, scope_name DESC, user DESC, audit_id DESC, timestamp DESC"
+	}
 
 	limit := spec.Limit
 	if limit <= 0 {

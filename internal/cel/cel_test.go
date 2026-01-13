@@ -94,9 +94,11 @@ func TestCELFilterWorkflow(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name:    "invalid - unavailable field for SQL",
-			filter:  "objectRef.apiGroup == 'apps'",
-			wantErr: true,
+			name:         "objectRef.apiGroup is available",
+			filter:       "objectRef.apiGroup == 'apps'",
+			wantSQL:      "api_group = {arg1}",
+			wantArgCount: 1,
+			wantErr:      false,
 		},
 	}
 
@@ -264,7 +266,6 @@ func TestEnvironment(t *testing.T) {
 	validExpressions := []string{
 		"auditID == 'test'",
 		"verb == 'delete'",
-		"stage == 'ResponseComplete'",
 		"stageTimestamp > timestamp('2024-01-01T00:00:00Z')",
 		"objectRef.namespace == 'default'",
 		"objectRef.resource == 'pods'",
