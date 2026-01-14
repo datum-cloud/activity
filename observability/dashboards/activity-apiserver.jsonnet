@@ -334,6 +334,7 @@ dashboard.new('Activity API Server - Overview')
 + dashboard.time.withFrom('now-24h')
 + dashboard.withRefresh(refresh)
 + dashboard.withEditable(true)
++ dashboard.graphTooltip.withSharedCrosshair()
 + dashboard.withVariables([
   g.dashboard.variable.datasource.new('datasource', 'prometheus')
   + g.dashboard.variable.datasource.generalOptions.withLabel('Prometheus Datasource')

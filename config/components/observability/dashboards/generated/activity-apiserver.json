@@ -1,6 +1,7 @@
 {
    "description": "High-level overview of Activity API Server health, performance, and usage patterns",
    "editable": true,
+   "graphTooltip": 1,
    "panels": [
       {
          "datasource": {

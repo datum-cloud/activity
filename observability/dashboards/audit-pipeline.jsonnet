@@ -643,6 +643,7 @@ dashboard.new('Audit Log Pipeline')
 + dashboard.withTimezone(config.dashboards.timezone)
 + dashboard.withRefresh(refresh)
 + dashboard.withEditable(true)
++ dashboard.graphTooltip.withSharedCrosshair()
 + dashboard.withVariables([
   g.dashboard.variable.datasource.new('datasource', config.dashboards.datasource.type)
   + g.dashboard.variable.datasource.generalOptions.withLabel('Prometheus Datasource')
