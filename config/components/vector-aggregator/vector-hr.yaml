@@ -127,12 +127,40 @@ spec:
                 stage: nats_to_aggregator
                 component_id: nats_consumer
 
+        # Removes internal cluster IP ranges (RFC 1918 private addresses)
+        #
+        # IPv4: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 127.0.0.0/8
+        # IPv6: ::1 (loopback), fc00::/7 (ULA), fe80::/10 (link-local)
+        filter_private_ips:
+          type: remap
+          inputs:
+            - calculate_end_to_end_latency
+          source: |
+            # Filter internal cluster IPs from sourceIPs array
+            if exists(.sourceIPs) && is_array(.sourceIPs) {
+              filtered_source_ips = []
+              for_each(array!(.sourceIPs)) -> |_ip_index, source_ip| {
+                ip_str = string!(source_ip)
+
+                if !match(ip_str, r'^10\.') &&
+                   !match(ip_str, r'^172\.(1[6-9]|2[0-9]|3[0-1])\.') &&
+                   !match(ip_str, r'^192\.168\.') &&
+                   !match(ip_str, r'^127\.') &&
+                   !match(ip_str, r'^::1$') &&
+                   !match(ip_str, r'^fc[0-9a-f][0-9a-f]:') &&
+                   !match(ip_str, r'^fe80:') {
+                  filtered_source_ips = push(filtered_source_ips, source_ip)
+                }
+              }
+              .sourceIPs = filtered_source_ips
+            }
+
         # Filter to ResponseComplete stage only (recommended strategy for 75% data reduction)
         # This reduces storage and query costs while keeping all necessary audit information
         filter_response_complete:
           type: filter
           inputs:
-            - calculate_end_to_end_latency
+            - filter_private_ips
           condition:
             type: vrl
             source: |
