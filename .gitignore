@@ -54,7 +54,8 @@ clickhouse-data/
 # Dashboard build outputs
 dashboards/vendor/
 dashboards/jsonnetfile.lock.json
-config/components/observability/dashboards/generated/
+observability/vendor/
+observability/jsonnetfile.lock.json
 
 # Directory used for the test-infra repo to manage the test-infra environment.
 .test-infra

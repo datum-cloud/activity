@@ -1,0 +1,111 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: activity-alerts
+  namespace: activity-system
+  labels:
+    prometheus: activity
+    app.kubernetes.io/part-of: activity
+    monitoring: "true"
+spec:
+  groups:
+    # =========================================================================
+    # Key SLI Alerts - User-Facing Service Quality
+    # =========================================================================
+    - name: activity-sli
+      interval: 30s
+      rules:
+        # Service Availability SLI
+        - alert: ActivityAPIServerDown
+          expr: up{job="activity-apiserver"} == 0
+          for: 5m
+          labels:
+            severity: critical
+            component: activity-apiserver
+            sli: availability
+          annotations:
+            summary: "Activity is unavailable"
+            description: "Activity has been down for more than 5 minutes. Users cannot query audit logs."
+            impact: "Complete service outage - no audit log queries possible"
+
+        # Request Success Rate SLI (Error Budget)
+        - alert: ActivityHighErrorRate
+          expr: |
+            sum(rate(apiserver_request_total{job="activity-apiserver",code=~"5.."}[5m]))
+            /
+            sum(rate(apiserver_request_total{job="activity-apiserver"}[5m]))
+            > 0.01
+          for: 10m
+          labels:
+            severity: warning
+            component: activity-apiserver
+            sli: success_rate
+          annotations:
+            summary: "High error rate in Activity"
+            description: "{{ $value | humanizePercentage }} of requests are failing (target: <1%)"
+            impact: "Users experiencing failed audit log queries"
+
+        # Query Latency SLI - Most Critical for User Experience
+        - alert: ActivityQueryLatencyHigh
+          expr: |
+            histogram_quantile(0.99,
+              sum(rate(activity_clickhouse_query_duration_seconds_bucket{operation="total"}[5m]))
+              by (le)
+            ) > 10
+          for: 10m
+          labels:
+            severity: warning
+            component: activity-apiserver
+            sli: latency
+          annotations:
+            summary: "Audit log queries are slow"
+            description: "p99 query latency is {{ $value }}s (target: <10s). Users experiencing slow responses."
+            impact: "Degraded user experience - queries taking too long"
+
+        # Data Availability SLI - Backend Health
+        - alert: ActivityClickHouseUnavailable
+          expr: |
+            rate(activity_clickhouse_query_errors_total{error_type="connection"}[5m]) > 0.1
+          for: 5m
+          labels:
+            severity: critical
+            component: clickhouse
+            sli: availability
+          annotations:
+            summary: "ClickHouse database is unavailable"
+            description: "Cannot connect to ClickHouse ({{ $value }} errors/sec). Audit log data is inaccessible."
+            impact: "Complete service degradation - no data can be retrieved"
+
+    # =========================================================================
+    # Data Pipeline Health - Ensures Fresh Data
+    # =========================================================================
+    - name: activity-pipeline
+      interval: 30s
+      rules:
+        # Data Freshness SLI - Critical for audit compliance
+        - alert: ActivityDataPipelineStalled
+          expr: |
+            rate(vector_events_out_total{component_id="clickhouse"}[5m]) == 0
+          for: 15m
+          labels:
+            severity: critical
+            component: vector-aggregator
+            sli: data_freshness
+          annotations:
+            summary: "Audit event pipeline has stalled"
+            description: "No new audit events are being stored in ClickHouse. Data is becoming stale."
+            impact: "Users querying outdated audit data - compliance risk"
+
+        # NATS Consumer Lag - Leading indicator of pipeline issues
+        - alert: ActivityPipelineBacklogCritical
+          expr: |
+            nats_jetstream_consumer_num_pending{stream="AUDIT_EVENTS"} > 500000
+          for: 10m
+          labels:
+            severity: critical
+            component: nats
+            sli: data_freshness
+          annotations:
+            summary: "Audit event backlog is critical"
+            description: "{{ $value }} audit events pending. Risk of data loss if retention exceeded."
+            impact: "Large delay in audit event availability - potential data loss"
