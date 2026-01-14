@@ -1,6 +1,7 @@
 {
    "description": "Concise, single-screen overview for rapid issue identification. End-to-end monitoring: K8s API → Vector → NATS → ClickHouse → Activity API",
    "editable": true,
+   "graphTooltip": 1,
    "panels": [
       {
          "collapsed": false,
