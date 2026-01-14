@@ -1,0 +1,94 @@
+"apiVersion": "monitoring.coreos.com/v1"
+"kind": "PrometheusRule"
+"metadata":
+  "labels":
+    "app.kubernetes.io/part-of": "activity"
+    "monitoring": "true"
+    "prometheus": "activity"
+  "name": "activity-alerts"
+  "namespace": "activity-system"
+"spec":
+  "groups":
+  - "interval": "30s"
+    "name": "activity-sli"
+    "rules":
+    - "alert": "Activity API ServerDown"
+      "annotations":
+        "description": "Activity has been down for more than 5 minutes. Users cannot query audit logs."
+        "impact": "Complete service outage - no audit log queries possible"
+        "summary": "Activity is unavailable"
+      "expr": "up{job=\"activity-apiserver\"} == 0"
+      "for": "5m"
+      "labels":
+        "component": "activity-apiserver"
+        "severity": "critical"
+        "sli": "availability"
+    - "alert": "ActivityHighErrorRate"
+      "annotations":
+        "description": "{{ $value | humanizePercentage }} of requests are failing (target: <1%)"
+        "impact": "Users experiencing failed requests"
+        "summary": "High error rate in Activity"
+      "expr": |
+        sum(rate(apiserver_request_total{job="activity-apiserver",code=~"5.."}[5m]))
+        /
+        sum(rate(apiserver_request_total{job="activity-apiserver"}[5m]))
+        > 0.01
+      "for": "10m"
+      "labels":
+        "component": "activity-apiserver"
+        "severity": "warning"
+        "sli": "success_rate"
+    - "alert": "ActivityQueryLatencyHigh"
+      "annotations":
+        "description": "p99 query latency is {{ $value }}s (target: <10s). Users experiencing slow responses."
+        "impact": "Degraded user experience - queries taking too long"
+        "summary": "Audit log queries are slow"
+      "expr": |
+        histogram_quantile(0.99,
+          sum(rate(activity_clickhouse_query_duration_seconds_bucket{operation="total"}[5m]))
+          by (le)
+        ) > 10
+      "for": "10m"
+      "labels":
+        "component": "ActivityQuery"
+        "severity": "warning"
+        "sli": "latency"
+    - "alert": "ActivityClickHouseUnavailable"
+      "annotations":
+        "description": "Cannot connect to ClickHouse ({{ $value }} errors/sec). Data is inaccessible."
+        "impact": "Complete service degradation - no data can be retrieved"
+        "summary": "ClickHouse database is unavailable"
+      "expr": |
+        rate(activity_clickhouse_query_errors_total{error_type="connection"}[5m]) > 0.10000000000000001
+      "for": "5m"
+      "labels":
+        "component": "clickhouse"
+        "severity": "critical"
+        "sli": "availability"
+  - "interval": "30s"
+    "name": "activity-pipeline"
+    "rules":
+    - "alert": "ActivityDataPipelinePipelineStalled"
+      "annotations":
+        "description": "No new audit events are being stored in ClickHouse. Data is becoming stale."
+        "impact": "Users querying outdated audit data - compliance risk"
+        "summary": "Audit event pipeline has stalled"
+      "expr": |
+        rate(vector_events_out_total{component_id="clickhouse"}[5m]) == 0
+      "for": "15m"
+      "labels":
+        "component": "vector-aggregator"
+        "severity": "critical"
+        "sli": "data_freshness"
+    - "alert": "ActivityPipelineBacklogCritical"
+      "annotations":
+        "description": "{{ $value }} audit events pending. Risk of data loss if retention exceeded."
+        "impact": "Large delay in audit event availability - potential data loss"
+        "summary": "Audit event backlog is critical"
+      "expr": |
+        nats_jetstream_consumer_num_pending{stream="AUDIT_EVENTS"} > 500000
+      "for": "10m"
+      "labels":
+        "component": "nats"
+        "severity": "critical"
+        "sli": "data_freshness"

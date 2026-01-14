@@ -33,6 +33,11 @@ includes:
       CLICKHOUSE_USERNAME: "{{.CLICKHOUSE_USERNAME}}"
       CLICKHOUSE_PASSWORD: "{{.CLICKHOUSE_PASSWORD}}"
       ROOT_DIR: "{{.USER_WORKING_DIR}}"
+  observability:
+    taskfile: ./observability/Taskfile.yaml
+    dir: ./observability
+    vars:
+      ROOT_DIR: "{{.USER_WORKING_DIR}}"
 
   # Performance testing with k6
   load:
@@ -351,6 +356,7 @@ tasks:
       - generate:openapi
       - migrations:generate
       - load:generate
+      - observability:build-mixin
       - generate:docs
     cmds:
       - |

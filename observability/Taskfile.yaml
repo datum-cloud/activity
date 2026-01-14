@@ -1,0 +1,219 @@
+version: '3'
+
+vars:
+  ROOT_DIR: "{{.USER_WORKING_DIR}}"
+
+tasks:
+  install-jsonnet:
+    desc: Install Jsonnet tooling for dashboard generation
+    cmds:
+      - |
+        set -e
+        echo "📦 Installing Jsonnet tooling..."
+
+        # Check if go-jsonnet is installed
+        if ! command -v jsonnet &> /dev/null; then
+          echo "Installing go-jsonnet..."
+          go install github.com/google/go-jsonnet/cmd/jsonnet@latest
+        else
+          echo "✓ jsonnet already installed"
+        fi
+
+        # Check if jsonnet-bundler is installed
+        if ! command -v jb &> /dev/null; then
+          echo "Installing jsonnet-bundler..."
+          go install github.com/jsonnet-bundler/jsonnet-bundler/cmd/jb@latest
+        else
+          echo "✓ jb already installed"
+        fi
+
+        echo "✅ Jsonnet tooling installed"
+    silent: true
+
+  init:
+    desc: Initialize Grafonnet library for dashboard generation
+    cmds:
+      - |
+        set -e
+        echo "🔧 Initializing Grafonnet library..."
+
+        # Initialize jsonnet-bundler if not already done
+        if [ ! -f jsonnetfile.json ]; then
+          jb init
+        fi
+
+        # Install Grafonnet library
+        jb install github.com/grafana/grafonnet-lib/grafonnet
+
+        echo "✅ Grafonnet library installed"
+    deps: [install-jsonnet]
+    silent: true
+
+  build-dashboards-no-init:
+    internal: true
+    cmds:
+      - |
+        set -e
+        echo "🏗️  Building Grafana dashboards from Jsonnet..."
+
+        # Create output directory
+        mkdir -p {{.ROOT_DIR}}/config/components/observability/dashboards/generated
+
+        # Build each dashboard
+        for file in dashboards/*.jsonnet; do
+          if [ -f "$file" ]; then
+            output=$(basename "$file" .jsonnet).json
+            echo "  Building $file → $output"
+            jsonnet -J vendor "$file" > "{{.ROOT_DIR}}/config/components/observability/dashboards/generated/$output"
+          fi
+        done
+
+        echo "✅ Dashboards built in config/components/observability/dashboards/generated/"
+    silent: true
+
+  build-dashboards:
+    desc: Build Grafana dashboards from Jsonnet source
+    deps: [init]
+    cmds:
+      - task: build-dashboards-no-init
+    silent: true
+
+  validate-dashboards:
+    desc: Validate generated dashboard JSON
+    dir: "{{.ROOT_DIR}}/config/components/observability/dashboards/generated"
+    cmds:
+      - |
+        set -e
+        echo "🔍 Validating dashboard JSON..."
+
+        if [ ! -d "{{.ROOT_DIR}}/config/components/observability/dashboards/generated" ] || [ -z "$(ls -A {{.ROOT_DIR}}/config/components/observability/dashboards/generated 2>/dev/null)" ]; then
+          echo "⚠️  No dashboards found. Run 'task observability:build-dashboards' first."
+          exit 1
+        fi
+
+        for file in {{.ROOT_DIR}}/config/components/observability/dashboards/generated/*.json; do
+          if [ -f "$file" ]; then
+            echo "  Validating $file..."
+            jq . "$file" > /dev/null || {
+              echo "❌ Invalid JSON in $file"
+              exit 1
+            }
+          fi
+        done
+
+        echo "✅ All dashboards are valid JSON"
+    silent: true
+
+  build-alerts-no-init:
+    internal: true
+    cmds:
+      - |
+        set -e
+        echo "🏗️  Building Prometheus alert rules from mixin..."
+
+        # Create output directory
+        mkdir -p {{.ROOT_DIR}}/config/components/observability/alerts/generated
+
+        # Generate alerts
+        echo "  Building alerts → activity-alerts.yaml"
+        jsonnet -J vendor \
+          -e 'std.manifestYamlDoc((import "mixin.libsonnet").prometheusAlerts)' \
+          | jq -r . > "{{.ROOT_DIR}}/config/components/observability/alerts/generated/activity-alerts.yaml"
+
+        echo "✅ Alerts built in config/components/observability/alerts/generated/"
+    silent: true
+
+  build-alerts:
+    desc: Build Prometheus alert rules from Jsonnet mixin
+    deps: [init]
+    cmds:
+      - task: build-alerts-no-init
+    silent: true
+
+  build-rules-no-init:
+    internal: true
+    cmds:
+      - |
+        set -e
+        echo "🏗️  Building Prometheus recording rules from mixin..."
+
+        # Create output directory
+        mkdir -p {{.ROOT_DIR}}/config/components/observability/alerts/generated
+
+        # Generate recording rules
+        echo "  Building recording rules → activity-recordings.yaml"
+        jsonnet -J vendor \
+          -e 'std.manifestYamlDoc((import "mixin.libsonnet").prometheusRules)' \
+          | jq -r . > "{{.ROOT_DIR}}/config/components/observability/alerts/generated/activity-recordings.yaml"
+
+        echo "✅ Recording rules built in config/components/observability/alerts/generated/"
+    silent: true
+
+  build-rules:
+    desc: Build Prometheus recording rules from Jsonnet mixin
+    deps: [init]
+    cmds:
+      - task: build-rules-no-init
+    silent: true
+
+  build-mixin:
+    desc: Build all mixin components (alerts, recording rules, dashboards)
+    deps:
+      - init
+    cmds:
+      - task: build-alerts-no-init
+      - task: build-rules-no-init
+      - task: build-dashboards-no-init
+      - |
+        echo ""
+        echo "🎉 All observability components built successfully!"
+        echo ""
+        echo "Generated files:"
+        echo "  - config/components/observability/alerts/generated/activity-alerts.yaml"
+        echo "  - config/components/observability/alerts/generated/activity-recordings.yaml"
+        echo "  - config/components/observability/dashboards/generated/*.json"
+        echo ""
+    silent: true
+
+  validate-mixin:
+    desc: Validate all generated mixin outputs
+    deps:
+      - validate-dashboards
+    cmds:
+      - |
+        set -e
+        echo "🔍 Validating alert and recording rule YAML..."
+
+        # Validate alerts
+        if [ -f "{{.ROOT_DIR}}/config/components/observability/alerts/generated/activity-alerts.yaml" ]; then
+          echo "  Validating activity-alerts.yaml..."
+          yq eval . "{{.ROOT_DIR}}/config/components/observability/alerts/generated/activity-alerts.yaml" > /dev/null || {
+            echo "❌ Invalid YAML in activity-alerts.yaml"
+            exit 1
+          }
+        fi
+
+        # Validate recording rules
+        if [ -f "{{.ROOT_DIR}}/config/components/observability/alerts/generated/activity-recordings.yaml" ]; then
+          echo "  Validating activity-recordings.yaml..."
+          yq eval . "{{.ROOT_DIR}}/config/components/observability/alerts/generated/activity-recordings.yaml" > /dev/null || {
+            echo "❌ Invalid YAML in activity-recordings.yaml"
+            exit 1
+          }
+        fi
+
+        echo "✅ All mixin outputs are valid"
+    silent: true
+
+  deploy:
+    desc: Deploy observability components (ServiceMonitors, Alerts, Dashboards)
+    cmds:
+      - |
+        set -e
+        echo "🚀 Deploying observability components..."
+
+        echo "Deploying ServiceMonitors and Alerts..."
+        task -d {{.ROOT_DIR}} test-infra:kubectl -- apply -k config/components/observability
+
+        echo "✅ Observability components deployed"
+    silent: true
