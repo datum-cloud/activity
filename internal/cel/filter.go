@@ -21,7 +21,7 @@ var tracer = otel.Tracer("activity-cel-filter")
 // Environment creates a CEL environment for audit event filtering.
 //
 // Available fields: auditID, verb, stageTimestamp,
-// objectRef.{namespace,resource,name}, user.username, responseStatus.code
+// objectRef.{namespace,resource,name}, user.username, user.uid, responseStatus.code
 //
 // Supports standard CEL operators (==, &&, ||, in) and string methods
 // (startsWith, endsWith, contains).
@@ -381,13 +381,15 @@ func (c *sqlConverter) convertSelectExpr(sel *expr.Expr_Select) (string, error) 
 
 	case baseObject == "user" && field == "username":
 		return "user", nil
+	case baseObject == "user" && field == "uid":
+		return "user_uid", nil
 
 	case baseObject == "responseStatus" && field == "code":
 		return "status_code", nil
 
 	default:
 		// Provide helpful suggestions for common fields that aren't filterable
-		return "", fmt.Errorf("field '%s.%s' is not available for filtering. Available fields: auditID, verb, stageTimestamp, objectRef.apiGroup, objectRef.namespace, objectRef.resource, objectRef.name, user.username, user.groups, responseStatus.code", baseObject, field)
+		return "", fmt.Errorf("field '%s.%s' is not available for filtering. Available fields: auditID, verb, stageTimestamp, objectRef.apiGroup, objectRef.namespace, objectRef.resource, objectRef.name, user.username, user.uid, user.groups, responseStatus.code", baseObject, field)
 	}
 }
 

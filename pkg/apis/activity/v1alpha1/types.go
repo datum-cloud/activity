@@ -82,6 +82,7 @@ type AuditLogQuerySpec struct {
 	//   auditID            - unique event identifier
 	//   stageTimestamp     - when this stage occurred (RFC3339 timestamp)
 	//   user.username      - who made the request (user or service account)
+	//   user.uid           - unique user identifier (stable across username changes)
 	//   responseStatus.code - HTTP response code (200, 201, 404, 500, etc.)
 	//   objectRef.namespace - target resource namespace
 	//   objectRef.resource  - resource type (pods, deployments, secrets, configmaps, etc.)
@@ -96,6 +97,7 @@ type AuditLogQuerySpec struct {
 	//   "verb in ['create', 'update', 'delete', 'patch']"     - All write operations
 	//   "responseStatus.code >= 400"                          - Failed requests
 	//   "user.username.startsWith('system:serviceaccount:')"  - Service account activity
+	//   "user.uid == '550e8400-e29b-41d4-a716-446655440000'"  - Specific user by UID
 	//   "objectRef.resource == 'secrets'"                     - Secret access
 	//   "verb == 'delete' && objectRef.namespace == 'production'" - Production deletions
 	//
