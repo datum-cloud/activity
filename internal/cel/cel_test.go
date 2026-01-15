@@ -100,6 +100,20 @@ func TestCELFilterWorkflow(t *testing.T) {
 			wantArgCount: 1,
 			wantErr:      false,
 		},
+		{
+			name:         "user.uid filter",
+			filter:       "user.uid == '550e8400-e29b-41d4-a716-446655440000'",
+			wantSQL:      "user_uid = {arg1}",
+			wantArgCount: 1,
+			wantErr:      false,
+		},
+		{
+			name:         "combined user.username and user.uid",
+			filter:       "user.username == 'alice@example.com' || user.uid == '550e8400-e29b-41d4-a716-446655440000'",
+			wantSQL:      "(user = {arg1} OR user_uid = {arg2})",
+			wantArgCount: 2,
+			wantErr:      false,
+		},
 	}
 
 	for _, tt := range tests {
