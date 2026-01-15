@@ -218,6 +218,18 @@ func TestQueryStorage_Create_ScopeExtraction(t *testing.T) {
 			wantName: "backend-api",
 		},
 		{
+			name: "user scope",
+			user: &user.DefaultInfo{
+				Name: "user-scoped",
+				Extra: map[string][]string{
+					ParentKindExtraKey: {"User"},
+					ParentNameExtraKey: {"550e8400-e29b-41d4-a716-446655440000"},
+				},
+			},
+			wantType: "user",
+			wantName: "550e8400-e29b-41d4-a716-446655440000",
+		},
+		{
 			name: "platform scope (no extra)",
 			user: &user.DefaultInfo{
 				Name: "admin-user",

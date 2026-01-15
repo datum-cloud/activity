@@ -20,8 +20,11 @@ var tracer = otel.Tracer("activity-cel-filter")
 
 // Environment creates a CEL environment for audit event filtering.
 //
-// Available fields: auditID, verb, stageTimestamp,
-// objectRef.{namespace,resource,name}, user.username, responseStatus.code
+// Available fields: auditID, verb, requestReceivedTimestamp,
+// objectRef.{namespace,resource,name}, user.username, user.uid, responseStatus.code
+//
+// Note: stageTimestamp is intentionally NOT available for filtering as it should
+// only be used for internal pipeline delay calculations, not for querying events.
 //
 // Supports standard CEL operators (==, &&, ||, in) and string methods
 // (startsWith, endsWith, contains).
@@ -33,7 +36,7 @@ func Environment() (*cel.Env, error) {
 	return cel.NewEnv(
 		cel.Variable("auditID", cel.StringType),
 		cel.Variable("verb", cel.StringType),
-		cel.Variable("stageTimestamp", cel.TimestampType),
+		cel.Variable("requestReceivedTimestamp", cel.TimestampType),
 
 		cel.Variable("objectRef", objectRefType),
 		cel.Variable("user", userType),
@@ -320,7 +323,7 @@ func (c *sqlConverter) convertIdentExpr(ident *expr.Expr_Ident) (string, error) 
 		return "audit_id", nil
 	case "verb":
 		return "verb", nil
-	case "stageTimestamp":
+	case "requestReceivedTimestamp":
 		return "timestamp", nil
 
 	case "objectRef", "user", "responseStatus":
@@ -381,13 +384,15 @@ func (c *sqlConverter) convertSelectExpr(sel *expr.Expr_Select) (string, error) 
 
 	case baseObject == "user" && field == "username":
 		return "user", nil
+	case baseObject == "user" && field == "uid":
+		return "user_uid", nil
 
 	case baseObject == "responseStatus" && field == "code":
 		return "status_code", nil
 
 	default:
 		// Provide helpful suggestions for common fields that aren't filterable
-		return "", fmt.Errorf("field '%s.%s' is not available for filtering. Available fields: auditID, verb, stageTimestamp, objectRef.apiGroup, objectRef.namespace, objectRef.resource, objectRef.name, user.username, user.groups, responseStatus.code", baseObject, field)
+		return "", fmt.Errorf("field '%s.%s' is not available for filtering. Available fields: auditID, verb, requestReceivedTimestamp, objectRef.apiGroup, objectRef.namespace, objectRef.resource, objectRef.name, user.username, user.uid, user.groups, responseStatus.code", baseObject, field)
 	}
 }
 
