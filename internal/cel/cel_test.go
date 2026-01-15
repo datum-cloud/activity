@@ -160,7 +160,7 @@ func TestCELFilterCompilation(t *testing.T) {
 		},
 		{
 			name:    "valid timestamp comparison",
-			filter:  "stageTimestamp >= timestamp('2024-01-01T00:00:00Z')",
+			filter:  "requestReceivedTimestamp >= timestamp('2024-01-01T00:00:00Z')",
 			wantErr: false,
 		},
 		{
@@ -221,7 +221,7 @@ func TestSQLConversionEdgeCases(t *testing.T) {
 	}{
 		{
 			name:   "timestamp parameter is correctly formatted",
-			filter: "stageTimestamp >= timestamp('2024-01-01T00:00:00Z')",
+			filter: "requestReceivedTimestamp >= timestamp('2024-01-01T00:00:00Z')",
 			validate: func(t *testing.T, sql string, args []interface{}) {
 				if len(args) != 1 {
 					t.Errorf("Expected 1 arg, got %d", len(args))
@@ -280,7 +280,7 @@ func TestEnvironment(t *testing.T) {
 	validExpressions := []string{
 		"auditID == 'test'",
 		"verb == 'delete'",
-		"stageTimestamp > timestamp('2024-01-01T00:00:00Z')",
+		"requestReceivedTimestamp > timestamp('2024-01-01T00:00:00Z')",
 		"objectRef.namespace == 'default'",
 		"objectRef.resource == 'pods'",
 		"objectRef.name == 'my-pod'",

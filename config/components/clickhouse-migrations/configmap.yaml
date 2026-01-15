@@ -328,9 +328,10 @@ data:
         event_json String CODEC(ZSTD(3)),
 
         -- Core timestamp (always queried)
+        -- Uses requestReceivedTimestamp which represents when the API server received the request.
         timestamp DateTime64(3) MATERIALIZED
             coalesce(
-                parseDateTime64BestEffortOrNull(JSONExtractString(event_json, 'stageTimestamp')),
+                parseDateTime64BestEffortOrNull(JSONExtractString(event_json, 'requestReceivedTimestamp')),
                 now64(3)
             ),
 
