@@ -80,7 +80,7 @@ type AuditLogQuerySpec struct {
 	// Available Fields:
 	//   verb               - API action: get, list, create, update, patch, delete, watch
 	//   auditID            - unique event identifier
-	//   stageTimestamp     - when this stage occurred (RFC3339 timestamp)
+	//   requestReceivedTimestamp - when the API server received the request (RFC3339 timestamp)
 	//   user.username      - who made the request (user or service account)
 	//   user.uid           - unique user identifier (stable across username changes)
 	//   responseStatus.code - HTTP response code (200, 201, 404, 500, etc.)
@@ -134,8 +134,8 @@ type AuditLogQueryStatus struct {
 	// Results contains matching audit events, sorted newest-first.
 	//
 	// Each event follows the Kubernetes audit.Event format with fields like:
-	//   verb, user.username, objectRef.{namespace,resource,name}, stageTimestamp,
-	//   responseStatus.code, requestObject, responseObject
+	//   verb, user.username, objectRef.{namespace,resource,name}, requestReceivedTimestamp,
+	//   stageTimestamp, responseStatus.code, requestObject, responseObject
 	//
 	// Empty results? Try broadening your filter or time range.
 	// Full documentation: https://kubernetes.io/docs/reference/config-api/apiserver-audit.v1/
