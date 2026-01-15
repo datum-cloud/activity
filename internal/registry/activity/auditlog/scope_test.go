@@ -37,10 +37,10 @@ func TestExtractScopeFromUser(t *testing.T) {
 			user: &user.DefaultInfo{
 				Extra: map[string][]string{
 					ParentKindExtraKey: {"User"},
-					ParentNameExtraKey: {"john.doe"},
+					ParentNameExtraKey: {"550e8400-e29b-41d4-a716-446655440000"},
 				},
 			},
-			expected: ScopeInfo{Type: "user", Name: "john.doe"},
+			expected: ScopeInfo{Type: "user", Name: "550e8400-e29b-41d4-a716-446655440000"},
 		},
 		{
 			name:     "no scope (platform)",

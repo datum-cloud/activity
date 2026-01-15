@@ -38,6 +38,12 @@ CREATE TABLE IF NOT EXISTS audit.events
             ''
         ),
 
+    user_uid String MATERIALIZED
+        coalesce(
+            JSONExtractString(event_json, 'user', 'uid'),
+            ''
+        ),
+
     -- Request identity
     audit_id UUID MATERIALIZED
         toUUIDOrZero(coalesce(JSONExtractString(event_json, 'auditID'), '')),
@@ -74,6 +80,7 @@ CREATE TABLE IF NOT EXISTS audit.events
     INDEX bf_api_resource         (api_group, resource) TYPE bloom_filter(0.01) GRANULARITY 1,
     INDEX idx_verb_resource_bloom (verb, resource)      TYPE bloom_filter(0.01) GRANULARITY 1,
     INDEX idx_user_bloom          user                  TYPE bloom_filter(0.001) GRANULARITY 1,
+    INDEX idx_user_uid_bloom      user_uid              TYPE bloom_filter(0.001) GRANULARITY 1,
 
     -- Set indexes for low-cardinality columns
     INDEX idx_status_code_set status_code TYPE set(100) GRANULARITY 4,
@@ -102,31 +109,33 @@ SETTINGS
 -- This projection is optimized for platform-wide queries that filter by
 -- timestamp, api_group, and resource (common for cross-tenant analytics).
 --
--- Sort order: (timestamp, api_group, resource, audit_id)
+-- Sort order: (toStartOfHour(timestamp), api_group, resource, audit_id, timestamp)
 -- Use cases:
 --   - "All events for 'apps' API group and 'deployments' resource in last 24 hours"
 --   - "All events for core API 'pods' resource"
 --   - Platform-wide verb/resource filtering
 --
+-- Hour bucketing improves compression, data locality, and deduplication efficiency.
 
 ALTER TABLE audit.events
 ADD PROJECTION platform_query_projection
 (
     SELECT *
-    ORDER BY (timestamp, api_group, resource, audit_id)
+    ORDER BY (toStartOfHour(timestamp), api_group, resource, audit_id, timestamp)
 );
 
 -- ============================================================================
 -- Step 4: Add User Query Projection
 -- ============================================================================
--- This projection is optimized for user-specific queries within time ranges.
+-- This projection is optimized for username-based queries within time ranges.
 --
--- Sort order: (timestamp, user, api_group, resource)
+-- Sort order: (toStartOfHour(timestamp), user, api_group, resource, audit_id, timestamp)
 -- Use cases:
 --   - "What did alice@example.com do in the last 24 hours?"
 --   - "All events by system:serviceaccount:kube-system:default"
---   - User-specific verb/resource filtering
+--   - Platform admin filtering by username in CEL expressions
 --
+-- Hour bucketing improves compression, data locality, and deduplication efficiency.
 -- ClickHouse automatically chooses the best projection for each query based
 -- on the WHERE clause filters.
 
@@ -134,5 +143,29 @@ ALTER TABLE audit.events
 ADD PROJECTION user_query_projection
 (
     SELECT *
-    ORDER BY (timestamp, user, api_group, resource)
+    ORDER BY (toStartOfHour(timestamp), user, api_group, resource, audit_id, timestamp)
+);
+
+-- ============================================================================
+-- Step 5: Add User UID Query Projection
+-- ============================================================================
+-- This projection is optimized for user-scoped queries by UID.
+--
+-- Sort order: (toStartOfHour(timestamp), user_uid, api_group, resource, audit_id, timestamp)
+-- Use cases:
+--   - User-scoped queries: "Show all activity by user with UID abc-123"
+--   - Cross-organization user activity tracking
+--   - User-specific audit trail regardless of username changes
+--
+-- This projection is used when scope.type == "user" to filter by user_uid
+-- instead of scope_name, enabling queries for a user's activity across all
+-- organizations and projects on the platform.
+--
+-- Hour bucketing improves compression, data locality, and deduplication efficiency.
+
+ALTER TABLE audit.events
+ADD PROJECTION user_uid_query_projection
+(
+    SELECT *
+    ORDER BY (toStartOfHour(timestamp), user_uid, api_group, resource, audit_id, timestamp)
 );

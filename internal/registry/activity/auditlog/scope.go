@@ -15,11 +15,14 @@ const (
 // Used to restrict query results to the appropriate organizational boundary.
 type ScopeInfo struct {
 	Type string // "platform", "organization", "project", "user"
-	Name string // scope identifier (org name, project name, etc.)
+	Name string // scope identifier (org name, project name, user UID, etc.)
 }
 
 // ExtractScopeFromUser determines the audit log query scope from user authentication metadata.
 // Defaults to platform-wide scope when no parent resource is specified.
+//
+// For user scope, the Name field contains the user's UID (not username), which enables
+// querying all activity performed by that user across all organizations and projects.
 func ExtractScopeFromUser(u user.Info) ScopeInfo {
 	if u.GetExtra() == nil {
 		return ScopeInfo{Type: "platform", Name: ""}
