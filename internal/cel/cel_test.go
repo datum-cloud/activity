@@ -100,6 +100,20 @@ func TestCELFilterWorkflow(t *testing.T) {
 			wantArgCount: 1,
 			wantErr:      false,
 		},
+		{
+			name:         "user.uid filter",
+			filter:       "user.uid == '550e8400-e29b-41d4-a716-446655440000'",
+			wantSQL:      "user_uid = {arg1}",
+			wantArgCount: 1,
+			wantErr:      false,
+		},
+		{
+			name:         "combined user.username and user.uid",
+			filter:       "user.username == 'alice@example.com' || user.uid == '550e8400-e29b-41d4-a716-446655440000'",
+			wantSQL:      "(user = {arg1} OR user_uid = {arg2})",
+			wantArgCount: 2,
+			wantErr:      false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -146,7 +160,7 @@ func TestCELFilterCompilation(t *testing.T) {
 		},
 		{
 			name:    "valid timestamp comparison",
-			filter:  "stageTimestamp >= timestamp('2024-01-01T00:00:00Z')",
+			filter:  "requestReceivedTimestamp >= timestamp('2024-01-01T00:00:00Z')",
 			wantErr: false,
 		},
 		{
@@ -207,7 +221,7 @@ func TestSQLConversionEdgeCases(t *testing.T) {
 	}{
 		{
 			name:   "timestamp parameter is correctly formatted",
-			filter: "stageTimestamp >= timestamp('2024-01-01T00:00:00Z')",
+			filter: "requestReceivedTimestamp >= timestamp('2024-01-01T00:00:00Z')",
 			validate: func(t *testing.T, sql string, args []interface{}) {
 				if len(args) != 1 {
 					t.Errorf("Expected 1 arg, got %d", len(args))
@@ -266,7 +280,7 @@ func TestEnvironment(t *testing.T) {
 	validExpressions := []string{
 		"auditID == 'test'",
 		"verb == 'delete'",
-		"stageTimestamp > timestamp('2024-01-01T00:00:00Z')",
+		"requestReceivedTimestamp > timestamp('2024-01-01T00:00:00Z')",
 		"objectRef.namespace == 'default'",
 		"objectRef.resource == 'pods'",
 		"objectRef.name == 'my-pod'",

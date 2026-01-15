@@ -474,11 +474,20 @@ func (s *ClickHouseStorage) buildQuery(ctx context.Context, spec v1alpha1.AuditL
 
 	// Only add scope filters if not platform-wide query
 	if scope.Type != "platform" {
-		conditions = append(conditions, "scope_type = ?")
-		args = append(args, scope.Type)
+		if scope.Type == "user" {
+			// For user scope, filter by user.uid instead of scope annotations.
+			// This allows querying all activity performed BY a specific user
+			// across all organizations and projects on the platform.
+			conditions = append(conditions, "user_uid = ?")
+			args = append(args, scope.Name)
+		} else {
+			// For organization/project scope, use the scope annotations
+			conditions = append(conditions, "scope_type = ?")
+			args = append(args, scope.Type)
 
-		conditions = append(conditions, "scope_name = ?")
-		args = append(args, scope.Name)
+			conditions = append(conditions, "scope_name = ?")
+			args = append(args, scope.Name)
+		}
 	}
 
 	// Use a single reference time for both timestamps to prevent sub-second drift
@@ -542,14 +551,14 @@ func (s *ClickHouseStorage) buildQuery(ctx context.Context, spec v1alpha1.AuditL
 	if scope.Type == "platform" {
 		if hasUserFilter(spec.Filter) {
 			// User filter present: use user_query_projection
-			query += " ORDER BY timestamp DESC, user DESC, api_group DESC, resource DESC"
+			query += " ORDER BY toStartOfHour(timestamp) DESC, user DESC, api_group DESC, resource DESC, audit_id DESC, timestamp DESC"
 		} else {
 			// No user filter: use platform_query_projection
-			query += " ORDER BY timestamp DESC, api_group DESC, resource DESC, audit_id DESC"
+			query += " ORDER BY toStartOfHour(timestamp) DESC, api_group DESC, resource DESC, audit_id DESC, timestamp DESC"
 		}
 	} else if scope.Type == "user" {
-		// User-scoped: use user_query_projection
-		query += " ORDER BY timestamp DESC, user DESC, api_group DESC, resource DESC"
+		// User-scoped: use user_uid_query_projection to filter by UID
+		query += " ORDER BY toStartOfHour(timestamp) DESC, user_uid DESC, api_group DESC, resource DESC, audit_id DESC, timestamp DESC"
 	} else {
 		// Tenant-scoped: match hour-bucketed primary key for efficient index use
 		query += " ORDER BY toStartOfHour(timestamp) DESC, scope_type DESC, scope_name DESC, user DESC, audit_id DESC, timestamp DESC"
