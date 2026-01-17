@@ -1,50 +1,40 @@
 # ClickHouse Database Component
 
-Deploys a ClickHouse cluster for storing audit events.
+Deploys a highly-available ClickHouse cluster for storing audit events.
 
-## What It Does
+## Configuration
 
-Creates a ClickHouse instance with:
-- Single shard, single replica (test/dev configuration)
-- Hot/cold storage tiering (local SSD + S3)
-- Audit database pre-configured
-- TTL policy to move old data to S3 after 90 days
+- **3 replicas, 1 shard** - Survives 1 node failure
+- **ReplicatedReplacingMergeTree** - Automatic replication with deduplication
+- **Quorum writes** (2/3) - Strong consistency guarantees
+- **Hot/cold tiering** - Local SSD → S3 after 90 days
+- **Keeper coordination** - Replaces ZooKeeper for HA
 
-## Files
+## Prerequisites
 
-- `clickhouse-installation.yaml` - ClickHouseInstallation CR
-- `kustomization.yaml` - Component definition
-
-## Storage Configuration
-
-- **Hot Storage**: Recent data on local disks for fast queries
-- **Cold Storage**: Old data on S3 for cost-effective archival
-
-The storage policy is configured via patches in each overlay (test-infra, production, etc).
+1. Deploy ClickHouse Keeper first (see `../clickhouse-keeper/`)
+2. ClickHouse Operator v0.25.6+
+3. S3-compatible storage for cold tier
 
 ## Usage
-
-Include in your overlay:
 
 ```yaml
 # config/overlays/{env}/kustomization.yaml
 components:
+  - ../../components/clickhouse-keeper
   - ../../components/clickhouse-database
 ```
 
-Add environment-specific storage patches as needed.
+Override storage settings via patches in your overlay.
 
-## Access
+## How It Works
 
-```bash
-# Connect to ClickHouse
-kubectl exec -it clickhouse-activity-0-0-0 -n activity-system -- clickhouse-client
+- **Writes**: Insert on any replica → replicate via Keeper → quorum (2/3)
+  acknowledges
+- **Reads**: Query any replica with read-after-write consistency
+- **Failures**: Tolerates 1 replica down (2/3 quorum maintained)
 
-# Query audit events
-SELECT * FROM audit.events LIMIT 10;
-```
+**Learn more**:
 
-## Requirements
-
-- ClickHouse Operator must be installed first
-- S3 storage (RustFS in test, AWS S3 in production)
+- [Data Replication](https://clickhouse.com/docs/en/engines/table-engines/mergetree-family/replication)
+- [ClickHouse Keeper](https://clickhouse.com/docs/en/guides/sre/keeper/clickhouse-keeper)

@@ -1,0 +1,35 @@
+---
+apiVersion: clickhouse-keeper.altinity.com/v1
+kind: ClickHouseKeeperInstallation
+metadata:
+  name: activity-keeper
+  namespace: activity-system
+spec:
+  configuration:
+    clusters:
+      - name: activity-keeper
+        layout:
+          # 3 replicas for HA (odd number required for Raft quorum)
+          # Survives 1 node failure while maintaining quorum
+          replicasCount: 3
+---
+# Configure a pod monitor to scrape metrics from the clickhouse keeper pods
+# using the port defined in the configuration above.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: clickhouse-keeper
+  namespace: activity-system
+  labels:
+    app: clickhouse-keeper
+    app.kubernetes.io/component: coordination
+spec:
+  selector:
+    matchLabels:
+      # Match operator-created pods for this ClickHouseKeeperInstallation
+      clickhouse-keeper.altinity.com/chk: activity-keeper
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s
+      scheme: http
