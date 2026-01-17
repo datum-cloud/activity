@@ -1,0 +1,39 @@
+---
+# Test-infra specific patch for ClickHouse pod anti-affinity
+# Changes from required to preferred anti-affinity for single-node clusters
+apiVersion: clickhouse.altinity.com/v1
+kind: ClickHouseInstallation
+metadata:
+  name: activity-clickhouse
+  namespace: activity-system
+spec:
+  templates:
+    podTemplates:
+      - name: clickhouse-pod
+        spec:
+          # ==================================================================
+          # POD ANTI-AFFINITY - Preferred (not required) for test environment
+          # ==================================================================
+          # In test-infra with only 1 node, we use preferredDuringScheduling
+          # so replicas can still be scheduled on the same node
+          affinity:
+            podAntiAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+                - weight: 100
+                  podAffinityTerm:
+                    labelSelector:
+                      matchLabels:
+                        clickhouse.altinity.com/chi: activity-clickhouse
+                    topologyKey: kubernetes.io/hostname
+
+          containers:
+            - name: clickhouse
+              image: clickhouse/clickhouse-server:latest
+              # Ensure S3 credentials are injected from secret
+              envFrom:
+                - configMapRef:
+                    name: clickhouse-cold
+                    optional: true
+                - secretRef:
+                    name: clickhouse-cold
+                    optional: true
