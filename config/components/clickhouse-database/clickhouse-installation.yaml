@@ -5,11 +5,28 @@ metadata:
   namespace: activity-system
 spec:
   configuration:
+    # Configure the clickhouse cluster with the nodes created by the clickhouse
+    # keeper installation.
+    zookeeper:
+      nodes:
+        - host: chk-activity-keeper-activity-keeper-0-0.activity-system.svc.cluster.local
+          port: 2181
+        - host: chk-activity-keeper-activity-keeper-0-1.activity-system.svc.cluster.local
+          port: 2181
+        - host: chk-activity-keeper-activity-keeper-0-2.activity-system.svc.cluster.local
+          port: 2181
+      # Session timeout: 30 seconds (default)
+      # Keeper will expire the session if no heartbeat received within this time
+      session_timeout_ms: 30000
+      # Operation timeout: 10 seconds
+      # Maximum time to wait for a Keeper operation to complete
+      operation_timeout_ms: 10000
     clusters:
       - name: activity
         layout:
           shardsCount: 1
-          replicasCount: 1
+          replicasCount: 3
+
     users:
       default/password: ""  # Empty password for test environments
       default/networks/ip:
@@ -17,9 +34,41 @@ spec:
     settings:
       # Default settings for ClickHouse
       default/default_database: audit
+
+      # These control how CREATE/ALTER/DROP with ON CLUSTER are executed
+      default/distributed_ddl_task_timeout: 3600
+      default/distributed_ddl_entry_format_version: 5
+
+      # Require 2 out of 3 replicas to acknowledge writes before returning success
+      # This provides strong consistency guarantees
+      default/insert_quorum: 2
+      default/insert_quorum_timeout: 60000  # 60 seconds to wait for quorum
+      default/insert_quorum_parallel: 1     # Enable parallel quorum inserts
+
+      # Ensure you can read your own writes (read-after-write consistency)
+      default/select_sequential_consistency: 1
+
+      # Maximum ratio of errors before marking replica as failed
+      default/replicated_max_ratio_of_errors_to_be_ignored: 0.5
+      # Deduplication window: keep track of recent inserts to prevent duplicates
+      default/replicated_deduplication_window: 100
+      # Deduplication time window: 7 days
+      default/replicated_deduplication_window_seconds: 604800
+
     profiles:
       default/max_memory_usage: 3000000000  # 3GB max memory usage
     files:
+      config.d/log_rotation.xml: |-
+        <clickhouse>
+            <logger>
+                <level>information</level>
+                <log>/var/log/clickhouse-server/clickhouse-server.log</log>
+                <errorlog>/var/log/clickhouse-server/clickhouse-server.err.log</errorlog>
+                <size>1000M</size>
+                <count>5</count>
+                <console>1</console>
+            </logger>
+        </clickhouse>
       # Storage configuration for hot/cold tiering with S3
       # Hot storage: local disk for recent data (fast queries)
       # Cold storage: S3-compatible storage for older data (cost-effective archival)

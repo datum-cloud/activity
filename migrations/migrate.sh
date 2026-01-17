@@ -72,25 +72,95 @@ wait_for_clickhouse() {
     return 1
 }
 
+# Wait for all replicas in the cluster to be healthy and ready
+# This function will wait indefinitely until all replicas are online and healthy
+wait_for_cluster_ready() {
+    log_info "Waiting for all 3 replicas in the 'activity' cluster to be ready..."
+    log_info "This will wait indefinitely until the cluster is healthy."
+
+    local expected_replicas=3
+    local attempt=1
+
+    while true; do
+        # Check if the 'activity' cluster exists and has the expected number of replicas
+        local cluster_exists=$(clickhouse_cmd "SELECT count() FROM system.clusters WHERE cluster='activity'" 2>/dev/null || echo "0")
+
+        if [ "$cluster_exists" -eq 0 ]; then
+            log_info "Attempt $attempt: 'activity' cluster not yet registered in system.clusters, waiting..."
+            sleep 5
+            attempt=$((attempt + 1))
+            continue
+        fi
+
+        # Get total number of replicas in the cluster
+        local total_replicas=$(clickhouse_cmd "SELECT count() FROM system.clusters WHERE cluster='activity'" 2>/dev/null || echo "0")
+
+        # Get number of healthy replicas (errors_count=0 means no connection errors)
+        local healthy_replicas=$(clickhouse_cmd "SELECT count() FROM system.clusters WHERE cluster='activity' AND errors_count=0" 2>/dev/null || echo "0")
+
+        # Check if we have the expected number of replicas and all are healthy
+        if [ "$total_replicas" -eq "$expected_replicas" ] && [ "$healthy_replicas" -eq "$expected_replicas" ]; then
+            log_success "All $expected_replicas replicas are registered and healthy!"
+
+            # Additional check: verify Keeper connectivity for distributed DDL
+            log_info "Verifying ClickHouse Keeper connectivity for distributed DDL..."
+            if clickhouse_cmd "SELECT count() FROM system.zookeeper WHERE path='/clickhouse/activity'" &>/dev/null; then
+                log_success "ClickHouse Keeper is accessible and cluster coordination is ready!"
+
+                # Final verification: display cluster topology
+                log_info "Cluster topology:"
+                clickhouse_cmd "
+                    SELECT
+                        cluster,
+                        shard_num,
+                        replica_num,
+                        host_name,
+                        port,
+                        errors_count
+                    FROM system.clusters
+                    WHERE cluster = 'activity'
+                    ORDER BY shard_num, replica_num
+                    FORMAT PrettyCompact
+                " || true
+
+                return 0
+            else
+                log_info "Attempt $attempt: Keeper connectivity not ready yet, waiting..."
+            fi
+        else
+            log_info "Attempt $attempt: $healthy_replicas/$total_replicas healthy replicas (expected: $expected_replicas), waiting..."
+        fi
+
+        sleep 5
+        attempt=$((attempt + 1))
+    done
+}
+
 # Initialize the schema_migrations table if it doesn't exist
 init_migrations_table() {
-    log_info "Initializing schema_migrations table..."
+    log_info "Verifying schema_migrations table..."
 
-    # First ensure the database exists
-    clickhouse_cmd "CREATE DATABASE IF NOT EXISTS ${CLICKHOUSE_DATABASE}"
+    # Note: Both database and schema_migrations table creation are handled by the
+    # first migration (001_initial_schema.sql). This function simply verifies
+    # the table exists before we try to query it for already-applied migrations.
+    #
+    # We don't create it here because:
+    # 1. The table should be created with the Replicated database engine for HA
+    # 2. All schema changes should go through the migration system for consistency
+    # 3. The first migration will create both the database and this tracking table
 
-    # Create the migrations tracking table
-    clickhouse_cmd "
-        CREATE TABLE IF NOT EXISTS ${CLICKHOUSE_DATABASE}.schema_migrations (
-            version UInt32,
-            name String,
-            applied_at DateTime64(3) DEFAULT now64(3),
-            checksum String
-        ) ENGINE = MergeTree()
-        ORDER BY version
-    "
+    # Check if the table exists (will be created by first migration if not)
+    local table_exists=$(clickhouse_cmd "
+        SELECT count()
+        FROM system.tables
+        WHERE database = '${CLICKHOUSE_DATABASE}' AND name = 'schema_migrations'
+    " 2>/dev/null || echo "0")
 
-    log_success "Schema migrations table is ready"
+    if [ "${table_exists}" -eq 0 ]; then
+        log_info "Schema migrations table does not exist yet - will be created by first migration"
+    else
+        log_success "Schema migrations table exists and is ready"
+    fi
 }
 
 # Calculate checksum of a file
@@ -102,11 +172,14 @@ calculate_checksum() {
 # Check if a migration has already been applied
 is_migration_applied() {
     local version="$1"
+
+    # If the schema_migrations table doesn't exist yet, no migrations have been applied
+    # This handles the case for the very first migration which creates the table
     local result=$(clickhouse_cmd "
         SELECT count(*)
         FROM ${CLICKHOUSE_DATABASE}.schema_migrations
         WHERE version = ${version}
-    ")
+    " 2>/dev/null || echo "0")
 
     [ "${result}" -gt 0 ]
 }
@@ -255,19 +328,32 @@ main() {
     log_info "Migrations Directory: ${MIGRATIONS_DIR}"
     echo ""
 
+    log_info "IMPORTANT: This migration script should only run against a single replica."
+    log_info "The Replicated database engine automatically propagates DDL changes to all replicas."
+    echo ""
+
     # Wait for ClickHouse to be ready
     if ! wait_for_clickhouse; then
         log_error "Failed to connect to ClickHouse"
         exit 1
     fi
 
+    # Display which replica we're connected to
+    log_info "Connected to replica:"
+    clickhouse_cmd "SELECT hostName() as host, getMacro('replica') as replica_name" || true
+
     echo ""
 
-    # Initialize migrations tracking
-    if ! init_migrations_table; then
-        log_error "Failed to initialize migrations table"
+    # Wait for all cluster replicas to be healthy
+    if ! wait_for_cluster_ready; then
+        log_error "Cluster is not fully healthy"
         exit 1
     fi
+
+    echo ""
+
+    # Verify migrations tracking (table will be created by first migration)
+    init_migrations_table
 
     echo ""
 
