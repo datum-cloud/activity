@@ -20,24 +20,6 @@ spec:
           # Survives 1 node failure while maintaining quorum
           replicasCount: 3
 
-  defaults:
-    templates:
-      podTemplate: clickhouse-keeper
-
-  templates:
-    podTemplates:
-      - name: clickhouse-keeper
-        metadata:
-          name: clickhouse-keeper
-        spec:
-          containers:
-            - name: clickhouse-keeper
-              imagePullPolicy: IfNotPresent
-              image: clickhouse/clickhouse-keeper:25.12.3-alpine
-              ports:
-                - name: chk-metrics
-                  containerPort: 7000
-
 ---
 # Configure a pod monitor to scrape metrics from the clickhouse keeper pods
 # using the port defined in the configuration above.
