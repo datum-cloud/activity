@@ -6,12 +6,38 @@ metadata:
   namespace: activity-system
 spec:
   configuration:
+    settings:
+      prometheus/endpoint: /metrics
+      prometheus/port: 7000
+      prometheus/metrics: true
+      prometheus/events: true
+      prometheus/asynchronous_metrics: true
+
     clusters:
       - name: activity-keeper
         layout:
           # 3 replicas for HA (odd number required for Raft quorum)
           # Survives 1 node failure while maintaining quorum
           replicasCount: 3
+
+  defaults:
+    templates:
+      podTemplate: clickhouse-keeper
+
+  templates:
+    podTemplates:
+      - name: clickhouse-keeper
+        metadata:
+          name: clickhouse-keeper
+        spec:
+          containers:
+            - name: clickhouse-keeper
+              imagePullPolicy: IfNotPresent
+              image: clickhouse/clickhouse-keeper:25.12.3-alpine
+              ports:
+                - name: chk-metrics
+                  containerPort: 7000
+
 ---
 # Configure a pod monitor to scrape metrics from the clickhouse keeper pods
 # using the port defined in the configuration above.
@@ -29,7 +55,7 @@ spec:
       # Match operator-created pods for this ClickHouseKeeperInstallation
       clickhouse-keeper.altinity.com/chk: activity-keeper
   podMetricsEndpoints:
-    - port: metrics
+    - port: chk-metrics
       path: /metrics
       interval: 30s
       scheme: http
