@@ -43,7 +43,26 @@ spec:
               ports:
                 - name: chk-metrics
                   containerPort: 7000
-
+          # Configure the pod's to spread across nodes and availability zones.
+          topologySpreadConstraints:
+          - maxSkew: 1
+            topologyKey: topology.kubernetes.io/zone
+            whenUnsatisfiable: ScheduleAnyway
+            labelSelector:
+              matchLabels:
+                clickhouse.altinity.com/chi: activity-clickhouse
+                app.kubernetes.io/part-of: activity.miloapis.com
+                clickhouse.altinity.com/cluster: activity
+                clickhouse.altinity.com/namespace: activity-system
+          - maxSkew: 1
+            topologyKey: kubernetes.io/hostname
+            whenUnsatisfiable: ScheduleAnyway
+            labelSelector:
+              matchLabels:
+                clickhouse.altinity.com/chi: activity-clickhouse
+                app.kubernetes.io/part-of: activity.miloapis.com
+                clickhouse.altinity.com/cluster: activity
+                clickhouse.altinity.com/namespace: activity-system
     volumeClaimTemplates:
       - name: clickhouse-keeper
         spec:
