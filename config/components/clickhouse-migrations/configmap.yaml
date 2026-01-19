@@ -427,16 +427,13 @@ data:
     -- This table tracks which migrations have been applied to prevent re-running
     -- them. Each migration records its version, name, application timestamp, and
     -- checksum for integrity verification.
-    --
-    -- Using ReplacingMergeTree in a Replicated database ensures this tracking
-    -- table is automatically replicated across all replicas.
     CREATE TABLE IF NOT EXISTS audit.schema_migrations
     (
         version UInt32,
         name String,
         applied_at DateTime64(3) DEFAULT now64(3),
         checksum String
-    ) ENGINE = ReplacingMergeTree()
+    ) ENGINE = ReplicatedReplacingMergeTree()
     ORDER BY version
     SETTINGS
         -- No special storage policy needed for this small metadata table
@@ -531,22 +528,16 @@ data:
     -- ==================================================================
     -- TABLE ENGINE CONFIGURATION (High Availability)
     -- ==================================================================
-    -- ReplacingMergeTree provides:
+    -- ReplicatedReplacingMergeTree provides:
     -- - Deduplication based on ORDER BY key during merges
     -- - Eventual consistency with quorum writes (configured via settings)
-    --
-    -- Replication is handled by the Replicated database engine (see database creation above).
-    -- When using a Replicated database, table engines should NOT include Keeper paths.
-    -- The database automatically:
-    -- - Replicates DDL changes across all replicas
-    -- - Coordinates metadata synchronization via Keeper
-    -- - Ensures data replication through the database-level coordination
+    -- - Data replication to other database replicas
     --
     -- Replication Behavior:
     -- - INSERT on any replica replicates to all replicas via Keeper (database-level)
     -- - Quorum writes ensure 2/3 replicas acknowledge before success
     -- - Deduplication happens during background merges
-    ENGINE = ReplacingMergeTree
+    ENGINE = ReplicatedReplacingMergeTree
     PARTITION BY toYYYYMMDD(timestamp)
     -- Primary key optimized for tenant-scoped queries with hour bucketing
     -- Hour bucketing provides data locality while timestamp ensures strict chronological order
