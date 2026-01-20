@@ -12,7 +12,8 @@ components:
   - ../../components/api-registration
   - ../../components/cert-manager-ca
   - ../../components/rustfs-bucket
-  - ../../components/clickhouse-database
+  - ../../components/clickhouse-keeper      # Keeper coordination for HA
+  - ../../components/clickhouse-database     # HA ClickHouse with 3 replicas
   - ../../components/clickhouse-migrations
   - ../../components/grafana-clickhouse
   - ../../components/vector-sidecar
@@ -35,7 +36,8 @@ patches:
   - path: patches/deployment-patch.yaml
   - path: patches/apiservice-patch.yaml
   - path: patches/vector-sidecar-patch.yaml
-  - path: patches/clickhouse-storage-patch.yaml
+  - path: patches/clickhouse-affinity-patch.yaml        # Relaxed anti-affinity for single-node test cluster
+  - path: patches/clickhouse-storage-patch.yaml         # RustFS storage configuration
 
 labels:
   - includeSelectors: true

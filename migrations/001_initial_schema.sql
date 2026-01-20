@@ -1,11 +1,46 @@
 -- Migration: 001_initial_schema
--- Description: High-volume multi-tenant audit events table with projections for
--- platform-wide querying and user-specific querying.
+-- Description: High-volume multi-tenant audit events table with HA replication
+-- and projections for platform-wide querying and user-specific querying.
 -- Author: Scot Wells <swells@datum.net>
 -- Date: 2025-12-11
+-- Updated: 2026-01-15 - Added HA replication support with ReplicatedReplacingMergeTree
+-- Updated: 2026-01-16 - Use Replicated database engine for automatic DDL replication
 
-CREATE DATABASE IF NOT EXISTS audit;
+-- ============================================================================
+-- Step 1: Create Replicated Database
+-- ============================================================================
+-- The Replicated database engine automatically replicates all DDL operations
+-- across all replicas in the cluster. This ensures schema consistency without
+-- requiring ON CLUSTER clauses.
+--
+-- UUID ensures the database has the same identifier on all replicas
+-- Path: /clickhouse/activity/databases/audit in ClickHouse Keeper
+-- Macros: {shard} and {replica} are automatically substituted by ClickHouse
+CREATE DATABASE IF NOT EXISTS audit ON CLUSTER 'activity'
+ENGINE = Replicated('/clickhouse/activity/databases/audit', '{shard}', '{replica}');
 
+-- ============================================================================
+-- Step 2: Create Schema Migrations Tracking Table
+-- ============================================================================
+-- This table tracks which migrations have been applied to prevent re-running
+-- them. Each migration records its version, name, application timestamp, and
+-- checksum for integrity verification.
+CREATE TABLE IF NOT EXISTS audit.schema_migrations
+(
+    version UInt32,
+    name String,
+    applied_at DateTime64(3) DEFAULT now64(3),
+    checksum String
+) ENGINE = ReplicatedReplacingMergeTree()
+ORDER BY version
+SETTINGS
+    -- No special storage policy needed for this small metadata table
+    storage_policy = 'default';
+
+-- ============================================================================
+-- Step 3: Create Events Table
+-- ============================================================================
+-- Replicated database automatically replicates table DDL - no need for ON CLUSTER
 CREATE TABLE IF NOT EXISTS audit.events
 (
     -- Raw audit event JSON
@@ -88,13 +123,26 @@ CREATE TABLE IF NOT EXISTS audit.events
     -- Minmax index for status_code range queries
     INDEX idx_status_code_minmax status_code TYPE minmax GRANULARITY 4,
 )
-ENGINE = ReplacingMergeTree
+-- ==================================================================
+-- TABLE ENGINE CONFIGURATION (High Availability)
+-- ==================================================================
+-- ReplicatedReplacingMergeTree provides:
+-- - Deduplication based on ORDER BY key during merges
+-- - Eventual consistency with quorum writes (configured via settings)
+-- - Data replication to other database replicas
+--
+-- Replication Behavior:
+-- - INSERT on any replica replicates to all replicas via Keeper (database-level)
+-- - Quorum writes ensure 2/3 replicas acknowledge before success
+-- - Deduplication happens during background merges
+ENGINE = ReplicatedReplacingMergeTree
 PARTITION BY toYYYYMMDD(timestamp)
 -- Primary key optimized for tenant-scoped queries with hour bucketing
--- Hour bucketing improves compression, data locality, and deduplication efficiency
+-- Hour bucketing provides data locality while timestamp ensures strict chronological order
+-- Timestamp as second key ensures events are always returned in time order for audit compliance
 -- Deduplication occurs on the full ORDER BY key during merges
-ORDER BY (toStartOfHour(timestamp), scope_type, scope_name, user, audit_id, timestamp)
-PRIMARY KEY (toStartOfHour(timestamp), scope_type, scope_name, user, audit_id)
+ORDER BY (toStartOfHour(timestamp), timestamp, scope_type, scope_name, user, audit_id)
+PRIMARY KEY (toStartOfHour(timestamp), timestamp, scope_type, scope_name, user, audit_id)
 
 -- Move parts to cold S3-backed volume after 90 days
 TTL timestamp + INTERVAL 90 DAY TO VOLUME 'cold'
@@ -105,38 +153,40 @@ SETTINGS
     deduplicate_merge_projection_mode = 'rebuild';
 
 -- ============================================================================
--- Step 3: Add Platform Query Projection
+-- Step 4: Add Platform Query Projection
 -- ============================================================================
 -- This projection is optimized for platform-wide queries that filter by
 -- timestamp, api_group, and resource (common for cross-tenant analytics).
 --
--- Sort order: (toStartOfHour(timestamp), api_group, resource, audit_id, timestamp)
+-- Sort order: (toStartOfHour(timestamp), timestamp, api_group, resource, audit_id)
 -- Use cases:
 --   - "All events for 'apps' API group and 'deployments' resource in last 24 hours"
 --   - "All events for core API 'pods' resource"
 --   - Platform-wide verb/resource filtering
 --
--- Hour bucketing improves compression, data locality, and deduplication efficiency.
+-- Hour bucketing provides index efficiency while timestamp ensures strict chronological order.
+-- Timestamp as second key ensures events are always returned in time order for audit compliance.
 
 ALTER TABLE audit.events
 ADD PROJECTION platform_query_projection
 (
     SELECT *
-    ORDER BY (toStartOfHour(timestamp), api_group, resource, audit_id, timestamp)
+    ORDER BY (toStartOfHour(timestamp), timestamp, api_group, resource, audit_id)
 );
 
 -- ============================================================================
--- Step 4: Add User Query Projection
+-- Step 5: Add User Query Projection
 -- ============================================================================
 -- This projection is optimized for username-based queries within time ranges.
 --
--- Sort order: (toStartOfHour(timestamp), user, api_group, resource, audit_id, timestamp)
+-- Sort order: (toStartOfHour(timestamp), timestamp, user, api_group, resource, audit_id)
 -- Use cases:
 --   - "What did alice@example.com do in the last 24 hours?"
 --   - "All events by system:serviceaccount:kube-system:default"
 --   - Platform admin filtering by username in CEL expressions
 --
--- Hour bucketing improves compression, data locality, and deduplication efficiency.
+-- Hour bucketing provides index efficiency while timestamp ensures strict chronological order.
+-- Timestamp as second key ensures events are always returned in time order for audit compliance.
 -- ClickHouse automatically chooses the best projection for each query based
 -- on the WHERE clause filters.
 
@@ -144,15 +194,15 @@ ALTER TABLE audit.events
 ADD PROJECTION user_query_projection
 (
     SELECT *
-    ORDER BY (toStartOfHour(timestamp), user, api_group, resource, audit_id, timestamp)
+    ORDER BY (toStartOfHour(timestamp), timestamp, user, api_group, resource, audit_id)
 );
 
 -- ============================================================================
--- Step 5: Add User UID Query Projection
+-- Step 6: Add User UID Query Projection
 -- ============================================================================
 -- This projection is optimized for user-scoped queries by UID.
 --
--- Sort order: (toStartOfHour(timestamp), user_uid, api_group, resource, audit_id, timestamp)
+-- Sort order: (toStartOfHour(timestamp), timestamp, user_uid, api_group, resource, audit_id)
 -- Use cases:
 --   - User-scoped queries: "Show all activity by user with UID abc-123"
 --   - Cross-organization user activity tracking
@@ -162,11 +212,12 @@ ADD PROJECTION user_query_projection
 -- instead of scope_name, enabling queries for a user's activity across all
 -- organizations and projects on the platform.
 --
--- Hour bucketing improves compression, data locality, and deduplication efficiency.
+-- Hour bucketing provides index efficiency while timestamp ensures strict chronological order.
+-- Timestamp as second key ensures events are always returned in time order for audit compliance.
 
 ALTER TABLE audit.events
 ADD PROJECTION user_uid_query_projection
 (
     SELECT *
-    ORDER BY (toStartOfHour(timestamp), user_uid, api_group, resource, audit_id, timestamp)
+    ORDER BY (toStartOfHour(timestamp), timestamp, user_uid, api_group, resource, audit_id)
 );
