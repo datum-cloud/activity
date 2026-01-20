@@ -193,6 +193,21 @@ func TestCELFilterCompilation(t *testing.T) {
 			filter:  "user.startsWith('system:')",
 			wantErr: true,
 		},
+		{
+			name:    "invalid field - objectRef.resources (should be resource singular)",
+			filter:  `objectRef.resources == "domains"`,
+			wantErr: true,
+		},
+		{
+			name:    "invalid field - user.name (should be username)",
+			filter:  `user.name == "admin"`,
+			wantErr: true,
+		},
+		{
+			name:    "invalid field - responseStatus.status (should be code)",
+			filter:  `responseStatus.status == 200`,
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {

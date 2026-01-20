@@ -21,7 +21,7 @@ var tracer = otel.Tracer("activity-cel-filter")
 // Environment creates a CEL environment for audit event filtering.
 //
 // Available fields: auditID, verb, requestReceivedTimestamp,
-// objectRef.{namespace,resource,name}, user.username, user.uid, responseStatus.code
+// objectRef.{namespace,resource,name,apiGroup}, user.{username,uid}, responseStatus.code
 //
 // Note: stageTimestamp is intentionally NOT available for filtering as it should
 // only be used for internal pipeline delay calculations, not for querying events.
@@ -42,6 +42,23 @@ func Environment() (*cel.Env, error) {
 		cel.Variable("user", userType),
 		cel.Variable("responseStatus", responseStatusType),
 	)
+}
+
+// validFields defines the allowed fields for each structured type
+var validFields = map[string]map[string]bool{
+	"objectRef": {
+		"apiGroup":  true,
+		"namespace": true,
+		"resource":  true,
+		"name":      true,
+	},
+	"user": {
+		"username": true,
+		"uid":      true,
+	},
+	"responseStatus": {
+		"code": true,
+	},
 }
 
 // CompileFilter compiles and validates a CEL filter expression, ensuring it returns a boolean.
@@ -76,8 +93,103 @@ func CompileFilter(filterExpr string) (*cel.Ast, error) {
 		return nil, fmt.Errorf("%s", formatFilterError(typeErr))
 	}
 
+	// Validate that only allowed fields are accessed on structured types
+	if err := validateFieldAccess(ast.Expr()); err != nil {
+		metrics.CELFilterErrors.WithLabelValues("invalid_field").Inc()
+		metrics.CELFilterParseDuration.Observe(time.Since(startTime).Seconds())
+		return nil, fmt.Errorf("%s", formatFilterError(err))
+	}
+
 	metrics.CELFilterParseDuration.Observe(time.Since(startTime).Seconds())
 	return ast, nil
+}
+
+// validateFieldAccess recursively validates that only allowed fields are accessed
+func validateFieldAccess(e *expr.Expr) error {
+	if e == nil {
+		return nil
+	}
+
+	switch exprKind := e.ExprKind.(type) {
+	case *expr.Expr_SelectExpr:
+		sel := exprKind.SelectExpr
+		// Get the base object (e.g., "user", "objectRef", "responseStatus")
+		if operand := sel.GetOperand(); operand != nil {
+			if identExpr := operand.GetIdentExpr(); identExpr != nil {
+				baseObject := identExpr.GetName()
+				field := sel.GetField()
+
+				// Check if this is a structured type we validate
+				if allowedFields, ok := validFields[baseObject]; ok {
+					// Check if the field is allowed
+					if !allowedFields[field] {
+						// Build a helpful error message with available fields
+						availableFields := make([]string, 0, len(allowedFields))
+						for f := range allowedFields {
+							availableFields = append(availableFields, baseObject+"."+f)
+						}
+						return fmt.Errorf("field '%s.%s' is not available for filtering. Available fields for %s: %v",
+							baseObject, field, baseObject, availableFields)
+					}
+				}
+			}
+			// Recursively validate the operand
+			if err := validateFieldAccess(operand); err != nil {
+				return err
+			}
+		}
+
+	case *expr.Expr_CallExpr:
+		call := exprKind.CallExpr
+		// Validate the target if present
+		if call.Target != nil {
+			if err := validateFieldAccess(call.Target); err != nil {
+				return err
+			}
+		}
+		// Validate all arguments
+		for _, arg := range call.Args {
+			if err := validateFieldAccess(arg); err != nil {
+				return err
+			}
+		}
+
+	case *expr.Expr_ListExpr:
+		list := exprKind.ListExpr
+		for _, elem := range list.Elements {
+			if err := validateFieldAccess(elem); err != nil {
+				return err
+			}
+		}
+
+	case *expr.Expr_StructExpr:
+		structExpr := exprKind.StructExpr
+		for _, entry := range structExpr.Entries {
+			if err := validateFieldAccess(entry.GetValue()); err != nil {
+				return err
+			}
+		}
+
+	case *expr.Expr_ComprehensionExpr:
+		comp := exprKind.ComprehensionExpr
+		if err := validateFieldAccess(comp.IterRange); err != nil {
+			return err
+		}
+		if err := validateFieldAccess(comp.AccuInit); err != nil {
+			return err
+		}
+		if err := validateFieldAccess(comp.LoopCondition); err != nil {
+			return err
+		}
+		if err := validateFieldAccess(comp.LoopStep); err != nil {
+			return err
+		}
+		if err := validateFieldAccess(comp.Result); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // ConvertToClickHouseSQL converts a CEL expression to a ClickHouse WHERE clause with tracing.
@@ -391,8 +503,8 @@ func (c *sqlConverter) convertSelectExpr(sel *expr.Expr_Select) (string, error) 
 		return "status_code", nil
 
 	default:
-		// Provide helpful suggestions for common fields that aren't filterable
-		return "", fmt.Errorf("field '%s.%s' is not available for filtering. Available fields: auditID, verb, requestReceivedTimestamp, objectRef.apiGroup, objectRef.namespace, objectRef.resource, objectRef.name, user.username, user.uid, user.groups, responseStatus.code", baseObject, field)
+		// Defensive check - validation should catch invalid fields at compile time
+		return "", fmt.Errorf("field '%s.%s' is not available for filtering", baseObject, field)
 	}
 }
 
