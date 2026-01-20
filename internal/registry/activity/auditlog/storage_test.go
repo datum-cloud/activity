@@ -444,6 +444,42 @@ func TestQueryStorage_Create_ValidationErrors(t *testing.T) {
 			},
 			wantError: "filter expression must return a boolean",
 		},
+		{
+			name: "invalid field name on objectRef (plural instead of singular)",
+			query: &v1alpha1.AuditLogQuery{
+				ObjectMeta: metav1.ObjectMeta{Name: "test"},
+				Spec: v1alpha1.AuditLogQuerySpec{
+					StartTime: "now-1h",
+					EndTime:   "now",
+					Filter:    `objectRef.resources == "domains"`, // should be objectRef.resource (singular)
+				},
+			},
+			wantError: "field 'objectRef.resources' is not available for filtering",
+		},
+		{
+			name: "invalid field name on user",
+			query: &v1alpha1.AuditLogQuery{
+				ObjectMeta: metav1.ObjectMeta{Name: "test"},
+				Spec: v1alpha1.AuditLogQuerySpec{
+					StartTime: "now-1h",
+					EndTime:   "now",
+					Filter:    `user.name == "admin"`, // should be user.username
+				},
+			},
+			wantError: "field 'user.name' is not available for filtering",
+		},
+		{
+			name: "invalid field name on responseStatus",
+			query: &v1alpha1.AuditLogQuery{
+				ObjectMeta: metav1.ObjectMeta{Name: "test"},
+				Spec: v1alpha1.AuditLogQuerySpec{
+					StartTime: "now-1h",
+					EndTime:   "now",
+					Filter:    `responseStatus.status == 200`, // should be responseStatus.code
+				},
+			},
+			wantError: "field 'responseStatus.status' is not available for filtering",
+		},
 	}
 
 	for _, tt := range tests {
