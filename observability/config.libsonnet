@@ -14,7 +14,7 @@
 
       // Regex filter for datasource selection dropdown
       // Only show datasources matching this pattern
-      regex: '',
+      regex: 'Service Metrics',
 
       // Datasource type
       type: 'prometheus',
