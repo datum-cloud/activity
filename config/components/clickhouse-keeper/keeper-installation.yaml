@@ -1,0 +1,94 @@
+---
+apiVersion: clickhouse-keeper.altinity.com/v1
+kind: ClickHouseKeeperInstallation
+metadata:
+  name: activity-keeper
+  namespace: activity-system
+spec:
+  configuration:
+    settings:
+      prometheus/endpoint: /metrics
+      prometheus/port: 7000
+      prometheus/metrics: true
+      prometheus/events: true
+      prometheus/asynchronous_metrics: true
+
+    clusters:
+      - name: activity-keeper
+        layout:
+          # 3 replicas for HA (odd number required for Raft quorum)
+          # Survives 1 node failure while maintaining quorum
+          replicasCount: 3
+
+  defaults:
+    templates:
+      podTemplate: clickhouse-keeper
+      dataVolumeClaimTemplate: clickhouse-keeper
+
+  templates:
+    podTemplates:
+      - name: clickhouse-keeper
+        spec:
+          containers:
+            - name: clickhouse-keeper
+              imagePullPolicy: IfNotPresent
+              image: clickhouse/clickhouse-keeper:25.12.3-alpine
+              resources:
+                requests:
+                  cpu: 1
+                  memory: 2Gi
+                limits:
+                  cpu: 2
+                  memory: 4Gi
+              ports:
+                - name: chk-metrics
+                  containerPort: 7000
+          # Configure the pod's to spread across nodes and availability zones.
+          topologySpreadConstraints:
+          - maxSkew: 1
+            topologyKey: topology.kubernetes.io/zone
+            whenUnsatisfiable: ScheduleAnyway
+            labelSelector:
+              matchLabels:
+                clickhouse.altinity.com/chi: activity-clickhouse
+                app.kubernetes.io/part-of: activity.miloapis.com
+                clickhouse.altinity.com/cluster: activity
+                clickhouse.altinity.com/namespace: activity-system
+          - maxSkew: 1
+            topologyKey: kubernetes.io/hostname
+            whenUnsatisfiable: ScheduleAnyway
+            labelSelector:
+              matchLabels:
+                clickhouse.altinity.com/chi: activity-clickhouse
+                app.kubernetes.io/part-of: activity.miloapis.com
+                clickhouse.altinity.com/cluster: activity
+                clickhouse.altinity.com/namespace: activity-system
+    volumeClaimTemplates:
+      - name: clickhouse-keeper
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 5Gi
+---
+# Configure a pod monitor to scrape metrics from the clickhouse keeper pods
+# using the port defined in the configuration above.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: clickhouse-keeper
+  namespace: activity-system
+  labels:
+    app: clickhouse-keeper
+    app.kubernetes.io/component: coordination
+spec:
+  selector:
+    matchLabels:
+      # Match operator-created pods for this ClickHouseKeeperInstallation
+      clickhouse-keeper.altinity.com/chk: activity-keeper
+  podMetricsEndpoints:
+    - port: chk-metrics
+      path: /metrics
+      interval: 30s
+      scheme: http

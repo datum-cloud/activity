@@ -8,8 +8,8 @@ metadata:
     app.kubernetes.io/component: database
 spec:
   # Keep completed jobs for debugging (adjust as needed)
-  ttlSecondsAfterFinished: 300
-  backoffLimit: 3
+  ttlSecondsAfterFinished: 600
+  backoffLimit: 100
   template:
     metadata:
       labels:
@@ -21,8 +21,11 @@ spec:
         image: clickhouse/clickhouse-server:latest
         command: ["/bin/bash", "/scripts/migrate.sh"]
         env:
+        # Target the first replica (0-0) specifically to avoid concurrent migrations
+        # With Replicated database engine, DDL changes are automatically replicated
+        # to all replicas, so we only need to run migrations against one replica
         - name: CLICKHOUSE_HOST
-          value: "clickhouse.activity-system.svc.cluster.local"
+          value: "chi-activity-clickhouse-activity-0-0.activity-system.svc.cluster.local"
         - name: CLICKHOUSE_PORT
           value: "9000"
         - name: CLICKHOUSE_USER
