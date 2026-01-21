@@ -78,6 +78,7 @@ reports, or analyze user activity.`,
 
 	// Add subcommands
 	cmd.AddCommand(NewQueryCommand(f, ioStreams))
+	cmd.AddCommand(NewHistoryCommand(f, ioStreams))
 
 	return cmd
 }
