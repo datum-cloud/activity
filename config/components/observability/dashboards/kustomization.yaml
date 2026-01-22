@@ -20,6 +20,15 @@ configMapGenerator:
         grafana_dashboard: "1"
       disableNameSuffixHash: true
 
+  - name: metrics-graphqlgateway-grafanadashboard
+    files:
+      - generated/metrics-graphqlgateway.json
+    options:
+      labels:
+        grafana_dashboard: "1"
+      disableNameSuffixHash: true
+
 resources:
   - audit-pipeline-grafanadashboard.yaml
   - activity-apiserver-grafanadashboard.yaml
+  - metrics-graphqlgateway-grafanadashboard.yaml
