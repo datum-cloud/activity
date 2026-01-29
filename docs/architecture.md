@@ -48,7 +48,9 @@ control plane API server sends audit events as `EventList` batches. The sidecar
 parses these batches, extracts individual events from `EventList.items`, and
 sets the Vector event timestamp from `stageTimestamp` for accurate lag metrics.
 
-> [!NOTE] The control plane API server also supports writing audit logs to the
+> [!NOTE]
+>
+> The control plane API server also supports writing audit logs to the
 > filesystem. When running Vector as a sidecar container with a shared volume
 > mount, configure it to read from the log file instead of the webhook endpoint.
 
