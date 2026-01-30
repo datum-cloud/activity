@@ -46,6 +46,11 @@ includes:
     vars:
       ROOT_DIR: "{{.USER_WORKING_DIR}}"
 
+  # Documentation (diagrams, etc.)
+  docs:
+    taskfile: ./docs/Taskfile.yaml
+    dir: ./docs
+
 tasks:
   default:
     desc: List all available tasks
@@ -349,15 +354,23 @@ tasks:
         echo "✅ API documentation generation complete"
     silent: true
 
+  # Architecture diagram tasks
+  diagrams:
+    desc: Generate architecture diagrams from PlantUML
+    cmds:
+      - task: docs:diagrams
+    silent: true
+
   # Unified code generation task - composes all generate:* subtasks
   generate:
-    desc: Run all code generation tasks (OpenAPI, migrations ConfigMap, API docs, k6 tests, etc.)
+    desc: Run all code generation tasks (OpenAPI, migrations ConfigMap, API docs, diagrams, k6 tests, etc.)
     deps:
       - generate:openapi
       - migrations:generate
       - load:generate
       - observability:build-mixin
       - generate:docs
+      - docs:generate
     cmds:
       - |
         echo ""

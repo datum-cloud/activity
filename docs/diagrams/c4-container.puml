@@ -1,0 +1,49 @@
+@startuml C4_Container_Diagram
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_LANDSCAPE()
+LAYOUT_WITH_LEGEND()
+
+' External Systems
+Person(user, "Platform User", "Developer or operator querying audit logs")
+System_Ext(k8s_api, "Control Plane", "Control plane that generates audit logs and proxies Activity API requests")
+System_Ext(oidc, "Identity Provider", "External OIDC provider that sets user scope context (organization/project)")
+System_Ext(s3, "S3-Compatible Storage", "Object storage for cold data tier (90+ days)")
+
+' System Boundary
+System_Boundary(activity, "Activity System") {
+    ' Query Layer
+    Container(activity_api, "Activity API Server", "Go, Kubernetes Aggregated API", "Handles AuditLogQuery requests, compiles CEL filters to SQL, enforces multi-tenant scope isolation")
+
+    ' Data Storage
+    ContainerDb(clickhouse, "ClickHouse Cluster", "ClickHouse, ReplicatedReplacingMergeTree", "Stores audit events with projections for optimized queries. 3 replicas with quorum writes.")
+
+    ' Message Broker
+    Container(nats, "NATS JetStream", "NATS, JetStream", "Durable message queue for audit events. 7-day retention, deduplication, ordering guarantees.")
+
+    ' Ingest Pipeline
+    Container(vector_sidecar, "Vector Sidecar", "Vector, DaemonSet", "Collects audit logs via webhook/file from K8s API Server. Publishes to NATS.")
+
+    Container(vector_aggregator, "Vector Aggregator", "Vector, Deployment", "Consumes events from NATS, batches and transforms, inserts into ClickHouse. HPA-enabled (2-5 replicas).")
+
+    ' Coordination
+    ContainerDb(keeper, "ClickHouse Keeper", "ClickHouse Keeper", "Distributed coordination for ClickHouse replication and DDL")
+}
+
+' Relationships - Query Flow
+Rel_D(user, k8s_api, "queries audit logs", "HTTPS/443")
+Rel_D(k8s_api, oidc, "Authenticate / authorize user", "OIDC")
+Rel(k8s_api, activity_api, "Proxies API requests", "HTTPS/8443")
+Rel(activity_api, clickhouse, "Executes SQL queries", "TCP/9000")
+
+' Relationships - Ingest Flow
+Rel(k8s_api, vector_sidecar, "Sends audit events", "HTTPS Webhook/8080")
+Rel(vector_sidecar, nats, "Publishes events", "NATS/4222")
+Rel(nats, vector_aggregator, "Delivers events", "NATS/4222")
+Rel_D(vector_aggregator, clickhouse, "Inserts audit events", "TCP/9000")
+
+' Relationships - Storage & Coordination
+Rel(clickhouse, keeper, "Replication coordination", "TCP/2181")
+Rel_U(clickhouse, s3, "Cold data storage (90+ days)", "S3 API")
+
+@enduml

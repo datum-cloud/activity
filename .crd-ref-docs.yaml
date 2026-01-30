@@ -1,0 +1,17 @@
+# Configuration for crd-ref-docs
+# See: https://github.com/elastic/crd-ref-docs
+
+processor:
+  # Ignore certain fields that are not relevant for API documentation
+  ignoreFields:
+    - "TypeMeta$"
+    - "ObjectMeta$"
+    - "ListMeta$"
+
+renderer:
+  kubernetesVersion: 1.34
+
+output:
+  # Use markdown format
+  markdown:
+    headerDepth: 1
