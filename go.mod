@@ -5,22 +5,23 @@ go 1.25.0
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.42.0
 	github.com/google/cel-go v0.26.0
+	github.com/modelcontextprotocol/go-sdk v0.3.0
 	github.com/pmezard/go-difflib v1.0.0
-	github.com/spf13/cobra v1.9.1
+	github.com/spf13/cobra v1.10.0
 	github.com/spf13/pflag v1.0.9
 	github.com/stretchr/testify v1.11.1
 	go.opentelemetry.io/otel v1.39.0
 	go.opentelemetry.io/otel/trace v1.39.0
 	golang.org/x/term v0.38.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20251202230838-ff82c1b0f217
-	k8s.io/api v0.34.3
+	k8s.io/api v0.35.0
 	k8s.io/apimachinery v0.35.0
-	k8s.io/apiserver v0.34.2
+	k8s.io/apiserver v0.35.0
 	k8s.io/cli-runtime v0.34.3
-	k8s.io/client-go v0.34.3
-	k8s.io/component-base v0.34.3
+	k8s.io/client-go v0.35.0
+	k8s.io/component-base v0.35.0
 	k8s.io/klog/v2 v2.130.1
-	k8s.io/kube-openapi v0.0.0-20251125145642-4e65d59e963e
+	k8s.io/kube-openapi v0.0.0-20260127142750-a19766b6e2d4
 	k8s.io/kubectl v0.34.3
 )
 
@@ -60,6 +61,7 @@ require (
 	github.com/google/btree v1.1.3 // indirect
 	github.com/google/gnostic-models v0.7.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
+	github.com/google/jsonschema-go v0.2.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674 // indirect
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
@@ -83,22 +85,23 @@ require (
 	github.com/paulmach/orb v0.12.0 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pierrec/lz4/v4 v4.1.23 // indirect
-	github.com/prometheus/client_golang v1.22.0 // indirect
-	github.com/prometheus/client_model v0.6.1 // indirect
-	github.com/prometheus/common v0.62.0 // indirect
-	github.com/prometheus/procfs v0.15.1 // indirect
+	github.com/prometheus/client_golang v1.23.2 // indirect
+	github.com/prometheus/client_model v0.6.2 // indirect
+	github.com/prometheus/common v0.66.1 // indirect
+	github.com/prometheus/procfs v0.16.1 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/segmentio/asm v1.2.1 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/stoewer/go-strcase v1.3.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xlab/treeprint v1.2.0 // indirect
-	go.etcd.io/etcd/api/v3 v3.6.4 // indirect
-	go.etcd.io/etcd/client/pkg/v3 v3.6.4 // indirect
-	go.etcd.io/etcd/client/v3 v3.6.4 // indirect
+	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
+	go.etcd.io/etcd/api/v3 v3.6.5 // indirect
+	go.etcd.io/etcd/client/pkg/v3 v3.6.5 // indirect
+	go.etcd.io/etcd/client/v3 v3.6.5 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.60.0 // indirect
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.58.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.61.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.34.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.34.0 // indirect
 	go.opentelemetry.io/otel/metric v1.39.0 // indirect
@@ -127,7 +130,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/code-generator v0.35.0 // indirect
 	k8s.io/gengo/v2 v2.0.0-20250922181213-ec3ebc5fd46b // indirect
-	k8s.io/kms v0.34.2 // indirect
+	k8s.io/kms v0.35.0 // indirect
 	k8s.io/utils v0.0.0-20251002143259-bc988d571ff4 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.31.2 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
