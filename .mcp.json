@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "activity": {
+      "command": "go",
+      "args": [
+        "run", "./cmd/activity",
+        "mcp",
+        "--kubeconfig", ".test-infra/kubeconfig"
+      ],
+      "env": {}
+    }
+  }
+}
