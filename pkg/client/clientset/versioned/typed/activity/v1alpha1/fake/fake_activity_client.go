@@ -12,6 +12,10 @@ type FakeActivityV1alpha1 struct {
 	*testing.Fake
 }
 
+func (c *FakeActivityV1alpha1) AuditLogFacetsQueries() v1alpha1.AuditLogFacetsQueryInterface {
+	return newFakeAuditLogFacetsQueries(c)
+}
+
 func (c *FakeActivityV1alpha1) AuditLogQueries() v1alpha1.AuditLogQueryInterface {
 	return newFakeAuditLogQueries(c)
 }

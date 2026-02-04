@@ -581,3 +581,187 @@ func (s *ClickHouseStorage) buildQuery(ctx context.Context, spec v1alpha1.AuditL
 
 	return query, args, nil
 }
+
+// FacetFieldSpec defines a single facet to retrieve.
+type FacetFieldSpec struct {
+	Field string
+	Limit int32
+}
+
+// FacetQueryResult contains the results of a facet query.
+type FacetQueryResult struct {
+	Facets []FacetFieldResult
+}
+
+// FacetFieldResult contains the distinct values for a single facet.
+type FacetFieldResult struct {
+	Field  string
+	Values []FacetValueResult
+}
+
+// FacetValueResult represents a single distinct value with its count.
+type FacetValueResult struct {
+	Value string
+	Count int64
+}
+
+// AuditLogFacetQuerySpec defines the parameters for an audit log facet query.
+type AuditLogFacetQuerySpec struct {
+	// TimeRange specifies the time window for facet aggregation.
+	StartTime string
+	EndTime   string
+
+	// Filter is a CEL expression to filter audit logs before computing facets.
+	Filter string
+
+	// Facets are the fields to compute distinct values for.
+	Facets []FacetFieldSpec
+}
+
+// QueryAuditLogFacets retrieves distinct field values with counts for audit log faceted search.
+func (s *ClickHouseStorage) QueryAuditLogFacets(ctx context.Context, spec AuditLogFacetQuerySpec, scope ScopeContext) (*FacetQueryResult, error) {
+	ctx, span := tracer.Start(ctx, "clickhouse.query_audit_log_facets",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(
+			attribute.String("db.system", "clickhouse"),
+			attribute.String("db.name", s.config.Database),
+			attribute.String("db.operation", "SELECT"),
+			attribute.Int("facet.count", len(spec.Facets)),
+		),
+	)
+	defer span.End()
+
+	result := &FacetQueryResult{
+		Facets: make([]FacetFieldResult, 0, len(spec.Facets)),
+	}
+
+	// Execute each facet query
+	for _, facet := range spec.Facets {
+		facetResult, err := s.queryAuditLogFacet(ctx, facet, spec, scope)
+		if err != nil {
+			span.RecordError(err)
+			return nil, fmt.Errorf("failed to query audit log facet %s: %w", facet.Field, err)
+		}
+		result.Facets = append(result.Facets, *facetResult)
+	}
+
+	span.SetStatus(codes.Ok, "audit log facet query successful")
+	return result, nil
+}
+
+// queryAuditLogFacet executes a single facet query against the audit logs table.
+func (s *ClickHouseStorage) queryAuditLogFacet(ctx context.Context, facet FacetFieldSpec, spec AuditLogFacetQuerySpec, scope ScopeContext) (*FacetFieldResult, error) {
+	column, err := GetAuditLogFacetColumn(facet.Field)
+	if err != nil {
+		return nil, err
+	}
+
+	limit := facet.Limit
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	var args []interface{}
+	var conditions []string
+
+	// Scope filtering - same pattern as audit log queries
+	if scope.Type != "platform" {
+		if scope.Type == "user" {
+			// For user scope, filter by user_uid
+			conditions = append(conditions, "user_uid = ?")
+			args = append(args, scope.Name)
+		} else {
+			// For organization/project scope, use the scope annotations
+			conditions = append(conditions, "scope_type = ?")
+			args = append(args, scope.Type)
+			conditions = append(conditions, "scope_name = ?")
+			args = append(args, scope.Name)
+		}
+	}
+
+	// Time range
+	now := time.Now()
+	if spec.StartTime != "" {
+		startTime, err := timeutil.ParseFlexibleTime(spec.StartTime, now)
+		if err != nil {
+			return nil, fmt.Errorf("invalid startTime: %w", err)
+		}
+		conditions = append(conditions, "timestamp >= ?")
+		args = append(args, startTime)
+	}
+
+	if spec.EndTime != "" {
+		endTime, err := timeutil.ParseFlexibleTime(spec.EndTime, now)
+		if err != nil {
+			return nil, fmt.Errorf("invalid endTime: %w", err)
+		}
+		conditions = append(conditions, "timestamp < ?")
+		args = append(args, endTime)
+	}
+
+	// CEL filter (optional)
+	if spec.Filter != "" {
+		celWhere, celArgs, err := cel.ConvertToClickHouseSQL(ctx, spec.Filter)
+		if err != nil {
+			return nil, err
+		}
+		if celWhere != "" {
+			processedWhere := celWhere
+			for i := range celArgs {
+				oldParam := fmt.Sprintf("{arg%d}", i+1)
+				processedWhere = strings.ReplaceAll(processedWhere, oldParam, "?")
+			}
+			args = append(args, celArgs...)
+			conditions = append(conditions, processedWhere)
+		}
+	}
+
+	// Build query against the audit logs table
+	// Use toString() to ensure consistent string output for all column types (including UInt16 status_code)
+	query := fmt.Sprintf("SELECT toString(%s) as value, COUNT(*) as count FROM %s.%s", column, s.config.Database, s.config.Table)
+
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	// Group by the facet column and order by count descending, then value ascending for stability
+	query += fmt.Sprintf(" GROUP BY %s ORDER BY count DESC, value ASC LIMIT %d", column, limit)
+
+	klog.V(4).InfoS("Executing audit log facet query",
+		"field", facet.Field,
+		"column", column,
+		"query", query,
+	)
+
+	rows, err := s.conn.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute audit log facet query: %w", err)
+	}
+	defer rows.Close()
+
+	result := &FacetFieldResult{
+		Field:  facet.Field,
+		Values: make([]FacetValueResult, 0),
+	}
+
+	for rows.Next() {
+		var value string
+		var count uint64
+		if err := rows.Scan(&value, &count); err != nil {
+			return nil, fmt.Errorf("failed to scan audit log facet row: %w", err)
+		}
+		result.Values = append(result.Values, FacetValueResult{
+			Value: value,
+			Count: int64(count),
+		})
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating audit log facet rows: %w", err)
+	}
+
+	return result, nil
+}

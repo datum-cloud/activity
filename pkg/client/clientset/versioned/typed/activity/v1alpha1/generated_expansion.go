@@ -2,4 +2,6 @@
 
 package v1alpha1
 
+type AuditLogFacetsQueryExpansion interface{}
+
 type AuditLogQueryExpansion interface{}
