@@ -88,15 +88,17 @@ type AuditLogQuerySpec struct {
 	//   objectRef.resource  - resource type (pods, deployments, secrets, configmaps, etc.)
 	//   objectRef.name     - specific resource name
 	//
-	// Operators: ==, !=, <, >, <=, >=, &&, ||, in
+	// Operators: ==, !=, <, >, <=, >=, &&, ||, !, in
 	// String Functions: startsWith(), endsWith(), contains()
 	//
 	// Common Patterns:
 	//   "verb == 'delete'"                                    - All deletions
 	//   "objectRef.namespace == 'production'"                 - Activity in production namespace
 	//   "verb in ['create', 'update', 'delete', 'patch']"     - All write operations
+	//   "!(verb in ['get', 'list', 'watch'])"                 - Exclude read-only operations
 	//   "responseStatus.code >= 400"                          - Failed requests
 	//   "user.username.startsWith('system:serviceaccount:')"  - Service account activity
+	//   "!user.username.startsWith('system:')"                - Exclude system users
 	//   "user.uid == '550e8400-e29b-41d4-a716-446655440000'"  - Specific user by UID
 	//   "objectRef.resource == 'secrets'"                     - Secret access
 	//   "verb == 'delete' && objectRef.namespace == 'production'" - Production deletions
