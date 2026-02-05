@@ -7,3 +7,4 @@ spec:
   launchStage: Beta
   includedPermissions:
     - activity.miloapis.com/auditlogqueries.create
+    - activity.miloapis.com/auditlogfacetsqueries.create

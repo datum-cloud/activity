@@ -1,0 +1,19 @@
+apiVersion: iam.miloapis.com/v1alpha1
+kind: ProtectedResource
+metadata:
+  name: activity.miloapis.com-auditlogfacetsqueries
+spec:
+  serviceRef:
+    name: "activity.miloapis.com"
+  kind: AuditLogFacetsQuery
+  plural: auditlogfacetsqueries
+  singular: auditlogfacetsquery
+  permissions:
+    - create
+  parentResources:
+    - apiGroup: resourcemanager.miloapis.com
+      kind: Organization
+    - apiGroup: resourcemanager.miloapis.com
+      kind: Project
+    - apiGroup: iam.miloapis.com
+      kind: User
