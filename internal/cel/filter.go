@@ -26,7 +26,7 @@ var tracer = otel.Tracer("activity-cel-filter")
 // Note: stageTimestamp is intentionally NOT available for filtering as it should
 // only be used for internal pipeline delay calculations, not for querying events.
 //
-// Supports standard CEL operators (==, &&, ||, in) and string methods
+// Supports standard CEL operators (==, !=, <, >, <=, >=, &&, ||, !, in) and string methods
 // (startsWith, endsWith, contains).
 func Environment() (*cel.Env, error) {
 	objectRefType := cel.MapType(cel.StringType, cel.DynType)
@@ -268,6 +268,14 @@ func (c *sqlConverter) convertExpr(e *expr.Expr) (string, error) {
 
 func (c *sqlConverter) convertCallExpr(call *expr.Expr_Call, e *expr.Expr) (string, error) {
 	switch call.Function {
+	case "!_":
+		// Handle logical NOT: !expr -> NOT (expr)
+		arg, err := c.convertExpr(call.Args[0])
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("NOT (%s)", arg), nil
+
 	case "_==_":
 		left, err := c.convertExpr(call.Args[0])
 		if err != nil {

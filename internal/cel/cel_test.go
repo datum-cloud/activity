@@ -114,6 +114,34 @@ func TestCELFilterWorkflow(t *testing.T) {
 			wantArgCount: 2,
 			wantErr:      false,
 		},
+		{
+			name:         "NOT operator - simple negation",
+			filter:       "!(verb == 'get')",
+			wantSQL:      "NOT (verb = {arg1})",
+			wantArgCount: 1,
+			wantErr:      false,
+		},
+		{
+			name:         "NOT operator - negate IN expression",
+			filter:       "!(verb in ['get', 'list', 'watch'])",
+			wantSQL:      "NOT (verb IN [{arg1}, {arg2}, {arg3}])",
+			wantArgCount: 3,
+			wantErr:      false,
+		},
+		{
+			name:         "NOT operator - combined with AND",
+			filter:       "!(verb == 'get') && objectRef.namespace == 'production'",
+			wantSQL:      "(NOT (verb = {arg1}) AND namespace = {arg2})",
+			wantArgCount: 2,
+			wantErr:      false,
+		},
+		{
+			name:         "NOT operator - negate string method",
+			filter:       "!user.username.startsWith('system:')",
+			wantSQL:      "NOT (startsWith(user, {arg1}))",
+			wantArgCount: 1,
+			wantErr:      false,
+		},
 	}
 
 	for _, tt := range tests {
