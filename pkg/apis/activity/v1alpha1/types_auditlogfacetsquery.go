@@ -48,8 +48,6 @@ type AuditLogFacetsQuerySpec struct {
 	// Filter narrows the audit logs before computing facets using CEL.
 	// This allows you to get facet values for a subset of audit logs.
 	//
-	// Example: "verb in ['create', 'update', 'delete']" to get facets only for write operations.
-	//
 	// Available Fields:
 	//   verb               - API action: get, list, create, update, patch, delete, watch
 	//   user.username      - who made the request (user or service account)
@@ -59,6 +57,15 @@ type AuditLogFacetsQuerySpec struct {
 	//   objectRef.resource  - resource type (pods, deployments, secrets, configmaps, etc.)
 	//   objectRef.apiGroup  - API group of the resource
 	//   objectRef.name     - specific resource name
+	//
+	// Operators: ==, !=, <, >, <=, >=, &&, ||, !, in
+	// String Functions: startsWith(), endsWith(), contains()
+	//
+	// Examples:
+	//   "verb in ['create', 'update', 'delete']"        - Facets for write operations only
+	//   "!(verb in ['get', 'list', 'watch'])"           - Exclude read-only operations
+	//   "!user.username.startsWith('system:')"          - Exclude system users
+	//   "objectRef.namespace == 'production'"           - Facets for production namespace
 	//
 	// +optional
 	Filter string `json:"filter,omitempty"`
