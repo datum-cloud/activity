@@ -12,12 +12,17 @@ import (
 
 type ActivityV1alpha1Interface interface {
 	RESTClient() rest.Interface
+	AuditLogFacetsQueriesGetter
 	AuditLogQueriesGetter
 }
 
 // ActivityV1alpha1Client is used to interact with features provided by the activity.miloapis.com group.
 type ActivityV1alpha1Client struct {
 	restClient rest.Interface
+}
+
+func (c *ActivityV1alpha1Client) AuditLogFacetsQueries() AuditLogFacetsQueryInterface {
+	return newAuditLogFacetsQueries(c)
 }
 
 func (c *ActivityV1alpha1Client) AuditLogQueries() AuditLogQueryInterface {

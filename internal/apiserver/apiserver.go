@@ -14,6 +14,7 @@ import (
 
 	_ "go.miloapis.com/activity/internal/metrics"
 	"go.miloapis.com/activity/internal/registry/activity/auditlog"
+	"go.miloapis.com/activity/internal/registry/activity/auditlogfacet"
 	"go.miloapis.com/activity/internal/storage"
 	"go.miloapis.com/activity/pkg/apis/activity/install"
 	"go.miloapis.com/activity/pkg/apis/activity/v1alpha1"
@@ -101,6 +102,7 @@ func (c completedConfig) New() (*ActivityServer, error) {
 
 	v1alpha1Storage := map[string]rest.Storage{}
 	v1alpha1Storage["auditlogqueries"] = auditlog.NewQueryStorage(clickhouseStorage)
+	v1alpha1Storage["auditlogfacetsqueries"] = auditlogfacet.NewAuditLogFacetsQueryStorage(clickhouseStorage)
 
 	apiGroupInfo.VersionedResourcesStorageMap["v1alpha1"] = v1alpha1Storage
 
