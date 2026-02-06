@@ -46,10 +46,6 @@ spec:
         - --nats-audit-subject=$(NATS_AUDIT_SUBJECT)
         - --nats-event-subject=$(NATS_EVENT_SUBJECT)
         - --nats-activity-prefix=$(NATS_ACTIVITY_PREFIX)
-        - --clickhouse-address=$(CLICKHOUSE_ADDRESS)
-        - --clickhouse-database=$(CLICKHOUSE_DATABASE)
-        - --clickhouse-username=$(CLICKHOUSE_USERNAME)
-        - --clickhouse-password=$(CLICKHOUSE_PASSWORD)
         - --workers=$(WORKERS)
         - --resync-period=$(RESYNC_PERIOD)
         - --health-probe-addr=$(HEALTH_PROBE_ADDR)
@@ -66,19 +62,6 @@ spec:
           value: "events.>"
         - name: NATS_ACTIVITY_PREFIX
           value: "activities"
-        # ClickHouse configuration
-        - name: CLICKHOUSE_ADDRESS
-          value: "clickhouse.activity-system.svc.cluster.local:9000"
-        - name: CLICKHOUSE_DATABASE
-          value: "audit"
-        - name: CLICKHOUSE_USERNAME
-          value: "default"
-        - name: CLICKHOUSE_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: clickhouse-credentials
-              key: password
-              optional: true
         # Processing configuration
         - name: WORKERS
           value: "4"

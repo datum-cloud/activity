@@ -19,7 +19,6 @@ import (
 
 	"go.miloapis.com/activity/internal/controller"
 	"go.miloapis.com/activity/internal/metrics"
-	"go.miloapis.com/activity/internal/storage"
 	"go.miloapis.com/activity/pkg/apis/activity/v1alpha1"
 )
 
@@ -30,9 +29,6 @@ type Config struct {
 
 	// RESTMapper for resolving resource names to kinds
 	RESTMapper meta.RESTMapper
-
-	// ClickHouse storage for writing activities
-	Storage *storage.ClickHouseStorage
 
 	// NATS configuration
 	NATSInputURL       string

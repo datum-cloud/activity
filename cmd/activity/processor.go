@@ -17,7 +17,6 @@ import (
 	"k8s.io/klog/v2"
 
 	"go.miloapis.com/activity/internal/processor"
-	"go.miloapis.com/activity/internal/storage"
 )
 
 // ProcessorOptions contains configuration for the activity processor.
@@ -32,12 +31,6 @@ type ProcessorOptions struct {
 	NATSAuditSubject   string
 	NATSEventSubject   string
 	NATSActivityPrefix string
-
-	// ClickHouse configuration
-	ClickHouseAddress  string
-	ClickHouseDatabase string
-	ClickHouseUsername string
-	ClickHousePassword string
 
 	// Processing configuration
 	Workers      int
@@ -54,9 +47,6 @@ func NewProcessorOptions() *ProcessorOptions {
 		NATSAuditSubject:   "audit.>",
 		NATSEventSubject:   "events.>",
 		NATSActivityPrefix: "activities",
-		ClickHouseAddress:  "localhost:9000",
-		ClickHouseDatabase: "audit",
-		ClickHouseUsername: "default",
 		Workers:            4,
 		ResyncPeriod:       30,
 		HealthProbeAddr:    ":8081",
@@ -83,16 +73,6 @@ func (o *ProcessorOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.NATSActivityPrefix, "nats-activity-prefix", o.NATSActivityPrefix,
 		"NATS subject prefix for publishing activities.")
 
-	// ClickHouse flags
-	fs.StringVar(&o.ClickHouseAddress, "clickhouse-address", o.ClickHouseAddress,
-		"ClickHouse server address.")
-	fs.StringVar(&o.ClickHouseDatabase, "clickhouse-database", o.ClickHouseDatabase,
-		"ClickHouse database name.")
-	fs.StringVar(&o.ClickHouseUsername, "clickhouse-username", o.ClickHouseUsername,
-		"ClickHouse username.")
-	fs.StringVar(&o.ClickHousePassword, "clickhouse-password", o.ClickHousePassword,
-		"ClickHouse password.")
-
 	// Processing flags
 	fs.IntVar(&o.Workers, "workers", o.Workers,
 		"Number of worker goroutines for processing.")
@@ -113,7 +93,7 @@ func NewProcessorCommand() *cobra.Command {
 		Short: "Run the activity processor",
 		Long: `Run the activity processor that consumes audit logs and Kubernetes events
 from NATS, translates them into human-readable Activity records using
-ActivityPolicy rules, and writes them to ClickHouse.`,
+ActivityPolicy rules, and publishes them to NATS JetStream.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return RunProcessor(options, cmd.Context())
 		},
@@ -163,23 +143,10 @@ func RunProcessor(options *ProcessorOptions, ctx context.Context) error {
 	cachedDiscoveryClient := memory.NewMemCacheClient(discoveryClient)
 	restMapper := restmapper.NewDeferredDiscoveryRESTMapper(cachedDiscoveryClient)
 
-	// Create ClickHouse storage
-	clickhouseStorage, err := storage.NewClickHouseStorage(storage.ClickHouseConfig{
-		Address:  options.ClickHouseAddress,
-		Database: options.ClickHouseDatabase,
-		Username: options.ClickHouseUsername,
-		Password: options.ClickHousePassword,
-	})
-	if err != nil {
-		return err
-	}
-	defer clickhouseStorage.Close()
-
 	// Create the processor
 	proc, err := processor.New(processor.Config{
 		DynamicClient: dynamicClient,
 		RESTMapper:    restMapper,
-		Storage:       clickhouseStorage,
 
 		NATSInputURL:       options.NATSInputURL,
 		NATSOutputURL:      options.NATSOutputURL,
