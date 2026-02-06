@@ -2,9 +2,12 @@ package processor
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
@@ -36,6 +39,12 @@ type Config struct {
 	NATSAuditSubject   string
 	NATSEventSubject   string
 	NATSActivityPrefix string
+
+	// NATS TLS configuration
+	NATSTLSEnabled  bool
+	NATSTLSCertFile string
+	NATSTLSKeyFile  string
+	NATSTLSCAFile   string
 
 	// Processing configuration
 	Workers      int
@@ -94,7 +103,7 @@ const drainTimeout = 30 * time.Second
 // natsConnectionOptions returns standard NATS connection options with health tracking,
 // metrics, and lame duck mode handling.
 func (p *Processor) natsConnectionOptions(name string, lameDuckHandler func()) []nats.Option {
-	return []nats.Option{
+	opts := []nats.Option{
 		nats.Name(name),
 		nats.RetryOnFailedConnect(true),
 		nats.MaxReconnects(-1), // Unlimited reconnects
@@ -137,6 +146,52 @@ func (p *Processor) natsConnectionOptions(name string, lameDuckHandler func()) [
 			}
 		}),
 	}
+
+	// Add TLS configuration if enabled
+	if p.config.NATSTLSEnabled {
+		tlsConfig, err := p.buildNATSTLSConfig()
+		if err != nil {
+			klog.ErrorS(err, "Failed to build NATS TLS config, connecting without TLS")
+		} else {
+			opts = append(opts, nats.Secure(tlsConfig))
+			klog.V(2).InfoS("NATS TLS enabled", "connection", name)
+		}
+	}
+
+	return opts
+}
+
+// buildNATSTLSConfig creates a TLS configuration for NATS connections.
+func (p *Processor) buildNATSTLSConfig() (*tls.Config, error) {
+	tlsConfig := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+	}
+
+	// Load client certificate if provided
+	if p.config.NATSTLSCertFile != "" && p.config.NATSTLSKeyFile != "" {
+		cert, err := tls.LoadX509KeyPair(p.config.NATSTLSCertFile, p.config.NATSTLSKeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load NATS client certificate: %w", err)
+		}
+		tlsConfig.Certificates = []tls.Certificate{cert}
+		klog.V(2).InfoS("Loaded NATS client certificate", "certFile", p.config.NATSTLSCertFile)
+	}
+
+	// Load CA certificate if provided
+	if p.config.NATSTLSCAFile != "" {
+		caCert, err := os.ReadFile(p.config.NATSTLSCAFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read NATS CA certificate: %w", err)
+		}
+		caCertPool := x509.NewCertPool()
+		if !caCertPool.AppendCertsFromPEM(caCert) {
+			return nil, fmt.Errorf("failed to parse NATS CA certificate")
+		}
+		tlsConfig.RootCAs = caCertPool
+		klog.V(2).InfoS("Loaded NATS CA certificate", "caFile", p.config.NATSTLSCAFile)
+	}
+
+	return tlsConfig, nil
 }
 
 // setNATSHealthy updates the health status for a NATS connection.

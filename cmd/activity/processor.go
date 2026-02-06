@@ -32,6 +32,12 @@ type ProcessorOptions struct {
 	NATSEventSubject   string
 	NATSActivityPrefix string
 
+	// NATS TLS configuration
+	NATSTLSEnabled  bool
+	NATSTLSCertFile string
+	NATSTLSKeyFile  string
+	NATSTLSCAFile   string
+
 	// Processing configuration
 	Workers      int
 	ResyncPeriod int
@@ -72,6 +78,16 @@ func (o *ProcessorOptions) AddFlags(fs *pflag.FlagSet) {
 		"NATS subject pattern for Kubernetes events.")
 	fs.StringVar(&o.NATSActivityPrefix, "nats-activity-prefix", o.NATSActivityPrefix,
 		"NATS subject prefix for publishing activities.")
+
+	// NATS TLS flags
+	fs.BoolVar(&o.NATSTLSEnabled, "nats-tls-enabled", o.NATSTLSEnabled,
+		"Enable TLS for NATS connections.")
+	fs.StringVar(&o.NATSTLSCertFile, "nats-tls-cert-file", o.NATSTLSCertFile,
+		"Path to TLS client certificate file for NATS.")
+	fs.StringVar(&o.NATSTLSKeyFile, "nats-tls-key-file", o.NATSTLSKeyFile,
+		"Path to TLS client key file for NATS.")
+	fs.StringVar(&o.NATSTLSCAFile, "nats-tls-ca-file", o.NATSTLSCAFile,
+		"Path to TLS CA certificate file for NATS.")
 
 	// Processing flags
 	fs.IntVar(&o.Workers, "workers", o.Workers,
@@ -153,6 +169,11 @@ func RunProcessor(options *ProcessorOptions, ctx context.Context) error {
 		NATSAuditSubject:   options.NATSAuditSubject,
 		NATSEventSubject:   options.NATSEventSubject,
 		NATSActivityPrefix: options.NATSActivityPrefix,
+
+		NATSTLSEnabled:  options.NATSTLSEnabled,
+		NATSTLSCertFile: options.NATSTLSCertFile,
+		NATSTLSKeyFile:  options.NATSTLSKeyFile,
+		NATSTLSCAFile:   options.NATSTLSCAFile,
 
 		Workers:         options.Workers,
 		ResyncPeriod:    options.ResyncPeriod,
