@@ -37,6 +37,7 @@ jobs:
     with:
       image-name: activity-ui
       context: ui
+      dockerfile-path: ui/Dockerfile
     secrets: inherit
 
   publish-kustomize-bundles:
