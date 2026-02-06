@@ -1,0 +1,1 @@
+import{u as s,b as a,j as c}from"./index-ZeLdoy4t.js";import{a as l}from"./index.esm-DaBkqkXp.js";function u(){const{client:t}=s(),e=a(),o=()=>{e("/policies/new")},i=n=>{e(`/policies/${encodeURIComponent(n)}/edit`)};return c.jsx(l,{client:t,onEditPolicy:i,onCreatePolicy:o})}export{u as default};

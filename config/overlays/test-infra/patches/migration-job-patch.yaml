@@ -1,0 +1,26 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: clickhouse-migrate
+  namespace: activity-system
+spec:
+  template:
+    spec:
+      containers:
+      - name: migrate
+        env:
+        # Override expected replicas for test-infra (single replica setup)
+        - name: EXPECTED_REPLICAS
+          value: "1"
+        - name: CLICKHOUSE_HOST
+          value: "chi-activity-clickhouse-activity-0-0.activity-system.svc.cluster.local"
+        - name: CLICKHOUSE_PORT
+          value: "9000"
+        - name: CLICKHOUSE_USER
+          value: "default"
+        - name: CLICKHOUSE_PASSWORD
+          value: ""
+        - name: CLICKHOUSE_DATABASE
+          value: "audit"
+        - name: MIGRATIONS_DIR
+          value: "/migrations"

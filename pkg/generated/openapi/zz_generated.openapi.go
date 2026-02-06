@@ -20,6 +20,24 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.Activity":                  schema_pkg_apis_activity_v1alpha1_Activity(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityActor":             schema_pkg_apis_activity_v1alpha1_ActivityActor(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityChange":            schema_pkg_apis_activity_v1alpha1_ActivityChange(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityFacetQuery":        schema_pkg_apis_activity_v1alpha1_ActivityFacetQuery(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityFacetQuerySpec":    schema_pkg_apis_activity_v1alpha1_ActivityFacetQuerySpec(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityFacetQueryStatus":  schema_pkg_apis_activity_v1alpha1_ActivityFacetQueryStatus(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityLink":              schema_pkg_apis_activity_v1alpha1_ActivityLink(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityList":              schema_pkg_apis_activity_v1alpha1_ActivityList(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityOrigin":            schema_pkg_apis_activity_v1alpha1_ActivityOrigin(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicy":            schema_pkg_apis_activity_v1alpha1_ActivityPolicy(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicyList":        schema_pkg_apis_activity_v1alpha1_ActivityPolicyList(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicyResource":    schema_pkg_apis_activity_v1alpha1_ActivityPolicyResource(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicyRule":        schema_pkg_apis_activity_v1alpha1_ActivityPolicyRule(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicySpec":        schema_pkg_apis_activity_v1alpha1_ActivityPolicySpec(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicyStatus":      schema_pkg_apis_activity_v1alpha1_ActivityPolicyStatus(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityResource":          schema_pkg_apis_activity_v1alpha1_ActivityResource(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivitySpec":              schema_pkg_apis_activity_v1alpha1_ActivitySpec(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityTenant":            schema_pkg_apis_activity_v1alpha1_ActivityTenant(ref),
 		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.AuditLogFacetsQuery":       schema_pkg_apis_activity_v1alpha1_AuditLogFacetsQuery(ref),
 		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.AuditLogFacetsQuerySpec":   schema_pkg_apis_activity_v1alpha1_AuditLogFacetsQuerySpec(ref),
 		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.AuditLogFacetsQueryStatus": schema_pkg_apis_activity_v1alpha1_AuditLogFacetsQueryStatus(ref),
@@ -31,6 +49,11 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetSpec":                 schema_pkg_apis_activity_v1alpha1_FacetSpec(ref),
 		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetTimeRange":            schema_pkg_apis_activity_v1alpha1_FacetTimeRange(ref),
 		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetValue":                schema_pkg_apis_activity_v1alpha1_FacetValue(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreview":             schema_pkg_apis_activity_v1alpha1_PolicyPreview(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreviewInput":        schema_pkg_apis_activity_v1alpha1_PolicyPreviewInput(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreviewInputResult":  schema_pkg_apis_activity_v1alpha1_PolicyPreviewInputResult(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreviewSpec":         schema_pkg_apis_activity_v1alpha1_PolicyPreviewSpec(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreviewStatus":       schema_pkg_apis_activity_v1alpha1_PolicyPreviewStatus(ref),
 		v1.BoundObjectReference{}.OpenAPIModelName():                                    schema_k8sio_api_authentication_v1_BoundObjectReference(ref),
 		v1.SelfSubjectReview{}.OpenAPIModelName():                                       schema_k8sio_api_authentication_v1_SelfSubjectReview(ref),
 		v1.SelfSubjectReviewStatus{}.OpenAPIModelName():                                 schema_k8sio_api_authentication_v1_SelfSubjectReviewStatus(ref),
@@ -358,6 +381,818 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 	}
 }
 
+func schema_pkg_apis_activity_v1alpha1_Activity(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Activity represents a single translated activity record. Activities are generated by the Activity Processor from audit logs and Kubernetes events using ActivityPolicy rules. They provide human-readable summaries of resource changes for consumers, service providers, and platform administrators.\n\nActivities are read-only and stored in ClickHouse for efficient time-range queries. Use List and Get operations to query activities. Watch is supported for real-time updates.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ObjectMeta{}.OpenAPIModelName()),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivitySpec"),
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivitySpec", metav1.ObjectMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_ActivityActor(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ActivityActor identifies who performed an action.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type indicates the actor category. Values: \"user\", \"serviceaccount\", \"controller\"",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the display name for the actor. For users, this is typically the email address. For service accounts, this is the full name (e.g., \"system:serviceaccount:default:my-sa\"). For controllers, this is the controller name.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"uid": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UID is the unique identifier for the actor. Stable across username changes.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"email": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Email is the actor's email address. Only populated for user actors when available.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"type", "name"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_ActivityChange(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ActivityChange represents a field-level change in an update/patch operation.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"field": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Field is the path to the changed field (e.g., \"spec.virtualhost.fqdn\").",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"old": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Old is the previous value. May be empty for new fields.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"new": {
+						SchemaProps: spec.SchemaProps{
+							Description: "New is the new value. May be empty for deleted fields.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"field"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_ActivityFacetQuery(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ActivityFacetQuery is an ephemeral resource for getting distinct field values. Use this to power autocomplete, filter dropdowns, and faceted search in UIs.\n\nThe query returns counts for each distinct value, allowing you to show both available options and their frequency.\n\nExample:\n\n\tapiVersion: activity.miloapis.com/v1alpha1\n\tkind: ActivityFacetQuery\n\tmetadata:\n\t  name: get-actors\n\tspec:\n\t  timeRange:\n\t    start: \"now-7d\"\n\t  facets:\n\t    - field: spec.actor.name\n\t      limit: 10\n\t    - field: spec.resource.kind",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ObjectMeta{}.OpenAPIModelName()),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityFacetQuerySpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityFacetQueryStatus"),
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityFacetQuerySpec", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityFacetQueryStatus", metav1.ObjectMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_ActivityFacetQuerySpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ActivityFacetQuerySpec defines which facets to retrieve.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"timeRange": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TimeRange limits the time window for facet aggregation. If not specified, defaults to the last 7 days.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetTimeRange"),
+						},
+					},
+					"filter": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Filter narrows the activities before computing facets using CEL. This allows you to get facet values for a subset of activities.\n\nExample: \"spec.changeSource == 'human'\" to get facets only for human actions.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"facets": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Facets specifies which fields to get distinct values for. Each facet returns the top N values with counts.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetSpec"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"facets"},
+			},
+		},
+		Dependencies: []string{
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetSpec", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetTimeRange"},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_ActivityFacetQueryStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ActivityFacetQueryStatus contains the facet results.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"facets": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Facets contains the results for each requested facet.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetResult"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetResult"},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_ActivityLink(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ActivityLink represents a clickable reference in an activity summary.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"marker": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Marker is the text substring in the summary that should be linked. The portal scans the summary for this marker and makes it clickable.\n\nExample: \"HTTP proxy api-gateway\"",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"resource": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Resource identifies what the marker links to.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityResource"),
+						},
+					},
+				},
+				Required: []string{"marker", "resource"},
+			},
+		},
+		Dependencies: []string{
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityResource"},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_ActivityList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ActivityList is a list of Activity objects",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ListMeta{}.OpenAPIModelName()),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.Activity"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.Activity", metav1.ListMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_ActivityOrigin(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ActivityOrigin identifies the source record for an activity.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type indicates the source type. Values: \"audit\" (from audit logs), \"event\" (from Kubernetes events)",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ID is the correlation ID to the source record. For audit: the auditID from the audit log entry. For event: the metadata.uid of the Kubernetes Event.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"type", "id"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_ActivityPolicy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ActivityPolicy defines translation rules for a specific resource type. Service providers create one ActivityPolicy per resource kind to customize activity descriptions without modifying the Activity Processor.\n\nExample:\n\n\tapiVersion: activity.miloapis.com/v1alpha1\n\tkind: ActivityPolicy\n\tmetadata:\n\t  name: networking-httpproxy\n\tspec:\n\t  resource:\n\t    apiGroup: networking.datumapis.com\n\t    kind: HTTPProxy\n\t  auditRules:\n\t    - match: \"audit.verb == 'create'\"\n\t      summary: \"{{ actor }} created {{ link(kind + ' ' + audit.objectRef.name, audit.responseObject) }}\"\n\t  eventRules:\n\t    - match: \"event.reason == 'Programmed'\"\n\t      summary: \"{{ link(kind + ' ' + event.regarding.name, event.regarding) }} is now programmed\"",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ObjectMeta{}.OpenAPIModelName()),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicySpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicyStatus"),
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicySpec", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicyStatus", metav1.ObjectMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_ActivityPolicyList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ActivityPolicyList is a list of ActivityPolicy objects",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ListMeta{}.OpenAPIModelName()),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicy"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicy", metav1.ListMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_ActivityPolicyResource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ActivityPolicyResource identifies the target Kubernetes resource for a policy.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"apiGroup": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIGroup is the API group of the target resource (e.g., \"networking.datumapis.com\"). Use an empty string for core API group resources.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is the kind of the target resource (e.g., \"HTTPProxy\", \"Network\").",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"apiGroup", "kind"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_ActivityPolicyRule(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ActivityPolicyRule defines a single translation rule that matches input events and generates human-readable activity summaries.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"match": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Match is a CEL expression that determines if this rule applies to the input. For audit rules, use the `audit` variable (e.g., \"audit.verb == 'create'\"). For event rules, use the `event` variable (e.g., \"event.reason == 'Programmed'\").\n\nExamples:\n  \"audit.verb == 'create'\"\n  \"audit.verb in ['update', 'patch']\"\n  \"event.reason.startsWith('Failed')\"\n  \"true\"  (fallback rule that always matches)",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"summary": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Summary is a CEL template for generating the activity summary. Use {{ }} delimiters to embed CEL expressions within strings.\n\nAvailable variables:\n  - audit/event: The full input object\n  - kind: Human-readable kind label (e.g., \"HTTP proxy\")\n  - kindPlural: Plural form (e.g., \"HTTP proxies\")\n  - actor: Resolved display name for the actor\n\nAvailable functions:\n  - link(displayText, resourceRef): Creates a clickable reference\n\nExamples:\n  \"{{ actor }} created {{ link(kind + ' ' + audit.objectRef.name, audit.responseObject) }}\"\n  \"{{ link(kind + ' ' + event.regarding.name, event.regarding) }} is now programmed\"",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"match", "summary"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_ActivityPolicySpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ActivityPolicySpec defines the translation rules for a resource type.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"resource": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Resource identifies the Kubernetes resource this policy applies to. One ActivityPolicy should exist per resource kind.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicyResource"),
+						},
+					},
+					"auditRules": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "AuditRules define how to translate audit log entries into activity summaries. Rules are evaluated in order; the first matching rule wins. The `audit` variable contains the full Kubernetes audit event structure. Convenience variables available: kind, kindPlural, actor",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicyRule"),
+									},
+								},
+							},
+						},
+					},
+					"eventRules": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "EventRules define how to translate Kubernetes events into activity summaries. Rules are evaluated in order; the first matching rule wins. The `event` variable contains the full Kubernetes Event structure. Convenience variables available: kind, kindPlural, actor",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicyRule"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"resource"},
+			},
+		},
+		Dependencies: []string{
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicyResource", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicyRule"},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_ActivityPolicyStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ActivityPolicyStatus represents the current state of an ActivityPolicy.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"conditions": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"type",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Conditions represent the current state of the policy. The \"Ready\" condition indicates whether all rules compile successfully.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(metav1.Condition{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+					"observedGeneration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ObservedGeneration is the generation last processed by the controller.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			metav1.Condition{}.OpenAPIModelName()},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_ActivityResource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ActivityResource identifies the Kubernetes resource affected by an activity.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"apiGroup": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIGroup is the API group of the resource. Empty string for core API group.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion is the API version of the resource.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is the kind of the resource.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the name of the resource.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"namespace": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Namespace is the namespace of the resource. Empty for cluster-scoped resources.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"uid": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UID is the unique identifier of the resource.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"apiVersion", "kind", "name"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_ActivitySpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ActivitySpec contains the translated activity details.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"summary": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Summary is the human-readable description of what happened. Generated from ActivityPolicy templates.\n\nExample: \"alice created HTTP proxy api-gateway\"",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"changeSource": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ChangeSource indicates who initiated the change. Used to filter human actions from system reconciliation noise.\n\nValues:\n  - \"human\": User action via kubectl, API, or UI\n  - \"system\": Controller reconciliation, operator actions, scheduled jobs",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"actor": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Actor identifies who performed the action.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityActor"),
+						},
+					},
+					"resource": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Resource identifies the Kubernetes resource that was affected.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityResource"),
+						},
+					},
+					"links": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Links contains clickable references found in the summary. The portal uses these to make resource names in the summary clickable.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityLink"),
+									},
+								},
+							},
+						},
+					},
+					"tenant": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Tenant identifies the scope for multi-tenant isolation.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityTenant"),
+						},
+					},
+					"changes": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Changes contains field-level changes for update/patch operations. Shows old and new values for modified fields.\n\nNOTE: This field may be empty in the initial implementation. Populating old values requires resource history lookups.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityChange"),
+									},
+								},
+							},
+						},
+					},
+					"origin": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Origin identifies the source record for correlation.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityOrigin"),
+						},
+					},
+				},
+				Required: []string{"summary", "changeSource", "actor", "resource", "tenant", "origin"},
+			},
+		},
+		Dependencies: []string{
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityActor", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityChange", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityLink", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityOrigin", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityResource", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityTenant"},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_ActivityTenant(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ActivityTenant identifies the scope for multi-tenant isolation.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type is the scope level. Values: \"global\", \"organization\", \"project\", \"user\"",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the tenant identifier within the scope type.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"type", "name"},
+			},
+		},
+	}
+}
+
 func schema_pkg_apis_activity_v1alpha1_AuditLogFacetsQuery(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -422,7 +1257,7 @@ func schema_pkg_apis_activity_v1alpha1_AuditLogFacetsQuerySpec(ref common.Refere
 					},
 					"filter": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Filter narrows the audit logs before computing facets using CEL. This allows you to get facet values for a subset of audit logs.\n\nExample: \"verb in ['create', 'update', 'delete']\" to get facets only for write operations.\n\nAvailable Fields:\n  verb               - API action: get, list, create, update, patch, delete, watch\n  user.username      - who made the request (user or service account)\n  user.uid           - unique user identifier\n  responseStatus.code - HTTP response code (200, 201, 404, 500, etc.)\n  objectRef.namespace - target resource namespace\n  objectRef.resource  - resource type (pods, deployments, secrets, configmaps, etc.)\n  objectRef.apiGroup  - API group of the resource\n  objectRef.name     - specific resource name",
+							Description: "Filter narrows the audit logs before computing facets using CEL. This allows you to get facet values for a subset of audit logs.\n\nAvailable Fields:\n  verb               - API action: get, list, create, update, patch, delete, watch\n  user.username      - who made the request (user or service account)\n  user.uid           - unique user identifier\n  responseStatus.code - HTTP response code (200, 201, 404, 500, etc.)\n  objectRef.namespace - target resource namespace\n  objectRef.resource  - resource type (pods, deployments, secrets, configmaps, etc.)\n  objectRef.apiGroup  - API group of the resource\n  objectRef.name     - specific resource name\n\nOperators: ==, !=, <, >, <=, >=, &&, ||, !, in String Functions: startsWith(), endsWith(), contains()\n\nExamples:\n  \"verb in ['create', 'update', 'delete']\"        - Facets for write operations only\n  \"!(verb in ['get', 'list', 'watch'])\"           - Exclude read-only operations\n  \"!user.username.startsWith('system:')\"          - Exclude system users\n  \"objectRef.namespace == 'production'\"           - Facets for production namespace",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -611,7 +1446,7 @@ func schema_pkg_apis_activity_v1alpha1_AuditLogQuerySpec(ref common.ReferenceCal
 					},
 					"filter": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Filter narrows results using CEL (Common Expression Language). Leave empty to get all events.\n\nAvailable Fields:\n  verb               - API action: get, list, create, update, patch, delete, watch\n  auditID            - unique event identifier\n  requestReceivedTimestamp - when the API server received the request (RFC3339 timestamp)\n  user.username      - who made the request (user or service account)\n  user.uid           - unique user identifier (stable across username changes)\n  responseStatus.code - HTTP response code (200, 201, 404, 500, etc.)\n  objectRef.namespace - target resource namespace\n  objectRef.resource  - resource type (pods, deployments, secrets, configmaps, etc.)\n  objectRef.name     - specific resource name\n\nOperators: ==, !=, <, >, <=, >=, &&, ||, in String Functions: startsWith(), endsWith(), contains()\n\nCommon Patterns:\n  \"verb == 'delete'\"                                    - All deletions\n  \"objectRef.namespace == 'production'\"                 - Activity in production namespace\n  \"verb in ['create', 'update', 'delete', 'patch']\"     - All write operations\n  \"responseStatus.code >= 400\"                          - Failed requests\n  \"user.username.startsWith('system:serviceaccount:')\"  - Service account activity\n  \"user.uid == '550e8400-e29b-41d4-a716-446655440000'\"  - Specific user by UID\n  \"objectRef.resource == 'secrets'\"                     - Secret access\n  \"verb == 'delete' && objectRef.namespace == 'production'\" - Production deletions\n\nNote: Use single quotes for strings. Field names are case-sensitive. CEL reference: https://cel.dev",
+							Description: "Filter narrows results using CEL (Common Expression Language). Leave empty to get all events.\n\nAvailable Fields:\n  verb               - API action: get, list, create, update, patch, delete, watch\n  auditID            - unique event identifier\n  requestReceivedTimestamp - when the API server received the request (RFC3339 timestamp)\n  user.username      - who made the request (user or service account)\n  user.uid           - unique user identifier (stable across username changes)\n  responseStatus.code - HTTP response code (200, 201, 404, 500, etc.)\n  objectRef.namespace - target resource namespace\n  objectRef.resource  - resource type (pods, deployments, secrets, configmaps, etc.)\n  objectRef.name     - specific resource name\n\nOperators: ==, !=, <, >, <=, >=, &&, ||, !, in String Functions: startsWith(), endsWith(), contains()\n\nCommon Patterns:\n  \"verb == 'delete'\"                                    - All deletions\n  \"objectRef.namespace == 'production'\"                 - Activity in production namespace\n  \"verb in ['create', 'update', 'delete', 'patch']\"     - All write operations\n  \"!(verb in ['get', 'list', 'watch'])\"                 - Exclude read-only operations\n  \"responseStatus.code >= 400\"                          - Failed requests\n  \"user.username.startsWith('system:serviceaccount:')\"  - Service account activity\n  \"!user.username.startsWith('system:')\"                - Exclude system users\n  \"user.uid == '550e8400-e29b-41d4-a716-446655440000'\"  - Specific user by UID\n  \"objectRef.resource == 'secrets'\"                     - Secret access\n  \"verb == 'delete' && objectRef.namespace == 'production'\" - Production deletions\n\nNote: Use single quotes for strings. Field names are case-sensitive. CEL reference: https://cel.dev",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -818,6 +1653,258 @@ func schema_pkg_apis_activity_v1alpha1_FacetValue(ref common.ReferenceCallback) 
 				Required: []string{"value", "count"},
 			},
 		},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_PolicyPreview(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PolicyPreview tests an ActivityPolicy against sample inputs without persisting anything. Use this to verify that your policy rules match correctly and generate the expected summaries before deploying the policy.\n\nThe preview accepts multiple inputs (audit logs and/or events) and returns the rendered Activity stream that would be generated by the policy.\n\nExample:\n\n\tapiVersion: activity.miloapis.com/v1alpha1\n\tkind: PolicyPreview\n\tmetadata:\n\t  name: test-preview\n\tspec:\n\t  policy:\n\t    resource:\n\t      apiGroup: networking.datumapis.com\n\t      kind: HTTPProxy\n\t    auditRules:\n\t      - match: \"audit.verb == 'create'\"\n\t        summary: \"{{ actor }} created {{ kind }}\"\n\t      - match: \"audit.verb == 'delete'\"\n\t        summary: \"{{ actor }} deleted {{ kind }}\"\n\t  inputs:\n\t    - type: audit\n\t      audit:\n\t        verb: create\n\t        objectRef:\n\t          apiGroup: networking.datumapis.com\n\t          resource: httpproxies\n\t          name: my-proxy\n\t        user:\n\t          username: alice@example.com\n\t    - type: audit\n\t      audit:\n\t        verb: delete\n\t        objectRef:\n\t          apiGroup: networking.datumapis.com\n\t          resource: httpproxies\n\t          name: old-proxy\n\t        user:\n\t          username: bob@example.com",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ObjectMeta{}.OpenAPIModelName()),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreviewSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreviewStatus"),
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreviewSpec", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreviewStatus", metav1.ObjectMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_PolicyPreviewInput(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PolicyPreviewInput contains the sample input for policy testing.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type indicates whether this is an audit log or event input. Values: \"audit\", \"event\"",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"audit": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Audit contains a sample audit log entry. Required when Type is \"audit\".",
+							Ref:         ref(auditv1.Event{}.OpenAPIModelName()),
+						},
+					},
+					"event": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Event contains a sample Kubernetes event. Required when Type is \"event\". Uses RawExtension to allow flexible event structure.",
+							Ref:         ref(runtime.RawExtension{}.OpenAPIModelName()),
+						},
+					},
+				},
+				Required: []string{"type"},
+			},
+		},
+		Dependencies: []string{
+			runtime.RawExtension{}.OpenAPIModelName(), auditv1.Event{}.OpenAPIModelName()},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_PolicyPreviewInputResult(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PolicyPreviewInputResult contains the result for a single input.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"inputIndex": {
+						SchemaProps: spec.SchemaProps{
+							Description: "InputIndex is the index of this input in spec.inputs (0-based).",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"matched": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Matched indicates whether any rule matched this input.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"matchedRuleIndex": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MatchedRuleIndex is the index of the rule that matched (0-based). -1 if no rule matched.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"matchedRuleType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MatchedRuleType indicates whether the matched rule was an audit or event rule. Empty if no rule matched.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"error": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Error contains any error message if evaluating this input failed. This could be a CEL compilation error or evaluation error.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"inputIndex", "matched", "matchedRuleIndex"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_PolicyPreviewSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PolicyPreviewSpec defines the policy and inputs to test.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"policy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Policy is the ActivityPolicy spec to test. You can use the full spec from an existing policy or create a new one.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicySpec"),
+						},
+					},
+					"inputs": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Inputs contains sample audit logs and/or events to test against the policy. Each input is evaluated independently and produces an Activity if a rule matches. You can mix audit logs and events in the same request.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreviewInput"),
+									},
+								},
+							},
+						},
+					},
+					"kindLabel": {
+						SchemaProps: spec.SchemaProps{
+							Description: "KindLabel is the human-readable label for the resource kind. If not specified, defaults to the Kind with spaces before capitals.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"kindLabelPlural": {
+						SchemaProps: spec.SchemaProps{
+							Description: "KindLabelPlural is the plural form of the kind label. If not specified, defaults to KindLabel + \"s\".",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"policy", "inputs"},
+			},
+		},
+		Dependencies: []string{
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicySpec", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreviewInput"},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_PolicyPreviewStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PolicyPreviewStatus contains the preview results.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"activities": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Activities contains the rendered Activity objects for inputs that matched a rule. The order corresponds to the order of matched inputs (not necessarily the input order). Inputs that don't match any rule are not included here.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.Activity"),
+									},
+								},
+							},
+						},
+					},
+					"results": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Results contains detailed results for each input, in the same order as spec.inputs. Use this to see which inputs matched and any errors that occurred.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreviewInputResult"),
+									},
+								},
+							},
+						},
+					},
+					"error": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Error contains a general error message if the preview failed entirely. Individual input errors are reported in results[].error.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.Activity", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreviewInputResult"},
 	}
 }
 

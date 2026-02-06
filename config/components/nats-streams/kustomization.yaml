@@ -1,11 +1,11 @@
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-
-namespace: nats-system
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
 
 resources:
   - audit-stream.yaml
   - clickhouse-consumer.yaml
+  - activities-stream.yaml
+  - activities-consumer.yaml
 
 # Note: This contains application-specific NATS JetStream stream configurations.
 # The NATS infrastructure (server + NACK controller) is deployed from config/dependencies/nats/

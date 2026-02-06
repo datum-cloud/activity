@@ -116,6 +116,61 @@ var (
 			Buckets: []float64{60, 300, 900, 3600, 21600, 86400, 259200, 604800, 1209600, 2592000},
 		},
 	)
+
+	// NATSDisconnectsTotal tracks the total number of NATS disconnections
+	NATSDisconnectsTotal = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Namespace:      namespace,
+			Name:           "nats_disconnects_total",
+			Help:           "Total number of NATS disconnections",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"connection"},
+	)
+
+	// NATSReconnectsTotal tracks the total number of NATS reconnections
+	NATSReconnectsTotal = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Namespace:      namespace,
+			Name:           "nats_reconnects_total",
+			Help:           "Total number of NATS reconnections",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"connection"},
+	)
+
+	// NATSErrorsTotal tracks the total number of NATS async errors
+	NATSErrorsTotal = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Namespace:      namespace,
+			Name:           "nats_errors_total",
+			Help:           "Total number of NATS async errors",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"connection"},
+	)
+
+	// NATSLameDuckEventsTotal tracks the total number of NATS lame duck mode events
+	NATSLameDuckEventsTotal = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Namespace:      namespace,
+			Name:           "nats_lame_duck_events_total",
+			Help:           "Total number of NATS lame duck mode events",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"connection"},
+	)
+
+	// NATSConnectionStatus tracks the current NATS connection status (1=connected, 0=disconnected)
+	NATSConnectionStatus = metrics.NewGaugeVec(
+		&metrics.GaugeOpts{
+			Namespace:      namespace,
+			Name:           "nats_connection_status",
+			Help:           "Current NATS connection status (1=connected, 0=disconnected)",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"connection"},
+	)
 )
 
 // init registers all custom metrics with the legacy registry
@@ -131,5 +186,10 @@ func init() {
 		AuditLogQueriesByScope,
 		AuditLogQueryLookbackDuration,
 		AuditLogQueryTimeRange,
+		NATSDisconnectsTotal,
+		NATSReconnectsTotal,
+		NATSErrorsTotal,
+		NATSLameDuckEventsTotal,
+		NATSConnectionStatus,
 	)
 }

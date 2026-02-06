@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: activity-processor
+  namespace: activity-system
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+      - name: processor
+        # Dev-specific configuration
+        imagePullPolicy: Never  # Use images loaded via kind load
+        env:
+        - name: LOG_LEVEL
+          value: "4"  # Verbosity level: 0=info, 2=debug, 4=trace
+        - name: NATS_INPUT_URL
+          value: "nats://nats.nats-system.svc.cluster.local:4222"
+        resources:
+          # Reduced resources for dev environments
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 250m
+            memory: 256Mi

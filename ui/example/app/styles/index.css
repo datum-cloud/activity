@@ -1,0 +1,70 @@
+@import "tailwindcss";
+
+/* Scan library components for Tailwind classes */
+@source "../../../node_modules/@miloapis/activity-ui/dist/index.esm.js";
+
+@theme {
+  /* Datum Brand Colors */
+  --color-canyon-clay: hsl(0 27% 70%);        /* #C49D9D - Warm rose/clay */
+  --color-aurora-moss: hsl(67 89% 79%);       /* #E6F59E - Light moss green */
+  --color-datum-dark: hsl(213 59% 12%);       /* #0C1D31 - Deep blue-black */
+  --color-datum-blue: hsl(217 91% 60%);       /* #3b82f6 - Datum blue */
+
+  /* Theme colors based on Datum brand - Light mode defaults */
+  --color-background: hsl(0 0% 100%);
+  --color-foreground: hsl(213 59% 12%);       /* Datum dark */
+  --color-card: hsl(0 0% 100%);
+  --color-card-foreground: hsl(213 59% 12%);
+  --color-popover: hsl(0 0% 100%);
+  --color-popover-foreground: hsl(213 59% 12%);
+  --color-primary: hsl(0 27% 70%);            /* Canyon Clay */
+  --color-primary-foreground: hsl(213 59% 12%);
+  --color-secondary: hsl(67 89% 79%);         /* Aurora Moss */
+  --color-secondary-foreground: hsl(213 59% 12%);
+  --color-muted: hsl(0 0% 96%);
+  --color-muted-foreground: hsl(213 20% 45%);
+  --color-accent: hsl(67 89% 79%);            /* Aurora Moss accent */
+  --color-accent-foreground: hsl(213 59% 12%);
+  --color-destructive: hsl(0 84% 60%);
+  --color-destructive-foreground: hsl(0 0% 98%);
+  --color-border: hsl(0 0% 90%);
+  --color-input: hsl(0 0% 90%);
+  --color-ring: hsl(0 27% 70%);               /* Canyon Clay */
+
+  --radius-lg: 0.5rem;
+  --radius-md: calc(0.5rem - 2px);
+  --radius-sm: calc(0.5rem - 4px);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+  }
+
+  /* Dark mode theme overrides */
+  .dark {
+    --color-background: hsl(213 25% 10%);
+    --color-foreground: hsl(0 0% 95%);
+    --color-card: hsl(213 25% 13%);
+    --color-card-foreground: hsl(0 0% 95%);
+    --color-popover: hsl(213 25% 13%);
+    --color-popover-foreground: hsl(0 0% 95%);
+    --color-primary: hsl(0 27% 65%);            /* Canyon Clay - slightly adjusted */
+    --color-primary-foreground: hsl(0 0% 98%);
+    --color-secondary: hsl(67 60% 45%);         /* Aurora Moss - darkened for contrast */
+    --color-secondary-foreground: hsl(0 0% 98%);
+    --color-muted: hsl(213 25% 18%);
+    --color-muted-foreground: hsl(213 15% 65%);
+    --color-accent: hsl(67 60% 45%);            /* Aurora Moss - darkened */
+    --color-accent-foreground: hsl(0 0% 98%);
+    --color-destructive: hsl(0 72% 51%);
+    --color-destructive-foreground: hsl(0 0% 98%);
+    --color-border: hsl(213 25% 22%);
+    --color-input: hsl(213 25% 22%);
+    --color-ring: hsl(0 27% 65%);               /* Canyon Clay */
+  }
+}

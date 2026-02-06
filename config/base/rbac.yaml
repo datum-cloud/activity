@@ -1,0 +1,60 @@
+# RBAC for Activity Processor
+# The activity-processor needs to watch ActivityPolicy resources to apply rules
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: activity-processor
+rules:
+# Watch ActivityPolicy resources to apply translation rules
+- apiGroups: ["activity.miloapis.com"]
+  resources: ["activitypolicies"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: activity-processor
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: activity-processor
+subjects:
+- kind: ServiceAccount
+  name: activity-processor
+  namespace: activity-system
+---
+# RBAC for Controller Manager
+# The activity-controller-manager needs permissions to manage activity resources
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: activity-controller-manager
+rules:
+# Manage ActivityPolicy resources
+- apiGroups: ["activity.miloapis.com"]
+  resources: ["activitypolicies"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["activity.miloapis.com"]
+  resources: ["activitypolicies/status"]
+  verbs: ["get", "update", "patch"]
+# Watch core resources for event handling
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["get", "list", "watch", "create", "patch"]
+# Read namespaces for namespace-scoped operations
+- apiGroups: [""]
+  resources: ["namespaces"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: activity-controller-manager
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: activity-controller-manager
+subjects:
+- kind: ServiceAccount
+  name: activity-controller-manager
+  namespace: activity-system

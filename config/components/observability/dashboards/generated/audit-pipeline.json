@@ -1521,7 +1521,7 @@
             "label": "Prometheus Datasource",
             "name": "datasource",
             "query": "prometheus",
-            "regex": "Service Metrics",
+            "regex": "",
             "type": "datasource"
          }
       ]

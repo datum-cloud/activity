@@ -6,10 +6,13 @@ namespace: activity-system
 resources:
   - serviceaccount.yaml
   - deployment.yaml
+  - activity-processor.yaml
+  - controller-manager.yaml
   - service.yaml
   - secret.yaml
   - rbac-auth-reader.yaml
   - rbac-cluster.yaml
+  - rbac.yaml
 
 labels:
   - includeSelectors: true

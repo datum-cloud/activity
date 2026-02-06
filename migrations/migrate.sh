@@ -75,10 +75,10 @@ wait_for_clickhouse() {
 # Wait for all replicas in the cluster to be healthy and ready
 # This function will wait indefinitely until all replicas are online and healthy
 wait_for_cluster_ready() {
-    log_info "Waiting for all 3 replicas in the 'activity' cluster to be ready..."
+    local expected_replicas="${EXPECTED_REPLICAS:-3}"
+    log_info "Waiting for all $expected_replicas replica(s) in the 'activity' cluster to be ready..."
     log_info "This will wait indefinitely until the cluster is healthy."
 
-    local expected_replicas=3
     local attempt=1
 
     while true; do
@@ -98,8 +98,8 @@ wait_for_cluster_ready() {
         # Get number of healthy replicas (errors_count=0 means no connection errors)
         local healthy_replicas=$(clickhouse_cmd "SELECT count() FROM system.clusters WHERE cluster='activity' AND errors_count=0" 2>/dev/null || echo "0")
 
-        # Check if we have the expected number of replicas and all are healthy
-        if [ "$total_replicas" -eq "$expected_replicas" ] && [ "$healthy_replicas" -eq "$expected_replicas" ]; then
+        # Check if we have at least the expected number of healthy replicas
+        if [ "$total_replicas" -ge "$expected_replicas" ] && [ "$healthy_replicas" -ge "$expected_replicas" ]; then
             log_success "All $expected_replicas replicas are registered and healthy!"
 
             # Additional check: verify Keeper connectivity for distributed DDL

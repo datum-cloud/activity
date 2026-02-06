@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Example ActivityPolicies for basic Kubernetes resources
+# These policies translate audit logs into human-readable activity summaries
+
+resources:
+  - core.yaml       # Pod, Service, ConfigMap, Secret, Namespace, ServiceAccount, PersistentVolumeClaim, PersistentVolume
+  - apps.yaml       # Deployment, ReplicaSet, StatefulSet, DaemonSet
+  - batch.yaml      # Job, CronJob
+  - networking.yaml # Ingress
+  - rbac.yaml       # ClusterRole, ClusterRoleBinding, Role, RoleBinding

@@ -57,6 +57,7 @@ spec:
 
     profiles:
       default/max_memory_usage: 3000000000  # 3GB max memory usage
+      default/enable_full_text_index: 1     # Enable text indexes for full-text search
     files:
       config.d/log_rotation.xml: |-
         <clickhouse>

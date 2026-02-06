@@ -33,7 +33,7 @@ vendor/
 Thumbs.db
 
 # Build outputs
-./activity
+activity
 
 # Kubernetes secrets
 *.key
