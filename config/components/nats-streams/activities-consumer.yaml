@@ -3,7 +3,7 @@ apiVersion: jetstream.nats.io/v1beta2
 kind: Consumer
 metadata:
   name: activities-clickhouse-ingest
-  namespace: activity-system
+  namespace: nats-system
 spec:
   # Stream this consumer is bound to
   streamName: ACTIVITIES

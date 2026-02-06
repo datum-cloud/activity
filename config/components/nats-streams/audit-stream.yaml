@@ -3,7 +3,7 @@ apiVersion: jetstream.nats.io/v1beta2
 kind: Stream
 metadata:
   name: audit-events
-  namespace: activity-system
+  namespace: nats-system
 spec:
   # Stream name in NATS
   name: AUDIT_EVENTS
