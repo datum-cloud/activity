@@ -2,8 +2,11 @@ package watch
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -32,6 +35,43 @@ type NATSConfig struct {
 	URL           string
 	StreamName    string // JetStream stream name (e.g., "ACTIVITIES")
 	SubjectPrefix string // Subject prefix (e.g., "activities")
+	TLSEnabled    bool
+	TLSCertFile   string
+	TLSKeyFile    string
+	TLSCAFile     string
+}
+
+// buildNATSTLSConfig creates a TLS configuration for NATS connections.
+func buildNATSTLSConfig(config NATSConfig) (*tls.Config, error) {
+	tlsConfig := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+	}
+
+	// Load client certificate if provided
+	if config.TLSCertFile != "" && config.TLSKeyFile != "" {
+		cert, err := tls.LoadX509KeyPair(config.TLSCertFile, config.TLSKeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load NATS client certificate: %w", err)
+		}
+		tlsConfig.Certificates = []tls.Certificate{cert}
+		klog.V(2).InfoS("Loaded NATS client certificate", "certFile", config.TLSCertFile)
+	}
+
+	// Load CA certificate if provided
+	if config.TLSCAFile != "" {
+		caCert, err := os.ReadFile(config.TLSCAFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read NATS CA certificate: %w", err)
+		}
+		caCertPool := x509.NewCertPool()
+		if !caCertPool.AppendCertsFromPEM(caCert) {
+			return nil, fmt.Errorf("failed to parse NATS CA certificate")
+		}
+		tlsConfig.RootCAs = caCertPool
+		klog.V(2).InfoS("Loaded NATS CA certificate", "caFile", config.TLSCAFile)
+	}
+
+	return tlsConfig, nil
 }
 
 // NewNATSWatcher creates a new NATS watcher with JetStream support.
@@ -42,7 +82,7 @@ func NewNATSWatcher(config NATSConfig) (*NATSWatcher, error) {
 		return nil, nil
 	}
 
-	conn, err := nats.Connect(config.URL,
+	opts := []nats.Option{
 		nats.RetryOnFailedConnect(true),
 		nats.MaxReconnects(-1),
 		nats.DisconnectErrHandler(func(nc *nats.Conn, err error) {
@@ -53,7 +93,19 @@ func NewNATSWatcher(config NATSConfig) (*NATSWatcher, error) {
 		nats.ReconnectHandler(func(nc *nats.Conn) {
 			klog.Info("NATS reconnected", "url", nc.ConnectedUrl())
 		}),
-	)
+	}
+
+	// Add TLS configuration if enabled
+	if config.TLSEnabled {
+		tlsConfig, err := buildNATSTLSConfig(config)
+		if err != nil {
+			return nil, fmt.Errorf("failed to build NATS TLS config: %w", err)
+		}
+		opts = append(opts, nats.Secure(tlsConfig))
+		klog.V(2).InfoS("NATS TLS enabled for Watch API")
+	}
+
+	conn, err := nats.Connect(config.URL, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to NATS: %w", err)
 	}

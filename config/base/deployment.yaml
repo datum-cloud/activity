@@ -70,6 +70,10 @@ spec:
         - --nats-url=$(NATS_URL)
         - --nats-stream-name=$(NATS_STREAM_NAME)
         - --nats-subject-prefix=$(NATS_SUBJECT_PREFIX)
+        - --nats-tls-enabled=$(NATS_TLS_ENABLED)
+        - --nats-tls-cert-file=$(NATS_TLS_CERT_FILE)
+        - --nats-tls-key-file=$(NATS_TLS_KEY_FILE)
+        - --nats-tls-ca-file=$(NATS_TLS_CA_FILE)
         - -v=$(LOG_LEVEL)
         env:
         - name: SECURE_PORT
@@ -137,6 +141,14 @@ spec:
           value: "ACTIVITIES"
         - name: NATS_SUBJECT_PREFIX
           value: "activities"
+        - name: NATS_TLS_ENABLED
+          value: "false"
+        - name: NATS_TLS_CERT_FILE
+          value: ""
+        - name: NATS_TLS_KEY_FILE
+          value: ""
+        - name: NATS_TLS_CA_FILE
+          value: ""
         resources:
           requests:
             cpu: 100m

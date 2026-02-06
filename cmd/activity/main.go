@@ -142,6 +142,12 @@ type ActivityServerOptions struct {
 	NATSURL           string // NATS server URL (empty disables Watch API)
 	NATSStreamName    string // JetStream stream name for activities
 	NATSSubjectPrefix string // Subject prefix for activities
+
+	// NATS TLS configuration
+	NATSTLSEnabled  bool
+	NATSTLSCertFile string
+	NATSTLSKeyFile  string
+	NATSTLSCAFile   string
 }
 
 // NewActivityServerOptions creates options with default values.
@@ -206,6 +212,15 @@ func (o *ActivityServerOptions) AddFlags(fs *pflag.FlagSet) {
 		"JetStream stream name for activities")
 	fs.StringVar(&o.NATSSubjectPrefix, "nats-subject-prefix", o.NATSSubjectPrefix,
 		"Subject prefix for activities")
+
+	fs.BoolVar(&o.NATSTLSEnabled, "nats-tls-enabled", o.NATSTLSEnabled,
+		"Enable TLS for NATS connection")
+	fs.StringVar(&o.NATSTLSCertFile, "nats-tls-cert-file", o.NATSTLSCertFile,
+		"Path to client certificate file for NATS TLS")
+	fs.StringVar(&o.NATSTLSKeyFile, "nats-tls-key-file", o.NATSTLSKeyFile,
+		"Path to client private key file for NATS TLS")
+	fs.StringVar(&o.NATSTLSCAFile, "nats-tls-ca-file", o.NATSTLSCAFile,
+		"Path to CA certificate file for NATS TLS")
 }
 
 func (o *ActivityServerOptions) Complete() error {
@@ -285,6 +300,10 @@ func (o *ActivityServerOptions) Config() (*activityapiserver.Config, error) {
 				URL:           o.NATSURL,
 				StreamName:    o.NATSStreamName,
 				SubjectPrefix: o.NATSSubjectPrefix,
+				TLSEnabled:    o.NATSTLSEnabled,
+				TLSCertFile:   o.NATSTLSCertFile,
+				TLSKeyFile:    o.NATSTLSKeyFile,
+				TLSCAFile:     o.NATSTLSCAFile,
 			},
 		},
 	}
