@@ -39,7 +39,7 @@ spec:
           protocol: TCP
         command:
         - /activity
-        - serve
+        - apiserver
         args:
         - --secure-port=$(SECURE_PORT)
         - --tls-cert-file=$(TLS_CERT_FILE)
@@ -66,6 +66,14 @@ spec:
         - --requestheader-extra-headers-prefix=$(REQUESTHEADER_EXTRA_HEADERS_PREFIX)
         - --logging-format=$(LOGGING_FORMAT)
         - --tracing-config-file=$(TRACING_CONFIG_FILE)
+        - --etcd-servers=$(ETCD_SERVERS)
+        - --nats-url=$(NATS_URL)
+        - --nats-stream-name=$(NATS_STREAM_NAME)
+        - --nats-subject-prefix=$(NATS_SUBJECT_PREFIX)
+        - --nats-tls-enabled=$(NATS_TLS_ENABLED)
+        - --nats-tls-cert-file=$(NATS_TLS_CERT_FILE)
+        - --nats-tls-key-file=$(NATS_TLS_KEY_FILE)
+        - --nats-tls-ca-file=$(NATS_TLS_CA_FILE)
         - -v=$(LOG_LEVEL)
         env:
         - name: SECURE_PORT
@@ -123,6 +131,23 @@ spec:
         - name: CLICKHOUSE_TLS_KEY_FILE
           value: ""
         - name: CLICKHOUSE_TLS_CA_FILE
+          value: ""
+        - name: ETCD_SERVERS
+          value: "http://etcd.activity-system.svc.cluster.local:2379"
+        # NATS configuration for Watch API
+        - name: NATS_URL
+          value: "nats://nats.nats-system.svc.cluster.local:4222"
+        - name: NATS_STREAM_NAME
+          value: "ACTIVITIES"
+        - name: NATS_SUBJECT_PREFIX
+          value: "activities"
+        - name: NATS_TLS_ENABLED
+          value: "false"
+        - name: NATS_TLS_CERT_FILE
+          value: ""
+        - name: NATS_TLS_KEY_FILE
+          value: ""
+        - name: NATS_TLS_CA_FILE
           value: ""
         resources:
           requests:

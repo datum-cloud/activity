@@ -1,0 +1,265 @@
+package policy
+
+import (
+	"context"
+	"fmt"
+
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/apiserver/pkg/registry/generic"
+	"k8s.io/apiserver/pkg/storage"
+	"k8s.io/apiserver/pkg/storage/names"
+	"sigs.k8s.io/structured-merge-diff/v6/fieldpath"
+
+	"go.miloapis.com/activity/internal/cel"
+	"go.miloapis.com/activity/pkg/apis/activity/v1alpha1"
+)
+
+// activityPolicyStrategy implements behavior for ActivityPolicy resources.
+type activityPolicyStrategy struct {
+	runtime.ObjectTyper
+	names.NameGenerator
+}
+
+// activityPolicyStatusStrategy implements behavior for ActivityPolicy status updates.
+type activityPolicyStatusStrategy struct {
+	runtime.ObjectTyper
+	names.NameGenerator
+}
+
+// Strategy is the default strategy for ActivityPolicy.
+var Strategy = activityPolicyStrategy{
+	ObjectTyper:   nil, // Will be set during initialization
+	NameGenerator: names.SimpleNameGenerator,
+}
+
+// NewStrategy creates a new ActivityPolicy strategy with the given typer.
+func NewStrategy(typer runtime.ObjectTyper) activityPolicyStrategy {
+	return activityPolicyStrategy{
+		ObjectTyper:   typer,
+		NameGenerator: names.SimpleNameGenerator,
+	}
+}
+
+// NewStatusStrategy creates a new ActivityPolicy status strategy with the given typer.
+func NewStatusStrategy(typer runtime.ObjectTyper) activityPolicyStatusStrategy {
+	return activityPolicyStatusStrategy{
+		ObjectTyper:   typer,
+		NameGenerator: names.SimpleNameGenerator,
+	}
+}
+
+// NamespaceScoped returns false because ActivityPolicy is cluster-scoped.
+func (s activityPolicyStrategy) NamespaceScoped() bool {
+	return false
+}
+
+// PrepareForCreate clears status and sets defaults before creation.
+func (s activityPolicyStrategy) PrepareForCreate(ctx context.Context, obj runtime.Object) {
+	policy := obj.(*v1alpha1.ActivityPolicy)
+	// Clear status on creation - it will be set by the controller
+	policy.Status = v1alpha1.ActivityPolicyStatus{}
+}
+
+// PrepareForUpdate clears fields that are not allowed to be set by end users on update.
+func (s activityPolicyStrategy) PrepareForUpdate(ctx context.Context, obj, old runtime.Object) {
+	// ActivityPolicy has no status field, so nothing to clear
+}
+
+// Validate validates a new ActivityPolicy.
+func (s activityPolicyStrategy) Validate(ctx context.Context, obj runtime.Object) field.ErrorList {
+	policy := obj.(*v1alpha1.ActivityPolicy)
+	return ValidateActivityPolicy(policy)
+}
+
+// WarningsOnCreate returns warnings for the creation of the given object.
+func (s activityPolicyStrategy) WarningsOnCreate(ctx context.Context, obj runtime.Object) []string {
+	return nil
+}
+
+// AllowCreateOnUpdate returns false because ActivityPolicy should be created via POST.
+func (s activityPolicyStrategy) AllowCreateOnUpdate() bool {
+	return false
+}
+
+// AllowUnconditionalUpdate allows unconditional updates to ActivityPolicy.
+func (s activityPolicyStrategy) AllowUnconditionalUpdate() bool {
+	return true
+}
+
+// Canonicalize normalizes the object after validation.
+func (s activityPolicyStrategy) Canonicalize(obj runtime.Object) {
+	// No canonicalization needed
+}
+
+// ValidateUpdate validates an update to an ActivityPolicy.
+func (s activityPolicyStrategy) ValidateUpdate(ctx context.Context, obj, old runtime.Object) field.ErrorList {
+	policy := obj.(*v1alpha1.ActivityPolicy)
+	oldPolicy := old.(*v1alpha1.ActivityPolicy)
+
+	allErrs := ValidateActivityPolicy(policy)
+
+	// Prevent changing the target resource (apiGroup + kind) after creation
+	if policy.Spec.Resource.APIGroup != oldPolicy.Spec.Resource.APIGroup ||
+		policy.Spec.Resource.Kind != oldPolicy.Spec.Resource.Kind {
+		allErrs = append(allErrs, field.Invalid(
+			field.NewPath("spec", "resource"),
+			policy.Spec.Resource,
+			"resource (apiGroup and kind) is immutable after creation",
+		))
+	}
+
+	return allErrs
+}
+
+// WarningsOnUpdate returns warnings for the update of the given object.
+func (s activityPolicyStrategy) WarningsOnUpdate(ctx context.Context, obj, old runtime.Object) []string {
+	return nil
+}
+
+// ValidateActivityPolicy validates an ActivityPolicy and returns field errors.
+func ValidateActivityPolicy(policy *v1alpha1.ActivityPolicy) field.ErrorList {
+	return ValidateActivityPolicySpec(&policy.Spec, field.NewPath("spec"))
+}
+
+// ValidateActivityPolicySpec validates an ActivityPolicySpec and returns field errors.
+// The specPath parameter allows customizing the field path for error messages.
+func ValidateActivityPolicySpec(spec *v1alpha1.ActivityPolicySpec, specPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	// Validate required resource fields
+	resourcePath := specPath.Child("resource")
+	// Note: apiGroup can be empty string for core API resources (v1)
+	// e.g., pods, services, configmaps, secrets, namespaces
+	if spec.Resource.Kind == "" {
+		allErrs = append(allErrs, field.Required(resourcePath.Child("kind"),
+			"specify the kind of resource this policy targets (e.g., 'Deployment', 'Service')"))
+	}
+
+	// Validate audit rules
+	auditRulesPath := specPath.Child("auditRules")
+	for i, rule := range spec.AuditRules {
+		rulePath := auditRulesPath.Index(i)
+		allErrs = append(allErrs, validatePolicyRule(rule, rulePath, cel.AuditRule)...)
+	}
+
+	// Validate event rules
+	eventRulesPath := specPath.Child("eventRules")
+	for i, rule := range spec.EventRules {
+		rulePath := eventRulesPath.Index(i)
+		allErrs = append(allErrs, validatePolicyRule(rule, rulePath, cel.EventRule)...)
+	}
+
+	// Warn if no rules are defined (though this is technically valid)
+	if len(spec.AuditRules) == 0 && len(spec.EventRules) == 0 {
+		// This is a warning, not an error - policy is valid but will have no effect
+		// Warnings are returned separately via WarningsOnCreate/WarningsOnUpdate
+	}
+
+	return allErrs
+}
+
+// validatePolicyRule validates a single ActivityPolicyRule.
+func validatePolicyRule(rule v1alpha1.ActivityPolicyRule, path *field.Path, ruleType cel.PolicyRuleType) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	// Validate match expression
+	if rule.Match == "" {
+		allErrs = append(allErrs, field.Required(path.Child("match"),
+			"provide a CEL expression that determines when this rule applies (e.g., 'audit.verb == \"create\"')"))
+	} else {
+		if err := cel.ValidatePolicyExpression(rule.Match, cel.MatchExpression, ruleType); err != nil {
+			allErrs = append(allErrs, field.Invalid(path.Child("match"), rule.Match, err.Error()))
+		}
+	}
+
+	// Validate summary template
+	if rule.Summary == "" {
+		allErrs = append(allErrs, field.Required(path.Child("summary"),
+			"provide a template for the activity summary (e.g., '{{ actor }} created {{ kind }}')"))
+	} else {
+		if err := cel.ValidatePolicyExpression(rule.Summary, cel.SummaryExpression, ruleType); err != nil {
+			allErrs = append(allErrs, field.Invalid(path.Child("summary"), rule.Summary, err.Error()))
+		}
+	}
+
+	return allErrs
+}
+
+// GetAttrs returns labels and fields of a given ActivityPolicy for filtering.
+func GetAttrs(obj runtime.Object) (labels.Set, fields.Set, error) {
+	policy, ok := obj.(*v1alpha1.ActivityPolicy)
+	if !ok {
+		return nil, nil, fmt.Errorf("given object is not an ActivityPolicy")
+	}
+	return policy.ObjectMeta.Labels, SelectableFields(policy), nil
+}
+
+// SelectableFields returns the fields that can be used in field selectors.
+func SelectableFields(policy *v1alpha1.ActivityPolicy) fields.Set {
+	return generic.ObjectMetaFieldsSet(&policy.ObjectMeta, false)
+}
+
+// MatchActivityPolicy returns a matcher for ActivityPolicy resources.
+func MatchActivityPolicy(label labels.Selector, field fields.Selector) storage.SelectionPredicate {
+	return storage.SelectionPredicate{
+		Label:    label,
+		Field:    field,
+		GetAttrs: GetAttrs,
+	}
+}
+
+// Status strategy methods
+
+// NamespaceScoped returns false because ActivityPolicy is cluster-scoped.
+func (s activityPolicyStatusStrategy) NamespaceScoped() bool {
+	return false
+}
+
+// PrepareForUpdate clears fields that are not allowed to be set by end users on status update.
+// Only status changes are allowed; spec changes are reverted.
+func (s activityPolicyStatusStrategy) PrepareForUpdate(ctx context.Context, obj, old runtime.Object) {
+	newPolicy := obj.(*v1alpha1.ActivityPolicy)
+	oldPolicy := old.(*v1alpha1.ActivityPolicy)
+	// Preserve spec, only allow status changes
+	newPolicy.Spec = oldPolicy.Spec
+	newPolicy.ObjectMeta.Labels = oldPolicy.ObjectMeta.Labels
+	newPolicy.ObjectMeta.Annotations = oldPolicy.ObjectMeta.Annotations
+}
+
+// ValidateUpdate validates a status update to an ActivityPolicy.
+func (s activityPolicyStatusStrategy) ValidateUpdate(ctx context.Context, obj, old runtime.Object) field.ErrorList {
+	// Status updates don't need validation
+	return nil
+}
+
+// WarningsOnUpdate returns warnings for the status update of the given object.
+func (s activityPolicyStatusStrategy) WarningsOnUpdate(ctx context.Context, obj, old runtime.Object) []string {
+	return nil
+}
+
+// AllowCreateOnUpdate returns false because ActivityPolicy should be created via POST.
+func (s activityPolicyStatusStrategy) AllowCreateOnUpdate() bool {
+	return false
+}
+
+// AllowUnconditionalUpdate allows unconditional updates to ActivityPolicy status.
+func (s activityPolicyStatusStrategy) AllowUnconditionalUpdate() bool {
+	return true
+}
+
+// Canonicalize normalizes the object after validation.
+func (s activityPolicyStatusStrategy) Canonicalize(obj runtime.Object) {
+	// No canonicalization needed
+}
+
+// GetResetFields returns the fields that should be reset on status update.
+func (s activityPolicyStatusStrategy) GetResetFields() map[fieldpath.APIVersion]*fieldpath.Set {
+	return map[fieldpath.APIVersion]*fieldpath.Set{
+		"activity.miloapis.com/v1alpha1": fieldpath.NewSet(
+			fieldpath.MakePathOrDie("spec"),
+		),
+	}
+}

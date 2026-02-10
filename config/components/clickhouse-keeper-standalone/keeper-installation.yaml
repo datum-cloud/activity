@@ -1,0 +1,53 @@
+---
+apiVersion: clickhouse-keeper.altinity.com/v1
+kind: ClickHouseKeeperInstallation
+metadata:
+  name: activity-keeper
+  namespace: activity-system
+spec:
+  configuration:
+    settings:
+      prometheus/endpoint: /metrics
+      prometheus/port: 7000
+      prometheus/metrics: true
+      prometheus/events: true
+      prometheus/asynchronous_metrics: true
+
+    clusters:
+      - name: activity-keeper
+        layout:
+          # Single replica for dev environments (no HA)
+          replicasCount: 1
+
+  defaults:
+    templates:
+      podTemplate: clickhouse-keeper
+      dataVolumeClaimTemplate: clickhouse-keeper
+
+  templates:
+    podTemplates:
+      - name: clickhouse-keeper
+        spec:
+          containers:
+            - name: clickhouse-keeper
+              imagePullPolicy: IfNotPresent
+              image: clickhouse/clickhouse-keeper:25.12.3-alpine
+              resources:
+                # Reduced resources for dev environments
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+              ports:
+                - name: chk-metrics
+                  containerPort: 7000
+    volumeClaimTemplates:
+      - name: clickhouse-keeper
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 1Gi  # Reduced storage for dev

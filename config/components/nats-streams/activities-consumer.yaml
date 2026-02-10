@@ -1,0 +1,33 @@
+---
+apiVersion: jetstream.nats.io/v1beta2
+kind: Consumer
+metadata:
+  name: activities-clickhouse-ingest
+  namespace: nats-system
+spec:
+  # Stream this consumer is bound to
+  streamName: ACTIVITIES
+
+  # Durable consumer name - allows resumption after restarts
+  durableName: clickhouse-ingest
+
+  # Deliver all messages (including historical)
+  deliverPolicy: all
+
+  # Require explicit acknowledgment
+  ackPolicy: explicit
+
+  # Timeout before redelivery if Vector crashes
+  ackWait: 60s
+
+  # Maximum pending acknowledgments (supports batching)
+  maxAckPending: 10000
+
+  # Pull-based consumer (Vector will pull batches)
+  # No deliverSubject means pull-based
+
+  # Replay instantly (don't throttle redelivery)
+  replayPolicy: instant
+
+  # Filter to all activity subjects
+  filterSubject: activities.>

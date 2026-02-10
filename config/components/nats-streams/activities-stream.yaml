@@ -1,0 +1,50 @@
+---
+apiVersion: jetstream.nats.io/v1beta2
+kind: Stream
+metadata:
+  name: activities
+  namespace: nats-system
+spec:
+  # Stream name in NATS
+  name: ACTIVITIES
+
+  # Subjects to consume - all activity records from the processor
+  subjects:
+    - activities.>
+
+  # Retention policy: limits-based (time + size)
+  retention: limits
+
+  # Storage: file-based for durability
+  storage: file
+
+  # Maximum age: 7 days retention
+  maxAge: 168h  # 7 days = 168 hours
+
+  # Maximum bytes: 20GB (activities are smaller/fewer than raw audit events)
+  maxBytes: 21474836480  # 20 * 1024 * 1024 * 1024
+
+  # Number of replicas for high availability
+  replicas: 1  # Can be increased to 3 for production HA
+
+  # Discard policy when limits are reached
+  discard: old
+
+  # Allow direct access for queries
+  allowDirect: true
+
+  # Deduplication window - prevents duplicate messages
+  # Uses activity name (contains origin audit ID) for deduplication
+  duplicateWindow: 10m
+
+  # Maximum number of consumers
+  maxConsumers: 10
+
+  # Maximum message size (1MB - activities are much smaller than raw audit batches)
+  maxMsgSize: 1048576  # 1 * 1024 * 1024
+
+  # No message limit - rely on age and size limits
+  maxMsgs: -1
+
+  # Performance tuning
+  noAck: false  # Require acknowledgments for durability

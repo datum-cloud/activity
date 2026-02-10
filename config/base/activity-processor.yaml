@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: activity-processor
+  namespace: activity-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: activity-processor
+  template:
+    metadata:
+      labels:
+        app: activity-processor
+    spec:
+      serviceAccountName: activity-processor
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: processor
+        image: ghcr.io/datum-cloud/activity:latest
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 65532
+          capabilities:
+            drop:
+            - ALL
+        ports:
+        - containerPort: 8081
+          name: health
+          protocol: TCP
+        command:
+        - /activity
+        - processor
+        args:
+        - --nats-input-url=$(NATS_INPUT_URL)
+        - --nats-output-url=$(NATS_OUTPUT_URL)
+        - --nats-audit-subject=$(NATS_AUDIT_SUBJECT)
+        - --nats-event-subject=$(NATS_EVENT_SUBJECT)
+        - --nats-activity-prefix=$(NATS_ACTIVITY_PREFIX)
+        - --workers=$(WORKERS)
+        - --resync-period=$(RESYNC_PERIOD)
+        - --health-probe-addr=$(HEALTH_PROBE_ADDR)
+        - -v=$(LOG_LEVEL)
+        env:
+        # NATS configuration
+        - name: NATS_INPUT_URL
+          value: "nats://nats.nats-system.svc.cluster.local:4222"
+        - name: NATS_OUTPUT_URL
+          value: ""  # Defaults to NATS_INPUT_URL if empty
+        - name: NATS_AUDIT_SUBJECT
+          value: "audit.>"
+        - name: NATS_EVENT_SUBJECT
+          value: "events.>"
+        - name: NATS_ACTIVITY_PREFIX
+          value: "activities"
+        # Processing configuration
+        - name: WORKERS
+          value: "4"
+        - name: RESYNC_PERIOD
+          value: "30"
+        - name: HEALTH_PROBE_ADDR
+          value: ":8081"
+        - name: LOG_LEVEL
+          value: "2"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: health
+            scheme: HTTP
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: health
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: tmp
+        emptyDir: {}

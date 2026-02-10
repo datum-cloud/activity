@@ -1,0 +1,44 @@
+@startuml activity-logs
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_LANDSCAPE()
+LAYOUT_WITH_LEGEND()
+
+' External Systems
+Person(user, "Platform User", "Consumer, service provider, or platform admin viewing activity")
+System_Ext(controlPlane, "Control Plane", "Platform users interface with to manage resources across services.")
+
+' Activity System
+System_Boundary(activity_system, "Activity System") {
+
+    Container(events, "Control Plane Events", "NATS Jetstream", "Durable queue for audit logs, control plane events, and activity logs.")
+
+    Container(activity_processor, "Activity Processor", "Go", "Consumes audit logs and events, translates to human-readable activities with actor resolution and description generation")
+
+    Container(vector_aggregator, "Vector Aggregator", "Vector, Deployment", "Consumes activities from NATS, batches and inserts into ClickHouse")
+
+    ContainerDb(clickhouse_activities, "ClickHouse", "ClickHouse", "Translated activity records with human-readable summaries")
+
+    ContainerDb(etcd, "etcd", "etcd", "Stores ActivityPolicy resources for translation configuration")
+
+    Container(activity_api, "Activity API Server", "Go, Aggregated API", "Serves Activity and ActivityPolicy resources, enforces multi-tenant scope isolation")
+}
+
+' Processing Flow
+Rel(events, activity_processor, "Consumes audit logs and events from", "NATS/4222")
+Rel(controlPlane, events, "Sends audit logs and events to", "NATS/4222")
+Rel(activity_processor, events, "Publishes activities to", "NATS/4222")
+Rel_D(vector_aggregator, clickhouse_activities, "Inserts activities into", "HTTP/8123")
+Rel_U(vector_aggregator, events, "Pulls activity events from", "HTTP/8123")
+
+' Query Flow
+Rel_D(user, controlPlane, "Manages resources in", "HTTPS/443")
+Rel(controlPlane, activity_api, "Proxies requests to", "HTTPS/8443")
+Rel(activity_api, clickhouse_activities, "Queries activities", "HTTP/8123")
+Rel(activity_api, events, "Watch subscriptions in", "NATS/4222")
+Rel_D(activity_api, etcd, "Stores ActivityPolicy in", "gRPC/2379")
+
+' Policy Configuration Flow
+Rel(activity_processor, activity_api, "Watches ActivityPolicy from", "HTTPS/8443")
+
+@enduml

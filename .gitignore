@@ -33,7 +33,7 @@ vendor/
 Thumbs.db
 
 # Build outputs
-./activity
+/activity
 
 # Kubernetes secrets
 *.key
@@ -62,3 +62,6 @@ observability/jsonnetfile.lock.json
 
 # Directory used by the taskfile for remote taskfile storage
 .task
+
+# Ignore local claude configurations
+.claude/settings.local.json

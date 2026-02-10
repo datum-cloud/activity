@@ -1,0 +1,15 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: vector-aggregator
+  namespace: activity-system
+spec:
+  values:
+    # Single replica for dev environments
+    replicas: 1
+    # Disable autoscaling for dev
+    autoscaling:
+      enabled: false
+    # Disable PDB for single replica
+    podDisruptionBudget:
+      enabled: false

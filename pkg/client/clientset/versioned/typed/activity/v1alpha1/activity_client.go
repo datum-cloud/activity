@@ -12,13 +12,29 @@ import (
 
 type ActivityV1alpha1Interface interface {
 	RESTClient() rest.Interface
+	ActivitiesGetter
+	ActivityFacetQueriesGetter
+	ActivityPoliciesGetter
 	AuditLogFacetsQueriesGetter
 	AuditLogQueriesGetter
+	PolicyPreviewsGetter
 }
 
 // ActivityV1alpha1Client is used to interact with features provided by the activity.miloapis.com group.
 type ActivityV1alpha1Client struct {
 	restClient rest.Interface
+}
+
+func (c *ActivityV1alpha1Client) Activities(namespace string) ActivityInterface {
+	return newActivities(c, namespace)
+}
+
+func (c *ActivityV1alpha1Client) ActivityFacetQueries() ActivityFacetQueryInterface {
+	return newActivityFacetQueries(c)
+}
+
+func (c *ActivityV1alpha1Client) ActivityPolicies() ActivityPolicyInterface {
+	return newActivityPolicies(c)
 }
 
 func (c *ActivityV1alpha1Client) AuditLogFacetsQueries() AuditLogFacetsQueryInterface {
@@ -27,6 +43,10 @@ func (c *ActivityV1alpha1Client) AuditLogFacetsQueries() AuditLogFacetsQueryInte
 
 func (c *ActivityV1alpha1Client) AuditLogQueries() AuditLogQueryInterface {
 	return newAuditLogQueries(c)
+}
+
+func (c *ActivityV1alpha1Client) PolicyPreviews() PolicyPreviewInterface {
+	return newPolicyPreviews(c)
 }
 
 // NewForConfig creates a new ActivityV1alpha1Client for the given config.

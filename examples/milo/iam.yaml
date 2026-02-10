@@ -1,0 +1,193 @@
+# ActivityPolicies for Milo IAM API group (iam.miloapis.com)
+# Resources: User, Group, Role, PolicyBinding, GroupMembership, MachineAccount,
+#            MachineAccountKey, UserInvitation, UserDeactivation, PlatformInvitation
+
+---
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: iam-users
+spec:
+  resource:
+    apiGroup: iam.miloapis.com
+    kind: User
+  auditRules:
+    - match: "audit.verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} added new user {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed user {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch'] && audit.objectRef.subresource == 'status'"
+      summary: "{{ link(audit.objectRef.name, audit.objectRef) }} account status changed"
+    - match: "audit.verb in ['update', 'patch']"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated user {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "true"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified user {{ link(audit.objectRef.name, audit.objectRef) }}"
+
+---
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: iam-groups
+spec:
+  resource:
+    apiGroup: iam.miloapis.com
+    kind: Group
+  auditRules:
+    - match: "audit.verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} created group {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed group {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch']"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated group {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "true"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified group {{ link(audit.objectRef.name, audit.objectRef) }}"
+
+---
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: iam-roles
+spec:
+  resource:
+    apiGroup: iam.miloapis.com
+    kind: Role
+  auditRules:
+    - match: "audit.verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} created role {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed role {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch']"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated role permissions for {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "true"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified role {{ link(audit.objectRef.name, audit.objectRef) }}"
+
+---
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: iam-policybindings
+spec:
+  resource:
+    apiGroup: iam.miloapis.com
+    kind: PolicyBinding
+  auditRules:
+    - match: "audit.verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} granted access via {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} revoked access via {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch']"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} changed access for {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "true"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified access binding {{ link(audit.objectRef.name, audit.objectRef) }}"
+
+---
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: iam-groupmemberships
+spec:
+  resource:
+    apiGroup: iam.miloapis.com
+    kind: GroupMembership
+  auditRules:
+    - match: "audit.verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} added a member to a group"
+    - match: "audit.verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed a member from a group"
+    - match: "true"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} changed group membership"
+
+---
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: iam-machineaccounts
+spec:
+  resource:
+    apiGroup: iam.miloapis.com
+    kind: MachineAccount
+  auditRules:
+    - match: "audit.verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} created service account {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed service account {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch'] && audit.objectRef.subresource == 'status'"
+      summary: "{{ link(audit.objectRef.name, audit.objectRef) }} service account status changed"
+    - match: "audit.verb in ['update', 'patch']"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated service account {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "true"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified service account {{ link(audit.objectRef.name, audit.objectRef) }}"
+
+---
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: iam-machineaccountkeys
+spec:
+  resource:
+    apiGroup: iam.miloapis.com
+    kind: MachineAccountKey
+  auditRules:
+    - match: "audit.verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} created an API key for {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} revoked an API key for {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "true"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified API key {{ link(audit.objectRef.name, audit.objectRef) }}"
+
+---
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: iam-userinvitations
+spec:
+  resource:
+    apiGroup: iam.miloapis.com
+    kind: UserInvitation
+  auditRules:
+    - match: "audit.verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} sent an invitation"
+    - match: "audit.verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} cancelled an invitation"
+    - match: "audit.verb in ['update', 'patch'] && audit.objectRef.subresource == 'status'"
+      summary: "Invitation status changed"
+    - match: "audit.verb in ['update', 'patch']"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated an invitation"
+    - match: "true"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified an invitation"
+
+---
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: iam-userdeactivations
+spec:
+  resource:
+    apiGroup: iam.miloapis.com
+    kind: UserDeactivation
+  auditRules:
+    - match: "audit.verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} deactivated a user account"
+    - match: "audit.verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} reactivated a user account"
+    - match: "true"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} changed a user deactivation"
+
+---
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: iam-platforminvitations
+spec:
+  resource:
+    apiGroup: iam.miloapis.com
+    kind: PlatformInvitation
+  auditRules:
+    - match: "audit.verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} invited someone to the platform"
+    - match: "audit.verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} cancelled a platform invitation"
+    - match: "audit.verb in ['update', 'patch'] && audit.objectRef.subresource == 'status'"
+      summary: "Platform invitation status changed"
+    - match: "true"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified a platform invitation"

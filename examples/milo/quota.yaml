@@ -1,0 +1,61 @@
+# ActivityPolicies for Milo Quota API group (quota.miloapis.com)
+# Resources: ResourceGrant, ResourceClaim, AllowanceBucket
+
+---
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: quota-resourcegrants
+spec:
+  resource:
+    apiGroup: quota.miloapis.com
+    kind: ResourceGrant
+  auditRules:
+    - match: "audit.verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} granted quota allowance {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed quota allowance {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch'] && audit.objectRef.subresource == 'status'"
+      summary: "{{ link(audit.objectRef.name, audit.objectRef) }} quota grant status changed"
+    - match: "audit.verb in ['update', 'patch']"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} adjusted quota allowance {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "true"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified quota grant {{ link(audit.objectRef.name, audit.objectRef) }}"
+
+---
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: quota-resourceclaims
+spec:
+  resource:
+    apiGroup: quota.miloapis.com
+    kind: ResourceClaim
+  auditRules:
+    - match: "audit.verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} requested quota for {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} released quota for {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch'] && audit.objectRef.subresource == 'status'"
+      summary: "{{ link(audit.objectRef.name, audit.objectRef) }} quota claim status changed"
+    - match: "true"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified quota claim {{ link(audit.objectRef.name, audit.objectRef) }}"
+
+---
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: quota-allowancebuckets
+spec:
+  resource:
+    apiGroup: quota.miloapis.com
+    kind: AllowanceBucket
+  auditRules:
+    - match: "audit.verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} created quota bucket {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed quota bucket {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch'] && audit.objectRef.subresource == 'status'"
+      summary: "{{ link(audit.objectRef.name, audit.objectRef) }} quota usage changed"
+    - match: "true"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified quota bucket {{ link(audit.objectRef.name, audit.objectRef) }}"

@@ -1,0 +1,120 @@
+# ActivityPolicies for Network Services Operator API group (networking.datumapis.com)
+# Resources: Network, NetworkBinding, NetworkContext, NetworkPolicy, Subnet, SubnetClaim
+
+---
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: networking-networks
+spec:
+  resource:
+    apiGroup: networking.datumapis.com
+    kind: Network
+  auditRules:
+    - match: "audit.verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} created network {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed network {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch'] && audit.objectRef.subresource == 'status'"
+      summary: "{{ link(audit.objectRef.name, audit.objectRef) }} network status changed"
+    - match: "audit.verb in ['update', 'patch']"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated network {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "true"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified network {{ link(audit.objectRef.name, audit.objectRef) }}"
+
+---
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: networking-networkbindings
+spec:
+  resource:
+    apiGroup: networking.datumapis.com
+    kind: NetworkBinding
+  auditRules:
+    - match: "audit.verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} connected network to a location"
+    - match: "audit.verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} disconnected network from a location"
+    - match: "audit.verb in ['update', 'patch'] && audit.objectRef.subresource == 'status'"
+      summary: "Network binding status changed"
+    - match: "true"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified network binding"
+
+---
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: networking-networkcontexts
+spec:
+  resource:
+    apiGroup: networking.datumapis.com
+    kind: NetworkContext
+  auditRules:
+    - match: "audit.verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} created network context {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed network context {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch'] && audit.objectRef.subresource == 'status'"
+      summary: "{{ link(audit.objectRef.name, audit.objectRef) }} network context status changed"
+    - match: "true"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified network context {{ link(audit.objectRef.name, audit.objectRef) }}"
+
+---
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: networking-networkpolicies
+spec:
+  resource:
+    apiGroup: networking.datumapis.com
+    kind: NetworkPolicy
+  auditRules:
+    - match: "audit.verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} created firewall rule {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed firewall rule {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch']"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated firewall rule {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "true"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified firewall rule {{ link(audit.objectRef.name, audit.objectRef) }}"
+
+---
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: networking-subnets
+spec:
+  resource:
+    apiGroup: networking.datumapis.com
+    kind: Subnet
+  auditRules:
+    - match: "audit.verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} created subnet {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed subnet {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch'] && audit.objectRef.subresource == 'status'"
+      summary: "{{ link(audit.objectRef.name, audit.objectRef) }} subnet status changed"
+    - match: "audit.verb in ['update', 'patch']"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated subnet {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "true"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified subnet {{ link(audit.objectRef.name, audit.objectRef) }}"
+
+---
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: networking-subnetclaims
+spec:
+  resource:
+    apiGroup: networking.datumapis.com
+    kind: SubnetClaim
+  auditRules:
+    - match: "audit.verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} requested IP addresses"
+    - match: "audit.verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} released IP addresses"
+    - match: "audit.verb in ['update', 'patch'] && audit.objectRef.subresource == 'status'"
+      summary: "IP address allocation status changed"
+    - match: "true"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified IP address claim"

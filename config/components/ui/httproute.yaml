@@ -1,0 +1,54 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: activity-ui
+  namespace: activity-system
+spec:
+  parentRefs:
+    - name: default-gateway
+      namespace: envoy-gateway-system
+      sectionName: https
+  rules:
+    # Route Activity API requests to the Activity API server
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /apis/activity.miloapis.com
+      filters:
+        # Inject authentication headers for the API server
+        # The API server is configured to trust X-Remote-* headers
+        - type: RequestHeaderModifier
+          requestHeaderModifier:
+            set:
+              - name: X-Remote-User
+                value: activity-ui
+              - name: X-Remote-Group
+                value: system:serviceaccounts:activity-system
+      backendRefs:
+        - name: activity-apiserver
+          port: 443
+    # Route other API requests to the Kubernetes API server
+    # This enables API discovery for resource Kind lookups
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /apis
+      filters:
+        - type: RequestHeaderModifier
+          requestHeaderModifier:
+            set:
+              - name: X-Remote-User
+                value: activity-ui
+              - name: X-Remote-Group
+                value: system:serviceaccounts:activity-system
+      backendRefs:
+        - name: kubernetes-api
+          port: 443
+    # Route all other requests to the UI
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: activity-ui
+          port: 80

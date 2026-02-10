@@ -1,0 +1,56 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: activity-system
+
+# Base resources (API server, service, APIService, etc.)
+resources:
+  - ../../base
+  - anonymous-rbac.yaml     # Dev-only: anonymous access for Gateway
+
+components:
+  - ../../components/namespace
+  - ../../components/api-registration
+  - ../../components/cert-manager-ca
+  - ../../components/etcd                          # Single-node etcd for ActivityPolicy storage
+  - ../../components/clickhouse-keeper-standalone  # Single-node Keeper for coordination
+  - ../../components/clickhouse-standalone         # Single-replica ClickHouse
+  - ../../components/clickhouse-migrations
+  - ../../components/nats-streams                  # NATS JetStream streams and consumers
+  - ../../components/grafana-clickhouse
+  - ../../components/vector-sidecar
+  - ../../components/vector-aggregator
+  - ../../components/tracing
+  - ../../components/observability            # ServiceMonitors, alerts, dashboards
+  - ../../components/ui                        # Activity UI
+
+# Note: The following HA components are excluded for dev environments:
+# - clickhouse-keeper       # Replaced by clickhouse-keeper-standalone (1 replica)
+# - clickhouse-database     # Replaced by clickhouse-standalone (1 replica)
+# - rustfs-bucket           # No S3 cold storage in dev (uses local disk for both hot/cold)
+
+# Image overrides for dev environment
+images:
+  - name: ghcr.io/datum-cloud/activity
+    newName: ghcr.io/datum-cloud/activity
+    newTag: dev
+  - name: ghcr.io/datum-cloud/activity-ui
+    newName: ghcr.io/datum-cloud/activity-ui
+    newTag: dev
+
+# Patches specific to dev environment
+patches:
+  - path: patches/deployment-patch.yaml
+  - path: patches/activity-processor-patch.yaml
+  - path: patches/controller-manager-patch.yaml
+  - path: patches/apiservice-patch.yaml
+  - path: patches/migration-job-patch.yaml
+  - path: patches/vector-sidecar-patch.yaml
+  - path: patches/vector-aggregator-patch.yaml
+  - path: patches/httproute-patch.yaml
+
+labels:
+  - includeSelectors: true
+    includeTemplates: true
+    pairs:
+      environment: dev

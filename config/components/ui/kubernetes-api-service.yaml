@@ -1,0 +1,13 @@
+# ExternalName service to proxy to the Kubernetes API server
+# This allows the HTTPRoute to reference the Kubernetes API from activity-system namespace
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubernetes-api
+  namespace: activity-system
+spec:
+  type: ExternalName
+  externalName: kubernetes.default.svc.cluster.local
+  ports:
+    - port: 443
+      targetPort: 443

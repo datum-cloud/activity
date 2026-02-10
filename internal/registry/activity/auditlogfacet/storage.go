@@ -7,10 +7,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/klog/v2"
 
+	"go.miloapis.com/activity/internal/apierrors"
 	"go.miloapis.com/activity/internal/storage"
 	"go.miloapis.com/activity/pkg/apis/activity/v1alpha1"
 )
@@ -66,9 +68,10 @@ func (s *AuditLogFacetsQueryStorage) Create(ctx context.Context, obj runtime.Obj
 		return nil, errors.NewBadRequest("expected AuditLogFacetsQuery object")
 	}
 
-	// Validate input
-	if err := validateAuditLogFacetQueryInput(query); err != nil {
-		return nil, errors.NewBadRequest(err.Error())
+	// Validate input - collect all errors so users can fix everything in one request
+	if errs := validateAuditLogFacetQueryInput(query); len(errs) > 0 {
+		return nil, apierrors.NewValidationStatusError(
+			v1alpha1.SchemeGroupVersion.WithKind("AuditLogFacetsQuery").GroupKind(), "", errs)
 	}
 
 	// Extract user for scope context
@@ -127,32 +130,36 @@ func (s *AuditLogFacetsQueryStorage) Create(ctx context.Context, obj runtime.Obj
 	return response, nil
 }
 
-// validateAuditLogFacetQueryInput validates the AuditLogFacetsQuery input.
-func validateAuditLogFacetQueryInput(query *v1alpha1.AuditLogFacetsQuery) error {
+// validateAuditLogFacetQueryInput validates the AuditLogFacetsQuery input and returns all field errors.
+func validateAuditLogFacetQueryInput(query *v1alpha1.AuditLogFacetsQuery) field.ErrorList {
+	allErrs := field.ErrorList{}
+	specPath := field.NewPath("spec")
+	facetsPath := specPath.Child("facets")
+
 	if len(query.Spec.Facets) == 0 {
-		return fmt.Errorf("at least one facet is required")
+		allErrs = append(allErrs, field.Required(facetsPath, "provide at least one facet to query"))
+		return allErrs
 	}
 
 	if len(query.Spec.Facets) > 10 {
-		return fmt.Errorf("maximum 10 facets allowed per query")
+		allErrs = append(allErrs, field.TooMany(facetsPath, len(query.Spec.Facets), 10))
 	}
 
 	for i, f := range query.Spec.Facets {
-		if f.Field == "" {
-			return fmt.Errorf("facet %d: field is required", i)
-		}
+		facetPath := facetsPath.Index(i)
 
-		// Validate that the field is a supported facet field
-		if !storage.IsValidAuditLogFacetField(f.Field) {
-			return fmt.Errorf("facet %d: unsupported field %q. Supported fields: %s", i, f.Field, storage.FormatSupportedFields(storage.AuditLogFacetFields))
+		if f.Field == "" {
+			allErrs = append(allErrs, field.Required(facetPath.Child("field"), "specify which field to get distinct values for"))
+		} else if !storage.IsValidAuditLogFacetField(f.Field) {
+			allErrs = append(allErrs, field.NotSupported(facetPath.Child("field"), f.Field, storage.GetAuditLogFacetFieldNames()))
 		}
 
 		if f.Limit < 0 {
-			return fmt.Errorf("facet %d: limit must be non-negative", i)
+			allErrs = append(allErrs, field.Invalid(facetPath.Child("limit"), f.Limit, "must be non-negative"))
 		}
 	}
 
-	return nil
+	return allErrs
 }
 
 

@@ -1,0 +1,86 @@
+# ActivityPolicies for apps Kubernetes API group
+# Resources: Deployment, ReplicaSet, StatefulSet, DaemonSet
+
+---
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: apps-deployments
+spec:
+  resource:
+    apiGroup: apps
+    kind: Deployment
+  auditRules:
+    - match: "audit.verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} deployed {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed deployment {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch'] && audit.objectRef.subresource == 'scale'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} scaled {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch'] && audit.objectRef.subresource == 'status'"
+      summary: "{{ link(audit.objectRef.name, audit.objectRef) }} status changed"
+    - match: "audit.verb in ['update', 'patch']"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "true"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified deployment {{ link(audit.objectRef.name, audit.objectRef) }}"
+
+---
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: apps-replicasets
+spec:
+  resource:
+    apiGroup: apps
+    kind: ReplicaSet
+  auditRules:
+    - match: "audit.verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} created replica set {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed replica set {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch'] && audit.objectRef.subresource == 'scale'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} scaled {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch']"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated replica set {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "true"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified replica set {{ link(audit.objectRef.name, audit.objectRef) }}"
+
+---
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: apps-statefulsets
+spec:
+  resource:
+    apiGroup: apps
+    kind: StatefulSet
+  auditRules:
+    - match: "audit.verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} created stateful set {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed stateful set {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch'] && audit.objectRef.subresource == 'scale'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} scaled {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch']"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated stateful set {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "true"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified stateful set {{ link(audit.objectRef.name, audit.objectRef) }}"
+
+---
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: apps-daemonsets
+spec:
+  resource:
+    apiGroup: apps
+    kind: DaemonSet
+  auditRules:
+    - match: "audit.verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} created daemon set {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed daemon set {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch']"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated daemon set {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "true"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified daemon set {{ link(audit.objectRef.name, audit.objectRef) }}"

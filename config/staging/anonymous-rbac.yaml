@@ -1,0 +1,18 @@
+---
+# Staging: Allow anonymous users to read Activity resources
+# This is required because the Gateway doesn't have requestheader auth configured
+# In production, proper authentication should be configured
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: activity-anonymous-reader
+  annotations:
+    description: "STAGING ONLY - Allows anonymous access to Activity API for Gateway routing"
+subjects:
+  - kind: User
+    name: system:anonymous
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: activity-ui-reader
+  apiGroup: rbac.authorization.k8s.io

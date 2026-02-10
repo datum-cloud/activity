@@ -27,9 +27,16 @@ spec:
       nats:
         url: nats://nats.nats-system.svc.cluster.local:4222
 
-      # Enable control-loop mode for KV and Object store support
-      additionalArgs:
-        - --control-loop
+    # Patch the deployment to remove unsupported flag (--health-probe-bind-address) provided by the chart
+    postRenderers:
+      - kustomize:
+          patches:
+            - target:
+                kind: Deployment
+                name: nack
+              patch: |
+                - op: remove
+                  path: /spec/template/spec/containers/0/args/4
 
     # Resources for the controller
     resources:

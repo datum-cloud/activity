@@ -21,8 +21,8 @@ spec:
   # Maximum age: 7 days retention as per architecture
   maxAge: 168h  # 7 days = 168 hours
 
-  # Maximum bytes: 100GB as per architecture
-  maxBytes: 107374182400  # 100 * 1024 * 1024 * 1024
+  # Maximum bytes: 70GB (leaves room for activities stream within 100GB NATS storage)
+  maxBytes: 75161927680  # 70 * 1024 * 1024 * 1024
 
   # Number of replicas for high availability
   replicas: 1  # Can be increased to 3 for production HA
