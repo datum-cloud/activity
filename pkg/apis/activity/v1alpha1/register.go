@@ -30,6 +30,12 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&AuditLogQuery{},
 		&AuditLogQueryList{},
 		&AuditLogFacetsQuery{},
+		&ActivityPolicy{},
+		&ActivityPolicyList{},
+		&Activity{},
+		&ActivityList{},
+		&ActivityFacetQuery{},
+		&PolicyPreview{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil
