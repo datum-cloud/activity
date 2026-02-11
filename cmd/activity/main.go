@@ -149,9 +149,6 @@ func NewActivityServerOptions() *ActivityServerOptions {
 		MaxPageSize:        1000,
 	}
 
-	// Disable etcd since we use ClickHouse for storage.
-	o.RecommendedOptions.Etcd = nil
-
 	// Disable admission plugins since this server doesn't mutate or validate resources.
 	o.RecommendedOptions.Admission = nil
 

@@ -1,0 +1,63 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: etcd
+  namespace: activity-system
+spec:
+  interval: 5m
+  timeout: 10m
+
+  chart:
+    spec:
+      chart: etcd
+      version: 10.x
+      sourceRef:
+        kind: HelmRepository
+        name: bitnami
+        namespace: activity-system
+      interval: 1h
+
+  values:
+    # Single replica for dev environment
+    replicaCount: 1
+
+    # Authentication disabled for simplicity in dev
+    auth:
+      rbac:
+        create: false
+      token:
+        enabled: false
+
+    # Resource limits appropriate for dev
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+
+    # Persistence configuration
+    persistence:
+      enabled: true
+      size: 1Gi
+
+    # Service configuration to match expected DNS name
+    service:
+      type: ClusterIP
+      ports:
+        client: 2379
+        peer: 2380
+
+  # Install configuration
+  install:
+    crds: CreateReplace
+    createNamespace: false
+
+  # Upgrade configuration
+  upgrade:
+    crds: CreateReplace
+
+  # Uninstall configuration
+  uninstall:
+    keepHistory: false
