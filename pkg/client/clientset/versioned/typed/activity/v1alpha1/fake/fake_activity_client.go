@@ -12,12 +12,28 @@ type FakeActivityV1alpha1 struct {
 	*testing.Fake
 }
 
+func (c *FakeActivityV1alpha1) Activities(namespace string) v1alpha1.ActivityInterface {
+	return newFakeActivities(c, namespace)
+}
+
+func (c *FakeActivityV1alpha1) ActivityFacetQueries() v1alpha1.ActivityFacetQueryInterface {
+	return newFakeActivityFacetQueries(c)
+}
+
+func (c *FakeActivityV1alpha1) ActivityPolicies() v1alpha1.ActivityPolicyInterface {
+	return newFakeActivityPolicies(c)
+}
+
 func (c *FakeActivityV1alpha1) AuditLogFacetsQueries() v1alpha1.AuditLogFacetsQueryInterface {
 	return newFakeAuditLogFacetsQueries(c)
 }
 
 func (c *FakeActivityV1alpha1) AuditLogQueries() v1alpha1.AuditLogQueryInterface {
 	return newFakeAuditLogQueries(c)
+}
+
+func (c *FakeActivityV1alpha1) PolicyPreviews() v1alpha1.PolicyPreviewInterface {
+	return newFakePolicyPreviews(c)
 }
 
 // RESTClient returns a RESTClient that is used to communicate
