@@ -1,0 +1,38 @@
+@startuml live-streaming
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_LANDSCAPE()
+LAYOUT_WITH_LEGEND()
+
+' External Systems
+Person(client1, "Watch Client 1", "kubectl, portal, or API client")
+Person(client2, "Watch Client 2", "Another concurrent watcher")
+System_Ext(control_plane, "Control Plane", "Proxies all API requests to Activity API via aggregated API server")
+System_Ext(event_queue, "Event Queue", "NATS JetStream with AUDIT_EVENTS, MILO_EVENTS, and ACTIVITIES streams.")
+
+' System Boundary
+System_Boundary(activity_system, "Activity Service") {
+
+    ' Processing Layer
+    Container(activity_processor, "Activity Processor", "Go, Deployment", "Transforms audit logs and events into Activities. Publishes to ACTIVITIES stream.")
+
+    ' API Layer
+    Container(activity_api, "Activity API Server", "Go, Aggregated API", "Creates ephemeral ordered consumers per Watch connection. Applies CEL filters and selectors server-side.")
+}
+
+' Watch Flow - Client 1
+Rel(client1, control_plane, "Watch activities\nresourceVersion=12345", "HTTPS")
+Rel(control_plane, activity_api, "Proxy Watch", "HTTPS")
+
+' Watch Flow - Client 2
+Rel(client2, control_plane, "Watch activities\nnamespace=prod", "HTTPS")
+
+' Ingest Flow
+Rel(control_plane, event_queue, "Publish audit logs\nand events", "NATS")
+Rel(event_queue, activity_processor, "Consume audit logs\nand events", "NATS")
+Rel(activity_processor, event_queue, "Publish activities", "NATS")
+
+' Watch Flow
+Rel(activity_api, event_queue, "Create ephemeral consumer,\nsubscribe to ACTIVITIES", "NATS")
+
+@enduml

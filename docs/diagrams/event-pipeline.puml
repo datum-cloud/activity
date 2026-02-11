@@ -1,0 +1,49 @@
+@startuml event-pipeline
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_LANDSCAPE()
+LAYOUT_WITH_LEGEND()
+
+' External Systems
+Person(user, "Platform User", "Developer or operator viewing events")
+
+' Control Plane Boundary
+System_Boundary(control_plane, "Control Plane") {
+    System_Ext(k8s_api, "Control Plane API Server", "Platform control plane API server")
+    Container(event_storage, "Event Storage Provider", "Go, Platform API", "Thin proxy that forwards Events API requests to the Activity APIserver.")
+}
+
+' Event Queue
+System_Ext(event_queue, "Event Queue", "NATS JetStream with MILO_EVENTS stream. Tenant-scoped subjects, provides Watch via ordered consumers.")
+
+' System Boundary
+System_Boundary(event_system, "Activity Service") {
+
+    ' API Layer
+    Container(activity_api, "Activity APIserver", "Go, Platform API", "Handles Events API requests. Routes Create to webhook, Watch to NATS, List/Get to ClickHouse.")
+
+    ' Webhook Receiver
+    Container(vector_receiver, "Vector Event Receiver", "Vector, Deployment", "HTTP webhook receiver that batches events and publishes to NATS with tenant-scoped subjects.")
+
+    ' Consumers
+    Container(vector_aggregator, "Vector Aggregator", "Vector, Deployment", "Consumes from NATS, batches and inserts into ClickHouse.")
+
+    ' Data Storage
+    ContainerDb(clickhouse, "ClickHouse", "ClickHouse", "events table partitioned by tenant and month. Serves List/Get queries.")
+}
+
+' Proxy Path
+Rel(user, k8s_api, "Events API", "HTTPS/443")
+Rel_U(k8s_api, event_storage, "Events API", "HTTPS/8443")
+Rel(event_storage, activity_api, "Proxy requests", "HTTPS/443")
+
+' Write Path
+Rel_D(activity_api, vector_receiver, "POST EventList batches", "HTTP/8082")
+Rel(vector_receiver, event_queue, "Publish to tenant subject", "NATS/4222")
+Rel(event_queue, vector_aggregator, "Pull events", "NATS/4222")
+Rel_D(vector_aggregator, clickhouse, "Batch insert", "TCP/9000")
+
+' Query Path
+Rel(activity_api, clickhouse, "SELECT query", "TCP/9000")
+
+@enduml

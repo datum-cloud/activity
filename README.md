@@ -44,6 +44,11 @@ These features are part of our vision to transform raw audit logs into clear, ac
 understand. You can follow the detailed roadmap in [this enhancement
 proposal](https://github.com/datum-cloud/enhancements/issues/469).
 
+## Documentation
+
+- [Architecture Overview](docs/architecture/README.md) - System design and components
+- [API Reference](docs/api.md) - API specifications
+
 ## Who is this for?
 
 - **Platform teams** who need to understand cluster activity across multiple tenants
