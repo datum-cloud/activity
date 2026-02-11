@@ -2,6 +2,14 @@
 
 package v1alpha1
 
+type ActivityExpansion interface{}
+
+type ActivityFacetQueryExpansion interface{}
+
+type ActivityPolicyExpansion interface{}
+
 type AuditLogFacetsQueryExpansion interface{}
 
 type AuditLogQueryExpansion interface{}
+
+type PolicyPreviewExpansion interface{}
