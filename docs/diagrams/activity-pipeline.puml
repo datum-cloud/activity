@@ -1,0 +1,44 @@
+@startuml activity-pipeline
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_LANDSCAPE()
+LAYOUT_WITH_LEGEND()
+
+' External Systems
+Person(user, "Platform User", "Consumer, service provider, or platform admin viewing activity")
+System_Ext(control_plane, "Control Plane", "Platform API servers that generate audit logs and events. Proxies requests to aggregated APIs.")
+System_Ext(event_queue, "Event Queue", "NATS JetStream with AUDIT_EVENTS, MILO_EVENTS, and ACTIVITIES streams")
+
+' System Boundary
+System_Boundary(activity_system, "Activity Pipeline") {
+
+    ' Processing Layer
+    Container(activity_processor, "Activity Processor", "Go, Deployment", "Core translation engine:\n• Matches ActivityPolicy rules\n• Renders CEL templates\n• Resolves actors\n• Classifies change source")
+
+    ' Aggregation Layer
+    Container(vector_aggregator, "Vector Aggregator", "Vector, Deployment", "Batches activities for ClickHouse insertion")
+
+    ' Storage Layer
+    ContainerDb(clickhouse, "ClickHouse", "ClickHouse", "activities table with full-text search index on summary field")
+
+    ContainerDb(etcd, "etcd", "etcd", "ActivityPolicy storage with Watch support for live reload")
+
+    ' Query Layer
+    Container(activity_api, "Activity API Server", "Go, Aggregated API", "Serves Activity, ActivityPolicy, ActivityFacetQuery, and PolicyPreview resources")
+}
+
+' Processing Flow
+Rel(event_queue, activity_processor, "Consume audit + events", "NATS/4222")
+Rel(activity_processor, activity_api, "Watch ActivityPolicy", "HTTPS/8443")
+Rel_U(activity_processor, event_queue, "Publish activities", "NATS/4222")
+Rel_L(vector_aggregator, event_queue, "Pull activities", "NATS/4222")
+Rel_D(vector_aggregator, clickhouse, "Batch insert", "TCP/9000")
+
+' Query Flow
+Rel_D(user, control_plane, "Query activities", "HTTPS/443")
+Rel_D(control_plane, event_queue, "Publishes audit / events to", "NATS/4222")
+Rel_R(control_plane, activity_api, "Publishes audit / events to", "NATS/4222")
+Rel(activity_api, clickhouse, "List/Get queries", "TCP/9000")
+Rel_U(activity_api, etcd, "ActivityPolicy CRUD", "gRPC/2379")
+
+@enduml

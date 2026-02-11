@@ -1,0 +1,35 @@
+@startuml audit-pipeline
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_LANDSCAPE()
+LAYOUT_WITH_LEGEND()
+
+' External Systems
+Person(user, "Platform User", "Developer or operator querying audit logs")
+System_Ext(control_plane, "Control Plane", "Platform API servers that generate audit logs and events. Proxies requests to aggregated APIs.")
+System_Ext(event_queue, "Event Queue", "NATS JetStream with AUDIT_EVENTS stream. 7-day retention, deduplication via auditID, ordered delivery.")
+
+' System Boundary
+System_Boundary(audit_system, "Audit Pipeline") {
+
+    ' Aggregation Layer
+    Container(vector_aggregator, "Vector Aggregator", "Vector, Deployment", "Pulls from NATS, filters stages, calculates latency, batches for ClickHouse.")
+
+    ' Storage Layer
+    ContainerDb(clickhouse, "ClickHouse", "ClickHouse", "Replicated cluster with daily partitioning. Tiered storage to S3 for cold data.")
+
+    ' Query Layer
+    Container(activity_api, "Activity API Server", "Go, Aggregated API", "Handles AuditLogQuery requests. Compiles CEL filters to SQL. Enforces multi-tenant scope isolation.")
+}
+
+' Ingest Flow
+Rel_D(control_plane, event_queue, "Publish audit events", "NATS/4222")
+Rel_L(vector_aggregator, event_queue, "Pull events", "NATS/4222")
+Rel_D(vector_aggregator, clickhouse, "Batch insert", "TCP/9000")
+
+' Query Flow
+Rel(user, control_plane, "Query audit logs", "HTTPS/443")
+Rel(control_plane, activity_api, "Proxy AuditLogQuery", "HTTPS/8443")
+Rel(activity_api, clickhouse, "Execute SQL", "TCP/9000")
+
+@enduml
