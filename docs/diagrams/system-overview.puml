@@ -1,0 +1,29 @@
+@startuml system-overview
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+LAYOUT_LANDSCAPE()
+LAYOUT_WITH_LEGEND()
+
+' Actors
+Person(consumer, "Consumer", "Views activity feed for their projects")
+Person(service_provider, "Service Provider", "Monitors resource usage across tenants")
+Person(platform_admin, "Platform Admin", "Investigates incidents and audits access")
+
+' Core Systems
+System_Ext(control_plane, "Control Plane", "Platform API servers that authenticate users and proxy requests to aggregated APIs")
+System_Ext(event_queue, "Event Queue", "NATS JetStream streams for audit logs, events, and activities with durable delivery")
+System(activity_service, "Activity Service", "Stores and translates control plane operations into queryable audit logs and human-readable activity streams")
+
+' Relationships - Users to Control Plane
+Rel(consumer, control_plane, "Views activity", "Portal / CLI / API")
+Rel(service_provider, control_plane, "Monitors resources", "Portal / CLI / API")
+Rel(platform_admin, control_plane, "Queries audit logs", "Portal / CLI / API")
+
+' Relationships - Control Plane
+Rel(control_plane, activity_service, "Proxies API requests\n(aggregated API)", "HTTPS")
+Rel(control_plane, event_queue, "Publishes audit logs\nand events", "NATS")
+
+' Relationships - Event Queue to Activity Service
+Rel_D(event_queue, activity_service, "Delivers events for\nstorage and translation", "NATS")
+
+@enduml
