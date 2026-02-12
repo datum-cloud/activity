@@ -62,7 +62,7 @@ type ActivityPolicySpec struct {
 	// AuditRules define how to translate audit log entries into activity summaries.
 	// Rules are evaluated in order; the first matching rule wins.
 	// The `audit` variable contains the full Kubernetes audit event structure.
-	// Convenience variables available: kind, kindPlural, actor
+	// Convenience variables available: actor
 	//
 	// +optional
 	// +listType=atomic
@@ -71,7 +71,7 @@ type ActivityPolicySpec struct {
 	// EventRules define how to translate Kubernetes events into activity summaries.
 	// Rules are evaluated in order; the first matching rule wins.
 	// The `event` variable contains the full Kubernetes Event structure.
-	// Convenience variables available: kind, kindPlural, actor
+	// Convenience variables available: actor
 	//
 	// +optional
 	// +listType=atomic
@@ -113,8 +113,6 @@ type ActivityPolicyRule struct {
 	//
 	// Available variables:
 	//   - audit/event: The full input object
-	//   - kind: Human-readable kind label (e.g., "HTTP proxy")
-	//   - kindPlural: Plural form (e.g., "HTTP proxies")
 	//   - actor: Resolved display name for the actor
 	//
 	// Available functions:

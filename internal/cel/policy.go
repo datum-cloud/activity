@@ -34,7 +34,7 @@ const (
 var summaryTemplateRegex = regexp.MustCompile(`\{\{\s*(.+?)\s*\}\}`)
 
 // auditEnvironment creates a CEL environment for audit rule expressions.
-// Available variables: audit (full audit event), kind, kindPlural, actor, actorRef
+// Available variables: audit (full audit event), actor, actorRef
 // If collector is non-nil, link() calls will capture link information.
 func auditEnvironment(collector *linkCollector) (*cel.Env, error) {
 	// The audit variable is a map containing the full Kubernetes audit event
@@ -44,8 +44,6 @@ func auditEnvironment(collector *linkCollector) (*cel.Env, error) {
 
 	return cel.NewEnv(
 		cel.Variable("audit", auditType),
-		cel.Variable("kind", cel.StringType),
-		cel.Variable("kindPlural", cel.StringType),
 		cel.Variable("actor", cel.StringType),
 		cel.Variable("actorRef", actorRefType),
 
@@ -68,7 +66,7 @@ func auditEnvironment(collector *linkCollector) (*cel.Env, error) {
 }
 
 // eventEnvironment creates a CEL environment for event rule expressions.
-// Available variables: event (full Kubernetes event), kind, kindPlural, actor, actorRef
+// Available variables: event (full Kubernetes event), actor, actorRef
 // If collector is non-nil, link() calls will capture link information.
 func eventEnvironment(collector *linkCollector) (*cel.Env, error) {
 	// The event variable is a map containing the full Kubernetes Event
@@ -78,8 +76,6 @@ func eventEnvironment(collector *linkCollector) (*cel.Env, error) {
 
 	return cel.NewEnv(
 		cel.Variable("event", eventType),
-		cel.Variable("kind", cel.StringType),
-		cel.Variable("kindPlural", cel.StringType),
 		cel.Variable("actor", cel.StringType),
 		cel.Variable("actorRef", actorRefType),
 
@@ -198,7 +194,7 @@ func formatPolicyError(err error, context string) error {
 		return fmt.Errorf("invalid %s expression: %s. "+
 			"For audit rules, use 'audit' variable (e.g., audit.verb, audit.objectRef.name). "+
 			"For event rules, use 'event' variable (e.g., event.reason, event.regarding.name). "+
-			"Also available: kind, kindPlural, actor", context, errStr)
+			"Also available: actor, actorRef", context, errStr)
 	}
 
 	if strings.Contains(errStr, "found no matching overload") {
@@ -247,14 +243,11 @@ func EvaluateAuditMatch(expression string, audit interface{}) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert audit to map: %w", err)
 	}
-	return EvaluateAuditMatchWithKind(expression, auditMap,
-		extractString(auditMap, "objectRef", "resource"),
-		extractString(auditMap, "objectRef", "resource"))
+	return EvaluateAuditMatchMap(expression, auditMap)
 }
 
-// EvaluateAuditMatchWithKind evaluates a match expression against an audit log entry
-// with explicit kind labels.
-func EvaluateAuditMatchWithKind(expression string, auditMap map[string]interface{}, kindLabel, kindLabelPlural string) (bool, error) {
+// EvaluateAuditMatchMap evaluates a match expression against an audit log entry map.
+func EvaluateAuditMatchMap(expression string, auditMap map[string]interface{}) (bool, error) {
 	env, err := auditEnvironment(nil) // No link collection for match expressions
 	if err != nil {
 		return false, fmt.Errorf("failed to create audit environment: %w", err)
@@ -271,11 +264,9 @@ func EvaluateAuditMatchWithKind(expression string, auditMap map[string]interface
 	}
 
 	out, _, err := prg.Eval(map[string]interface{}{
-		"audit":      auditMap,
-		"kind":       kindLabel,
-		"kindPlural": kindLabelPlural,
-		"actor":      extractString(auditMap, "user", "username"),
-		"actorRef":   buildActorRef(auditMap),
+		"audit":    auditMap,
+		"actor":    extractString(auditMap, "user", "username"),
+		"actorRef": buildActorRef(auditMap),
 	})
 	if err != nil {
 		return false, fmt.Errorf("failed to evaluate match expression: %w", err)
@@ -295,14 +286,11 @@ func EvaluateAuditSummary(template string, audit interface{}) (string, []Link, e
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to convert audit to map: %w", err)
 	}
-	return EvaluateAuditSummaryWithKind(template, auditMap,
-		extractString(auditMap, "objectRef", "resource"),
-		extractString(auditMap, "objectRef", "resource"))
+	return EvaluateAuditSummaryMap(template, auditMap)
 }
 
-// EvaluateAuditSummaryWithKind evaluates a summary template against an audit log entry
-// with explicit kind labels.
-func EvaluateAuditSummaryWithKind(template string, auditMap map[string]interface{}, kindLabel, kindLabelPlural string) (string, []Link, error) {
+// EvaluateAuditSummaryMap evaluates a summary template against an audit log entry map.
+func EvaluateAuditSummaryMap(template string, auditMap map[string]interface{}) (string, []Link, error) {
 	collector := &linkCollector{}
 	env, err := auditEnvironment(collector)
 	if err != nil {
@@ -310,11 +298,9 @@ func EvaluateAuditSummaryWithKind(template string, auditMap map[string]interface
 	}
 
 	vars := map[string]interface{}{
-		"audit":      auditMap,
-		"kind":       kindLabel,
-		"kindPlural": kindLabelPlural,
-		"actor":      extractString(auditMap, "user", "username"),
-		"actorRef":   buildActorRef(auditMap),
+		"audit":    auditMap,
+		"actor":    extractString(auditMap, "user", "username"),
+		"actorRef": buildActorRef(auditMap),
 	}
 
 	result, err := evaluateSummaryTemplate(env, template, vars)
@@ -326,14 +312,6 @@ func EvaluateAuditSummaryWithKind(template string, auditMap map[string]interface
 
 // EvaluateEventMatch evaluates a match expression against a Kubernetes event.
 func EvaluateEventMatch(expression string, event map[string]interface{}) (bool, error) {
-	return EvaluateEventMatchWithKind(expression, event,
-		extractString(event, "regarding", "kind"),
-		extractString(event, "regarding", "kind"))
-}
-
-// EvaluateEventMatchWithKind evaluates a match expression against a Kubernetes event
-// with explicit kind labels.
-func EvaluateEventMatchWithKind(expression string, event map[string]interface{}, kindLabel, kindLabelPlural string) (bool, error) {
 	env, err := eventEnvironment(nil) // No link collection for match expressions
 	if err != nil {
 		return false, fmt.Errorf("failed to create event environment: %w", err)
@@ -350,11 +328,9 @@ func EvaluateEventMatchWithKind(expression string, event map[string]interface{},
 	}
 
 	out, _, err := prg.Eval(map[string]interface{}{
-		"event":      event,
-		"kind":       kindLabel,
-		"kindPlural": kindLabelPlural,
-		"actor":      extractString(event, "reportingController"),
-		"actorRef":   buildEventActorRef(event),
+		"event":    event,
+		"actor":    extractString(event, "reportingController"),
+		"actorRef": buildEventActorRef(event),
 	})
 	if err != nil {
 		return false, fmt.Errorf("failed to evaluate match expression: %w", err)
@@ -370,14 +346,6 @@ func EvaluateEventMatchWithKind(expression string, event map[string]interface{},
 
 // EvaluateEventSummary evaluates a summary template against a Kubernetes event.
 func EvaluateEventSummary(template string, event map[string]interface{}) (string, []Link, error) {
-	return EvaluateEventSummaryWithKind(template, event,
-		extractString(event, "regarding", "kind"),
-		extractString(event, "regarding", "kind"))
-}
-
-// EvaluateEventSummaryWithKind evaluates a summary template against a Kubernetes event
-// with explicit kind labels.
-func EvaluateEventSummaryWithKind(template string, event map[string]interface{}, kindLabel, kindLabelPlural string) (string, []Link, error) {
 	collector := &linkCollector{}
 	env, err := eventEnvironment(collector)
 	if err != nil {
@@ -385,11 +353,9 @@ func EvaluateEventSummaryWithKind(template string, event map[string]interface{},
 	}
 
 	vars := map[string]interface{}{
-		"event":      event,
-		"kind":       kindLabel,
-		"kindPlural": kindLabelPlural,
-		"actor":      extractString(event, "reportingController"),
-		"actorRef":   buildEventActorRef(event),
+		"event":    event,
+		"actor":    extractString(event, "reportingController"),
+		"actorRef": buildEventActorRef(event),
 	}
 
 	result, err := evaluateSummaryTemplate(env, template, vars)

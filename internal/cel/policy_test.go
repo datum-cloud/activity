@@ -107,7 +107,7 @@ func TestValidatePolicyExpression_SummaryExpressions(t *testing.T) {
 		},
 		{
 			name:       "valid link function",
-			expression: "{{ actor }} created {{ link(kind + ' ' + audit.objectRef.name, audit.responseObject) }}",
+			expression: "{{ actor }} created {{ link('Deployment ' + audit.objectRef.name, audit.responseObject) }}",
 			ruleType:   AuditRule,
 			wantErr:    false,
 		},
@@ -119,13 +119,13 @@ func TestValidatePolicyExpression_SummaryExpressions(t *testing.T) {
 		},
 		{
 			name:       "valid event summary",
-			expression: "{{ link(kind + ' ' + event.regarding.name, event.regarding) }} is now programmed",
+			expression: "{{ link('HTTPProxy ' + event.regarding.name, event.regarding) }} is now programmed",
 			ruleType:   EventRule,
 			wantErr:    false,
 		},
 		{
 			name:       "valid multiple templates",
-			expression: "{{ actor }} updated {{ kind }} {{ audit.objectRef.name }}",
+			expression: "{{ actor }} updated Deployment {{ audit.objectRef.name }}",
 			ruleType:   AuditRule,
 			wantErr:    false,
 		},
