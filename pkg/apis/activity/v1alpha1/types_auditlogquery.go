@@ -174,12 +174,3 @@ type AuditLogQueryStatus struct {
 	EffectiveEndTime string `json:"effectiveEndTime,omitempty"`
 }
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// AuditLogQueryList is a list of AuditLogQuery objects
-type AuditLogQueryList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
-
-	Items []AuditLogQuery `json:"items"`
-}
