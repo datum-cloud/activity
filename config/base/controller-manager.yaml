@@ -45,15 +45,12 @@ spec:
         - controller-manager
         args:
         - --workers=$(WORKERS)
-        - --resync-period=$(RESYNC_PERIOD)
         - --metrics-addr=$(METRICS_ADDR)
         - --health-probe-addr=$(HEALTH_PROBE_ADDR)
         - -v=$(LOG_LEVEL)
         env:
         - name: WORKERS
           value: "2"
-        - name: RESYNC_PERIOD
-          value: "30"
         - name: METRICS_ADDR
           value: ":8080"
         - name: HEALTH_PROBE_ADDR
