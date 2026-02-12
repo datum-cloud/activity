@@ -15,6 +15,7 @@ import (
 	_ "go.miloapis.com/activity/internal/metrics"
 	"go.miloapis.com/activity/internal/registry/activity/auditlog"
 	"go.miloapis.com/activity/internal/registry/activity/auditlogfacet"
+	"go.miloapis.com/activity/internal/registry/activity/policy"
 	"go.miloapis.com/activity/internal/storage"
 	"go.miloapis.com/activity/pkg/apis/activity/install"
 	"go.miloapis.com/activity/pkg/apis/activity/v1alpha1"
@@ -104,6 +105,14 @@ func (c completedConfig) New() (*ActivityServer, error) {
 	v1alpha1Storage["auditlogqueries"] = auditlog.NewQueryStorage(clickhouseStorage)
 	v1alpha1Storage["auditlogfacetsqueries"] = auditlogfacet.NewAuditLogFacetsQueryStorage(clickhouseStorage)
 
+	// ActivityPolicy is stored in etcd
+	policyStorage, policyStatusStorage, err := policy.NewStorage(Scheme, c.GenericConfig.RESTOptionsGetter)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create ActivityPolicy storage: %w", err)
+	}
+	v1alpha1Storage["activitypolicies"] = policyStorage
+	v1alpha1Storage["activitypolicies/status"] = policyStatusStorage
+
 	apiGroupInfo.VersionedResourcesStorageMap["v1alpha1"] = v1alpha1Storage
 
 	if err := s.GenericAPIServer.InstallAPIGroup(&apiGroupInfo); err != nil {
@@ -118,6 +127,5 @@ func (c completedConfig) New() (*ActivityServer, error) {
 // Run starts the server and ensures storage cleanup on shutdown.
 func (s *ActivityServer) Run(ctx context.Context) error {
 	defer s.storage.Close()
-
 	return s.GenericAPIServer.PrepareRun().RunWithContext(ctx)
 }

@@ -66,6 +66,7 @@ spec:
         - --requestheader-extra-headers-prefix=$(REQUESTHEADER_EXTRA_HEADERS_PREFIX)
         - --logging-format=$(LOGGING_FORMAT)
         - --tracing-config-file=$(TRACING_CONFIG_FILE)
+        - --etcd-servers=$(ETCD_SERVERS)
         - -v=$(LOG_LEVEL)
         env:
         - name: SECURE_PORT
@@ -124,6 +125,8 @@ spec:
           value: ""
         - name: CLICKHOUSE_TLS_CA_FILE
           value: ""
+        - name: ETCD_SERVERS
+          value: "http://etcd.activity-system.svc.cluster.local:2379"
         resources:
           requests:
             cpu: 100m
