@@ -95,7 +95,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `timeRange` _[FacetTimeRange](#facettimerange)_ | TimeRange limits the time window for facet aggregation.<br />If not specified, defaults to the last 7 days. |  |  |
-| `filter` _string_ | Filter narrows the activities before computing facets using CEL.<br />This allows you to get facet values for a subset of activities.<br /><br />Example: "spec.changeSource == 'human'" to get facets only for human actions. |  |  |
+| `filter` _string_ | Filter narrows the activities before computing facets using CEL.<br />This allows you to get facet values for a subset of activities.<br /><br />Available Fields:<br />  spec.changeSource              - "human" or "system"<br />  spec.actor.name                - actor display name<br />  spec.actor.type                - actor type (user, serviceaccount, controller)<br />  spec.actor.uid                 - actor UID<br />  spec.resource.apiGroup         - resource API group<br />  spec.resource.kind             - resource kind<br />  spec.resource.name             - resource name<br />  spec.resource.namespace        - resource namespace<br />  spec.summary                   - activity summary text<br />  spec.origin.type               - origin type (audit, event)<br />  metadata.namespace             - activity namespace<br /><br />Operators: ==, !=, &&, \|\|, !, in<br />String Functions: startsWith(), endsWith(), contains()<br /><br />Examples:<br />  "spec.changeSource == 'human'"                     - Human actions only<br />  "!(spec.changeSource == 'system')"                 - Exclude system actions<br />  "spec.resource.kind == 'Deployment'"               - Deployment activities<br />  "!spec.actor.name.startsWith('system:')"           - Exclude system actors |  |  |
 | `facets` _[FacetSpec](#facetspec) array_ | Facets specifies which fields to get distinct values for.<br />Each facet returns the top N values with counts. |  |  |
 
 
@@ -224,7 +224,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `match` _string_ | Match is a CEL expression that determines if this rule applies to the input.<br />For audit rules, use the `audit` variable (e.g., "audit.verb == 'create'").<br />For event rules, use the `event` variable (e.g., "event.reason == 'Programmed'").<br /><br />Examples:<br />  "audit.verb == 'create'"<br />  "audit.verb in ['update', 'patch']"<br />  "event.reason.startsWith('Failed')"<br />  "true"  (fallback rule that always matches) |  |  |
-| `summary` _string_ | Summary is a CEL template for generating the activity summary.<br />Use \{\{ \}\} delimiters to embed CEL expressions within strings.<br /><br />Available variables:<br />  - audit/event: The full input object<br />  - kind: Human-readable kind label (e.g., "HTTP proxy")<br />  - kindPlural: Plural form (e.g., "HTTP proxies")<br />  - actor: Resolved display name for the actor<br /><br />Available functions:<br />  - link(displayText, resourceRef): Creates a clickable reference<br /><br />Examples:<br />  "\{\{ actor \}\} created \{\{ link(kind + ' ' + audit.objectRef.name, audit.responseObject) \}\}"<br />  "\{\{ link(kind + ' ' + event.regarding.name, event.regarding) \}\} is now programmed" |  |  |
+| `summary` _string_ | Summary is a CEL template for generating the activity summary.<br />Use \{\{ \}\} delimiters to embed CEL expressions within strings.<br /><br />Available variables:<br />  - audit/event: The full input object<br />  - actor: Resolved display name for the actor<br /><br />Available functions:<br />  - link(displayText, resourceRef): Creates a clickable reference<br /><br />Examples:<br />  "\{\{ actor \}\} created \{\{ link(kind + ' ' + audit.objectRef.name, audit.responseObject) \}\}"<br />  "\{\{ link(kind + ' ' + event.regarding.name, event.regarding) \}\} is now programmed" |  |  |
 
 
 #### ActivityPolicySpec
@@ -242,8 +242,8 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `resource` _[ActivityPolicyResource](#activitypolicyresource)_ | Resource identifies the Kubernetes resource this policy applies to.<br />One ActivityPolicy should exist per resource kind. |  |  |
-| `auditRules` _[ActivityPolicyRule](#activitypolicyrule) array_ | AuditRules define how to translate audit log entries into activity summaries.<br />Rules are evaluated in order; the first matching rule wins.<br />The `audit` variable contains the full Kubernetes audit event structure.<br />Convenience variables available: kind, kindPlural, actor |  |  |
-| `eventRules` _[ActivityPolicyRule](#activitypolicyrule) array_ | EventRules define how to translate Kubernetes events into activity summaries.<br />Rules are evaluated in order; the first matching rule wins.<br />The `event` variable contains the full Kubernetes Event structure.<br />Convenience variables available: kind, kindPlural, actor |  |  |
+| `auditRules` _[ActivityPolicyRule](#activitypolicyrule) array_ | AuditRules define how to translate audit log entries into activity summaries.<br />Rules are evaluated in order; the first matching rule wins.<br />The `audit` variable contains the full Kubernetes audit event structure.<br />Convenience variables available: actor |  |  |
+| `eventRules` _[ActivityPolicyRule](#activitypolicyrule) array_ | EventRules define how to translate Kubernetes events into activity summaries.<br />Rules are evaluated in order; the first matching rule wins.<br />The `event` variable contains the full Kubernetes Event structure.<br />Convenience variables available: actor |  |  |
 
 
 #### ActivityPolicyStatus
@@ -578,8 +578,6 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `policy` _[ActivityPolicySpec](#activitypolicyspec)_ | Policy is the ActivityPolicy spec to test.<br />You can use the full spec from an existing policy or create a new one. |  |  |
 | `inputs` _[PolicyPreviewInput](#policypreviewinput) array_ | Inputs contains sample audit logs and/or events to test against the policy.<br />Each input is evaluated independently and produces an Activity if a rule matches.<br />You can mix audit logs and events in the same request. |  |  |
-| `kindLabel` _string_ | KindLabel is the human-readable label for the resource kind.<br />If not specified, defaults to the Kind with spaces before capitals. |  |  |
-| `kindLabelPlural` _string_ | KindLabelPlural is the plural form of the kind label.<br />If not specified, defaults to KindLabel + "s". |  |  |
 
 
 #### PolicyPreviewStatus

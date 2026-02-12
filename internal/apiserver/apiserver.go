@@ -16,6 +16,7 @@ import (
 	"go.miloapis.com/activity/internal/registry/activity/auditlog"
 	"go.miloapis.com/activity/internal/registry/activity/auditlogfacet"
 	"go.miloapis.com/activity/internal/registry/activity/policy"
+	"go.miloapis.com/activity/internal/registry/activity/preview"
 	"go.miloapis.com/activity/internal/storage"
 	"go.miloapis.com/activity/pkg/apis/activity/install"
 	"go.miloapis.com/activity/pkg/apis/activity/v1alpha1"
@@ -112,6 +113,9 @@ func (c completedConfig) New() (*ActivityServer, error) {
 	}
 	v1alpha1Storage["activitypolicies"] = policyStorage
 	v1alpha1Storage["activitypolicies/status"] = policyStatusStorage
+
+	// PolicyPreview for testing policies without persisting
+	v1alpha1Storage["policypreviews"] = preview.NewPolicyPreviewStorage()
 
 	apiGroupInfo.VersionedResourcesStorageMap["v1alpha1"] = v1alpha1Storage
 
