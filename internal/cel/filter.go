@@ -3,7 +3,6 @@ package cel
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/google/cel-go/cel"
@@ -17,6 +16,97 @@ import (
 )
 
 var tracer = otel.Tracer("activity-cel-filter")
+
+// AuditLogFieldValidator implements FieldValidator for audit log CEL expressions.
+type AuditLogFieldValidator struct{}
+
+// ValidateSelectExpr validates field access for audit log expressions.
+func (v *AuditLogFieldValidator) ValidateSelectExpr(sel *expr.Expr_Select) error {
+	operand := sel.GetOperand()
+	if operand == nil {
+		return nil
+	}
+
+	identExpr := operand.GetIdentExpr()
+	if identExpr == nil {
+		return nil
+	}
+
+	baseObject := identExpr.GetName()
+	field := sel.GetField()
+
+	if allowedFields, ok := validFields[baseObject]; ok {
+		if !allowedFields[field] {
+			availableFields := make([]string, 0, len(allowedFields))
+			for f := range allowedFields {
+				availableFields = append(availableFields, baseObject+"."+f)
+			}
+			return fmt.Errorf("field '%s.%s' is not available for filtering. Available fields for %s: %v",
+				baseObject, field, baseObject, availableFields)
+		}
+	}
+
+	return nil
+}
+
+// AuditLogFieldMapper implements FieldMapper for audit log CEL expressions.
+type AuditLogFieldMapper struct{}
+
+// MapIdentExpr maps bare identifiers to ClickHouse columns for audit logs.
+func (m *AuditLogFieldMapper) MapIdentExpr(ident *expr.Expr_Ident) (string, error) {
+	switch ident.Name {
+	case "auditID":
+		return "audit_id", nil
+	case "verb":
+		return "verb", nil
+	case "requestReceivedTimestamp":
+		return "timestamp", nil
+
+	case "objectRef", "user", "responseStatus":
+		return "", fmt.Errorf("field '%s' must be accessed with dot notation (e.g., objectRef.namespace, user.username, responseStatus.code)", ident.Name)
+
+	default:
+		return "", fmt.Errorf("field '%s' is not available for filtering", ident.Name)
+	}
+}
+
+// MapSelectExpr maps field selectors to ClickHouse columns for audit logs.
+func (m *AuditLogFieldMapper) MapSelectExpr(sel *expr.Expr_Select) (string, error) {
+	operand := sel.GetOperand()
+	if operand == nil {
+		return "", fmt.Errorf("select expression missing operand")
+	}
+
+	identExpr := operand.GetIdentExpr()
+	if identExpr == nil {
+		return "", fmt.Errorf("select expression operand must be an identifier")
+	}
+
+	baseObject := identExpr.GetName()
+	field := sel.GetField()
+
+	switch {
+	case baseObject == "objectRef" && field == "namespace":
+		return "namespace", nil
+	case baseObject == "objectRef" && field == "resource":
+		return "resource", nil
+	case baseObject == "objectRef" && field == "name":
+		return "resource_name", nil
+	case baseObject == "objectRef" && field == "apiGroup":
+		return "api_group", nil
+
+	case baseObject == "user" && field == "username":
+		return "user", nil
+	case baseObject == "user" && field == "uid":
+		return "user_uid", nil
+
+	case baseObject == "responseStatus" && field == "code":
+		return "status_code", nil
+
+	default:
+		return "", fmt.Errorf("field '%s.%s' is not available for filtering", baseObject, field)
+	}
+}
 
 // Environment creates a CEL environment for audit event filtering.
 //
@@ -94,7 +184,7 @@ func CompileFilter(filterExpr string) (*cel.Ast, error) {
 	}
 
 	// Validate that only allowed fields are accessed on structured types
-	if err := validateFieldAccess(ast.Expr()); err != nil {
+	if err := ValidateFieldAccess(ast.Expr(), &AuditLogFieldValidator{}); err != nil {
 		metrics.CELFilterErrors.WithLabelValues("invalid_field").Inc()
 		metrics.CELFilterParseDuration.Observe(time.Since(startTime).Seconds())
 		return nil, fmt.Errorf("%s", formatFilterError(err))
@@ -104,97 +194,9 @@ func CompileFilter(filterExpr string) (*cel.Ast, error) {
 	return ast, nil
 }
 
-// validateFieldAccess recursively validates that only allowed fields are accessed
-func validateFieldAccess(e *expr.Expr) error {
-	if e == nil {
-		return nil
-	}
-
-	switch exprKind := e.ExprKind.(type) {
-	case *expr.Expr_SelectExpr:
-		sel := exprKind.SelectExpr
-		// Get the base object (e.g., "user", "objectRef", "responseStatus")
-		if operand := sel.GetOperand(); operand != nil {
-			if identExpr := operand.GetIdentExpr(); identExpr != nil {
-				baseObject := identExpr.GetName()
-				field := sel.GetField()
-
-				// Check if this is a structured type we validate
-				if allowedFields, ok := validFields[baseObject]; ok {
-					// Check if the field is allowed
-					if !allowedFields[field] {
-						// Build a helpful error message with available fields
-						availableFields := make([]string, 0, len(allowedFields))
-						for f := range allowedFields {
-							availableFields = append(availableFields, baseObject+"."+f)
-						}
-						return fmt.Errorf("field '%s.%s' is not available for filtering. Available fields for %s: %v",
-							baseObject, field, baseObject, availableFields)
-					}
-				}
-			}
-			// Recursively validate the operand
-			if err := validateFieldAccess(operand); err != nil {
-				return err
-			}
-		}
-
-	case *expr.Expr_CallExpr:
-		call := exprKind.CallExpr
-		// Validate the target if present
-		if call.Target != nil {
-			if err := validateFieldAccess(call.Target); err != nil {
-				return err
-			}
-		}
-		// Validate all arguments
-		for _, arg := range call.Args {
-			if err := validateFieldAccess(arg); err != nil {
-				return err
-			}
-		}
-
-	case *expr.Expr_ListExpr:
-		list := exprKind.ListExpr
-		for _, elem := range list.Elements {
-			if err := validateFieldAccess(elem); err != nil {
-				return err
-			}
-		}
-
-	case *expr.Expr_StructExpr:
-		structExpr := exprKind.StructExpr
-		for _, entry := range structExpr.Entries {
-			if err := validateFieldAccess(entry.GetValue()); err != nil {
-				return err
-			}
-		}
-
-	case *expr.Expr_ComprehensionExpr:
-		comp := exprKind.ComprehensionExpr
-		if err := validateFieldAccess(comp.IterRange); err != nil {
-			return err
-		}
-		if err := validateFieldAccess(comp.AccuInit); err != nil {
-			return err
-		}
-		if err := validateFieldAccess(comp.LoopCondition); err != nil {
-			return err
-		}
-		if err := validateFieldAccess(comp.LoopStep); err != nil {
-			return err
-		}
-		if err := validateFieldAccess(comp.Result); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 // ConvertToClickHouseSQL converts a CEL expression to a ClickHouse WHERE clause with tracing.
-func ConvertToClickHouseSQL(ctx context.Context, filterExpr string) (string, []interface{}, error) {
-	ctx, span := tracer.Start(ctx, "cel.filter.convert",
+func ConvertToClickHouseSQL(ctx context.Context, filterExpr string) (string, []any, error) {
+	_, span := tracer.Start(ctx, "cel.filter.convert",
 		trace.WithAttributes(attribute.String("cel.expression", filterExpr)),
 	)
 	defer span.End()
@@ -213,13 +215,9 @@ func ConvertToClickHouseSQL(ctx context.Context, filterExpr string) (string, []i
 
 	span.SetAttributes(attribute.Bool("cel.valid", true))
 
-	converter := &sqlConverter{
-		args:      make([]interface{}, 0),
-		argIndex:  1,
-		paramName: make(map[int]string),
-	}
+	converter := NewBaseSQLConverter(&AuditLogFieldMapper{})
 
-	sql, err := converter.convertExpr(ast.Expr())
+	sql, err := converter.ConvertExpr(ast.Expr())
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "conversion failed")
@@ -228,303 +226,9 @@ func ConvertToClickHouseSQL(ctx context.Context, filterExpr string) (string, []i
 
 	span.SetAttributes(
 		attribute.String("sql.where_clause", sql),
-		attribute.Int("sql.param_count", len(converter.args)),
+		attribute.Int("sql.param_count", len(converter.Args())),
 	)
 	span.SetStatus(codes.Ok, "conversion successful")
 
-	return sql, converter.args, nil
-}
-
-type sqlConverter struct {
-	args      []interface{}
-	argIndex  int
-	paramName map[int]string
-}
-
-func (c *sqlConverter) addArg(value interface{}) string {
-	c.args = append(c.args, value)
-	paramName := fmt.Sprintf("arg%d", c.argIndex)
-	c.paramName[c.argIndex] = paramName
-	c.argIndex++
-	return fmt.Sprintf("{%s}", paramName)
-}
-
-func (c *sqlConverter) convertExpr(e *expr.Expr) (string, error) {
-	switch e.ExprKind.(type) {
-	case *expr.Expr_CallExpr:
-		return c.convertCallExpr(e.GetCallExpr(), e)
-	case *expr.Expr_IdentExpr:
-		return c.convertIdentExpr(e.GetIdentExpr())
-	case *expr.Expr_ConstExpr:
-		return c.convertConstExpr(e.GetConstExpr())
-	case *expr.Expr_SelectExpr:
-		return c.convertSelectExpr(e.GetSelectExpr())
-	case *expr.Expr_ListExpr:
-		return c.convertListExpr(e.GetListExpr())
-	default:
-		return "", fmt.Errorf("unsupported expression type: %T", e.ExprKind)
-	}
-}
-
-func (c *sqlConverter) convertCallExpr(call *expr.Expr_Call, e *expr.Expr) (string, error) {
-	switch call.Function {
-	case "!_":
-		// Handle logical NOT: !expr -> NOT (expr)
-		arg, err := c.convertExpr(call.Args[0])
-		if err != nil {
-			return "", err
-		}
-		return fmt.Sprintf("NOT (%s)", arg), nil
-
-	case "_==_":
-		left, err := c.convertExpr(call.Args[0])
-		if err != nil {
-			return "", err
-		}
-		right, err := c.convertExpr(call.Args[1])
-		if err != nil {
-			return "", err
-		}
-		return fmt.Sprintf("%s = %s", left, right), nil
-
-	case "_!=_":
-		left, err := c.convertExpr(call.Args[0])
-		if err != nil {
-			return "", err
-		}
-		right, err := c.convertExpr(call.Args[1])
-		if err != nil {
-			return "", err
-		}
-		return fmt.Sprintf("%s != %s", left, right), nil
-
-	case "_&&_":
-		left, err := c.convertExpr(call.Args[0])
-		if err != nil {
-			return "", err
-		}
-		right, err := c.convertExpr(call.Args[1])
-		if err != nil {
-			return "", err
-		}
-		return fmt.Sprintf("(%s AND %s)", left, right), nil
-
-	case "_||_":
-		left, err := c.convertExpr(call.Args[0])
-		if err != nil {
-			return "", err
-		}
-		right, err := c.convertExpr(call.Args[1])
-		if err != nil {
-			return "", err
-		}
-		return fmt.Sprintf("(%s OR %s)", left, right), nil
-
-	case "_>=_":
-		left, err := c.convertExpr(call.Args[0])
-		if err != nil {
-			return "", err
-		}
-		right, err := c.convertExpr(call.Args[1])
-		if err != nil {
-			return "", err
-		}
-		return fmt.Sprintf("%s >= %s", left, right), nil
-
-	case "_<=_":
-		left, err := c.convertExpr(call.Args[0])
-		if err != nil {
-			return "", err
-		}
-		right, err := c.convertExpr(call.Args[1])
-		if err != nil {
-			return "", err
-		}
-		return fmt.Sprintf("%s <= %s", left, right), nil
-
-	case "_>_":
-		left, err := c.convertExpr(call.Args[0])
-		if err != nil {
-			return "", err
-		}
-		right, err := c.convertExpr(call.Args[1])
-		if err != nil {
-			return "", err
-		}
-		return fmt.Sprintf("%s > %s", left, right), nil
-
-	case "_<_":
-		left, err := c.convertExpr(call.Args[0])
-		if err != nil {
-			return "", err
-		}
-		right, err := c.convertExpr(call.Args[1])
-		if err != nil {
-			return "", err
-		}
-		return fmt.Sprintf("%s < %s", left, right), nil
-
-	case "@in":
-		// Handle "x in [...]" - converts to "x IN (...)"
-		left, err := c.convertExpr(call.Args[0])
-		if err != nil {
-			return "", err
-		}
-		right, err := c.convertExpr(call.Args[1])
-		if err != nil {
-			return "", err
-		}
-		return fmt.Sprintf("%s IN %s", left, right), nil
-
-	case "startsWith":
-		// string.startsWith(prefix) -> startsWith(string, prefix)
-		if call.Target != nil {
-			target, err := c.convertExpr(call.Target)
-			if err != nil {
-				return "", err
-			}
-			prefix, err := c.convertExpr(call.Args[0])
-			if err != nil {
-				return "", err
-			}
-			return fmt.Sprintf("startsWith(%s, %s)", target, prefix), nil
-		}
-
-	case "endsWith":
-		// string.endsWith(suffix) -> endsWith(string, suffix)
-		if call.Target != nil {
-			target, err := c.convertExpr(call.Target)
-			if err != nil {
-				return "", err
-			}
-			suffix, err := c.convertExpr(call.Args[0])
-			if err != nil {
-				return "", err
-			}
-			return fmt.Sprintf("endsWith(%s, %s)", target, suffix), nil
-		}
-
-	case "contains":
-		// string.contains(substring) -> position(substring, string) > 0
-		if call.Target != nil {
-			target, err := c.convertExpr(call.Target)
-			if err != nil {
-				return "", err
-			}
-			substring, err := c.convertExpr(call.Args[0])
-			if err != nil {
-				return "", err
-			}
-			return fmt.Sprintf("position(%s, %s) > 0", target, substring), nil
-		}
-
-	case "timestamp":
-		// timestamp('2024-01-01T00:00:00Z') -> parse as DateTime
-		if len(call.Args) == 1 {
-			// Extract the string constant
-			if constExpr := call.Args[0].GetConstExpr(); constExpr != nil {
-				if strVal := constExpr.GetStringValue(); strVal != "" {
-					t, err := time.Parse(time.RFC3339, strVal)
-					if err != nil {
-						return "", fmt.Errorf("invalid timestamp format: %w", err)
-					}
-					return c.addArg(t), nil
-				}
-			}
-		}
-	}
-
-	return "", fmt.Errorf("unsupported CEL function: %s", call.Function)
-}
-
-func (c *sqlConverter) convertIdentExpr(ident *expr.Expr_Ident) (string, error) {
-	switch ident.Name {
-	case "auditID":
-		return "audit_id", nil
-	case "verb":
-		return "verb", nil
-	case "requestReceivedTimestamp":
-		return "timestamp", nil
-
-	case "objectRef", "user", "responseStatus":
-		return "", fmt.Errorf("field '%s' must be accessed with dot notation (e.g., objectRef.namespace, user.username, responseStatus.code)", ident.Name)
-
-	default:
-		return "", fmt.Errorf("field '%s' is not available for filtering", ident.Name)
-	}
-}
-
-func (c *sqlConverter) convertConstExpr(constant *expr.Constant) (string, error) {
-	switch constant.ConstantKind.(type) {
-	case *expr.Constant_StringValue:
-		return c.addArg(constant.GetStringValue()), nil
-	case *expr.Constant_Int64Value:
-		return c.addArg(constant.GetInt64Value()), nil
-	case *expr.Constant_Uint64Value:
-		return c.addArg(constant.GetUint64Value()), nil
-	case *expr.Constant_DoubleValue:
-		return c.addArg(constant.GetDoubleValue()), nil
-	case *expr.Constant_BoolValue:
-		if constant.GetBoolValue() {
-			return "1", nil
-		}
-		return "0", nil
-	default:
-		return "", fmt.Errorf("unsupported constant type: %T", constant.ConstantKind)
-	}
-}
-
-func (c *sqlConverter) convertSelectExpr(sel *expr.Expr_Select) (string, error) {
-	// Handle nested field access like user.username, objectRef.namespace
-	// CEL represents these as SelectExpr with an operand (the object) and a field name
-
-	// Get the base object (e.g., "user", "objectRef", "responseStatus")
-	operand := sel.GetOperand()
-	if operand == nil {
-		return "", fmt.Errorf("select expression missing operand")
-	}
-
-	identExpr := operand.GetIdentExpr()
-	if identExpr == nil {
-		return "", fmt.Errorf("select expression operand must be an identifier")
-	}
-
-	baseObject := identExpr.GetName()
-	field := sel.GetField()
-
-	switch {
-	case baseObject == "objectRef" && field == "namespace":
-		return "namespace", nil
-	case baseObject == "objectRef" && field == "resource":
-		return "resource", nil
-	case baseObject == "objectRef" && field == "name":
-		return "resource_name", nil
-	case baseObject == "objectRef" && field == "apiGroup":
-		return "api_group", nil
-
-	case baseObject == "user" && field == "username":
-		return "user", nil
-	case baseObject == "user" && field == "uid":
-		return "user_uid", nil
-
-	case baseObject == "responseStatus" && field == "code":
-		return "status_code", nil
-
-	default:
-		// Defensive check - validation should catch invalid fields at compile time
-		return "", fmt.Errorf("field '%s.%s' is not available for filtering", baseObject, field)
-	}
-}
-
-func (c *sqlConverter) convertListExpr(list *expr.Expr_CreateList) (string, error) {
-	// Convert list to array format for IN clause
-	elements := make([]string, len(list.Elements))
-	for i, elem := range list.Elements {
-		val, err := c.convertExpr(elem)
-		if err != nil {
-			return "", err
-		}
-		elements[i] = val
-	}
-	return fmt.Sprintf("[%s]", strings.Join(elements, ", ")), nil
+	return sql, converter.Args(), nil
 }
