@@ -32,6 +32,7 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&ActivityPolicy{},
 		&ActivityPolicyList{},
 		&Activity{},
+		&ActivityList{},
 		&ActivityQuery{},
 		&ActivityFacetQuery{},
 		&PolicyPreview{},

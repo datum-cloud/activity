@@ -29,7 +29,38 @@ resource changes for consumers, service providers, and platform administrators.
 
 
 Activities are read-only and stored in ClickHouse for efficient time-range queries.
-Use ActivityQuery to search and filter activities.
+
+
+**Two APIs are available for accessing activities:**
+
+| Use Case | API | Description |
+| --- | --- | --- |
+| Real-time streaming | `GET /activities?watch=true` | Watch for new activities as they happen. List returns last hour only. |
+| Historical queries | `POST /activityqueries` | Search with custom time ranges, full-text search, and CEL filters. |
+
+**Activity List/Watch API** (`GET /apis/activity.miloapis.com/v1alpha1/activities`)
+
+For real-time use cases. The List endpoint returns activities from the **last hour only**
+to ensure fast performance. Use Watch to stream new activities as they occur.
+
+```bash
+# List recent activities (last hour)
+kubectl get activities
+
+# Watch for new activities in real-time
+kubectl get activities --watch
+
+# Filter by field selector
+kubectl get activities --field-selector spec.changeSource=human
+```
+
+Supported field selectors: `spec.changeSource`, `spec.resource.apiGroup`, `spec.resource.kind`,
+`spec.actor.name`, `spec.resource.uid`
+
+**ActivityQuery API** (`POST /apis/activity.miloapis.com/v1alpha1/activityqueries`)
+
+For historical analysis. Supports custom time ranges, full-text search, and CEL filters.
+See [ActivityQuery](#activityquery) for details.
 
 
 
