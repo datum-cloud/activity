@@ -582,7 +582,359 @@ func (s *ClickHouseStorage) buildQuery(ctx context.Context, spec v1alpha1.AuditL
 	return query, args, nil
 }
 
-// FacetFieldSpec defines a single facet to retrieve.
+// ActivityQuerySpec defines the query parameters for listing activities.
+type ActivityQuerySpec struct {
+	// Namespace filters activities to a specific namespace.
+	// Empty for cluster-scoped queries.
+	Namespace string
+
+	// StartTime filters activities to those after this time.
+	StartTime string
+
+	// EndTime filters activities to those before this time.
+	EndTime string
+
+	// ChangeSource filters by change source: "human" or "system".
+	ChangeSource string
+
+	// APIGroup filters by resource API group.
+	APIGroup string
+
+	// ResourceKind filters by resource kind.
+	ResourceKind string
+
+	// ActorName filters by actor name.
+	ActorName string
+
+	// ResourceUID filters activities for a specific resource.
+	ResourceUID string
+
+	// Search performs full-text search on summaries.
+	Search string
+
+	// Filter is a CEL expression for advanced filtering.
+	Filter string
+
+	// Limit is the maximum number of results to return.
+	Limit int32
+
+	// Continue is the pagination cursor.
+	Continue string
+}
+
+// ActivityQueryResult contains activities and pagination state.
+type ActivityQueryResult struct {
+	Activities []string // JSON activity records
+	Continue   string
+}
+
+// QueryActivities retrieves activities matching the query specification and scope.
+func (s *ClickHouseStorage) QueryActivities(ctx context.Context, spec ActivityQuerySpec, scope ScopeContext) (*ActivityQueryResult, error) {
+	ctx, span := tracer.Start(ctx, "clickhouse.query_activities",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(
+			attribute.String("db.system", "clickhouse"),
+			attribute.String("db.name", s.config.Database),
+			attribute.String("db.operation", "SELECT"),
+			attribute.Int("query.limit", int(spec.Limit)),
+		),
+	)
+	defer span.End()
+
+	query, args, err := s.buildActivityQuery(ctx, spec, scope)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to build query")
+		return nil, fmt.Errorf("failed to build query: %w", err)
+	}
+
+	klog.V(3).InfoS("Built activities ClickHouse query",
+		"query", query,
+		"argsCount", len(args),
+	)
+
+	// Add trace context
+	spanContext := span.SpanContext()
+	if spanContext.IsValid() {
+		traceparent := fmt.Sprintf("00-%s-%s-%02x",
+			spanContext.TraceID().String(),
+			spanContext.SpanID().String(),
+			spanContext.TraceFlags())
+		query = fmt.Sprintf("/* traceparent: %s */ %s", traceparent, query)
+	}
+
+	rows, err := s.conn.Query(ctx, query, args...)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "query execution failed")
+		return nil, fmt.Errorf("failed to query activities: %w", err)
+	}
+	defer rows.Close()
+
+	limit := spec.Limit
+	if limit <= 0 {
+		limit = 100
+	}
+	if limit > s.config.MaxPageSize {
+		limit = s.config.MaxPageSize
+	}
+
+	var activities []string
+	for rows.Next() {
+		var activityJSON string
+		if err := rows.Scan(&activityJSON); err != nil {
+			return nil, fmt.Errorf("failed to scan row: %w", err)
+		}
+		activities = append(activities, activityJSON)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating rows: %w", err)
+	}
+
+	// Check for more results
+	var continueToken string
+	if int32(len(activities)) > limit {
+		activities = activities[:limit]
+		// Create continue token from last activity timestamp
+		if len(activities) > 0 {
+			continueToken = encodeActivityCursor(activities[len(activities)-1], spec)
+		}
+	}
+
+	span.SetAttributes(
+		attribute.Int("db.rows_returned", len(activities)),
+		attribute.Bool("query.has_more", continueToken != ""),
+	)
+	span.SetStatus(codes.Ok, "query successful")
+
+	return &ActivityQueryResult{
+		Activities: activities,
+		Continue:   continueToken,
+	}, nil
+}
+
+// buildActivityQuery constructs a ClickHouse SQL query for activities.
+func (s *ClickHouseStorage) buildActivityQuery(ctx context.Context, spec ActivityQuerySpec, scope ScopeContext) (string, []interface{}, error) {
+	var args []interface{}
+	query := fmt.Sprintf("SELECT activity_json FROM %s.activities", s.config.Database)
+
+	var conditions []string
+
+	// Scope filtering
+	if scope.Type != "platform" {
+		conditions = append(conditions, "tenant_type = ?")
+		args = append(args, scope.Type)
+		conditions = append(conditions, "tenant_name = ?")
+		args = append(args, scope.Name)
+	}
+
+	// Namespace filtering
+	if spec.Namespace != "" {
+		conditions = append(conditions, "activity_namespace = ?")
+		args = append(args, spec.Namespace)
+	}
+
+	// Time range
+	now := time.Now()
+	if spec.StartTime != "" {
+		startTime, err := timeutil.ParseFlexibleTime(spec.StartTime, now)
+		if err != nil {
+			return "", nil, fmt.Errorf("invalid startTime: %w", err)
+		}
+		conditions = append(conditions, "timestamp >= ?")
+		args = append(args, startTime)
+	}
+
+	if spec.EndTime != "" {
+		endTime, err := timeutil.ParseFlexibleTime(spec.EndTime, now)
+		if err != nil {
+			return "", nil, fmt.Errorf("invalid endTime: %w", err)
+		}
+		conditions = append(conditions, "timestamp < ?")
+		args = append(args, endTime)
+	}
+
+	// Field selectors
+	if spec.ChangeSource != "" {
+		conditions = append(conditions, "change_source = ?")
+		args = append(args, spec.ChangeSource)
+	}
+
+	if spec.APIGroup != "" {
+		conditions = append(conditions, "api_group = ?")
+		args = append(args, spec.APIGroup)
+	}
+
+	if spec.ResourceKind != "" {
+		conditions = append(conditions, "resource_kind = ?")
+		args = append(args, spec.ResourceKind)
+	}
+
+	if spec.ActorName != "" {
+		conditions = append(conditions, "actor_name = ?")
+		args = append(args, spec.ActorName)
+	}
+
+	if spec.ResourceUID != "" {
+		conditions = append(conditions, "resource_uid = ?")
+		args = append(args, spec.ResourceUID)
+	}
+
+	// Full-text search on summary (substring matching, case-insensitive)
+	if spec.Search != "" {
+		// Split search into terms and match any term as a substring
+		terms := strings.Fields(spec.Search)
+		if len(terms) > 0 {
+			conditions = append(conditions, "multiSearchAnyCaseInsensitive(summary, ?) > 0")
+			args = append(args, terms)
+		}
+	}
+
+	// CEL filter expression
+	if spec.Filter != "" {
+		celWhere, celArgs, err := cel.ConvertActivityToClickHouseSQL(ctx, spec.Filter)
+		if err != nil {
+			return "", nil, err
+		}
+		if celWhere != "" {
+			processedWhere := celWhere
+			for i := range celArgs {
+				oldParam := fmt.Sprintf("{arg%d}", i+1)
+				processedWhere = strings.ReplaceAll(processedWhere, oldParam, "?")
+			}
+			args = append(args, celArgs...)
+			conditions = append(conditions, processedWhere)
+		}
+	}
+
+	// Pagination cursor
+	if spec.Continue != "" {
+		cursorTime, cursorUID, err := decodeActivityCursor(spec.Continue, spec)
+		if err != nil {
+			return "", nil, err
+		}
+		conditions = append(conditions, "(timestamp < ? OR (timestamp = ? AND resource_uid < ?))")
+		args = append(args, cursorTime, cursorTime, cursorUID)
+	}
+
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	// Order by timestamp descending (newest first)
+	query += " ORDER BY timestamp DESC, resource_uid DESC"
+
+	// Limit
+	limit := spec.Limit
+	if limit <= 0 {
+		limit = 100
+	}
+	if limit > s.config.MaxPageSize {
+		limit = s.config.MaxPageSize
+	}
+	query += fmt.Sprintf(" LIMIT %d", limit+1)
+
+	return query, args, nil
+}
+
+// activityCursorData encodes pagination state for activity queries.
+type activityCursorData struct {
+	Timestamp   time.Time `json:"t"`
+	ResourceUID string    `json:"r"`
+	QueryHash   string    `json:"h"`
+	IssuedAt    time.Time `json:"i"`
+}
+
+// hashActivityQueryParams creates a hash to validate cursors.
+func hashActivityQueryParams(spec ActivityQuerySpec) string {
+	h := sha256.New()
+	h.Write([]byte(spec.StartTime))
+	h.Write([]byte("|"))
+	h.Write([]byte(spec.EndTime))
+	h.Write([]byte("|"))
+	h.Write([]byte(spec.ChangeSource))
+	h.Write([]byte("|"))
+	h.Write([]byte(spec.APIGroup))
+	h.Write([]byte("|"))
+	h.Write([]byte(spec.ResourceKind))
+	h.Write([]byte("|"))
+	h.Write([]byte(spec.Search))
+	h.Write([]byte("|"))
+	h.Write([]byte(fmt.Sprintf("%d", spec.Limit)))
+
+	return base64.URLEncoding.EncodeToString(h.Sum(nil)[:16])
+}
+
+// encodeActivityCursor creates a pagination token from the last activity.
+func encodeActivityCursor(lastActivityJSON string, spec ActivityQuerySpec) string {
+	// Extract timestamp and resource_uid from JSON
+	var activity struct {
+		Metadata struct {
+			CreationTimestamp string `json:"creationTimestamp"`
+		} `json:"metadata"`
+		Spec struct {
+			Resource struct {
+				UID string `json:"uid"`
+			} `json:"resource"`
+		} `json:"spec"`
+	}
+
+	if err := json.Unmarshal([]byte(lastActivityJSON), &activity); err != nil {
+		return ""
+	}
+
+	timestamp, _ := time.Parse(time.RFC3339, activity.Metadata.CreationTimestamp)
+
+	data := activityCursorData{
+		Timestamp:   timestamp,
+		ResourceUID: activity.Spec.Resource.UID,
+		QueryHash:   hashActivityQueryParams(spec),
+		IssuedAt:    time.Now(),
+	}
+
+	jsonData, _ := json.Marshal(data)
+	return base64.URLEncoding.EncodeToString(jsonData)
+}
+
+// decodeActivityCursor validates and extracts pagination state.
+func decodeActivityCursor(cursor string, spec ActivityQuerySpec) (time.Time, string, error) {
+	decoded, err := base64.URLEncoding.DecodeString(cursor)
+	if err != nil {
+		return time.Time{}, "", fmt.Errorf("invalid cursor format")
+	}
+
+	var data activityCursorData
+	if err := json.Unmarshal(decoded, &data); err != nil {
+		return time.Time{}, "", fmt.Errorf("cursor format is invalid")
+	}
+
+	currentHash := hashActivityQueryParams(spec)
+	if data.QueryHash != currentHash {
+		return time.Time{}, "", fmt.Errorf("query parameters changed, start a new query")
+	}
+
+	if time.Since(data.IssuedAt) > cursorTTL {
+		return time.Time{}, "", fmt.Errorf("cursor expired")
+	}
+
+	return data.Timestamp, data.ResourceUID, nil
+}
+
+// FacetQuerySpec defines the parameters for a facet query.
+type FacetQuerySpec struct {
+	// TimeRange specifies the time window for facet aggregation.
+	StartTime string
+	EndTime   string
+
+	// Filter is a CEL expression to filter activities before computing facets.
+	Filter string
+
+	// Facets are the fields to compute distinct values for.
+	Facets []FacetFieldSpec
+}
+
+// FacetFieldSpec defines a single facet field to query.
 type FacetFieldSpec struct {
 	Field string
 	Limit int32
@@ -603,6 +955,145 @@ type FacetFieldResult struct {
 type FacetValueResult struct {
 	Value string
 	Count int64
+}
+
+// QueryFacets retrieves distinct field values with counts for faceted search.
+func (s *ClickHouseStorage) QueryFacets(ctx context.Context, spec FacetQuerySpec, scope ScopeContext) (*FacetQueryResult, error) {
+	ctx, span := tracer.Start(ctx, "clickhouse.query_facets",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(
+			attribute.String("db.system", "clickhouse"),
+			attribute.String("db.name", s.config.Database),
+			attribute.String("db.operation", "SELECT"),
+			attribute.Int("facet.count", len(spec.Facets)),
+		),
+	)
+	defer span.End()
+
+	result := &FacetQueryResult{
+		Facets: make([]FacetFieldResult, 0, len(spec.Facets)),
+	}
+
+	// Execute each facet query
+	for _, facet := range spec.Facets {
+		facetResult, err := s.queryFacet(ctx, facet, spec, scope)
+		if err != nil {
+			span.RecordError(err)
+			return nil, fmt.Errorf("failed to query facet %s: %w", facet.Field, err)
+		}
+		result.Facets = append(result.Facets, *facetResult)
+	}
+
+	span.SetStatus(codes.Ok, "facet query successful")
+	return result, nil
+}
+
+// queryFacet executes a single facet query.
+func (s *ClickHouseStorage) queryFacet(ctx context.Context, facet FacetFieldSpec, spec FacetQuerySpec, scope ScopeContext) (*FacetFieldResult, error) {
+	column, err := GetActivityFacetColumn(facet.Field)
+	if err != nil {
+		return nil, err
+	}
+
+	limit := facet.Limit
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	var args []interface{}
+	var conditions []string
+
+	// Scope filtering
+	if scope.Type != "platform" {
+		conditions = append(conditions, "tenant_type = ?")
+		args = append(args, scope.Type)
+		conditions = append(conditions, "tenant_name = ?")
+		args = append(args, scope.Name)
+	}
+
+	// Time range
+	now := time.Now()
+	if spec.StartTime != "" {
+		startTime, err := timeutil.ParseFlexibleTime(spec.StartTime, now)
+		if err != nil {
+			return nil, fmt.Errorf("invalid startTime: %w", err)
+		}
+		conditions = append(conditions, "timestamp >= ?")
+		args = append(args, startTime)
+	}
+
+	if spec.EndTime != "" {
+		endTime, err := timeutil.ParseFlexibleTime(spec.EndTime, now)
+		if err != nil {
+			return nil, fmt.Errorf("invalid endTime: %w", err)
+		}
+		conditions = append(conditions, "timestamp < ?")
+		args = append(args, endTime)
+	}
+
+	// CEL filter (optional)
+	if spec.Filter != "" {
+		celWhere, celArgs, err := cel.ConvertActivityToClickHouseSQL(ctx, spec.Filter)
+		if err != nil {
+			return nil, err
+		}
+		if celWhere != "" {
+			processedWhere := celWhere
+			for i := range celArgs {
+				oldParam := fmt.Sprintf("{arg%d}", i+1)
+				processedWhere = strings.ReplaceAll(processedWhere, oldParam, "?")
+			}
+			args = append(args, celArgs...)
+			conditions = append(conditions, processedWhere)
+		}
+	}
+
+	query := fmt.Sprintf("SELECT %s, COUNT(*) as count FROM %s.activities", column, s.config.Database)
+
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	// Group by the facet column and order by count descending, then value ascending for stability
+	query += fmt.Sprintf(" GROUP BY %s ORDER BY count DESC, %s ASC LIMIT %d", column, column, limit)
+
+	klog.V(4).InfoS("Executing facet query",
+		"field", facet.Field,
+		"column", column,
+		"query", query,
+	)
+
+	rows, err := s.conn.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute facet query: %w", err)
+	}
+	defer rows.Close()
+
+	result := &FacetFieldResult{
+		Field:  facet.Field,
+		Values: make([]FacetValueResult, 0),
+	}
+
+	for rows.Next() {
+		var value string
+		var count uint64
+		if err := rows.Scan(&value, &count); err != nil {
+			return nil, fmt.Errorf("failed to scan facet row: %w", err)
+		}
+		result.Values = append(result.Values, FacetValueResult{
+			Value: value,
+			Count: int64(count),
+		})
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating facet rows: %w", err)
+	}
+
+	return result, nil
 }
 
 // AuditLogFacetQuerySpec defines the parameters for an audit log facet query.
