@@ -164,7 +164,7 @@ func CompileFilter(filterExpr string) (*cel.Ast, error) {
 	env, err := Environment()
 	if err != nil {
 		metrics.CELFilterErrors.WithLabelValues("environment").Inc()
-		return nil, fmt.Errorf("failed to create CEL environment: %w", err)
+		return nil, fmt.Errorf("unable to process filter expression. Try again or contact support if the problem persists")
 	}
 
 	ast, issues := env.Compile(filterExpr)

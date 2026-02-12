@@ -220,7 +220,7 @@ func CompileActivityFilter(filterExpr string) (*cel.Ast, error) {
 	env, err := ActivityEnvironment()
 	if err != nil {
 		metrics.CELFilterErrors.WithLabelValues("environment").Inc()
-		return nil, fmt.Errorf("failed to create CEL environment: %w", err)
+		return nil, fmt.Errorf("unable to process filter expression. Try again or contact support if the problem persists")
 	}
 
 	ast, issues := env.Compile(filterExpr)
@@ -263,7 +263,7 @@ func CompileActivityFilterProgram(filterExpr string) (*CompiledActivityFilter, e
 
 	env, err := ActivityEnvironment()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create CEL environment: %w", err)
+		return nil, fmt.Errorf("unable to process filter expression. Try again or contact support if the problem persists")
 	}
 
 	ast, issues := env.Compile(filterExpr)
@@ -284,7 +284,7 @@ func CompileActivityFilterProgram(filterExpr string) (*CompiledActivityFilter, e
 	// Create program from compiled AST
 	program, err := env.Program(ast)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create CEL program: %w", err)
+		return nil, fmt.Errorf("unable to process filter expression. Try again or contact support if the problem persists")
 	}
 
 	return &CompiledActivityFilter{program: program}, nil
@@ -303,13 +303,13 @@ func (f *CompiledActivityFilter) EvaluateActivity(activity *v1alpha1.Activity) (
 	// Evaluate the program
 	result, _, err := f.program.Eval(input)
 	if err != nil {
-		return false, fmt.Errorf("CEL evaluation error: %w", err)
+		return false, fmt.Errorf("unable to evaluate filter expression. Verify the filter syntax is correct")
 	}
 
 	// Extract boolean result
 	boolVal, ok := result.Value().(bool)
 	if !ok {
-		return false, fmt.Errorf("CEL result is not a boolean: %T", result.Value())
+		return false, fmt.Errorf("filter expression must return a boolean result. Verify your filter uses comparison operators")
 	}
 
 	return boolVal, nil

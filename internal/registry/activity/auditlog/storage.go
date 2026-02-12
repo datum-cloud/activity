@@ -15,6 +15,7 @@ import (
 
 	"go.miloapis.com/activity/internal/cel"
 	"go.miloapis.com/activity/internal/metrics"
+	"go.miloapis.com/activity/internal/registry/scope"
 	"go.miloapis.com/activity/internal/storage"
 	"go.miloapis.com/activity/internal/timeutil"
 	"go.miloapis.com/activity/pkg/apis/activity/v1alpha1"
@@ -89,14 +90,14 @@ func (r *QueryStorage) Create(ctx context.Context, obj runtime.Object, createVal
 
 	// Apply tenant isolation by extracting scope boundaries from user context.
 	// Platform admins see all events; organization/project users see only their scope.
-	scope := ExtractScopeFromUser(reqUser)
+	scopeCtx := scope.ExtractScopeFromUser(reqUser)
 
-	metrics.AuditLogQueriesByScope.WithLabelValues(scope.Type).Inc()
+	metrics.AuditLogQueriesByScope.WithLabelValues(scopeCtx.Type).Inc()
 
 	klog.InfoS("Executing scope-aware audit log query",
 		"query", query.Name,
-		"scopeType", scope.Type,
-		"scopeName", scope.Name,
+		"scopeType", scopeCtx.Type,
+		"scopeName", scopeCtx.Name,
 		"startTime", query.Spec.StartTime,
 		"endTime", query.Spec.EndTime,
 	)
@@ -123,11 +124,7 @@ func (r *QueryStorage) Create(ctx context.Context, obj runtime.Object, createVal
 		return nil, errors.NewInternalError(fmt.Errorf("failed to parse endTime: %w", err))
 	}
 
-	scopeContext := storage.ScopeContext{
-		Type: scope.Type,
-		Name: scope.Name,
-	}
-	result, err := r.storage.QueryAuditLogs(ctx, query.Spec, scopeContext)
+	result, err := r.storage.QueryAuditLogs(ctx, query.Spec, scopeCtx)
 	if err != nil {
 		return nil, r.convertToStructuredError(query, err)
 	}

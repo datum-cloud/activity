@@ -13,6 +13,7 @@ import (
 	"k8s.io/klog/v2"
 
 	_ "go.miloapis.com/activity/internal/metrics"
+	"go.miloapis.com/activity/internal/registry/activity/activityquery"
 	"go.miloapis.com/activity/internal/registry/activity/auditlog"
 	"go.miloapis.com/activity/internal/registry/activity/auditlogfacet"
 	"go.miloapis.com/activity/internal/registry/activity/policy"
@@ -113,6 +114,9 @@ func (c completedConfig) New() (*ActivityServer, error) {
 	}
 	v1alpha1Storage["activitypolicies"] = policyStorage
 	v1alpha1Storage["activitypolicies/status"] = policyStatusStorage
+
+	// ActivityQuery is an ephemeral query resource (like AuditLogQuery)
+	v1alpha1Storage["activityqueries"] = activityquery.NewQueryStorage(clickhouseStorage)
 
 	// PolicyPreview for testing policies without persisting
 	v1alpha1Storage["policypreviews"] = preview.NewPolicyPreviewStorage()
