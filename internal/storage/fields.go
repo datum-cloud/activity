@@ -67,6 +67,49 @@ func GetAuditLogFacetColumn(field string) (string, error) {
 	return col, nil
 }
 
+// ActivityFacetFields defines the supported fields for activity facet queries.
+// Keys are API field paths (as used in queries), values are human-readable descriptions.
+var ActivityFacetFields = map[string]string{
+	"spec.actor.name":         "The name of the actor who performed the action",
+	"spec.actor.type":         "The type of actor (user, service, system)",
+	"spec.resource.apiGroup":  "The API group of the target resource",
+	"spec.resource.kind":      "The kind of the target resource",
+	"spec.resource.namespace": "The namespace of the target resource",
+	"spec.changeSource":       "The source of the change (human, automation, system)",
+}
+
+// IsValidActivityFacetField checks if a field is supported for activity faceting.
+func IsValidActivityFacetField(field string) bool {
+	_, ok := ActivityFacetFields[field]
+	return ok
+}
+
+// GetActivityFacetFieldNames returns a slice of supported activity facet field names.
+// Useful for error messages showing valid options.
+func GetActivityFacetFieldNames() []string {
+	return sortedKeys(ActivityFacetFields)
+}
+
+// activityFacetColumnMapping maps API field paths to ClickHouse column names for activities.
+var activityFacetColumnMapping = map[string]string{
+	"spec.actor.name":         "actor_name",
+	"spec.actor.type":         "actor_type",
+	"spec.resource.apiGroup":  "api_group",
+	"spec.resource.kind":      "resource_kind",
+	"spec.resource.namespace": "resource_namespace",
+	"spec.changeSource":       "change_source",
+}
+
+// GetActivityFacetColumn returns the ClickHouse column name for an activity facet field.
+// Returns an error if the field is not supported.
+func GetActivityFacetColumn(field string) (string, error) {
+	col, ok := activityFacetColumnMapping[field]
+	if !ok {
+		return "", fmt.Errorf("unsupported activity facet field: %s", field)
+	}
+	return col, nil
+}
+
 func init() {
 	// Validate that all defined fields have corresponding column mappings.
 	// This catches mismatches at startup rather than at runtime.
@@ -80,6 +123,19 @@ func init() {
 	for field := range auditLogFacetColumnMapping {
 		if _, ok := AuditLogFacetFields[field]; !ok {
 			panic(fmt.Sprintf("audit log facet column mapping %q has no field definition", field))
+		}
+	}
+
+	// Validate activity facet fields
+	for field := range ActivityFacetFields {
+		if _, ok := activityFacetColumnMapping[field]; !ok {
+			panic(fmt.Sprintf("missing ClickHouse column mapping for activity facet field %q", field))
+		}
+	}
+
+	for field := range activityFacetColumnMapping {
+		if _, ok := ActivityFacetFields[field]; !ok {
+			panic(fmt.Sprintf("activity facet column mapping %q has no field definition", field))
 		}
 	}
 }
