@@ -728,10 +728,18 @@ func (s *ClickHouseStorage) buildActivityQuery(ctx context.Context, spec Activit
 
 	// Scope filtering
 	if scope.Type != "platform" {
-		conditions = append(conditions, "tenant_type = ?")
-		args = append(args, scope.Type)
-		conditions = append(conditions, "tenant_name = ?")
-		args = append(args, scope.Name)
+		if scope.Type == "user" {
+			// For user scope, filter by actor_uid to show activities performed by this user
+			// across all organizations and projects
+			conditions = append(conditions, "actor_uid = ?")
+			args = append(args, scope.Name)
+		} else {
+			// For organization/project scope, filter by tenant
+			conditions = append(conditions, "tenant_type = ?")
+			args = append(args, scope.Type)
+			conditions = append(conditions, "tenant_name = ?")
+			args = append(args, scope.Name)
+		}
 	}
 
 	// Namespace filtering
@@ -1112,6 +1120,169 @@ func (s *ClickHouseStorage) queryAuditLogFacet(ctx context.Context, facet FacetF
 
 	if err := rows.Err(); err != nil {
 		klog.ErrorS(err, "Error iterating audit log facet rows", "field", facet.Field)
+		return nil, fmt.Errorf("unable to retrieve facet data for field '%s'. Try again or contact support if the problem persists", facet.Field)
+	}
+
+	return result, nil
+}
+
+// FacetQuerySpec defines the parameters for an activity facet query.
+type FacetQuerySpec struct {
+	// TimeRange specifies the time window for facet aggregation.
+	StartTime string
+	EndTime   string
+
+	// Filter is a CEL expression to filter activities before computing facets.
+	Filter string
+
+	// Facets are the fields to compute distinct values for.
+	Facets []FacetFieldSpec
+}
+
+// QueryFacets retrieves distinct field values with counts for faceted search on activities.
+func (s *ClickHouseStorage) QueryFacets(ctx context.Context, spec FacetQuerySpec, scope ScopeContext) (*FacetQueryResult, error) {
+	ctx, span := tracer.Start(ctx, "clickhouse.query_facets",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(
+			attribute.String("db.system", "clickhouse"),
+			attribute.String("db.name", s.config.Database),
+			attribute.String("db.operation", "SELECT"),
+			attribute.Int("facet.count", len(spec.Facets)),
+		),
+	)
+	defer span.End()
+
+	result := &FacetQueryResult{
+		Facets: make([]FacetFieldResult, 0, len(spec.Facets)),
+	}
+
+	// Execute each facet query
+	for _, facet := range spec.Facets {
+		facetResult, err := s.queryFacet(ctx, facet, spec, scope)
+		if err != nil {
+			span.RecordError(err)
+			return nil, fmt.Errorf("failed to query facet %s: %w", facet.Field, err)
+		}
+		result.Facets = append(result.Facets, *facetResult)
+	}
+
+	span.SetStatus(codes.Ok, "facet query successful")
+	return result, nil
+}
+
+// queryFacet executes a single facet query against the activities table.
+func (s *ClickHouseStorage) queryFacet(ctx context.Context, facet FacetFieldSpec, spec FacetQuerySpec, scope ScopeContext) (*FacetFieldResult, error) {
+	column, err := GetActivityFacetColumn(facet.Field)
+	if err != nil {
+		return nil, err
+	}
+
+	limit := facet.Limit
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	var args []interface{}
+	var conditions []string
+
+	// Scope filtering
+	if scope.Type != "platform" {
+		if scope.Type == "user" {
+			// For user scope, filter by actor_uid to show activities performed by this user
+			// across all organizations and projects
+			conditions = append(conditions, "actor_uid = ?")
+			args = append(args, scope.Name)
+		} else {
+			// For organization/project scope, filter by tenant
+			conditions = append(conditions, "tenant_type = ?")
+			args = append(args, scope.Type)
+			conditions = append(conditions, "tenant_name = ?")
+			args = append(args, scope.Name)
+		}
+	}
+
+	// Time range
+	now := time.Now()
+	if spec.StartTime != "" {
+		startTime, err := timeutil.ParseFlexibleTime(spec.StartTime, now)
+		if err != nil {
+			return nil, fmt.Errorf("invalid startTime: %w", err)
+		}
+		conditions = append(conditions, "timestamp >= ?")
+		args = append(args, startTime)
+	}
+
+	if spec.EndTime != "" {
+		endTime, err := timeutil.ParseFlexibleTime(spec.EndTime, now)
+		if err != nil {
+			return nil, fmt.Errorf("invalid endTime: %w", err)
+		}
+		conditions = append(conditions, "timestamp < ?")
+		args = append(args, endTime)
+	}
+
+	// CEL filter (optional)
+	if spec.Filter != "" {
+		celWhere, celArgs, err := cel.ConvertActivityToClickHouseSQL(ctx, spec.Filter)
+		if err != nil {
+			return nil, err
+		}
+		if celWhere != "" {
+			processedWhere := celWhere
+			for i := range celArgs {
+				oldParam := fmt.Sprintf("{arg%d}", i+1)
+				processedWhere = strings.ReplaceAll(processedWhere, oldParam, "?")
+			}
+			args = append(args, celArgs...)
+			conditions = append(conditions, processedWhere)
+		}
+	}
+
+	query := fmt.Sprintf("SELECT %s, COUNT(*) as count FROM %s.activities", column, s.config.Database)
+
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	// Group by the facet column and order by count descending, then value ascending for stability
+	query += fmt.Sprintf(" GROUP BY %s ORDER BY count DESC, %s ASC LIMIT %d", column, column, limit)
+
+	klog.V(4).InfoS("Executing facet query",
+		"field", facet.Field,
+		"column", column,
+		"query", query,
+	)
+
+	rows, err := s.conn.Query(ctx, query, args...)
+	if err != nil {
+		klog.ErrorS(err, "Failed to execute facet query", "field", facet.Field)
+		return nil, fmt.Errorf("unable to retrieve facet data for field '%s'. Try again or contact support if the problem persists", facet.Field)
+	}
+	defer rows.Close()
+
+	result := &FacetFieldResult{
+		Field:  facet.Field,
+		Values: make([]FacetValueResult, 0),
+	}
+
+	for rows.Next() {
+		var value string
+		var count uint64
+		if err := rows.Scan(&value, &count); err != nil {
+			klog.ErrorS(err, "Failed to scan facet row", "field", facet.Field)
+			return nil, fmt.Errorf("unable to retrieve facet data for field '%s'. Try again or contact support if the problem persists", facet.Field)
+		}
+		result.Values = append(result.Values, FacetValueResult{
+			Value: value,
+			Count: int64(count),
+		})
+	}
+
+	if err := rows.Err(); err != nil {
+		klog.ErrorS(err, "Error iterating facet rows", "field", facet.Field)
 		return nil, fmt.Errorf("unable to retrieve facet data for field '%s'. Try again or contact support if the problem persists", facet.Field)
 	}
 

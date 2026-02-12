@@ -12,6 +12,7 @@ import (
 
 type ActivityV1alpha1Interface interface {
 	RESTClient() rest.Interface
+	ActivitiesGetter
 	ActivityFacetQueriesGetter
 	ActivityPoliciesGetter
 	ActivityQueriesGetter
@@ -23,6 +24,10 @@ type ActivityV1alpha1Interface interface {
 // ActivityV1alpha1Client is used to interact with features provided by the activity.miloapis.com group.
 type ActivityV1alpha1Client struct {
 	restClient rest.Interface
+}
+
+func (c *ActivityV1alpha1Client) Activities(namespace string) ActivityInterface {
+	return newActivities(c, namespace)
 }
 
 func (c *ActivityV1alpha1Client) ActivityFacetQueries() ActivityFacetQueryInterface {

@@ -12,6 +12,10 @@ type FakeActivityV1alpha1 struct {
 	*testing.Fake
 }
 
+func (c *FakeActivityV1alpha1) Activities(namespace string) v1alpha1.ActivityInterface {
+	return newFakeActivities(c, namespace)
+}
+
 func (c *FakeActivityV1alpha1) ActivityFacetQueries() v1alpha1.ActivityFacetQueryInterface {
 	return newFakeActivityFacetQueries(c)
 }
