@@ -17,6 +17,7 @@ Package v1alpha1 contains API Schema definitions for the activity v1alpha1 API g
 
 
 
+
 #### Activity
 
 
@@ -28,12 +29,12 @@ resource changes for consumers, service providers, and platform administrators.
 
 
 Activities are read-only and stored in ClickHouse for efficient time-range queries.
-Use List and Get operations to query activities. Watch is supported for real-time updates.
+Use ActivityQuery to search and filter activities.
 
 
 
 _Appears in:_
-- [ActivityList](#activitylist)
+- [ActivityQueryStatus](#activityquerystatus)
 - [PolicyPreviewStatus](#policypreviewstatus)
 
 | Field | Description | Default | Validation |
@@ -130,8 +131,6 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `marker` _string_ | Marker is the text substring in the summary that should be linked.<br />The portal scans the summary for this marker and makes it clickable.<br /><br />Example: "HTTP proxy api-gateway" |  |  |
 | `resource` _[ActivityResource](#activityresource)_ | Resource identifies what the marker links to. |  |  |
-
-
 
 
 #### ActivityOrigin
@@ -261,6 +260,100 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#condition-v1-meta) array_ | Conditions represent the current state of the policy.<br />The "Ready" condition indicates whether all rules compile successfully. |  |  |
 | `observedGeneration` _integer_ | ObservedGeneration is the generation last processed by the controller. |  |  |
+
+
+#### ActivityQuery
+
+
+
+ActivityQuery searches for activity records.
+
+
+Activities are human-readable summaries of resource changes, generated from audit logs
+and Kubernetes events. Use this to display activity feeds, investigate changes, or
+filter by actor, resource type, or time range.
+
+
+Quick Start:
+
+
+	apiVersion: activity.miloapis.com/v1alpha1
+	kind: ActivityQuery
+	metadata:
+	  name: recent-human-changes
+	spec:
+	  startTime: "now-7d"
+	  endTime: "now"
+	  changeSource: "human"  # filter out system noise
+	  limit: 50
+
+
+Time Formats:
+- Relative: "now-7d", "now-2h" (great for dashboards)
+- Absolute: "2024-01-01T00:00:00Z" (great for historical analysis)
+
+
+
+_Appears in:_
+- [ActivityQueryList](#activityquerylist)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[ActivityQuerySpec](#activityqueryspec)_ |  |  |  |
+| `status` _[ActivityQueryStatus](#activityquerystatus)_ |  |  |  |
+
+
+
+
+#### ActivityQuerySpec
+
+
+
+ActivityQuerySpec defines the search parameters for activities.
+
+
+Required: startTime and endTime define your search window.
+Optional: filter (CEL expression), namespace, changeSource, search, limit, continue.
+
+
+
+_Appears in:_
+- [ActivityQuery](#activityquery)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `startTime` _string_ | StartTime is the beginning of your search window (inclusive).<br /><br />Format Options:<br />- Relative: "now-7d", "now-2h", "now-30m" (units: s, m, h, d, w)<br />- Absolute: "2024-01-01T00:00:00Z" (RFC3339 with timezone) |  |  |
+| `endTime` _string_ | EndTime is the end of your search window (exclusive).<br /><br />Uses the same formats as StartTime. Commonly "now" for current moment.<br />Must be greater than StartTime. |  |  |
+| `namespace` _string_ | Namespace filters activities to a specific namespace.<br />Leave empty for cluster-wide results. |  |  |
+| `changeSource` _string_ | ChangeSource filters by who initiated the change.<br /><br />Values:<br />  - "human": User actions via kubectl, API, or UI<br />  - "system": Controller reconciliation, operator actions<br /><br />Leave empty for both. |  |  |
+| `search` _string_ | Search performs full-text search on activity summaries.<br /><br />Example: "created deployment" matches activities with those words in the summary. |  |  |
+| `filter` _string_ | Filter narrows results using CEL (Common Expression Language).<br /><br />Available Fields:<br />  spec.changeSource      - "human" or "system"<br />  spec.actor.name        - who performed the action<br />  spec.actor.type        - "user", "serviceaccount", "controller"<br />  spec.actor.uid         - actor's unique identifier<br />  spec.resource.apiGroup - resource API group (empty for core)<br />  spec.resource.kind     - resource kind (Deployment, Pod, etc.)<br />  spec.resource.name     - resource name<br />  spec.resource.namespace - resource namespace<br />  spec.resource.uid      - resource UID<br />  spec.summary           - activity summary text<br />  spec.origin.type       - "audit" or "event"<br />  metadata.namespace     - activity namespace<br /><br />Operators: ==, !=, &&, \|\|, !, in<br />String Functions: startsWith(), endsWith(), contains()<br /><br />Examples:<br />  "spec.changeSource == 'human'"<br />  "spec.resource.kind == 'Deployment'"<br />  "spec.actor.name.contains('admin')"<br />  "spec.resource.kind in ['Deployment', 'StatefulSet']" |  |  |
+| `resourceKind` _string_ | ResourceKind filters by the kind of resource affected.<br /><br />Examples: "Deployment", "Pod", "ConfigMap", "HTTPProxy" |  |  |
+| `resourceUID` _string_ | ResourceUID filters activities for a specific resource by UID.<br /><br />Use this to get the full history of changes to a single resource. |  |  |
+| `apiGroup` _string_ | APIGroup filters by the API group of affected resources.<br /><br />Examples: "apps", "projectcontour.io", "" (empty for core API) |  |  |
+| `actorName` _string_ | ActorName filters by who performed the action.<br /><br />Examples: "alice@example.com", "system:serviceaccount:default:my-sa" |  |  |
+| `limit` _integer_ | Limit sets the maximum number of results per page.<br />Default: 100, Maximum: 1000. |  |  |
+| `continue` _string_ | Continue is the pagination cursor for fetching additional pages.<br /><br />Leave empty for the first page. Copy status.continue here to get the next page.<br />Keep all other parameters identical across paginated requests. |  |  |
+
+
+#### ActivityQueryStatus
+
+
+
+ActivityQueryStatus contains the query results and pagination state.
+
+
+
+_Appears in:_
+- [ActivityQuery](#activityquery)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `results` _[Activity](#activity) array_ | Results contains matching activities, sorted newest-first. |  |  |
+| `continue` _string_ | Continue is the pagination cursor.<br />Non-empty means more results are available. |  |  |
+| `effectiveStartTime` _string_ | EffectiveStartTime is the actual start time used (RFC3339 format).<br />Shows the resolved timestamp when relative times are used. |  |  |
+| `effectiveEndTime` _string_ | EffectiveEndTime is the actual end time used (RFC3339 format).<br />Shows the resolved timestamp when relative times are used. |  |  |
 
 
 #### ActivityResource

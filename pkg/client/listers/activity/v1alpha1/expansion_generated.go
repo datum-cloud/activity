@@ -2,14 +2,6 @@
 
 package v1alpha1
 
-// ActivityListerExpansion allows custom methods to be added to
-// ActivityLister.
-type ActivityListerExpansion interface{}
-
-// ActivityNamespaceListerExpansion allows custom methods to be added to
-// ActivityNamespaceLister.
-type ActivityNamespaceListerExpansion interface{}
-
 // ActivityPolicyListerExpansion allows custom methods to be added to
 // ActivityPolicyLister.
 type ActivityPolicyListerExpansion interface{}

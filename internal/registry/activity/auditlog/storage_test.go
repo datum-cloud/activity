@@ -13,6 +13,7 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/request"
 	auditv1 "k8s.io/apiserver/pkg/apis/audit/v1"
 
+	"go.miloapis.com/activity/internal/registry/scope"
 	"go.miloapis.com/activity/internal/storage"
 	"go.miloapis.com/activity/pkg/apis/activity/v1alpha1"
 )
@@ -128,8 +129,8 @@ func TestQueryStorage_Create_Success(t *testing.T) {
 	testUser := &user.DefaultInfo{
 		Name: "test-user",
 		Extra: map[string][]string{
-			ParentKindExtraKey: {"Organization"},
-			ParentNameExtraKey: {"test-org"},
+			scope.ParentKindExtraKey: {"Organization"},
+			scope.ParentNameExtraKey: {"test-org"},
 		},
 	}
 	ctx := request.WithUser(context.Background(), testUser)
@@ -198,8 +199,8 @@ func TestQueryStorage_Create_ScopeExtraction(t *testing.T) {
 			user: &user.DefaultInfo{
 				Name: "org-user",
 				Extra: map[string][]string{
-					ParentKindExtraKey: {"Organization"},
-					ParentNameExtraKey: {"acme-corp"},
+					scope.ParentKindExtraKey: {"Organization"},
+					scope.ParentNameExtraKey: {"acme-corp"},
 				},
 			},
 			wantType: "organization",
@@ -210,8 +211,8 @@ func TestQueryStorage_Create_ScopeExtraction(t *testing.T) {
 			user: &user.DefaultInfo{
 				Name: "project-user",
 				Extra: map[string][]string{
-					ParentKindExtraKey: {"Project"},
-					ParentNameExtraKey: {"backend-api"},
+					scope.ParentKindExtraKey: {"Project"},
+					scope.ParentNameExtraKey: {"backend-api"},
 				},
 			},
 			wantType: "project",
@@ -222,8 +223,8 @@ func TestQueryStorage_Create_ScopeExtraction(t *testing.T) {
 			user: &user.DefaultInfo{
 				Name: "user-scoped",
 				Extra: map[string][]string{
-					ParentKindExtraKey: {"User"},
-					ParentNameExtraKey: {"550e8400-e29b-41d4-a716-446655440000"},
+					scope.ParentKindExtraKey: {"User"},
+					scope.ParentNameExtraKey: {"550e8400-e29b-41d4-a716-446655440000"},
 				},
 			},
 			wantType: "user",
@@ -638,7 +639,7 @@ func TestQueryStorage_Create_WrongObjectType(t *testing.T) {
 	ctx := request.WithUser(context.Background(), testUser)
 
 	// Pass wrong object type
-	wrongObj := &v1alpha1.AuditLogQueryList{}
+	wrongObj := &v1alpha1.ActivityPolicy{}
 	_, err := qs.Create(ctx, wrongObj, nil, nil)
 
 	if err == nil {

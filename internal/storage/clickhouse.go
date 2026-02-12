@@ -262,7 +262,8 @@ func (s *ClickHouseStorage) QueryAuditLogs(ctx context.Context, spec v1alpha1.Au
 		metrics.ClickHouseQueryErrors.WithLabelValues("build_query").Inc()
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "failed to build query")
-		return nil, fmt.Errorf("failed to build query: %w", err)
+		// Return the error directly - buildQuery returns user-friendly validation errors
+		return nil, err
 	}
 
 	klog.V(3).InfoS("Built ClickHouse query",
@@ -341,7 +342,7 @@ func (s *ClickHouseStorage) QueryAuditLogs(ctx context.Context, spec v1alpha1.Au
 			"query", truncatedQuery,
 		)
 
-		return nil, fmt.Errorf("failed to query ClickHouse: %w", err)
+		return nil, fmt.Errorf("unable to retrieve audit logs. Try again or contact support if the problem persists")
 	}
 	defer rows.Close()
 
@@ -367,7 +368,7 @@ func (s *ClickHouseStorage) QueryAuditLogs(ctx context.Context, spec v1alpha1.Au
 				"traceID", traceID,
 				"spanID", spanID,
 			)
-			return nil, fmt.Errorf("failed to scan row: %w", err)
+			return nil, fmt.Errorf("unable to retrieve audit logs. Try again or contact support if the problem persists")
 		}
 
 		var event auditv1.Event
@@ -394,7 +395,7 @@ func (s *ClickHouseStorage) QueryAuditLogs(ctx context.Context, spec v1alpha1.Au
 			"limit", spec.Limit,
 		)
 
-		return nil, fmt.Errorf("error iterating rows: %w", err)
+		return nil, fmt.Errorf("unable to retrieve audit logs. Try again or contact support if the problem persists")
 	}
 
 	if unmarshalErrors > 0 {
@@ -582,7 +583,353 @@ func (s *ClickHouseStorage) buildQuery(ctx context.Context, spec v1alpha1.AuditL
 	return query, args, nil
 }
 
-// FacetFieldSpec defines a single facet to retrieve.
+// ActivityQuerySpec defines the query parameters for listing activities.
+type ActivityQuerySpec struct {
+	// Namespace filters activities to a specific namespace.
+	// Empty for cluster-scoped queries.
+	Namespace string
+
+	// StartTime filters activities to those after this time.
+	StartTime string
+
+	// EndTime filters activities to those before this time.
+	EndTime string
+
+	// ChangeSource filters by change source: "human" or "system".
+	ChangeSource string
+
+	// APIGroup filters by resource API group.
+	APIGroup string
+
+	// ResourceKind filters by resource kind.
+	ResourceKind string
+
+	// ActorName filters by actor name.
+	ActorName string
+
+	// ResourceUID filters activities for a specific resource.
+	ResourceUID string
+
+	// Search performs full-text search on summaries.
+	Search string
+
+	// Filter is a CEL expression for advanced filtering.
+	Filter string
+
+	// Limit is the maximum number of results to return.
+	Limit int32
+
+	// Continue is the pagination cursor.
+	Continue string
+}
+
+// ActivityQueryResult contains activities and pagination state.
+type ActivityQueryResult struct {
+	Activities []string // JSON activity records
+	Continue   string
+}
+
+// QueryActivities retrieves activities matching the query specification and scope.
+func (s *ClickHouseStorage) QueryActivities(ctx context.Context, spec ActivityQuerySpec, scope ScopeContext) (*ActivityQueryResult, error) {
+	ctx, span := tracer.Start(ctx, "clickhouse.query_activities",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(
+			attribute.String("db.system", "clickhouse"),
+			attribute.String("db.name", s.config.Database),
+			attribute.String("db.operation", "SELECT"),
+			attribute.Int("query.limit", int(spec.Limit)),
+		),
+	)
+	defer span.End()
+
+	query, args, err := s.buildActivityQuery(ctx, spec, scope)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to build query")
+		// Return the error directly - buildActivityQuery returns user-friendly validation errors
+		return nil, err
+	}
+
+	klog.V(3).InfoS("Built activities ClickHouse query",
+		"query", query,
+		"argsCount", len(args),
+	)
+
+	// Add trace context
+	spanContext := span.SpanContext()
+	if spanContext.IsValid() {
+		traceparent := fmt.Sprintf("00-%s-%s-%02x",
+			spanContext.TraceID().String(),
+			spanContext.SpanID().String(),
+			spanContext.TraceFlags())
+		query = fmt.Sprintf("/* traceparent: %s */ %s", traceparent, query)
+	}
+
+	rows, err := s.conn.Query(ctx, query, args...)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "query execution failed")
+		klog.ErrorS(err, "Failed to query activities")
+		return nil, fmt.Errorf("unable to retrieve activities. Try again or contact support if the problem persists")
+	}
+	defer rows.Close()
+
+	limit := spec.Limit
+	if limit <= 0 {
+		limit = 100
+	}
+	if limit > s.config.MaxPageSize {
+		limit = s.config.MaxPageSize
+	}
+
+	var activities []string
+	for rows.Next() {
+		var activityJSON string
+		if err := rows.Scan(&activityJSON); err != nil {
+			klog.ErrorS(err, "Failed to scan activity row")
+			return nil, fmt.Errorf("unable to retrieve activities. Try again or contact support if the problem persists")
+		}
+		activities = append(activities, activityJSON)
+	}
+
+	if err := rows.Err(); err != nil {
+		klog.ErrorS(err, "Error iterating activity rows")
+		return nil, fmt.Errorf("unable to retrieve activities. Try again or contact support if the problem persists")
+	}
+
+	// Check for more results
+	var continueToken string
+	if int32(len(activities)) > limit {
+		activities = activities[:limit]
+		// Create continue token from last activity timestamp
+		if len(activities) > 0 {
+			continueToken = encodeActivityCursor(activities[len(activities)-1], spec)
+		}
+	}
+
+	span.SetAttributes(
+		attribute.Int("db.rows_returned", len(activities)),
+		attribute.Bool("query.has_more", continueToken != ""),
+	)
+	span.SetStatus(codes.Ok, "query successful")
+
+	return &ActivityQueryResult{
+		Activities: activities,
+		Continue:   continueToken,
+	}, nil
+}
+
+// buildActivityQuery constructs a ClickHouse SQL query for activities.
+func (s *ClickHouseStorage) buildActivityQuery(ctx context.Context, spec ActivityQuerySpec, scope ScopeContext) (string, []interface{}, error) {
+	var args []interface{}
+	query := fmt.Sprintf("SELECT activity_json FROM %s.activities", s.config.Database)
+
+	var conditions []string
+
+	// Scope filtering
+	if scope.Type != "platform" {
+		conditions = append(conditions, "tenant_type = ?")
+		args = append(args, scope.Type)
+		conditions = append(conditions, "tenant_name = ?")
+		args = append(args, scope.Name)
+	}
+
+	// Namespace filtering
+	if spec.Namespace != "" {
+		conditions = append(conditions, "activity_namespace = ?")
+		args = append(args, spec.Namespace)
+	}
+
+	// Time range
+	now := time.Now()
+	if spec.StartTime != "" {
+		startTime, err := timeutil.ParseFlexibleTime(spec.StartTime, now)
+		if err != nil {
+			return "", nil, fmt.Errorf("invalid startTime: %w", err)
+		}
+		conditions = append(conditions, "timestamp >= ?")
+		args = append(args, startTime)
+	}
+
+	if spec.EndTime != "" {
+		endTime, err := timeutil.ParseFlexibleTime(spec.EndTime, now)
+		if err != nil {
+			return "", nil, fmt.Errorf("invalid endTime: %w", err)
+		}
+		conditions = append(conditions, "timestamp < ?")
+		args = append(args, endTime)
+	}
+
+	// Field selectors
+	if spec.ChangeSource != "" {
+		conditions = append(conditions, "change_source = ?")
+		args = append(args, spec.ChangeSource)
+	}
+
+	if spec.APIGroup != "" {
+		conditions = append(conditions, "api_group = ?")
+		args = append(args, spec.APIGroup)
+	}
+
+	if spec.ResourceKind != "" {
+		conditions = append(conditions, "resource_kind = ?")
+		args = append(args, spec.ResourceKind)
+	}
+
+	if spec.ActorName != "" {
+		conditions = append(conditions, "actor_name = ?")
+		args = append(args, spec.ActorName)
+	}
+
+	if spec.ResourceUID != "" {
+		conditions = append(conditions, "resource_uid = ?")
+		args = append(args, spec.ResourceUID)
+	}
+
+	// Full-text search on summary (substring matching, case-insensitive)
+	if spec.Search != "" {
+		// Split search into terms and match any term as a substring
+		terms := strings.Fields(spec.Search)
+		if len(terms) > 0 {
+			conditions = append(conditions, "multiSearchAnyCaseInsensitive(summary, ?) > 0")
+			args = append(args, terms)
+		}
+	}
+
+	// CEL filter expression
+	if spec.Filter != "" {
+		celWhere, celArgs, err := cel.ConvertActivityToClickHouseSQL(ctx, spec.Filter)
+		if err != nil {
+			return "", nil, err
+		}
+		if celWhere != "" {
+			processedWhere := celWhere
+			for i := range celArgs {
+				oldParam := fmt.Sprintf("{arg%d}", i+1)
+				processedWhere = strings.ReplaceAll(processedWhere, oldParam, "?")
+			}
+			args = append(args, celArgs...)
+			conditions = append(conditions, processedWhere)
+		}
+	}
+
+	// Pagination cursor
+	if spec.Continue != "" {
+		cursorTime, cursorUID, err := decodeActivityCursor(spec.Continue, spec)
+		if err != nil {
+			return "", nil, err
+		}
+		conditions = append(conditions, "(timestamp < ? OR (timestamp = ? AND resource_uid < ?))")
+		args = append(args, cursorTime, cursorTime, cursorUID)
+	}
+
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	// Order by timestamp descending (newest first)
+	query += " ORDER BY timestamp DESC, resource_uid DESC"
+
+	// Limit
+	limit := spec.Limit
+	if limit <= 0 {
+		limit = 100
+	}
+	if limit > s.config.MaxPageSize {
+		limit = s.config.MaxPageSize
+	}
+	query += fmt.Sprintf(" LIMIT %d", limit+1)
+
+	return query, args, nil
+}
+
+// activityCursorData encodes pagination state for activity queries.
+type activityCursorData struct {
+	Timestamp   time.Time `json:"t"`
+	ResourceUID string    `json:"r"`
+	QueryHash   string    `json:"h"`
+	IssuedAt    time.Time `json:"i"`
+}
+
+// hashActivityQueryParams creates a hash to validate cursors.
+func hashActivityQueryParams(spec ActivityQuerySpec) string {
+	h := sha256.New()
+	h.Write([]byte(spec.StartTime))
+	h.Write([]byte("|"))
+	h.Write([]byte(spec.EndTime))
+	h.Write([]byte("|"))
+	h.Write([]byte(spec.ChangeSource))
+	h.Write([]byte("|"))
+	h.Write([]byte(spec.APIGroup))
+	h.Write([]byte("|"))
+	h.Write([]byte(spec.ResourceKind))
+	h.Write([]byte("|"))
+	h.Write([]byte(spec.Search))
+	h.Write([]byte("|"))
+	h.Write([]byte(fmt.Sprintf("%d", spec.Limit)))
+
+	return base64.URLEncoding.EncodeToString(h.Sum(nil)[:16])
+}
+
+// encodeActivityCursor creates a pagination token from the last activity.
+func encodeActivityCursor(lastActivityJSON string, spec ActivityQuerySpec) string {
+	// Extract timestamp and resource_uid from JSON
+	var activity struct {
+		Metadata struct {
+			CreationTimestamp string `json:"creationTimestamp"`
+		} `json:"metadata"`
+		Spec struct {
+			Resource struct {
+				UID string `json:"uid"`
+			} `json:"resource"`
+		} `json:"spec"`
+	}
+
+	if err := json.Unmarshal([]byte(lastActivityJSON), &activity); err != nil {
+		return ""
+	}
+
+	timestamp, _ := time.Parse(time.RFC3339, activity.Metadata.CreationTimestamp)
+
+	data := activityCursorData{
+		Timestamp:   timestamp,
+		ResourceUID: activity.Spec.Resource.UID,
+		QueryHash:   hashActivityQueryParams(spec),
+		IssuedAt:    time.Now(),
+	}
+
+	jsonData, _ := json.Marshal(data)
+	return base64.URLEncoding.EncodeToString(jsonData)
+}
+
+// decodeActivityCursor validates and extracts pagination state.
+func decodeActivityCursor(cursor string, spec ActivityQuerySpec) (time.Time, string, error) {
+	decoded, err := base64.URLEncoding.DecodeString(cursor)
+	if err != nil {
+		return time.Time{}, "", fmt.Errorf("the continue token is invalid. Remove the continue parameter to start a new query")
+	}
+
+	var data activityCursorData
+	if err := json.Unmarshal(decoded, &data); err != nil {
+		return time.Time{}, "", fmt.Errorf("the continue token is invalid. Remove the continue parameter to start a new query")
+	}
+
+	currentHash := hashActivityQueryParams(spec)
+	if data.QueryHash != currentHash {
+		return time.Time{}, "", fmt.Errorf("query parameters changed since the continue token was issued. Remove the continue parameter and use consistent query parameters when paginating")
+	}
+
+	if time.Since(data.IssuedAt) > cursorTTL {
+		return time.Time{}, "", fmt.Errorf("the continue token expired after %v. Tokens are valid for %v. Remove the continue parameter to start a new query",
+			time.Since(data.IssuedAt).Round(time.Second),
+			cursorTTL,
+		)
+	}
+
+	return data.Timestamp, data.ResourceUID, nil
+}
+
+// FacetFieldSpec defines a single facet field to query.
 type FacetFieldSpec struct {
 	Field string
 	Limit int32
@@ -640,7 +987,9 @@ func (s *ClickHouseStorage) QueryAuditLogFacets(ctx context.Context, spec AuditL
 		facetResult, err := s.queryAuditLogFacet(ctx, facet, spec, scope)
 		if err != nil {
 			span.RecordError(err)
-			return nil, fmt.Errorf("failed to query audit log facet %s: %w", facet.Field, err)
+			klog.ErrorS(err, "Failed to query audit log facet", "field", facet.Field)
+			// Return the error directly - queryAuditLogFacet returns user-friendly validation errors
+			return nil, err
 		}
 		result.Facets = append(result.Facets, *facetResult)
 	}
@@ -738,7 +1087,8 @@ func (s *ClickHouseStorage) queryAuditLogFacet(ctx context.Context, facet FacetF
 
 	rows, err := s.conn.Query(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute audit log facet query: %w", err)
+		klog.ErrorS(err, "Failed to execute audit log facet query", "field", facet.Field)
+		return nil, fmt.Errorf("unable to retrieve facet data for field '%s'. Try again or contact support if the problem persists", facet.Field)
 	}
 	defer rows.Close()
 
@@ -751,7 +1101,8 @@ func (s *ClickHouseStorage) queryAuditLogFacet(ctx context.Context, facet FacetF
 		var value string
 		var count uint64
 		if err := rows.Scan(&value, &count); err != nil {
-			return nil, fmt.Errorf("failed to scan audit log facet row: %w", err)
+			klog.ErrorS(err, "Failed to scan audit log facet row", "field", facet.Field)
+			return nil, fmt.Errorf("unable to retrieve facet data for field '%s'. Try again or contact support if the problem persists", facet.Field)
 		}
 		result.Values = append(result.Values, FacetValueResult{
 			Value: value,
@@ -760,7 +1111,8 @@ func (s *ClickHouseStorage) queryAuditLogFacet(ctx context.Context, facet FacetF
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating audit log facet rows: %w", err)
+		klog.ErrorS(err, "Error iterating audit log facet rows", "field", facet.Field)
+		return nil, fmt.Errorf("unable to retrieve facet data for field '%s'. Try again or contact support if the problem persists", facet.Field)
 	}
 
 	return result, nil
