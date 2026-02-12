@@ -12,9 +12,9 @@ import (
 
 type ActivityV1alpha1Interface interface {
 	RESTClient() rest.Interface
-	ActivitiesGetter
 	ActivityFacetQueriesGetter
 	ActivityPoliciesGetter
+	ActivityQueriesGetter
 	AuditLogFacetsQueriesGetter
 	AuditLogQueriesGetter
 	PolicyPreviewsGetter
@@ -25,16 +25,16 @@ type ActivityV1alpha1Client struct {
 	restClient rest.Interface
 }
 
-func (c *ActivityV1alpha1Client) Activities(namespace string) ActivityInterface {
-	return newActivities(c, namespace)
-}
-
 func (c *ActivityV1alpha1Client) ActivityFacetQueries() ActivityFacetQueryInterface {
 	return newActivityFacetQueries(c)
 }
 
 func (c *ActivityV1alpha1Client) ActivityPolicies() ActivityPolicyInterface {
 	return newActivityPolicies(c)
+}
+
+func (c *ActivityV1alpha1Client) ActivityQueries() ActivityQueryInterface {
+	return newActivityQueries(c)
 }
 
 func (c *ActivityV1alpha1Client) AuditLogFacetsQueries() AuditLogFacetsQueryInterface {

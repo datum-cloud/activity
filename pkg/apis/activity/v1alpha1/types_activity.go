@@ -5,7 +5,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // Activity represents a single translated activity record. Activities are
@@ -14,7 +13,7 @@ import (
 // resource changes for consumers, service providers, and platform administrators.
 //
 // Activities are read-only and stored in ClickHouse for efficient time-range queries.
-// Use List and Get operations to query activities. Watch is supported for real-time updates.
+// Use ActivityQuery to search and filter activities.
 type Activity struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -208,12 +207,3 @@ type ActivityOrigin struct {
 	ID string `json:"id"`
 }
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// ActivityList is a list of Activity objects
-type ActivityList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
-
-	Items []Activity `json:"items"`
-}
