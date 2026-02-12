@@ -16,6 +16,7 @@ import (
 	"go.miloapis.com/activity/internal/registry/activity/activityquery"
 	"go.miloapis.com/activity/internal/registry/activity/auditlog"
 	"go.miloapis.com/activity/internal/registry/activity/auditlogfacet"
+	"go.miloapis.com/activity/internal/registry/activity/facet"
 	"go.miloapis.com/activity/internal/registry/activity/policy"
 	"go.miloapis.com/activity/internal/registry/activity/preview"
 	"go.miloapis.com/activity/internal/registry/activity/record"
@@ -131,6 +132,9 @@ func (c completedConfig) New() (*ActivityServer, error) {
 
 	// ActivityQuery for historical queries (custom time ranges, search, CEL filters)
 	v1alpha1Storage["activityqueries"] = activityquery.NewQueryStorage(clickhouseStorage)
+
+	// ActivityFacetQuery for faceted search on activities
+	v1alpha1Storage["activityfacetqueries"] = facet.NewFacetQueryStorage(clickhouseStorage)
 
 	// PolicyPreview for testing policies without persisting
 	v1alpha1Storage["policypreviews"] = preview.NewPolicyPreviewStorage()
