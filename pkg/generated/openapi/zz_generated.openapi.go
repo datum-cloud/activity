@@ -567,7 +567,7 @@ func schema_pkg_apis_activity_v1alpha1_ActivityFacetQuerySpec(ref common.Referen
 					},
 					"filter": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Filter narrows the activities before computing facets using CEL. This allows you to get facet values for a subset of activities.\n\nExample: \"spec.changeSource == 'human'\" to get facets only for human actions.",
+							Description: "Filter narrows the activities before computing facets using CEL. This allows you to get facet values for a subset of activities.\n\nAvailable Fields:\n  spec.changeSource              - \"human\" or \"system\"\n  spec.actor.name                - actor display name\n  spec.actor.type                - actor type (user, serviceaccount, controller)\n  spec.actor.uid                 - actor UID\n  spec.resource.apiGroup         - resource API group\n  spec.resource.kind             - resource kind\n  spec.resource.name             - resource name\n  spec.resource.namespace        - resource namespace\n  spec.summary                   - activity summary text\n  spec.origin.type               - origin type (audit, event)\n  metadata.namespace             - activity namespace\n\nOperators: ==, !=, &&, ||, !, in String Functions: startsWith(), endsWith(), contains()\n\nExamples:\n  \"spec.changeSource == 'human'\"                     - Human actions only\n  \"!(spec.changeSource == 'system')\"                 - Exclude system actions\n  \"spec.resource.kind == 'Deployment'\"               - Deployment activities\n  \"!spec.actor.name.startsWith('system:')\"           - Exclude system actors",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -888,7 +888,7 @@ func schema_pkg_apis_activity_v1alpha1_ActivityPolicyRule(ref common.ReferenceCa
 					},
 					"summary": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Summary is a CEL template for generating the activity summary. Use {{ }} delimiters to embed CEL expressions within strings.\n\nAvailable variables:\n  - audit/event: The full input object\n  - kind: Human-readable kind label (e.g., \"HTTP proxy\")\n  - kindPlural: Plural form (e.g., \"HTTP proxies\")\n  - actor: Resolved display name for the actor\n\nAvailable functions:\n  - link(displayText, resourceRef): Creates a clickable reference\n\nExamples:\n  \"{{ actor }} created {{ link(kind + ' ' + audit.objectRef.name, audit.responseObject) }}\"\n  \"{{ link(kind + ' ' + event.regarding.name, event.regarding) }} is now programmed\"",
+							Description: "Summary is a CEL template for generating the activity summary. Use {{ }} delimiters to embed CEL expressions within strings.\n\nAvailable variables:\n  - audit/event: The full input object\n  - actor: Resolved display name for the actor\n\nAvailable functions:\n  - link(displayText, resourceRef): Creates a clickable reference\n\nExamples:\n  \"{{ actor }} created {{ link(kind + ' ' + audit.objectRef.name, audit.responseObject) }}\"\n  \"{{ link(kind + ' ' + event.regarding.name, event.regarding) }} is now programmed\"",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -922,7 +922,7 @@ func schema_pkg_apis_activity_v1alpha1_ActivityPolicySpec(ref common.ReferenceCa
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "AuditRules define how to translate audit log entries into activity summaries. Rules are evaluated in order; the first matching rule wins. The `audit` variable contains the full Kubernetes audit event structure. Convenience variables available: kind, kindPlural, actor",
+							Description: "AuditRules define how to translate audit log entries into activity summaries. Rules are evaluated in order; the first matching rule wins. The `audit` variable contains the full Kubernetes audit event structure. Convenience variables available: actor",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -941,7 +941,7 @@ func schema_pkg_apis_activity_v1alpha1_ActivityPolicySpec(ref common.ReferenceCa
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "EventRules define how to translate Kubernetes events into activity summaries. Rules are evaluated in order; the first matching rule wins. The `event` variable contains the full Kubernetes Event structure. Convenience variables available: kind, kindPlural, actor",
+							Description: "EventRules define how to translate Kubernetes events into activity summaries. Rules are evaluated in order; the first matching rule wins. The `event` variable contains the full Kubernetes Event structure. Convenience variables available: actor",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -1660,7 +1660,7 @@ func schema_pkg_apis_activity_v1alpha1_PolicyPreview(ref common.ReferenceCallbac
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "PolicyPreview tests an ActivityPolicy against sample inputs without persisting anything. Use this to verify that your policy rules match correctly and generate the expected summaries before deploying the policy.\n\nThe preview accepts multiple inputs (audit logs and/or events) and returns the rendered Activity stream that would be generated by the policy.\n\nExample:\n\n\tapiVersion: activity.miloapis.com/v1alpha1\n\tkind: PolicyPreview\n\tmetadata:\n\t  name: test-preview\n\tspec:\n\t  policy:\n\t    resource:\n\t      apiGroup: networking.datumapis.com\n\t      kind: HTTPProxy\n\t    auditRules:\n\t      - match: \"audit.verb == 'create'\"\n\t        summary: \"{{ actor }} created {{ kind }}\"\n\t      - match: \"audit.verb == 'delete'\"\n\t        summary: \"{{ actor }} deleted {{ kind }}\"\n\t  inputs:\n\t    - type: audit\n\t      audit:\n\t        verb: create\n\t        objectRef:\n\t          apiGroup: networking.datumapis.com\n\t          resource: httpproxies\n\t          name: my-proxy\n\t        user:\n\t          username: alice@example.com\n\t    - type: audit\n\t      audit:\n\t        verb: delete\n\t        objectRef:\n\t          apiGroup: networking.datumapis.com\n\t          resource: httpproxies\n\t          name: old-proxy\n\t        user:\n\t          username: bob@example.com",
+				Description: "PolicyPreview tests an ActivityPolicy against sample inputs without persisting anything. Use this to verify that your policy rules match correctly and generate the expected summaries before deploying the policy.\n\nThe preview accepts multiple inputs (audit logs and/or events) and returns the rendered Activity stream that would be generated by the policy.\n\nExample:\n\n\tapiVersion: activity.miloapis.com/v1alpha1\n\tkind: PolicyPreview\n\tmetadata:\n\t  name: test-preview\n\tspec:\n\t  policy:\n\t    resource:\n\t      apiGroup: networking.datumapis.com\n\t      kind: HTTPProxy\n\t    auditRules:\n\t      - match: \"audit.verb == 'create'\"\n\t        summary: \"{{ actor }} created HTTPProxy\"\n\t      - match: \"audit.verb == 'delete'\"\n\t        summary: \"{{ actor }} deleted HTTPProxy\"\n\t  inputs:\n\t    - type: audit\n\t      audit:\n\t        verb: create\n\t        objectRef:\n\t          apiGroup: networking.datumapis.com\n\t          resource: httpproxies\n\t          name: my-proxy\n\t        user:\n\t          username: alice@example.com\n\t    - type: audit\n\t      audit:\n\t        verb: delete\n\t        objectRef:\n\t          apiGroup: networking.datumapis.com\n\t          resource: httpproxies\n\t          name: old-proxy\n\t        user:\n\t          username: bob@example.com",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -1823,20 +1823,6 @@ func schema_pkg_apis_activity_v1alpha1_PolicyPreviewSpec(ref common.ReferenceCal
 									},
 								},
 							},
-						},
-					},
-					"kindLabel": {
-						SchemaProps: spec.SchemaProps{
-							Description: "KindLabel is the human-readable label for the resource kind. If not specified, defaults to the Kind with spaces before capitals.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"kindLabelPlural": {
-						SchemaProps: spec.SchemaProps{
-							Description: "KindLabelPlural is the plural form of the kind label. If not specified, defaults to KindLabel + \"s\".",
-							Type:        []string{"string"},
-							Format:      "",
 						},
 					},
 				},
