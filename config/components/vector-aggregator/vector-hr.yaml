@@ -54,12 +54,12 @@ spec:
         address: 0.0.0.0:8686
 
       sources:
-        # NATS JetStream consumer (pull-based with proper acknowledgements)
+        # NATS JetStream consumer for raw audit events
         # Vector v0.50.0+ supports JetStream with automatic message acknowledgement
         # Messages are only ACKed after successful processing through the entire pipeline
-        nats_consumer:
+        nats_audit_consumer:
           type: nats
-          connection_name: vector-aggregator
+          connection_name: vector-aggregator-audit
           url: nats://nats.nats-system.svc.cluster.local:4222
 
           # Subject filter (required even with JetStream)
@@ -79,10 +79,37 @@ spec:
               max_bytes: 10485760
           decoding:
             codec: json
+
+        # NATS JetStream consumer for translated activities
+        # Activities are produced by the activity-processor after applying ActivityPolicy rules
+        nats_activities_consumer:
+          type: nats
+          connection_name: vector-aggregator-activities
+          url: nats://nats.nats-system.svc.cluster.local:4222
+
+          # Subject filter for all activities
+          subject: activities.>
+
+          # JetStream configuration
+          jetstream:
+            stream: ACTIVITIES
+            consumer: clickhouse-ingest
+
+            batch_config:
+              batch: 1000
+              # Maximum 5MB per batch (activities are smaller than raw audit events)
+              max_bytes: 5242880
+          decoding:
+            codec: json
+
         internal_metrics:
           type: internal_metrics
           namespace: vector
       transforms:
+        # ========================================================================
+        # Audit Events Pipeline
+        # ========================================================================
+
         # Calculate end-to-end latency from K8s event generation to aggregator processing.
         # The NATS source doesn't preserve .timestamp from JSON payloads, so we must
         # calculate latency here rather than relying on vector_source_lag_time_seconds.
@@ -90,7 +117,7 @@ spec:
         calculate_end_to_end_latency:
           type: remap
           inputs:
-            - nats_consumer
+            - nats_audit_consumer
           source: |
             if exists(.stageTimestamp) {
               stage_ts, parse_err = parse_timestamp(.stageTimestamp, format: "%+")
@@ -166,8 +193,8 @@ spec:
             source: |
               .stage == "ResponseComplete"
 
-        # Prepare events for ClickHouse
-        prepare_for_clickhouse:
+        # Prepare audit events for ClickHouse
+        prepare_audit_for_clickhouse:
           type: remap
           inputs:
             - filter_response_complete
@@ -178,12 +205,30 @@ spec:
               "event_json": .event_json
             }
 
+        # ========================================================================
+        # Activities Pipeline
+        # ========================================================================
+
+        # Prepare activities for ClickHouse
+        # Activities are already processed by the activity-processor, so we just
+        # need to wrap them as activity_json for the activities table schema.
+        prepare_activities_for_clickhouse:
+          type: remap
+          inputs:
+            - nats_activities_consumer
+          source: |
+            # Wrap entire activity as activity_json for ClickHouse
+            .activity_json = encode_json(.)
+            . = {
+              "activity_json": .activity_json
+            }
+
       sinks:
-        # Export audit events to clickhouse
-        clickhouse:
+        # Export audit events to ClickHouse audit.events table
+        clickhouse_audit_events:
           type: clickhouse
           inputs:
-            - prepare_for_clickhouse
+            - prepare_audit_for_clickhouse
           endpoint: http://clickhouse.activity-system.svc.cluster.local:8123
           database: audit
           table: events
@@ -197,6 +242,34 @@ spec:
           buffer:
             type: disk
             max_size: 10737418240
+            when_full: block
+          request:
+            retry_attempts: 9999999
+            retry_initial_backoff_secs: 1
+            retry_max_duration_secs: 300
+            timeout_secs: 60
+          healthcheck:
+            enabled: true
+          compression: gzip
+
+        # Export activities to ClickHouse audit.activities table
+        clickhouse_activities:
+          type: clickhouse
+          inputs:
+            - prepare_activities_for_clickhouse
+          endpoint: http://clickhouse.activity-system.svc.cluster.local:8123
+          database: audit
+          table: activities
+          encoding:
+            only_fields:
+              - activity_json
+          batch:
+            max_bytes: 5242880
+            max_events: 5000
+            timeout_secs: 10
+          buffer:
+            type: disk
+            max_size: 5368709120
             when_full: block
           request:
             retry_attempts: 9999999
