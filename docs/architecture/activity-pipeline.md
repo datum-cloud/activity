@@ -67,23 +67,23 @@ spec:
 
   auditRules:
     - match: "audit.verb == 'create'"
-      summary: "{{ actor }} created {{ link(kind + ' ' + audit.objectRef.name, audit.responseObject) }}"
+      summary: "{{ actor }} created {{ link('HTTP proxy ' + audit.objectRef.name, audit.responseObject) }}"
 
     - match: "audit.verb == 'delete'"
-      summary: "{{ actor }} deleted {{ link(kind + ' ' + audit.objectRef.name, audit.responseObject) }}"
+      summary: "{{ actor }} deleted {{ link('HTTP proxy ' + audit.objectRef.name, audit.responseObject) }}"
 
     - match: "audit.verb in ['update', 'patch']"
-      summary: "{{ actor }} updated {{ link(kind + ' ' + audit.objectRef.name, audit.responseObject) }}"
+      summary: "{{ actor }} updated {{ link('HTTP proxy ' + audit.objectRef.name, audit.responseObject) }}"
 
   eventRules:
     - match: "event.reason == 'Programmed'"
-      summary: "{{ link(kind + ' ' + event.regarding.name, event.regarding) }} is now programmed"
+      summary: "{{ link('HTTP proxy ' + event.regarding.name, event.regarding) }} is now programmed"
 
     - match: "event.reason == 'Ready'"
-      summary: "{{ link(kind + ' ' + event.regarding.name, event.regarding) }} is ready"
+      summary: "{{ link('HTTP proxy ' + event.regarding.name, event.regarding) }} is ready"
 
     - match: "true"  # Fallback
-      summary: "{{ link(kind + ' ' + event.regarding.name, event.regarding) }}: {{ event.reason }}"
+      summary: "{{ link('HTTP proxy ' + event.regarding.name, event.regarding) }}: {{ event.reason }}"
 ```
 
 ### CEL Variables
@@ -92,13 +92,11 @@ Different variables are available depending on the rule type:
 
 **Audit Rules:**
 - `audit` - Full Kubernetes audit event structure
-- `kind` - Human-readable kind label (e.g., "HTTP proxy")
-- `kindPlural` - Plural form (e.g., "HTTP proxies")
 - `actor` - Resolved display name for the actor
 
 **Event Rules:**
 - `event` - Full Kubernetes Event structure
-- `kind`, `kindPlural`, `actor` - Same as audit rules
+- `actor` - Same as audit rules
 
 ### Link Function
 
@@ -108,27 +106,10 @@ The `link()` function creates clickable references in the portal:
 link(displayText, resourceRef)
 ```
 
-Example: `{{ link(kind + " " + audit.objectRef.name, audit.responseObject) }}`
+Example: `{{ link("HTTP Proxy " + audit.objectRef.name, audit.responseObject) }}`
 
 This produces "HTTP proxy api-gateway" in the summary and registers it as a
 clickable link to the resource.
-
-### Kind Labels
-
-Human-readable kind labels are discovered from CRD annotations:
-
-```yaml
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  name: httpproxies.networking.datumapis.com
-  annotations:
-    activity.miloapis.com/kind-label: "HTTP proxy"
-    activity.miloapis.com/kind-label-plural: "HTTP proxies"
-```
-
-If no annotation is present, labels are derived by inserting spaces before
-capital letters (e.g., "NetworkContext" → "Network Context").
 
 ## Change Source Classification
 
