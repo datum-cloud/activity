@@ -29,13 +29,13 @@ func TestValidateActivityPolicy(t *testing.T) {
 					AuditRules: []v1alpha1.ActivityPolicyRule{
 						{
 							Match:   "audit.verb == 'create'",
-							Summary: "{{ actor }} created {{ kind }}",
+							Summary: "{{ actor }} created HTTPProxy",
 						},
 					},
 					EventRules: []v1alpha1.ActivityPolicyRule{
 						{
 							Match:   "event.reason == 'Programmed'",
-							Summary: "{{ kind }} is programmed",
+							Summary: "HTTPProxy is programmed",
 						},
 					},
 				},
@@ -56,7 +56,7 @@ func TestValidateActivityPolicy(t *testing.T) {
 					AuditRules: []v1alpha1.ActivityPolicyRule{
 						{
 							Match:   "true",
-							Summary: "{{ actor }} {{ audit.verb }}d {{ kind }}",
+							Summary: "{{ actor }} {{ audit.verb }}d HTTPProxy",
 						},
 					},
 				},
@@ -77,7 +77,7 @@ func TestValidateActivityPolicy(t *testing.T) {
 					AuditRules: []v1alpha1.ActivityPolicyRule{
 						{
 							Match:   "audit.verb == 'create'",
-							Summary: "{{ actor }} created {{ kind }}",
+							Summary: "{{ actor }} created HTTPProxy",
 						},
 					},
 				},
@@ -97,7 +97,7 @@ func TestValidateActivityPolicy(t *testing.T) {
 					AuditRules: []v1alpha1.ActivityPolicyRule{
 						{
 							Match:   "audit.verb == 'create'",
-							Summary: "{{ actor }} created {{ kind }}",
+							Summary: "{{ actor }} created HTTPProxy",
 						},
 					},
 				},
@@ -116,7 +116,7 @@ func TestValidateActivityPolicy(t *testing.T) {
 					AuditRules: []v1alpha1.ActivityPolicyRule{
 						{
 							Match:   "audit.verb == 'create'",
-							Summary: "{{ actor }} created {{ kind }}",
+							Summary: "{{ actor }} created HTTPProxy",
 						},
 					},
 				},
@@ -138,7 +138,7 @@ func TestValidateActivityPolicy(t *testing.T) {
 					AuditRules: []v1alpha1.ActivityPolicyRule{
 						{
 							Match:   "invalid syntax !!!",
-							Summary: "{{ actor }} created {{ kind }}",
+							Summary: "{{ actor }} created HTTPProxy",
 						},
 					},
 				},
@@ -182,7 +182,7 @@ func TestValidateActivityPolicy(t *testing.T) {
 					AuditRules: []v1alpha1.ActivityPolicyRule{
 						{
 							Match:   "",
-							Summary: "{{ actor }} created {{ kind }}",
+							Summary: "{{ actor }} created HTTPProxy",
 						},
 					},
 				},
@@ -226,7 +226,7 @@ func TestValidateActivityPolicy(t *testing.T) {
 					EventRules: []v1alpha1.ActivityPolicyRule{
 						{
 							Match:   "audit.verb == 'create'", // should use event, not audit
-							Summary: "{{ kind }} created",
+							Summary: "HTTPProxy created",
 						},
 					},
 				},

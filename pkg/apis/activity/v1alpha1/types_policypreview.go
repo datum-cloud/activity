@@ -32,9 +32,9 @@ import (
 //	      kind: HTTPProxy
 //	    auditRules:
 //	      - match: "audit.verb == 'create'"
-//	        summary: "{{ actor }} created {{ kind }}"
+//	        summary: "{{ actor }} created HTTPProxy"
 //	      - match: "audit.verb == 'delete'"
-//	        summary: "{{ actor }} deleted {{ kind }}"
+//	        summary: "{{ actor }} deleted HTTPProxy"
 //	  inputs:
 //	    - type: audit
 //	      audit:
@@ -77,18 +77,6 @@ type PolicyPreviewSpec struct {
 	// +required
 	// +listType=atomic
 	Inputs []PolicyPreviewInput `json:"inputs"`
-
-	// KindLabel is the human-readable label for the resource kind.
-	// If not specified, defaults to the Kind with spaces before capitals.
-	//
-	// +optional
-	KindLabel string `json:"kindLabel,omitempty"`
-
-	// KindLabelPlural is the plural form of the kind label.
-	// If not specified, defaults to KindLabel + "s".
-	//
-	// +optional
-	KindLabelPlural string `json:"kindLabelPlural,omitempty"`
 }
 
 // PolicyPreviewInput contains the sample input for policy testing.
