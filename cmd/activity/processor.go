@@ -30,10 +30,19 @@ type ProcessorOptions struct {
 	OutputStreamName    string
 	OutputSubjectPrefix string
 
+	// NATS TLS/mTLS configuration
+	NATSTLSEnabled  bool
+	NATSTLSCertFile string
+	NATSTLSKeyFile  string
+	NATSTLSCAFile   string
+
 	// Processing configuration
 	Workers   int
 	BatchSize int
 	AckWait   time.Duration
+
+	// Health probe configuration
+	HealthProbeAddr string
 }
 
 // NewProcessorOptions creates options with default values.
@@ -47,6 +56,7 @@ func NewProcessorOptions() *ProcessorOptions {
 		Workers:             4,
 		BatchSize:           100,
 		AckWait:             30 * time.Second,
+		HealthProbeAddr:     ":8081",
 	}
 }
 
@@ -70,6 +80,16 @@ func (o *ProcessorOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.OutputSubjectPrefix, "output-subject-prefix", o.OutputSubjectPrefix,
 		"Subject prefix for published activities.")
 
+	// NATS TLS/mTLS flags
+	fs.BoolVar(&o.NATSTLSEnabled, "nats-tls-enabled", o.NATSTLSEnabled,
+		"Enable TLS for NATS connection.")
+	fs.StringVar(&o.NATSTLSCertFile, "nats-tls-cert-file", o.NATSTLSCertFile,
+		"Path to client certificate file for mTLS authentication.")
+	fs.StringVar(&o.NATSTLSKeyFile, "nats-tls-key-file", o.NATSTLSKeyFile,
+		"Path to client private key file for mTLS authentication.")
+	fs.StringVar(&o.NATSTLSCAFile, "nats-tls-ca-file", o.NATSTLSCAFile,
+		"Path to CA certificate file for server verification.")
+
 	// Processing flags
 	fs.IntVar(&o.Workers, "workers", o.Workers,
 		"Number of worker goroutines for processing.")
@@ -77,6 +97,10 @@ func (o *ProcessorOptions) AddFlags(fs *pflag.FlagSet) {
 		"Number of messages to fetch per batch.")
 	fs.DurationVar(&o.AckWait, "ack-wait", o.AckWait,
 		"Time to wait before message redelivery.")
+
+	// Health probe flags
+	fs.StringVar(&o.HealthProbeAddr, "health-probe-addr", o.HealthProbeAddr,
+		"Address for health probe server (e.g., :8081). Set to empty to disable.")
 }
 
 // NewProcessorCommand creates the processor subcommand.
@@ -131,10 +155,15 @@ func RunProcessor(options *ProcessorOptions) error {
 		ConsumerName:        options.ConsumerName,
 		OutputStreamName:    options.OutputStreamName,
 		OutputSubjectPrefix: options.OutputSubjectPrefix,
+		NATSTLSEnabled:      options.NATSTLSEnabled,
+		NATSTLSCertFile:     options.NATSTLSCertFile,
+		NATSTLSKeyFile:      options.NATSTLSKeyFile,
+		NATSTLSCAFile:       options.NATSTLSCAFile,
 		Workers:             options.Workers,
 		BatchSize:           options.BatchSize,
 		AckWait:             options.AckWait,
 		MaxDeliver:          5,
+		HealthProbeAddr:     options.HealthProbeAddr,
 	}
 
 	proc, err := activityprocessor.New(processorConfig, restConfig)

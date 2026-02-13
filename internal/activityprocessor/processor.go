@@ -2,8 +2,12 @@ package activityprocessor
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"os"
 	"sync"
 	"time"
 
@@ -19,6 +23,7 @@ import (
 	toolscache "k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"go.miloapis.com/activity/internal/controller"
@@ -97,6 +102,62 @@ var (
 			Help:      "Number of active worker goroutines",
 		},
 	)
+
+	// NATS client metrics
+	natsConnectionStatus = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Namespace: "activity_processor",
+			Subsystem: "nats",
+			Name:      "connection_status",
+			Help:      "NATS connection status (1 = connected, 0 = disconnected)",
+		},
+	)
+
+	natsDisconnectsTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: "activity_processor",
+			Subsystem: "nats",
+			Name:      "disconnects_total",
+			Help:      "Total number of NATS disconnection events",
+		},
+	)
+
+	natsReconnectsTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: "activity_processor",
+			Subsystem: "nats",
+			Name:      "reconnects_total",
+			Help:      "Total number of NATS reconnection events",
+		},
+	)
+
+	natsErrorsTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: "activity_processor",
+			Subsystem: "nats",
+			Name:      "errors_total",
+			Help:      "Total number of NATS async errors",
+		},
+	)
+
+	natsMessagesPublished = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: "activity_processor",
+			Subsystem: "nats",
+			Name:      "messages_published_total",
+			Help:      "Total number of messages published to NATS",
+		},
+	)
+
+	natsPublishLatency = prometheus.NewHistogram(
+		prometheus.HistogramOpts{
+			Namespace: "activity_processor",
+			Subsystem: "nats",
+			Name:      "publish_latency_seconds",
+			Help:      "Latency of NATS publish operations",
+			Buckets:   []float64{.001, .005, .01, .025, .05, .1, .25, .5, 1},
+		},
+	)
 )
 
 func init() {
@@ -110,6 +171,13 @@ func init() {
 		eventProcessingDuration,
 		policyCount,
 		workerCount,
+		// NATS metrics
+		natsConnectionStatus,
+		natsDisconnectsTotal,
+		natsReconnectsTotal,
+		natsErrorsTotal,
+		natsMessagesPublished,
+		natsPublishLatency,
 	)
 }
 
@@ -124,11 +192,20 @@ type Config struct {
 	OutputStreamName    string // Stream for publishing activities (e.g., "ACTIVITIES")
 	OutputSubjectPrefix string // Subject prefix for activities (e.g., "activities")
 
+	// NATS TLS/mTLS configuration
+	NATSTLSEnabled  bool   // Enable TLS for NATS connection
+	NATSTLSCertFile string // Path to client certificate file (for mTLS)
+	NATSTLSKeyFile  string // Path to client private key file (for mTLS)
+	NATSTLSCAFile   string // Path to CA certificate file for server verification
+
 	// Processing configuration
 	Workers    int           // Number of concurrent workers
 	BatchSize  int           // Messages to fetch per batch
 	AckWait    time.Duration // Time before message redelivery
 	MaxDeliver int           // Maximum redelivery attempts
+
+	// Health probe configuration
+	HealthProbeAddr string // Address for health probe server (e.g., ":8081")
 }
 
 // DefaultConfig returns configuration with default values.
@@ -143,6 +220,7 @@ func DefaultConfig() Config {
 		BatchSize:           100,
 		AckWait:             30 * time.Second,
 		MaxDeliver:          5,
+		HealthProbeAddr:     ":8081",
 	}
 }
 
@@ -161,13 +239,17 @@ type Processor struct {
 	// Reset() on cache miss to discover newly registered CRDs.
 	mapper meta.ResettableRESTMapper
 
-	// policies indexes by apiGroup/resource (plural form) to match audit event format.
-	policyMu sync.RWMutex
-	policies map[string][]*v1alpha1.ActivityPolicy
+	// policyCache holds pre-compiled policies indexed by apiGroup/resource.
+	policyCache *PolicyCache
 
 	wg     sync.WaitGroup
 	ctx    context.Context
 	cancel context.CancelFunc
+
+	// Health tracking
+	healthMu     sync.RWMutex
+	ready        bool // Cache synced and NATS connected
+	healthServer *http.Server
 }
 
 // New creates a new activity processor.
@@ -175,11 +257,11 @@ func New(config Config, restConfig *rest.Config) (*Processor, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	p := &Processor{
-		config:     config,
-		restConfig: restConfig,
-		policies:   make(map[string][]*v1alpha1.ActivityPolicy),
-		ctx:        ctx,
-		cancel:     cancel,
+		config:      config,
+		restConfig:  restConfig,
+		policyCache: NewPolicyCache(),
+		ctx:         ctx,
+		cancel:      cancel,
 	}
 
 	return p, nil
@@ -187,6 +269,11 @@ func New(config Config, restConfig *rest.Config) (*Processor, error) {
 
 // Start begins processing audit events.
 func (p *Processor) Start(ctx context.Context) error {
+	// Start health probe server early so Kubernetes can check liveness
+	if p.config.HealthProbeAddr != "" {
+		p.startHealthServer()
+	}
+
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(p.restConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create discovery client: %w", err)
@@ -230,25 +317,60 @@ func (p *Processor) Start(ctx context.Context) error {
 
 	klog.InfoS("ActivityPolicy cache synced")
 
-	nc, err := nats.Connect(p.config.NATSURL,
+	// Build NATS connection options
+	natsOpts := []nats.Option{
+		nats.Name("activity-processor"),
 		nats.RetryOnFailedConnect(true),
 		nats.MaxReconnects(-1),
+		nats.ReconnectWait(time.Second),
+		nats.ReconnectJitter(100*time.Millisecond, time.Second),
 		nats.DisconnectErrHandler(func(nc *nats.Conn, err error) {
+			natsConnectionStatus.Set(0)
+			natsDisconnectsTotal.Inc()
 			if err != nil {
 				klog.ErrorS(err, "NATS disconnected")
+			} else {
+				klog.Info("NATS disconnected")
 			}
 		}),
 		nats.ReconnectHandler(func(nc *nats.Conn) {
+			natsConnectionStatus.Set(1)
+			natsReconnectsTotal.Inc()
 			klog.InfoS("NATS reconnected", "url", nc.ConnectedUrl())
+		}),
+		nats.ClosedHandler(func(nc *nats.Conn) {
+			natsConnectionStatus.Set(0)
+			klog.Info("NATS connection closed")
+		}),
+		nats.ErrorHandler(func(nc *nats.Conn, sub *nats.Subscription, err error) {
+			natsErrorsTotal.Inc()
+			subName := ""
+			if sub != nil {
+				subName = sub.Subject
+			}
+			klog.ErrorS(err, "NATS async error", "subject", subName)
 		}),
 		nats.LameDuckModeHandler(func(nc *nats.Conn) {
 			klog.InfoS("NATS server entering lame duck mode, will reconnect to another server")
 		}),
-	)
+	}
+
+	// Add TLS configuration if enabled
+	if p.config.NATSTLSEnabled {
+		tlsConfig, err := p.buildNATSTLSConfig()
+		if err != nil {
+			return fmt.Errorf("failed to build NATS TLS config: %w", err)
+		}
+		natsOpts = append(natsOpts, nats.Secure(tlsConfig))
+		klog.InfoS("NATS TLS enabled")
+	}
+
+	nc, err := nats.Connect(p.config.NATSURL, natsOpts...)
 	if err != nil {
 		return fmt.Errorf("failed to connect to NATS: %w", err)
 	}
 	p.nc = nc
+	natsConnectionStatus.Set(1)
 
 	js, err := nc.JetStream()
 	if err != nil {
@@ -287,17 +409,53 @@ func (p *Processor) Start(ctx context.Context) error {
 	}
 	go p.monitorWorkers(ctx, workerErrors)
 
+	// Mark as ready and healthy now that everything is initialized
+	p.setReady(true)
+
 	return nil
 }
+
+// drainTimeout is the maximum time to wait for NATS connection to drain.
+const drainTimeout = 30 * time.Second
 
 // Stop gracefully shuts down the processor.
 func (p *Processor) Stop() {
 	klog.Info("Stopping activity processor")
+
+	// Mark as unhealthy immediately
+	p.setReady(false)
+
 	p.cancel()
 	p.wg.Wait()
 
-	if p.nc != nil {
-		p.nc.Close()
+	// Shutdown health server
+	if p.healthServer != nil {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := p.healthServer.Shutdown(shutdownCtx); err != nil {
+			klog.ErrorS(err, "Failed to shutdown health server gracefully")
+		}
+	}
+
+	// Drain NATS connection gracefully
+	if p.nc != nil && !p.nc.IsClosed() {
+		klog.Info("Draining NATS connection")
+		done := make(chan struct{})
+		go func() {
+			if err := p.nc.Drain(); err != nil {
+				klog.ErrorS(err, "Failed to drain NATS connection, forcing close")
+				p.nc.Close()
+			}
+			close(done)
+		}()
+
+		select {
+		case <-done:
+			klog.Info("NATS connection drained successfully")
+		case <-time.After(drainTimeout):
+			klog.Warning("NATS drain timed out, forcing close")
+			p.nc.Close()
+		}
 	}
 	klog.Info("Activity processor stopped")
 }
@@ -346,7 +504,7 @@ func (p *Processor) kindToResource(apiGroup, kind string) (string, error) {
 	return mapping.Resource.Resource, nil
 }
 
-func (p *Processor) onPolicyAdd(obj interface{}) {
+func (p *Processor) onPolicyAdd(obj any) {
 	policy, ok := obj.(*v1alpha1.ActivityPolicy)
 	if !ok {
 		klog.Error("Failed to cast object to ActivityPolicy in add handler")
@@ -371,12 +529,14 @@ func (p *Processor) onPolicyAdd(obj interface{}) {
 		return
 	}
 
-	p.policyMu.Lock()
-	defer p.policyMu.Unlock()
+	if err := p.policyCache.Add(policy, resource); err != nil {
+		klog.ErrorS(err, "Failed to compile and add policy",
+			"policy", policy.Name,
+		)
+		return
+	}
 
-	key := policyKey(policy.Spec.Resource.APIGroup, resource)
-	p.policies[key] = append(p.policies[key], policy.DeepCopy())
-	p.updatePolicyCountMetric()
+	policyCount.Set(float64(p.policyCache.Len()))
 
 	klog.InfoS("Added ActivityPolicy",
 		"policy", policy.Name,
@@ -385,7 +545,7 @@ func (p *Processor) onPolicyAdd(obj interface{}) {
 	)
 }
 
-func (p *Processor) onPolicyUpdate(oldObj, newObj interface{}) {
+func (p *Processor) onPolicyUpdate(oldObj, newObj any) {
 	oldPolicy, ok := oldObj.(*v1alpha1.ActivityPolicy)
 	if !ok {
 		klog.Error("Failed to cast old object to ActivityPolicy in update handler")
@@ -419,34 +579,35 @@ func (p *Processor) onPolicyUpdate(oldObj, newObj interface{}) {
 		return
 	}
 
-	p.policyMu.Lock()
-	defer p.policyMu.Unlock()
-
-	oldKey := policyKey(oldPolicy.Spec.Resource.APIGroup, oldResource)
-	newKey := policyKey(newPolicy.Spec.Resource.APIGroup, newResource)
-
-	if wasReady {
-		p.removePolicyLocked(oldKey, oldPolicy.Name)
+	// Remove old policy if it was ready
+	if wasReady && oldErr == nil {
+		p.policyCache.Remove(oldPolicy, oldResource)
 	}
 
+	// Add new policy if it's ready
 	if isReady {
-		p.policies[newKey] = append(p.policies[newKey], newPolicy.DeepCopy())
-		klog.InfoS("Updated ActivityPolicy",
-			"policy", newPolicy.Name,
-			"resource", newKey,
-			"wasReady", wasReady,
-			"isReady", isReady,
-		)
+		if err := p.policyCache.Add(newPolicy, newResource); err != nil {
+			klog.ErrorS(err, "Failed to compile and add updated policy",
+				"policy", newPolicy.Name,
+			)
+		} else {
+			klog.InfoS("Updated ActivityPolicy",
+				"policy", newPolicy.Name,
+				"resource", policyKey(newPolicy.Spec.Resource.APIGroup, newResource),
+				"wasReady", wasReady,
+				"isReady", isReady,
+			)
+		}
 	} else if wasReady {
 		klog.InfoS("ActivityPolicy no longer ready, removed from processing",
 			"policy", newPolicy.Name,
 		)
 	}
 
-	p.updatePolicyCountMetric()
+	policyCount.Set(float64(p.policyCache.Len()))
 }
 
-func (p *Processor) onPolicyDelete(obj interface{}) {
+func (p *Processor) onPolicyDelete(obj any) {
 	policy, ok := obj.(*v1alpha1.ActivityPolicy)
 	if !ok {
 		// Informer may pass a tombstone when the object was deleted while disconnected.
@@ -472,42 +633,13 @@ func (p *Processor) onPolicyDelete(obj interface{}) {
 		return
 	}
 
-	p.policyMu.Lock()
-	defer p.policyMu.Unlock()
-
-	key := policyKey(policy.Spec.Resource.APIGroup, resource)
-	p.removePolicyLocked(key, policy.Name)
-	p.updatePolicyCountMetric()
+	p.policyCache.Remove(policy, resource)
+	policyCount.Set(float64(p.policyCache.Len()))
 
 	klog.InfoS("Deleted ActivityPolicy",
 		"policy", policy.Name,
-		"resource", key,
+		"resource", policyKey(policy.Spec.Resource.APIGroup, resource),
 	)
-}
-
-// removePolicyLocked removes a policy from the cache. Caller must hold policyMu.
-func (p *Processor) removePolicyLocked(key, name string) {
-	policies := p.policies[key]
-	for i, pol := range policies {
-		if pol.Name == name {
-			// O(1) removal: swap with last element and truncate.
-			policies[i] = policies[len(policies)-1]
-			p.policies[key] = policies[:len(policies)-1]
-			break
-		}
-	}
-	if len(p.policies[key]) == 0 {
-		delete(p.policies, key)
-	}
-}
-
-// updatePolicyCountMetric updates the active policies gauge. Caller must hold policyMu.
-func (p *Processor) updatePolicyCountMetric() {
-	var count int
-	for _, policies := range p.policies {
-		count += len(policies)
-	}
-	policyCount.Set(float64(count))
 }
 
 func (p *Processor) worker(ctx context.Context, id int, errors chan<- error) {
@@ -576,16 +708,26 @@ func (p *Processor) processMessage(msg *nats.Msg) error {
 	}
 	eventsReceived.WithLabelValues(apiGroup, audit.ObjectRef.Resource).Inc()
 
-	policies := p.getPolicies(audit.ObjectRef.APIGroup, audit.ObjectRef.Resource)
+	// Get compiled policies for this resource
+	policies := p.policyCache.Get(audit.ObjectRef.APIGroup, audit.ObjectRef.Resource)
 	if len(policies) == 0 {
 		eventsSkipped.WithLabelValues("no_matching_policy").Inc()
 		return nil
 	}
 
+	// Convert audit event to map for CEL evaluation
+	auditMap, err := auditToMap(&audit)
+	if err != nil {
+		eventsErrored.WithLabelValues("unmarshal").Inc()
+		return fmt.Errorf("failed to convert audit to map: %w", err)
+	}
+
 	// First matching policy wins.
 	for _, policy := range policies {
 		policyStart := time.Now()
-		result, err := processor.EvaluateAuditRules(&policy.Spec, &audit)
+
+		// Evaluate audit rules using pre-compiled programs
+		activity, ruleIndex, err := p.evaluateCompiledAuditRules(policy, auditMap, &audit)
 		if err != nil {
 			klog.ErrorS(err, "Failed to evaluate policy",
 				"policy", policy.Name,
@@ -594,19 +736,19 @@ func (p *Processor) processMessage(msg *nats.Msg) error {
 			eventsErrored.WithLabelValues("evaluate").Inc()
 			eventsEvaluated.WithLabelValues(
 				policy.Name,
-				policy.Spec.Resource.APIGroup,
-				policy.Spec.Resource.Kind,
+				policy.APIGroup,
+				policy.Kind,
 				"error",
 			).Inc()
 			eventProcessingDuration.WithLabelValues(policy.Name).Observe(time.Since(policyStart).Seconds())
 			continue
 		}
 
-		ruleMatched := result.Activity != nil
+		ruleMatched := activity != nil
 		eventsEvaluated.WithLabelValues(
 			policy.Name,
-			policy.Spec.Resource.APIGroup,
-			policy.Spec.Resource.Kind,
+			policy.APIGroup,
+			policy.Kind,
 			fmt.Sprintf("%t", ruleMatched),
 		).Inc()
 
@@ -615,16 +757,16 @@ func (p *Processor) processMessage(msg *nats.Msg) error {
 			continue
 		}
 
-		if err := p.publishActivity(result.Activity, policy); err != nil {
+		if err := p.publishActivity(activity, policy); err != nil {
 			eventsErrored.WithLabelValues("publish").Inc()
 			eventProcessingDuration.WithLabelValues(policy.Name).Observe(time.Since(policyStart).Seconds())
 			return fmt.Errorf("failed to publish activity: %w", err)
 		}
 
 		klog.V(4).InfoS("Generated activity",
-			"activity", result.Activity.Name,
+			"activity", activity.Name,
 			"policy", policy.Name,
-			"ruleIndex", result.MatchedRuleIndex,
+			"ruleIndex", ruleIndex,
 			"auditID", audit.AuditID,
 		)
 
@@ -635,15 +777,55 @@ func (p *Processor) processMessage(msg *nats.Msg) error {
 	return nil
 }
 
-func (p *Processor) getPolicies(apiGroup, resource string) []*v1alpha1.ActivityPolicy {
-	p.policyMu.RLock()
-	defer p.policyMu.RUnlock()
+// evaluateCompiledAuditRules evaluates audit rules using pre-compiled CEL programs.
+func (p *Processor) evaluateCompiledAuditRules(policy *CompiledPolicy, auditMap map[string]any, audit *auditv1.Event) (*v1alpha1.Activity, int, error) {
+	vars := BuildAuditVars(auditMap)
 
-	key := policyKey(apiGroup, resource)
-	return p.policies[key]
+	for i := range policy.AuditRules {
+		rule := &policy.AuditRules[i]
+		if !rule.Valid {
+			continue
+		}
+
+		matched, err := rule.EvaluateAuditMatch(auditMap)
+		if err != nil {
+			return nil, -1, fmt.Errorf("rule %d match: %w", i, err)
+		}
+
+		if matched {
+			summary, err := rule.EvaluateSummary(vars)
+			if err != nil {
+				return nil, -1, fmt.Errorf("rule %d summary: %w", i, err)
+			}
+
+			// Build activity using the processor package
+			builder := &processor.ActivityBuilder{
+				APIGroup: policy.APIGroup,
+				Kind:     policy.Kind,
+			}
+			activity := builder.BuildFromAudit(audit, summary, nil)
+
+			return activity, i, nil
+		}
+	}
+
+	return nil, -1, nil
 }
 
-func (p *Processor) publishActivity(activity *v1alpha1.Activity, policy *v1alpha1.ActivityPolicy) error {
+// auditToMap converts an audit event to a map for CEL evaluation.
+func auditToMap(audit *auditv1.Event) (map[string]any, error) {
+	data, err := json.Marshal(audit)
+	if err != nil {
+		return nil, err
+	}
+	var m map[string]any
+	if err := json.Unmarshal(data, &m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (p *Processor) publishActivity(activity *v1alpha1.Activity, policy *CompiledPolicy) error {
 	data, err := json.Marshal(activity)
 	if err != nil {
 		return fmt.Errorf("failed to marshal activity: %w", err)
@@ -652,15 +834,18 @@ func (p *Processor) publishActivity(activity *v1alpha1.Activity, policy *v1alpha
 	subject := p.buildActivitySubject(activity)
 
 	// Activity name is unique per audit event, enabling NATS deduplication.
+	publishStart := time.Now()
 	_, err = p.js.Publish(subject, data, nats.MsgId(activity.Name))
+	natsPublishLatency.Observe(time.Since(publishStart).Seconds())
 	if err != nil {
 		return fmt.Errorf("failed to publish to NATS: %w", err)
 	}
 
+	natsMessagesPublished.Inc()
 	activitiesGenerated.WithLabelValues(
 		policy.Name,
-		policy.Spec.Resource.APIGroup,
-		policy.Spec.Resource.Kind,
+		policy.APIGroup,
+		policy.Kind,
 	).Inc()
 	return nil
 }
@@ -702,4 +887,126 @@ func policyKey(apiGroup, kindOrResource string) string {
 
 func isPolicyReady(policy *v1alpha1.ActivityPolicy) bool {
 	return meta.IsStatusConditionTrue(policy.Status.Conditions, "Ready")
+}
+
+// setReady sets the ready status.
+func (p *Processor) setReady(ready bool) {
+	p.healthMu.Lock()
+	defer p.healthMu.Unlock()
+	p.ready = ready
+}
+
+// isReady returns true if the processor is ready to serve traffic.
+func (p *Processor) isReady() bool {
+	p.healthMu.RLock()
+	defer p.healthMu.RUnlock()
+	return p.ready
+}
+
+// startHealthServer starts the HTTP health probe server using controller-runtime healthz.
+func (p *Processor) startHealthServer() {
+	mux := http.NewServeMux()
+
+	// Liveness probe - checks if the processor is alive and NATS is connected
+	mux.Handle("/healthz", http.StripPrefix("/healthz", &healthz.Handler{
+		Checks: map[string]healthz.Checker{
+			"ping": healthz.Ping,
+			"nats": p.natsHealthChecker(),
+		},
+	}))
+
+	// Readiness probe - checks if the processor is ready to receive traffic
+	mux.Handle("/readyz", http.StripPrefix("/readyz", &healthz.Handler{
+		Checks: map[string]healthz.Checker{
+			"ping":          healthz.Ping,
+			"nats":          p.natsHealthChecker(),
+			"cache-synced":  p.cacheSyncedChecker(),
+			"policies-ready": p.policiesReadyChecker(),
+		},
+	}))
+
+	p.healthServer = &http.Server{
+		Addr:    p.config.HealthProbeAddr,
+		Handler: mux,
+	}
+
+	p.wg.Add(1)
+	go func() {
+		defer p.wg.Done()
+		klog.InfoS("Starting health probe server", "addr", p.config.HealthProbeAddr)
+		if err := p.healthServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			klog.ErrorS(err, "Health probe server error")
+		}
+	}()
+}
+
+// natsHealthChecker returns a health checker for NATS connection status.
+func (p *Processor) natsHealthChecker() healthz.Checker {
+	return func(req *http.Request) error {
+		if p.nc == nil {
+			return fmt.Errorf("NATS connection not initialized")
+		}
+		if !p.nc.IsConnected() {
+			return fmt.Errorf("NATS connection is disconnected")
+		}
+		return nil
+	}
+}
+
+// cacheSyncedChecker returns a health checker for cache sync status.
+func (p *Processor) cacheSyncedChecker() healthz.Checker {
+	return func(req *http.Request) error {
+		if !p.isReady() {
+			return fmt.Errorf("cache not synced")
+		}
+		return nil
+	}
+}
+
+// policiesReadyChecker returns a health checker that verifies policies are loaded.
+func (p *Processor) policiesReadyChecker() healthz.Checker {
+	return func(req *http.Request) error {
+		// This is a soft check - we allow the processor to be ready even with no policies
+		// as policies may be added later. We just verify the cache is initialized.
+		if p.policyCache == nil {
+			return fmt.Errorf("policy cache not initialized")
+		}
+		return nil
+	}
+}
+
+// buildNATSTLSConfig creates a TLS configuration for NATS connections.
+func (p *Processor) buildNATSTLSConfig() (*tls.Config, error) {
+	tlsConfig := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+	}
+
+	// Load client certificate and key if provided (for mTLS)
+	if p.config.NATSTLSCertFile != "" && p.config.NATSTLSKeyFile != "" {
+		cert, err := tls.LoadX509KeyPair(p.config.NATSTLSCertFile, p.config.NATSTLSKeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load NATS client certificate: %w", err)
+		}
+		tlsConfig.Certificates = []tls.Certificate{cert}
+		klog.V(2).InfoS("Loaded NATS client certificate",
+			"certFile", p.config.NATSTLSCertFile,
+			"keyFile", p.config.NATSTLSKeyFile,
+		)
+	}
+
+	// Load CA certificate if provided for server verification
+	if p.config.NATSTLSCAFile != "" {
+		caCert, err := os.ReadFile(p.config.NATSTLSCAFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read NATS CA certificate: %w", err)
+		}
+		caCertPool := x509.NewCertPool()
+		if !caCertPool.AppendCertsFromPEM(caCert) {
+			return nil, fmt.Errorf("failed to parse NATS CA certificate")
+		}
+		tlsConfig.RootCAs = caCertPool
+		klog.V(2).InfoS("Loaded NATS CA certificate", "caFile", p.config.NATSTLSCAFile)
+	}
+
+	return tlsConfig, nil
 }
