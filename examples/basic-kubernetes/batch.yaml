@@ -1,0 +1,42 @@
+# ActivityPolicies for batch Kubernetes API group
+# Resources: Job, CronJob
+
+---
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: batch-jobs
+spec:
+  resource:
+    apiGroup: batch
+    kind: Job
+  auditRules:
+    - match: "audit.verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} started job {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed job {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch'] && audit.objectRef.subresource == 'status'"
+      summary: "Job {{ link(audit.objectRef.name, audit.objectRef) }} status changed"
+    - match: "audit.verb in ['update', 'patch']"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated job {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "true"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified job {{ link(audit.objectRef.name, audit.objectRef) }}"
+
+---
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: batch-cronjobs
+spec:
+  resource:
+    apiGroup: batch
+    kind: CronJob
+  auditRules:
+    - match: "audit.verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} created scheduled job {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed scheduled job {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch']"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated scheduled job {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "true"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified scheduled job {{ link(audit.objectRef.name, audit.objectRef) }}"
