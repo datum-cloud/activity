@@ -3,7 +3,6 @@ apiVersion: jetstream.nats.io/v1beta2
 kind: Consumer
 metadata:
   name: clickhouse-ingest-activities
-  namespace: nats-system
 spec:
   # Link to the activities stream
   streamName: ACTIVITIES

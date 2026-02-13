@@ -85,7 +85,7 @@ spec:
         - name: NATS_STREAM
           value: "AUDIT_EVENTS"
         - name: CONSUMER_NAME
-          value: "activity-processor@activity.miloapis.com"
+          value: "activity-processor"
         - name: OUTPUT_STREAM
           value: "ACTIVITIES"
         - name: OUTPUT_SUBJECT_PREFIX

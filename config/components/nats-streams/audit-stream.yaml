@@ -3,7 +3,6 @@ apiVersion: jetstream.nats.io/v1beta2
 kind: Stream
 metadata:
   name: audit-events
-  namespace: nats-system
 spec:
   # Stream name in NATS
   name: AUDIT_EVENTS
@@ -21,8 +20,8 @@ spec:
   # Maximum age: 7 days retention as per architecture
   maxAge: 168h  # 7 days = 168 hours
 
-  # Maximum bytes: 100GB as per architecture
-  maxBytes: 107374182400  # 100 * 1024 * 1024 * 1024
+  # Maximum bytes: 1GB (sufficient for dev/test environments)
+  maxBytes: 1073741824  # 1 * 1024 * 1024 * 1024
 
   # Number of replicas for high availability
   replicas: 1  # Can be increased to 3 for production HA

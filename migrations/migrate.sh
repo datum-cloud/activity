@@ -75,10 +75,9 @@ wait_for_clickhouse() {
 # Wait for all replicas in the cluster to be healthy and ready
 # This function will wait indefinitely until all replicas are online and healthy
 wait_for_cluster_ready() {
-    log_info "Waiting for all 3 replicas in the 'activity' cluster to be ready..."
+    local expected_replicas="${EXPECTED_REPLICAS:-3}"
+    log_info "Waiting for all ${expected_replicas} replicas in the 'activity' cluster to be ready..."
     log_info "This will wait indefinitely until the cluster is healthy."
-
-    local expected_replicas=3
     local attempt=1
 
     while true; do
