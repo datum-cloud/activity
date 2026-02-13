@@ -1,0 +1,128 @@
+apiVersion: clickhouse.altinity.com/v1
+kind: ClickHouseInstallation
+metadata:
+  name: activity-clickhouse
+  namespace: activity-system
+spec:
+  configuration:
+    # Single-replica mode with Keeper for coordination
+    # Uses Replicated database engine for migration compatibility
+    zookeeper:
+      nodes:
+        - host: chk-activity-keeper-activity-keeper-0-0.activity-system.svc.cluster.local
+          port: 2181
+      session_timeout_ms: 30000
+      operation_timeout_ms: 10000
+    clusters:
+      - name: activity
+        layout:
+          shardsCount: 1
+          replicasCount: 1  # Single replica for dev environments
+
+    users:
+      default/password: ""  # Empty password for dev environments
+      default/networks/ip:
+        - "0.0.0.0/0"
+    settings:
+      # Default settings for ClickHouse
+      default/default_database: audit
+
+      # No quorum settings needed for single replica
+      # Disabled: insert_quorum, select_sequential_consistency
+
+    profiles:
+      default/max_memory_usage: 10000000000  # 10GB max memory usage for dev
+    files:
+      config.d/log_rotation.xml: |-
+        <clickhouse>
+            <logger>
+                <level>information</level>
+                <log>/var/log/clickhouse-server/clickhouse-server.log</log>
+                <errorlog>/var/log/clickhouse-server/clickhouse-server.err.log</errorlog>
+                <size>100M</size>
+                <count>3</count>
+                <console>1</console>
+            </logger>
+        </clickhouse>
+      # Storage configuration compatible with migrations (hot_cold policy)
+      # Uses local disk for both hot and cold (no S3 in dev)
+      # This allows the same migrations to work in dev and production
+      config.d/storage.xml: |
+        <clickhouse>
+          <storage_configuration>
+            <disks>
+              <default>
+                <keep_free_space_bytes>536870912</keep_free_space_bytes>
+              </default>
+              <!-- Separate disk for cold data (same physical storage in dev) -->
+              <cold_disk>
+                <path>/var/lib/clickhouse/cold/</path>
+                <keep_free_space_bytes>536870912</keep_free_space_bytes>
+              </cold_disk>
+            </disks>
+            <policies>
+              <!-- hot_cold policy required by migrations -->
+              <!-- In production, 'cold' volume would use S3-backed storage -->
+              <hot_cold>
+                <volumes>
+                  <hot>
+                    <disk>default</disk>
+                  </hot>
+                  <cold>
+                    <disk>cold_disk</disk>
+                  </cold>
+                </volumes>
+                <move_factor>0</move_factor>
+              </hot_cold>
+            </policies>
+          </storage_configuration>
+        </clickhouse>
+  defaults:
+    templates:
+      dataVolumeClaimTemplate: data-volume
+      podTemplate: clickhouse-pod
+  templates:
+    podTemplates:
+      - name: clickhouse-pod
+        spec:
+          containers:
+            - name: clickhouse
+              image: clickhouse/clickhouse-server:latest
+              resources:
+                # Resources for dev environments
+                requests:
+                  cpu: 100m
+                  memory: 2Gi
+                limits:
+                  cpu: 2000m
+                  memory: 10Gi
+    volumeClaimTemplates:
+      - name: data-volume
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 2Gi  # Reduced storage for dev
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: clickhouse
+  namespace: activity-system
+  labels:
+    app: clickhouse
+    app.kubernetes.io/component: database
+spec:
+  type: ClusterIP
+  ports:
+  - name: native
+    port: 9000
+    targetPort: 9000
+    protocol: TCP
+  - name: http
+    port: 8123
+    targetPort: 8123
+    protocol: TCP
+  selector:
+    clickhouse.altinity.com/chi: activity-clickhouse

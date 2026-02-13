@@ -3,13 +3,12 @@ apiVersion: jetstream.nats.io/v1beta2
 kind: Consumer
 metadata:
   name: activity-processor
-  namespace: nats-system
 spec:
   # Link to the audit events stream
   streamName: AUDIT_EVENTS
 
-  # Durable consumer name - fully qualified to identify the owning service
-  durableName: activity-processor@activity.miloapis.com
+  # Durable consumer name
+  durableName: activity-processor
 
   # Delivery policy: deliver all messages (including historical)
   # This allows the processor to catch up on missed events after restart
