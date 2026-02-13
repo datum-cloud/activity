@@ -4,14 +4,18 @@ import (
 	"context"
 	"fmt"
 
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"go.miloapis.com/activity/internal/cel"
 	"go.miloapis.com/activity/pkg/apis/activity/v1alpha1"
@@ -27,6 +31,7 @@ type ActivityPolicyReconciler struct {
 // +kubebuilder:rbac:groups=activity.milo.io,resources=activitypolicies,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=activity.milo.io,resources=activitypolicies/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=activity.milo.io,resources=activitypolicies/finalizers,verbs=update
+// +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch
 
 // Reconcile handles the reconciliation of an ActivityPolicy resource.
 func (r *ActivityPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -88,10 +93,49 @@ func (r *ActivityPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 func (r *ActivityPolicyReconciler) SetupWithManager(mgr ctrl.Manager, maxConcurrentReconciles int) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.ActivityPolicy{}).
+		// Watch CRDs to re-reconcile policies when new types are registered.
+		Watches(
+			&apiextensionsv1.CustomResourceDefinition{},
+			handler.EnqueueRequestsFromMapFunc(r.mapCRDToActivityPolicies),
+		).
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: maxConcurrentReconciles,
 		}).
 		Complete(r)
+}
+
+// mapCRDToActivityPolicies finds ActivityPolicies that reference the CRD's Kind.
+func (r *ActivityPolicyReconciler) mapCRDToActivityPolicies(ctx context.Context, obj client.Object) []reconcile.Request {
+	crd, ok := obj.(*apiextensionsv1.CustomResourceDefinition)
+	if !ok {
+		return nil
+	}
+
+	// Extract the Kind and API group from the CRD
+	crdKind := crd.Spec.Names.Kind
+	crdGroup := crd.Spec.Group
+
+	// List all ActivityPolicies
+	var policies v1alpha1.ActivityPolicyList
+	if err := r.List(ctx, &policies); err != nil {
+		log.FromContext(ctx).Error(err, "Failed to list ActivityPolicies for CRD watch")
+		return nil
+	}
+
+	// Find policies that reference this CRD's Kind
+	var requests []reconcile.Request
+	for _, policy := range policies.Items {
+		if policy.Spec.Resource.Kind == crdKind && policy.Spec.Resource.APIGroup == crdGroup {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      policy.Name,
+					Namespace: policy.Namespace,
+				},
+			})
+		}
+	}
+
+	return requests
 }
 
 // updatePolicyStatus updates the status of an ActivityPolicy.
