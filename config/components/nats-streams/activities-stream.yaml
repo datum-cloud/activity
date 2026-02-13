@@ -1,0 +1,51 @@
+---
+apiVersion: jetstream.nats.io/v1beta2
+kind: Stream
+metadata:
+  name: activities
+  namespace: nats-system
+spec:
+  # Stream name in NATS
+  name: ACTIVITIES
+
+  # Subjects for activities - hierarchical for filtering
+  # Format: activities.<tenant_type>.<tenant_name>.<api_group>.<origin>.<kind>.<namespace>.<name>
+  subjects:
+    - activities.>
+
+  # Retention policy: limits-based (time + size)
+  retention: limits
+
+  # Storage: file-based for durability
+  storage: file
+
+  # Maximum age: 7 days retention
+  maxAge: 168h  # 7 days = 168 hours
+
+  # Maximum bytes: 10GB
+  maxBytes: 10737418240  # 10 * 1024 * 1024 * 1024
+
+  # Number of replicas for high availability
+  replicas: 1  # Can be increased to 3 for production HA
+
+  # Discard policy when limits are reached
+  discard: old
+
+  # Allow direct access for queries
+  allowDirect: true
+
+  # Deduplication window - prevents duplicate activity messages
+  duplicateWindow: 5m
+
+  # Maximum number of consumers (Watch API connections + durable consumers)
+  # Each active watch request creates an ephemeral consumer
+  maxConsumers: 1000
+
+  # Maximum message size (1MB should be plenty for activities)
+  maxMsgSize: 1048576  # 1 * 1024 * 1024
+
+  # No message limit - rely on age and size limits
+  maxMsgs: -1
+
+  # Require acknowledgments for durability
+  noAck: false

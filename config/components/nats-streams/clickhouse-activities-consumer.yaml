@@ -1,0 +1,34 @@
+---
+apiVersion: jetstream.nats.io/v1beta2
+kind: Consumer
+metadata:
+  name: clickhouse-ingest-activities
+  namespace: nats-system
+spec:
+  # Link to the activities stream
+  streamName: ACTIVITIES
+
+  # Durable consumer name
+  durableName: clickhouse-ingest
+
+  # Delivery policy: deliver all messages (including historical)
+  deliverPolicy: all
+
+  # Ack policy: explicit acknowledgments required
+  ackPolicy: explicit
+
+  # Replay policy: instant (process as fast as possible)
+  replayPolicy: instant
+
+  # Filter subject: all activities
+  filterSubject: activities.>
+
+  # Max delivery attempts: unlimited (-1)
+  maxDeliver: -1
+
+  # Max ack pending: allow 5000 unacknowledged messages
+  # Activities are smaller than raw audit events
+  maxAckPending: 5000
+
+  # Ack wait: 60 seconds before redelivery
+  ackWait: 60s
