@@ -6,6 +6,9 @@ namespace: nats-system
 resources:
   - audit-stream.yaml
   - clickhouse-consumer.yaml
+  - activities-stream.yaml
+  - activity-processor-consumer.yaml
+  - clickhouse-activities-consumer.yaml
 
 # Note: This contains application-specific NATS JetStream stream configurations.
 # The NATS infrastructure (server + NACK controller) is deployed from config/dependencies/nats/

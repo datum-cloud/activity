@@ -1,0 +1,36 @@
+---
+apiVersion: jetstream.nats.io/v1beta2
+kind: Consumer
+metadata:
+  name: activity-processor
+  namespace: nats-system
+spec:
+  # Link to the audit events stream
+  streamName: AUDIT_EVENTS
+
+  # Durable consumer name - fully qualified to identify the owning service
+  durableName: activity-processor@activity.miloapis.com
+
+  # Delivery policy: deliver all messages (including historical)
+  # This allows the processor to catch up on missed events after restart
+  deliverPolicy: all
+
+  # Ack policy: explicit acknowledgments required
+  ackPolicy: explicit
+
+  # Replay policy: instant (process as fast as possible)
+  replayPolicy: instant
+
+  # Filter subject: all Kubernetes audit events
+  filterSubject: audit.k8s.>
+
+  # Max delivery attempts before giving up on a message
+  maxDeliver: 5
+
+  # Max ack pending: allow batch processing
+  # Activity processor uses batch size of 100, with 4 workers
+  maxAckPending: 1000
+
+  # Ack wait: 30 seconds before redelivery
+  # Should be long enough for policy evaluation and ClickHouse write
+  ackWait: 30s
