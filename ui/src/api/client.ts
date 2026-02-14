@@ -10,6 +10,13 @@ import type {
   WatchEvent,
 } from '../types/activity';
 import type {
+  K8sEvent,
+  K8sEventList,
+  K8sEventListParams,
+  EventFacetQuery,
+  EventFacetQuerySpec,
+} from '../types/k8s-event';
+import type {
   ActivityPolicy,
   ActivityPolicySpec,
   ActivityPolicyList,
@@ -636,6 +643,219 @@ export class ActivityApiClient {
     );
 
     return response.json();
+  }
+
+  // ============================================
+  // Kubernetes Events API Methods
+  // ============================================
+
+  /**
+   * List Kubernetes events with optional filtering and pagination
+   * Events are stored in ClickHouse and exposed via the Activity API
+   */
+  async listEvents(params?: K8sEventListParams): Promise<K8sEventList> {
+    const searchParams = new URLSearchParams();
+
+    if (params?.fieldSelector) searchParams.set('fieldSelector', params.fieldSelector);
+    if (params?.labelSelector) searchParams.set('labelSelector', params.labelSelector);
+    if (params?.limit) searchParams.set('limit', String(params.limit));
+    if (params?.continue) searchParams.set('continue', params.continue);
+    if (params?.resourceVersion) searchParams.set('resourceVersion', params.resourceVersion);
+
+    const queryString = searchParams.toString();
+
+    // Build path - namespaced or cluster-wide
+    let path: string;
+    if (params?.namespace) {
+      path = `/apis/activity.miloapis.com/v1alpha1/namespaces/${params.namespace}/events`;
+    } else {
+      path = `/apis/activity.miloapis.com/v1alpha1/events`;
+    }
+
+    if (queryString) {
+      path += `?${queryString}`;
+    }
+
+    const response = await this.fetch(path);
+    return response.json();
+  }
+
+  /**
+   * Get a specific Kubernetes event by namespace and name
+   */
+  async getEvent(namespace: string, name: string): Promise<K8sEvent> {
+    const response = await this.fetch(
+      `/apis/activity.miloapis.com/v1alpha1/namespaces/${namespace}/events/${name}`
+    );
+    return response.json();
+  }
+
+  /**
+   * List events with automatic pagination using async generator
+   */
+  async *listEventsPaginated(
+    params?: K8sEventListParams,
+    options?: {
+      maxPages?: number;
+    }
+  ): AsyncGenerator<K8sEventList> {
+    let currentParams = { ...params };
+    const maxPages = options?.maxPages || 100;
+    let pageNum = 0;
+
+    while (pageNum < maxPages) {
+      const result = await this.listEvents(currentParams);
+
+      yield result;
+
+      // Check if there are more results
+      if (!result.metadata?.continue) {
+        break;
+      }
+
+      currentParams = {
+        ...currentParams,
+        continue: result.metadata.continue,
+      };
+      pageNum++;
+    }
+  }
+
+  /**
+   * Query facets for Kubernetes events (filter dropdowns, autocomplete)
+   * Returns distinct values for fields like involvedObject.kind, reason, type, etc.
+   */
+  async queryEventFacets(spec: EventFacetQuerySpec): Promise<EventFacetQuery> {
+    const query: EventFacetQuery = {
+      apiVersion: 'activity.miloapis.com/v1alpha1',
+      kind: 'EventFacetQuery',
+      spec,
+    };
+
+    const response = await this.fetch(
+      '/apis/activity.miloapis.com/v1alpha1/eventfacetqueries',
+      {
+        method: 'POST',
+        body: JSON.stringify(query),
+      }
+    );
+
+    return response.json();
+  }
+
+  /**
+   * Watch Kubernetes events in real-time using the Kubernetes watch API.
+   * Returns an async generator that yields watch events as they arrive.
+   *
+   * @param params - Query parameters (namespace, fieldSelector, etc.)
+   * @param options - Watch options
+   * @returns Object with stop function to terminate the watch
+   */
+  watchEvents(
+    params?: Omit<K8sEventListParams, 'watch'>,
+    options?: {
+      /** Resource version to start watching from */
+      resourceVersion?: string;
+      /** Callback when an event is received */
+      onEvent?: (event: WatchEvent<K8sEvent>) => void;
+      /** Callback when an error occurs */
+      onError?: (error: Error) => void;
+      /** Callback when the connection closes */
+      onClose?: () => void;
+    }
+  ): { stop: () => void } {
+    const abortController = new AbortController();
+
+    // Build URL with watch=true
+    const searchParams = new URLSearchParams();
+    searchParams.set('watch', 'true');
+
+    if (params?.fieldSelector) searchParams.set('fieldSelector', params.fieldSelector);
+    if (params?.labelSelector) searchParams.set('labelSelector', params.labelSelector);
+    if (options?.resourceVersion) searchParams.set('resourceVersion', options.resourceVersion);
+
+    const queryString = searchParams.toString();
+
+    // Build path - namespaced or cluster-wide
+    let path: string;
+    if (params?.namespace) {
+      path = `/apis/activity.miloapis.com/v1alpha1/namespaces/${params.namespace}/events`;
+    } else {
+      path = `/apis/activity.miloapis.com/v1alpha1/events`;
+    }
+    path += `?${queryString}`;
+
+    const url = `${this.config.baseUrl}${path}`;
+
+    const headers: Record<string, string> = {
+      'Accept': 'application/json',
+    };
+
+    if (this.config.token) {
+      headers['Authorization'] = `Bearer ${this.config.token}`;
+    }
+
+    // Start the watch connection
+    const startWatch = async () => {
+      try {
+        const response = await this.config.fetch!(url, {
+          headers,
+          signal: abortController.signal,
+        });
+
+        if (!response.ok) {
+          const error = await response.text();
+          throw new Error(`Watch request failed: ${response.status} ${error}`);
+        }
+
+        if (!response.body) {
+          throw new Error('Response body is not available');
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+
+          if (done) {
+            options?.onClose?.();
+            break;
+          }
+
+          buffer += decoder.decode(value, { stream: true });
+
+          // Process complete lines (newline-delimited JSON)
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+          for (const line of lines) {
+            if (line.trim()) {
+              try {
+                const event = JSON.parse(line) as WatchEvent<K8sEvent>;
+                options?.onEvent?.(event);
+              } catch (parseError) {
+                console.warn('Failed to parse watch event:', parseError, line);
+              }
+            }
+          }
+        }
+      } catch (error) {
+        if ((error as Error).name === 'AbortError') {
+          options?.onClose?.();
+          return;
+        }
+        options?.onError?.(error as Error);
+      }
+    };
+
+    // Start watching in background
+    startWatch();
+
+    return {
+      stop: () => abortController.abort(),
+    };
   }
 
   private async fetch(path: string, init?: RequestInit): Promise<Response> {

@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { format, formatDistanceToNow } from 'date-fns';
+import { format } from 'date-fns';
 import type { Activity } from '../types/activity';
 import { ActivityFeedSummary, ResourceLinkClickHandler } from './ActivityFeedSummary';
 import { ActivityExpandedDetails } from './ActivityExpandedDetails';
+import { useRelativeTime } from '../hooks/useRelativeTime';
 import { cn } from '../lib/utils';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
@@ -32,18 +33,6 @@ export interface ActivityFeedItemProps {
   defaultExpanded?: boolean;
 }
 
-/**
- * Format timestamp for display
- */
-function formatTimestamp(timestamp?: string): string {
-  if (!timestamp) return 'Unknown time';
-  try {
-    const date = new Date(timestamp);
-    return formatDistanceToNow(date, { addSuffix: true });
-  } catch {
-    return timestamp;
-  }
-}
 
 /**
  * Format timestamp for tooltip
@@ -157,6 +146,7 @@ export function ActivityFeedItem({
   };
 
   const timestamp = metadata?.creationTimestamp;
+  const relativeTime = useRelativeTime(timestamp);
   const verb = extractVerb(summary);
   const isTimeline = variant === 'timeline';
 
@@ -227,7 +217,7 @@ export function ActivityFeedItem({
               className="text-xs text-muted-foreground whitespace-nowrap"
               title={formatTimestampFull(timestamp)}
             >
-              {formatTimestamp(timestamp)}
+              {relativeTime}
             </span>
           </div>
 
@@ -309,7 +299,7 @@ export function ActivityFeedItem({
               className="text-xs text-muted-foreground whitespace-nowrap"
               title={formatTimestampFull(timestamp)}
             >
-              {formatTimestamp(timestamp)}
+              {relativeTime}
             </span>
           </div>
 

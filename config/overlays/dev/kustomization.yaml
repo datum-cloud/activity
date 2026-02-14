@@ -20,6 +20,7 @@ components:
   - ../../components/grafana-clickhouse
   - ../../components/vector-sidecar
   - ../../components/vector-aggregator
+  - ../../components/k8s-event-exporter            # Forwards K8s events to Vector
   - ../../components/tracing
   - ../../components/observability            # ServiceMonitors, alerts, dashboards
   - ../../components/ui                        # Activity UI

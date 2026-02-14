@@ -122,6 +122,24 @@ export interface AuditLog {
   event: Event;
 }
 
+// Facet types (shared between Activity and Event facet queries)
+export interface FacetSpec {
+  /** Field path to get distinct values for */
+  field: string;
+  /** Maximum values to return (1-100, default 20) */
+  limit?: number;
+}
+
+export interface FacetValue {
+  value: string;
+  count: number;
+}
+
+export interface FacetResult {
+  field: string;
+  values: FacetValue[];
+}
+
 // Filter helper types
 export interface FilterField {
   name: string;
@@ -129,6 +147,9 @@ export interface FilterField {
   description: string;
   examples?: string[];
 }
+
+// Re-export K8s Event types
+export * from './k8s-event';
 
 export const FILTER_FIELDS: FilterField[] = [
   // Top-level fields

@@ -357,43 +357,17 @@ export default function ResourceHistoryPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-lg font-semibold text-foreground">
-                Resource History
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                {submittedFilter.uid ? (
-                  <span className="font-mono">UID: {submittedFilter.uid}</span>
-                ) : (
-                  <span>
-                    {[
-                      submittedFilter.kind,
-                      submittedFilter.name,
-                      submittedFilter.namespace && `in ${submittedFilter.namespace}`,
-                      submittedFilter.apiGroup && `(${submittedFilter.apiGroup})`,
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                  </span>
-                )}
-              </p>
-            </div>
-            <Button variant="outline" onClick={handleReset}>
-              New Search
-            </Button>
-          </div>
-
+        <div>
           {client && (
             <ResourceHistoryView
               client={client}
               resourceFilter={submittedFilter}
               startTime="now-30d"
               limit={50}
-              showHeader={false}
               compact={false}
               onActivityClick={handleActivityClick}
+              enableStreaming={true}
+              onNewSearch={handleReset}
             />
           )}
         </div>

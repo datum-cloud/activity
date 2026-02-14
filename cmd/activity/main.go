@@ -60,6 +60,7 @@ Components:
 	cmd.AddCommand(NewControllerManagerCommand())
 	cmd.AddCommand(NewVersionCommand())
 	cmd.AddCommand(NewMCPCommand())
+	cmd.AddCommand(NewEventExporterCommand())
 
 	return cmd
 }
@@ -138,7 +139,7 @@ type ActivityServerOptions struct {
 	MaxQueryWindow time.Duration // Maximum time range allowed for queries
 	MaxPageSize    int32         // Maximum number of results per page
 
-	// NATS configuration for Watch API
+	// NATS configuration for Activities Watch API
 	NATSURL           string // NATS server URL (empty disables Watch API)
 	NATSStreamName    string // JetStream stream name for activities
 	NATSSubjectPrefix string // Subject prefix for activities
@@ -148,6 +149,11 @@ type ActivityServerOptions struct {
 	NATSTLSCertFile string
 	NATSTLSKeyFile  string
 	NATSTLSCAFile   string
+
+	// NATS configuration for Events Watch API
+	EventsNATSURL           string // NATS server URL for events (empty disables Events Watch API)
+	EventsNATSStreamName    string // JetStream stream name for events
+	EventsNATSSubjectPrefix string // Subject prefix for events
 }
 
 // NewActivityServerOptions creates options with default values.
@@ -169,6 +175,10 @@ func NewActivityServerOptions() *ActivityServerOptions {
 		NATSURL:           "",
 		NATSStreamName:    "ACTIVITIES",
 		NATSSubjectPrefix: "activities",
+		// Events NATS defaults (empty URL disables Events Watch API)
+		EventsNATSURL:           "",
+		EventsNATSStreamName:    "K8S_EVENTS",
+		EventsNATSSubjectPrefix: "events.k8s",
 	}
 
 	// Disable admission plugins since this server doesn't mutate or validate resources.
@@ -221,10 +231,26 @@ func (o *ActivityServerOptions) AddFlags(fs *pflag.FlagSet) {
 		"Path to client private key file for NATS TLS")
 	fs.StringVar(&o.NATSTLSCAFile, "nats-tls-ca-file", o.NATSTLSCAFile,
 		"Path to CA certificate file for NATS TLS")
+
+	// Events NATS flags for Events Watch API
+	fs.StringVar(&o.EventsNATSURL, "events-nats-url", o.EventsNATSURL,
+		"NATS server URL for Events Watch API (empty disables Events Watch API, defaults to --nats-url if set)")
+	fs.StringVar(&o.EventsNATSStreamName, "events-nats-stream-name", o.EventsNATSStreamName,
+		"JetStream stream name for events")
+	fs.StringVar(&o.EventsNATSSubjectPrefix, "events-nats-subject-prefix", o.EventsNATSSubjectPrefix,
+		"Subject prefix for events")
 }
 
 func (o *ActivityServerOptions) Complete() error {
 	return nil
+}
+
+// eventsNATSURL returns the NATS URL for events, falling back to the main NATS URL if not set.
+func (o *ActivityServerOptions) eventsNATSURL() string {
+	if o.EventsNATSURL != "" {
+		return o.EventsNATSURL
+	}
+	return o.NATSURL
 }
 
 // Validate ensures required configuration is provided.
@@ -301,6 +327,15 @@ func (o *ActivityServerOptions) Config() (*activityapiserver.Config, error) {
 				StreamName:    o.NATSStreamName,
 				SubjectPrefix: o.NATSSubjectPrefix,
 				TLSEnabled:    o.NATSTLSEnabled,
+				TLSCertFile:   o.NATSTLSCertFile,
+				TLSKeyFile:    o.NATSTLSKeyFile,
+				TLSCAFile:     o.NATSTLSCAFile,
+			},
+			EventsNATSConfig: watch.EventsNATSConfig{
+				URL:           o.eventsNATSURL(),
+				StreamName:    o.EventsNATSStreamName,
+				SubjectPrefix: o.EventsNATSSubjectPrefix,
+				TLSEnabled:    o.NATSTLSEnabled,  // Reuse TLS config from activities
 				TLSCertFile:   o.NATSTLSCertFile,
 				TLSKeyFile:    o.NATSTLSKeyFile,
 				TLSCAFile:     o.NATSTLSCAFile,

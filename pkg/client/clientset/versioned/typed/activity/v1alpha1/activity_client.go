@@ -17,6 +17,7 @@ type ActivityV1alpha1Interface interface {
 	ActivityPoliciesGetter
 	AuditLogFacetsQueriesGetter
 	AuditLogQueriesGetter
+	EventFacetQueriesGetter
 	PolicyPreviewsGetter
 }
 
@@ -43,6 +44,10 @@ func (c *ActivityV1alpha1Client) AuditLogFacetsQueries() AuditLogFacetsQueryInte
 
 func (c *ActivityV1alpha1Client) AuditLogQueries() AuditLogQueryInterface {
 	return newAuditLogQueries(c)
+}
+
+func (c *ActivityV1alpha1Client) EventFacetQueries() EventFacetQueryInterface {
+	return newEventFacetQueries(c)
 }
 
 func (c *ActivityV1alpha1Client) PolicyPreviews() PolicyPreviewInterface {

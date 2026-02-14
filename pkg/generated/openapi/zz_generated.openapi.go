@@ -45,6 +45,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.AuditLogQueryList":         schema_pkg_apis_activity_v1alpha1_AuditLogQueryList(ref),
 		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.AuditLogQuerySpec":         schema_pkg_apis_activity_v1alpha1_AuditLogQuerySpec(ref),
 		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.AuditLogQueryStatus":       schema_pkg_apis_activity_v1alpha1_AuditLogQueryStatus(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventFacetQuery":           schema_pkg_apis_activity_v1alpha1_EventFacetQuery(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventFacetQuerySpec":       schema_pkg_apis_activity_v1alpha1_EventFacetQuerySpec(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventFacetQueryStatus":     schema_pkg_apis_activity_v1alpha1_EventFacetQueryStatus(ref),
 		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetResult":               schema_pkg_apis_activity_v1alpha1_FacetResult(ref),
 		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetSpec":                 schema_pkg_apis_activity_v1alpha1_FacetSpec(ref),
 		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetTimeRange":            schema_pkg_apis_activity_v1alpha1_FacetTimeRange(ref),
@@ -567,7 +570,7 @@ func schema_pkg_apis_activity_v1alpha1_ActivityFacetQuerySpec(ref common.Referen
 					},
 					"filter": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Filter narrows the activities before computing facets using CEL. This allows you to get facet values for a subset of activities.\n\nExample: \"spec.changeSource == 'human'\" to get facets only for human actions.",
+							Description: "Filter narrows the activities before computing facets using CEL. This allows you to get facet values for a subset of activities.\n\nAvailable Fields:\n  spec.changeSource              - \"human\" or \"system\"\n  spec.actor.name                - actor display name\n  spec.actor.type                - actor type (user, serviceaccount, controller)\n  spec.actor.uid                 - actor UID\n  spec.resource.apiGroup         - resource API group\n  spec.resource.kind             - resource kind\n  spec.resource.name             - resource name\n  spec.resource.namespace        - resource namespace\n  spec.summary                   - activity summary text\n  spec.origin.type               - origin type (audit, event)\n  metadata.namespace             - activity namespace\n\nOperators: ==, !=, &&, ||, !, in String Functions: startsWith(), endsWith(), contains()\n\nExamples:\n  \"spec.changeSource == 'human'\"                     - Human actions only\n  \"!(spec.changeSource == 'system')\"                 - Exclude system actions\n  \"spec.resource.kind == 'Deployment'\"               - Deployment activities\n  \"!spec.actor.name.startsWith('system:')\"           - Exclude system actors",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -1524,6 +1527,130 @@ func schema_pkg_apis_activity_v1alpha1_AuditLogQueryStatus(ref common.ReferenceC
 		},
 		Dependencies: []string{
 			auditv1.Event{}.OpenAPIModelName()},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_EventFacetQuery(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "EventFacetQuery is an ephemeral resource for getting distinct field values from Kubernetes Events. Use this to power autocomplete, filter dropdowns, and faceted search in UIs.\n\nThe query returns counts for each distinct value, allowing you to show both available options and their frequency.\n\nExample:\n\n\tapiVersion: activity.miloapis.com/v1alpha1\n\tkind: EventFacetQuery\n\tmetadata:\n\t  name: get-facets\n\tspec:\n\t  timeRange:\n\t    start: \"now-7d\"\n\t  facets:\n\t    - field: involvedObject.kind\n\t      limit: 10\n\t    - field: reason\n\t    - field: type",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ObjectMeta{}.OpenAPIModelName()),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventFacetQuerySpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventFacetQueryStatus"),
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventFacetQuerySpec", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventFacetQueryStatus", metav1.ObjectMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_EventFacetQuerySpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "EventFacetQuerySpec defines which facets to retrieve from Kubernetes Events.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"timeRange": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TimeRange limits the time window for facet aggregation. If not specified, defaults to the last 7 days.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetTimeRange"),
+						},
+					},
+					"facets": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Facets specifies which fields to get distinct values for. Each facet returns the top N values with counts.\n\nSupported fields:\n  - involvedObject.kind: Resource kinds (Pod, Deployment, etc.)\n  - involvedObject.namespace: Namespaces of involved objects\n  - reason: Event reasons (Scheduled, Pulled, Created, etc.)\n  - type: Event types (Normal, Warning)\n  - source.component: Source components (kubelet, scheduler, etc.)\n  - namespace: Event namespace",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetSpec"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"facets"},
+			},
+		},
+		Dependencies: []string{
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetSpec", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetTimeRange"},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_EventFacetQueryStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "EventFacetQueryStatus contains the facet results.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"facets": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Facets contains the results for each requested facet.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetResult"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetResult"},
 	}
 }
 

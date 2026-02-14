@@ -72,6 +72,7 @@ type Processor struct {
 
 	// Sub-processors
 	auditProcessor *AuditProcessor
+	eventProcessor *EventProcessor
 
 	// Publisher for activities
 	publisher *Publisher
@@ -341,11 +342,15 @@ func New(config Config) (*Processor, error) {
 	// Create audit processor
 	auditProcessor := NewAuditProcessor(inputConn, config.NATSAuditSubject, policyCache, publisher, config.Workers, config.RESTMapper)
 
+	// Create event processor
+	eventProcessor := NewEventProcessor(inputConn, config.NATSEventSubject, policyCache, publisher, config.Workers)
+
 	// Update processor with remaining fields
 	p.policyCache = policyCache
 	p.informerFactory = informerFactory
 	p.policyInformer = policyInformer
 	p.auditProcessor = auditProcessor
+	p.eventProcessor = eventProcessor
 	p.publisher = publisher
 
 	// Set up event handlers for ActivityPolicy
@@ -388,6 +393,13 @@ func (p *Processor) Run(ctx context.Context) error {
 	go func() {
 		if err := p.auditProcessor.Run(ctx); err != nil {
 			klog.ErrorS(err, "Audit processor error")
+		}
+	}()
+
+	// Start the event processor
+	go func() {
+		if err := p.eventProcessor.Run(ctx); err != nil {
+			klog.ErrorS(err, "Event processor error")
 		}
 	}()
 

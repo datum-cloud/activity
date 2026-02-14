@@ -6,6 +6,8 @@ resources:
   - clickhouse-consumer.yaml
   - activities-stream.yaml
   - activities-consumer.yaml
+  - k8s-events-stream.yaml
+  - k8s-events-consumer.yaml
 
 # Note: This contains application-specific NATS JetStream stream configurations.
 # The NATS infrastructure (server + NACK controller) is deployed from config/dependencies/nats/

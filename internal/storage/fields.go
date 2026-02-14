@@ -137,6 +137,19 @@ func init() {
 			panic(fmt.Sprintf("activity facet column mapping %q has no field definition", field))
 		}
 	}
+
+	// Validate event facet fields
+	for field := range EventFacetFields {
+		if _, ok := eventFacetColumnMapping[field]; !ok {
+			panic(fmt.Sprintf("missing ClickHouse column mapping for event facet field %q", field))
+		}
+	}
+
+	for field := range eventFacetColumnMapping {
+		if _, ok := EventFacetFields[field]; !ok {
+			panic(fmt.Sprintf("event facet column mapping %q has no field definition", field))
+		}
+	}
 }
 
 // GetActivityFacetFieldNames returns a slice of supported activity facet field names.
@@ -154,6 +167,58 @@ func GetActivityFacetFieldNames() []string {
 func GetAuditLogFacetFieldNames() []string {
 	names := make([]string, 0, len(AuditLogFacetFields))
 	for name := range AuditLogFacetFields {
+		names = append(names, name)
+	}
+	return names
+}
+
+// EventFacetFields defines the supported fields for Kubernetes Event facet queries.
+// Keys are API field paths (as used in queries), values are human-readable descriptions.
+var EventFacetFields = map[string]string{
+	"involvedObject.kind":      "The kind of resource the event is about (Pod, Deployment, etc.)",
+	"involvedObject.namespace": "The namespace of the involved object",
+	"reason":                   "The event reason (Scheduled, Pulled, Created, etc.)",
+	"type":                     "The event type (Normal, Warning)",
+	"source.component":         "The component that generated the event (kubelet, scheduler, etc.)",
+	"namespace":                "The namespace of the event itself",
+}
+
+// IsValidEventFacetField checks if a field is supported for event faceting.
+func IsValidEventFacetField(field string) bool {
+	_, ok := EventFacetFields[field]
+	return ok
+}
+
+// EventFacetFieldNames returns a sorted list of supported event facet field names.
+func EventFacetFieldNames() []string {
+	return sortedKeys(EventFacetFields)
+}
+
+// eventFacetColumnMapping maps API field paths to ClickHouse column names for events.
+var eventFacetColumnMapping = map[string]string{
+	"involvedObject.kind":      "involved_kind",
+	"involvedObject.namespace": "involved_namespace",
+	"reason":                   "reason",
+	"type":                     "type",
+	"source.component":         "source_component",
+	"namespace":                "namespace",
+}
+
+// GetEventFacetColumn returns the ClickHouse column name for an event facet field.
+// Returns an error if the field is not supported.
+func GetEventFacetColumn(field string) (string, error) {
+	col, ok := eventFacetColumnMapping[field]
+	if !ok {
+		return "", fmt.Errorf("unsupported event facet field: %s", field)
+	}
+	return col, nil
+}
+
+// GetEventFacetFieldNames returns a slice of supported event facet field names.
+// Useful for error messages showing valid options.
+func GetEventFacetFieldNames() []string {
+	names := make([]string, 0, len(EventFacetFields))
+	for name := range EventFacetFields {
 		names = append(names, name)
 	}
 	return names

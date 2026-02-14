@@ -23,6 +23,16 @@ export type { ResourceHistoryViewProps, ResourceFilter } from './components/Reso
 export { ActivityExpandedDetails } from './components/ActivityExpandedDetails';
 export type { ActivityExpandedDetailsProps } from './components/ActivityExpandedDetails';
 
+// Components - Kubernetes Events Feed (new)
+export { EventsFeed } from './components/EventsFeed';
+export type { EventsFeedProps } from './components/EventsFeed';
+export { EventsFeedItem } from './components/EventsFeedItem';
+export type { EventsFeedItemProps } from './components/EventsFeedItem';
+export { EventsFeedFilters } from './components/EventsFeedFilters';
+export type { EventsFeedFiltersProps } from './components/EventsFeedFilters';
+export { EventTypeToggle } from './components/EventTypeToggle';
+export type { EventTypeToggleProps, EventTypeOption } from './components/EventTypeToggle';
+
 // Components - Policy Authoring (new)
 export { PolicyList } from './components/PolicyList';
 export type { PolicyListProps } from './components/PolicyList';
@@ -129,6 +139,19 @@ export type {
 export { useFacets } from './hooks/useFacets';
 export type { UseFacetsResult } from './hooks/useFacets';
 
+// Hooks - Relative Time (auto-updating timestamps)
+export { useRelativeTime, useRelativeTimeFormatter } from './hooks/useRelativeTime';
+
+// Hooks - Kubernetes Events Feed (new)
+export { useEventsFeed } from './hooks/useEventsFeed';
+export type {
+  UseEventsFeedOptions,
+  UseEventsFeedResult,
+  EventsFeedFilters as EventsFeedFilterState,
+} from './hooks/useEventsFeed';
+export { useEventFacets } from './hooks/useEventFacets';
+export type { UseEventFacetsResult } from './hooks/useEventFacets';
+
 // Hooks - Policy Authoring (new)
 export { usePolicyList } from './hooks/usePolicyList';
 export type {
@@ -194,6 +217,23 @@ export type {
 } from './types/activity';
 
 export { ACTIVITY_FILTER_FIELDS } from './types/activity';
+
+// Types - Kubernetes Events (new)
+export type {
+  K8sEvent,
+  K8sEventList,
+  K8sEventListParams,
+  K8sEventType,
+  ObjectReference as K8sObjectReference,
+  EventSource,
+  EventFacetQuery,
+  EventFacetQuerySpec,
+  EventFacetQueryStatus,
+  EventFilterField,
+  EventFacetField,
+} from './types/k8s-event';
+
+export { EVENT_FILTER_FIELDS, EVENT_FACET_FIELDS } from './types/k8s-event';
 
 // Types - Policy Authoring (new)
 export type {

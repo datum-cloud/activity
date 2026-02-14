@@ -5,8 +5,10 @@ kind: Kustomization
 # These policies translate audit logs into human-readable activity summaries
 
 resources:
-  - core.yaml       # Pod, Service, ConfigMap, Secret, Namespace, ServiceAccount, PersistentVolumeClaim, PersistentVolume
-  - apps.yaml       # Deployment, ReplicaSet, StatefulSet, DaemonSet
-  - batch.yaml      # Job, CronJob
-  - networking.yaml # Ingress
-  - rbac.yaml       # ClusterRole, ClusterRoleBinding, Role, RoleBinding
+  - core.yaml         # Pod, Service, ConfigMap, Secret, Namespace, ServiceAccount, PersistentVolumeClaim, PersistentVolume
+  - apps.yaml         # Deployment, ReplicaSet, StatefulSet, DaemonSet
+  - batch.yaml        # Job, CronJob
+  - networking.yaml   # Ingress
+  - rbac.yaml         # ClusterRole, ClusterRoleBinding, Role, RoleBinding
+  - cert-manager.yaml # Certificate, CertificateRequest, ClusterIssuer, Issuer
+  - flux.yaml         # HelmChart, HelmRepository, HelmRelease, GitRepository, Kustomization

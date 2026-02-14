@@ -6,7 +6,8 @@ import { ActivityFeedItem } from './ActivityFeedItem';
 import { ResourceLinkClickHandler } from './ActivityFeedSummary';
 import { ActivityApiClient } from '../api/client';
 import { Button } from './ui/button';
-import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
+import { Badge } from './ui/badge';
+import { Card } from './ui/card';
 import { Alert, AlertDescription } from './ui/alert';
 import { cn } from '../lib/utils';
 
@@ -35,8 +36,6 @@ export interface ResourceHistoryViewProps {
   startTime?: string;
   /** Maximum number of events to load (default: 50) */
   limit?: number;
-  /** Whether to show the header (default: true) */
-  showHeader?: boolean;
   /** Reduced padding for embedding (default: false) */
   compact?: boolean;
   /** Handler called when an activity is clicked */
@@ -45,31 +44,45 @@ export interface ResourceHistoryViewProps {
   onResourceClick?: ResourceLinkClickHandler;
   /** Additional CSS class */
   className?: string;
+  /** Enable real-time streaming of new activities (default: false) */
+  enableStreaming?: boolean;
+  /** Handler called when user wants to start a new search */
+  onNewSearch?: () => void;
 }
 
 /**
- * Build a display title from the resource filter
+ * Build resource description parts for display
  */
-function buildHeaderTitle(filter: ResourceFilter): string {
+function buildResourceDescription(filter: ResourceFilter): {
+  primary: string;
+  secondary?: string;
+} {
   if (filter.uid) {
-    return `Resource History (UID: ${filter.uid.substring(0, 8)}...)`;
+    return {
+      primary: `UID: ${filter.uid}`,
+    };
   }
 
-  const parts: string[] = [];
+  const primary: string[] = [];
+  const secondary: string[] = [];
+
   if (filter.kind) {
-    parts.push(filter.kind);
+    primary.push(filter.kind);
   }
   if (filter.name) {
-    parts.push(filter.name);
+    primary.push(filter.name);
   }
   if (filter.namespace) {
-    parts.push(`in ${filter.namespace}`);
+    secondary.push(`Namespace: ${filter.namespace}`);
   }
   if (filter.apiGroup) {
-    parts.push(`(${filter.apiGroup})`);
+    secondary.push(`API Group: ${filter.apiGroup}`);
   }
 
-  return parts.length > 0 ? parts.join(' ') : 'Resource History';
+  return {
+    primary: primary.length > 0 ? primary.join(' / ') : 'All Resources',
+    secondary: secondary.length > 0 ? secondary.join(' · ') : undefined,
+  };
 }
 
 /**
@@ -85,11 +98,12 @@ export function ResourceHistoryView({
   resourceFilter,
   startTime = 'now-30d',
   limit = 50,
-  showHeader = true,
   compact = false,
   onActivityClick,
   onResourceClick,
   className,
+  enableStreaming = false,
+  onNewSearch,
 }: ResourceHistoryViewProps) {
   // Build the activity feed filters from the resource filter
   const activityFilters = useMemo((): ActivityFeedFilters => {
@@ -129,13 +143,27 @@ export function ResourceHistoryView({
     hasMore,
     refresh,
     loadMore,
+    isStreaming,
+    startStreaming,
+    stopStreaming,
+    newActivitiesCount,
   } = useActivityFeed({
     client,
     initialFilters: activityFilters,
     initialTimeRange: { start: startTime },
     pageSize: limit,
-    enableStreaming: false,
+    enableStreaming,
+    autoStartStreaming: true,
   });
+
+  // Handle streaming toggle
+  const handleStreamingToggle = useCallback(() => {
+    if (isStreaming) {
+      stopStreaming();
+    } else {
+      startStreaming();
+    }
+  }, [isStreaming, startStreaming, stopStreaming]);
 
   // Auto-execute on mount and when filter changes
   useEffect(() => {
@@ -147,8 +175,8 @@ export function ResourceHistoryView({
     loadMore();
   }, [loadMore]);
 
-  // Build header title from filter
-  const headerTitle = buildHeaderTitle(resourceFilter);
+  // Build resource description
+  const resourceDescription = buildResourceDescription(resourceFilter);
 
   // Check if we have any valid filter criteria
   const hasValidFilter = resourceFilter.uid ||
@@ -158,30 +186,73 @@ export function ResourceHistoryView({
     resourceFilter.name;
 
   return (
-    <Card className={cn(compact ? 'p-0 shadow-none border-0' : '', className)}>
-      {/* Header */}
-      {showHeader && (
-        <CardHeader className={cn(compact ? 'px-0 pt-0 pb-3' : 'pb-4')}>
-          <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
-            <svg
-              className="w-4 h-4 text-muted-foreground"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            {headerTitle}
-          </CardTitle>
-        </CardHeader>
-      )}
+    <Card className={cn(compact ? 'p-0 shadow-none border-0' : 'p-6', className)}>
+      {/* Header with resource info, streaming controls, and actions */}
+      <div className="flex items-start justify-between gap-4 mb-4 pb-4 border-b border-border">
+        <div className="flex-1 min-w-0">
+          {/* Resource description */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-medium text-foreground truncate">
+              {resourceDescription.primary}
+            </span>
+            {enableStreaming && isStreaming && (
+              <div className="flex items-center gap-1.5">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 dark:bg-green-500 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500 dark:bg-green-400"></span>
+                </span>
+                <span className="text-xs text-muted-foreground">Live</span>
+              </div>
+            )}
+            {enableStreaming && newActivitiesCount > 0 && (
+              <Badge variant="secondary" className="text-xs">
+                +{newActivitiesCount} new
+              </Badge>
+            )}
+          </div>
+          {resourceDescription.secondary && (
+            <p className="text-xs text-muted-foreground mt-1 m-0">
+              {resourceDescription.secondary}
+            </p>
+          )}
+        </div>
 
-      <CardContent className={cn(compact ? 'p-0' : '')}>
+        {/* Actions */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {enableStreaming && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleStreamingToggle}
+              className="text-xs"
+            >
+              {isStreaming ? (
+                <>
+                  <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <rect x="6" y="4" width="4" height="16" />
+                    <rect x="14" y="4" width="4" height="16" />
+                  </svg>
+                  Pause
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <polygon points="5,3 19,12 5,21" fill="currentColor" />
+                  </svg>
+                  Resume
+                </>
+              )}
+            </Button>
+          )}
+          {onNewSearch && (
+            <Button variant="outline" size="sm" onClick={onNewSearch}>
+              New Search
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div>
         {/* No filter provided */}
         {!hasValidFilter && (
           <div className="py-12 text-center text-muted-foreground">
@@ -263,6 +334,7 @@ export function ResourceHistoryView({
                   isLast={index === activities.length - 1 && !hasMore}
                   onActivityClick={onActivityClick}
                   onResourceClick={onResourceClick}
+                  isNew={enableStreaming && index < newActivitiesCount}
                 />
               );
             })}
@@ -310,7 +382,7 @@ export function ResourceHistoryView({
             {hasMore && ' (more available)'}
           </div>
         )}
-      </CardContent>
+      </div>
     </Card>
   );
 }

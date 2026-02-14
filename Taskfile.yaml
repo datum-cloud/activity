@@ -358,6 +358,7 @@ tasks:
         task test-infra:kubectl -- rollout restart -n activity-system deployment/activity-processor || echo "⚠️  activity-processor deployment not found"
         task test-infra:kubectl -- rollout restart -n activity-system deployment/activity-controller-manager || echo "⚠️  activity-controller-manager deployment not found"
         task test-infra:kubectl -- rollout restart -n activity-system deployment/activity-ui || echo "⚠️  UI deployment not found"
+        task test-infra:kubectl -- rollout restart -n activity-system deployment/k8s-event-exporter || echo "⚠️  k8s-event-exporter deployment not found"
 
         # Wait for rollouts to complete
         echo "Waiting for rollouts to complete..."
@@ -365,6 +366,7 @@ tasks:
         task test-infra:kubectl -- rollout status -n activity-system deployment/activity-processor --timeout=120s || true
         task test-infra:kubectl -- rollout status -n activity-system deployment/activity-controller-manager --timeout=120s || true
         task test-infra:kubectl -- rollout status -n activity-system deployment/activity-ui --timeout=120s || true
+        task test-infra:kubectl -- rollout status -n activity-system deployment/k8s-event-exporter --timeout=120s || true
 
         echo "✅ Redeployment complete!"
         echo "Check logs with: task test-infra:kubectl -- logs -l app=activity-apiserver -n activity-system -f"
@@ -583,6 +585,7 @@ tasks:
         task test-infra:kubectl -- rollout restart -n activity-system deployment/activity-processor || echo "⚠️  activity-processor deployment not found"
         task test-infra:kubectl -- rollout restart -n activity-system deployment/activity-controller-manager || echo "⚠️  activity-controller-manager deployment not found"
         task test-infra:kubectl -- rollout restart -n activity-system deployment/activity-ui || echo "⚠️  UI deployment not found"
+        task test-infra:kubectl -- rollout restart -n activity-system deployment/k8s-event-exporter || echo "⚠️  k8s-event-exporter deployment not found"
 
         # Wait for rollouts to complete
         echo "Waiting for rollouts to complete..."
@@ -590,6 +593,7 @@ tasks:
         task test-infra:kubectl -- rollout status -n activity-system deployment/activity-processor --timeout=120s || true
         task test-infra:kubectl -- rollout status -n activity-system deployment/activity-controller-manager --timeout=120s || true
         task test-infra:kubectl -- rollout status -n activity-system deployment/activity-ui --timeout=120s || true
+        task test-infra:kubectl -- rollout status -n activity-system deployment/k8s-event-exporter --timeout=120s || true
 
         echo "✅ Redeployment complete!"
         echo "Check logs with: task test-infra:kubectl -- logs -l app=activity-apiserver -n activity-system -f"
