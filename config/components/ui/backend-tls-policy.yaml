@@ -1,0 +1,37 @@
+apiVersion: gateway.networking.k8s.io/v1alpha3
+kind: BackendTLSPolicy
+metadata:
+  name: activity-apiserver-tls
+  namespace: activity-system
+spec:
+  targetRefs:
+    - group: ""
+      kind: Service
+      name: activity-apiserver
+  validation:
+    caCertificateRefs:
+      # Reference the CA certificate created by cert-manager
+      # The cert-manager-ca component creates this secret containing
+      # the CA used to sign the API server's TLS certificate
+      - name: activity-ca-secret
+        group: ""
+        kind: Secret
+    hostname: activity-apiserver.activity-system.svc.cluster.local
+---
+apiVersion: gateway.networking.k8s.io/v1alpha3
+kind: BackendTLSPolicy
+metadata:
+  name: kubernetes-api-tls
+  namespace: activity-system
+spec:
+  targetRefs:
+    - group: ""
+      kind: Service
+      name: kubernetes-api
+  validation:
+    caCertificateRefs:
+      # Reference the cluster CA certificate (auto-created in every namespace)
+      - name: kube-root-ca.crt
+        group: ""
+        kind: ConfigMap
+    hostname: kubernetes.default.svc.cluster.local
