@@ -1,0 +1,190 @@
+# ActivityPolicies for Flux CD API groups
+# Resources: HelmChart, HelmRepository, HelmRelease, GitRepository, Kustomization
+
+---
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: flux-helmcharts
+spec:
+  resource:
+    apiGroup: source.toolkit.fluxcd.io
+    kind: HelmChart
+  auditRules:
+    # Only surface human-initiated changes
+    - match: "audit.verb == 'create' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} created Helm chart {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} removed Helm chart {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch'] && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} updated Helm chart {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "has(audit.objectRef.name) && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} modified Helm chart {{ link(audit.objectRef.name, audit.objectRef) }}"
+  eventRules:
+    # Chart lifecycle
+    - match: "event.reason == 'ArtifactUpToDate'"
+      summary: "The Helm chart {{ link(event.regarding.name, event.regarding) }} is up to date"
+    - match: "event.reason == 'NewArtifact'"
+      summary: "The Helm chart {{ link(event.regarding.name, event.regarding) }} has a new version available"
+    - match: "event.reason == 'ChartPullSucceeded'"
+      summary: "The Helm chart {{ link(event.regarding.name, event.regarding) }} was pulled successfully"
+    - match: "event.reason == 'ChartPullFailed'"
+      summary: "The Helm chart {{ link(event.regarding.name, event.regarding) }} failed to pull - check repository access and chart name"
+    - match: "event.reason == 'ChartPackageSucceeded'"
+      summary: "The Helm chart {{ link(event.regarding.name, event.regarding) }} was packaged successfully"
+    # Fallback
+    - match: "event.type == 'Warning'"
+      summary: "The Helm chart {{ link(event.regarding.name, event.regarding) }} has a warning: {{ event.message }}"
+    - match: "true"
+      summary: "The Helm chart {{ link(event.regarding.name, event.regarding) }} {{ event.reason }}"
+
+---
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: flux-helmrepositories
+spec:
+  resource:
+    apiGroup: source.toolkit.fluxcd.io
+    kind: HelmRepository
+  auditRules:
+    # Only surface human-initiated changes
+    - match: "audit.verb == 'create' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} added Helm repository {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} removed Helm repository {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch'] && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} updated Helm repository {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "has(audit.objectRef.name) && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} modified Helm repository {{ link(audit.objectRef.name, audit.objectRef) }}"
+  eventRules:
+    # Repository lifecycle
+    - match: "event.reason == 'ArtifactUpToDate'"
+      summary: "The Helm repository {{ link(event.regarding.name, event.regarding) }} index is up to date"
+    - match: "event.reason == 'NewArtifact'"
+      summary: "The Helm repository {{ link(event.regarding.name, event.regarding) }} has new charts available"
+    - match: "event.reason == 'IndexFetchSucceeded'"
+      summary: "The Helm repository {{ link(event.regarding.name, event.regarding) }} index was fetched"
+    - match: "event.reason == 'IndexFetchFailed'"
+      summary: "The Helm repository {{ link(event.regarding.name, event.regarding) }} index failed to fetch - check URL and credentials"
+    # Fallback
+    - match: "event.type == 'Warning'"
+      summary: "The Helm repository {{ link(event.regarding.name, event.regarding) }} has a warning: {{ event.message }}"
+    - match: "true"
+      summary: "The Helm repository {{ link(event.regarding.name, event.regarding) }} {{ event.reason }}"
+
+---
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: flux-helmreleases
+spec:
+  resource:
+    apiGroup: helm.toolkit.fluxcd.io
+    kind: HelmRelease
+  auditRules:
+    # Only surface human-initiated changes
+    - match: "audit.verb == 'create' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} created Helm release {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} removed Helm release {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch'] && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} updated Helm release {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "has(audit.objectRef.name) && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} modified Helm release {{ link(audit.objectRef.name, audit.objectRef) }}"
+  eventRules:
+    # Release lifecycle
+    - match: "event.reason == 'InstallSucceeded'"
+      summary: "The Helm release {{ link(event.regarding.name, event.regarding) }} was installed successfully"
+    - match: "event.reason == 'UpgradeSucceeded'"
+      summary: "The Helm release {{ link(event.regarding.name, event.regarding) }} was upgraded successfully"
+    - match: "event.reason == 'UninstallSucceeded'"
+      summary: "The Helm release {{ link(event.regarding.name, event.regarding) }} was uninstalled"
+    - match: "event.reason == 'ReconciliationSucceeded'"
+      summary: "The Helm release {{ link(event.regarding.name, event.regarding) }} reconciled successfully"
+    # Failures
+    - match: "event.reason == 'InstallFailed'"
+      summary: "The Helm release {{ link(event.regarding.name, event.regarding) }} installation failed - check values and chart compatibility"
+    - match: "event.reason == 'UpgradeFailed'"
+      summary: "The Helm release {{ link(event.regarding.name, event.regarding) }} upgrade failed - check values and chart compatibility"
+    - match: "event.reason == 'ReconciliationFailed'"
+      summary: "The Helm release {{ link(event.regarding.name, event.regarding) }} failed to reconcile"
+    - match: "event.reason == 'DependencyNotReady'"
+      summary: "The Helm release {{ link(event.regarding.name, event.regarding) }} is waiting for dependencies"
+    # Fallback
+    - match: "event.type == 'Warning'"
+      summary: "The Helm release {{ link(event.regarding.name, event.regarding) }} has a warning: {{ event.message }}"
+    - match: "true"
+      summary: "The Helm release {{ link(event.regarding.name, event.regarding) }} {{ event.reason }}"
+
+---
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: flux-gitrepositories
+spec:
+  resource:
+    apiGroup: source.toolkit.fluxcd.io
+    kind: GitRepository
+  auditRules:
+    # Only surface human-initiated changes
+    - match: "audit.verb == 'create' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} added Git repository {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} removed Git repository {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch'] && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} updated Git repository {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "has(audit.objectRef.name) && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} modified Git repository {{ link(audit.objectRef.name, audit.objectRef) }}"
+  eventRules:
+    # Repository lifecycle
+    - match: "event.reason == 'ArtifactUpToDate'"
+      summary: "The Git repository {{ link(event.regarding.name, event.regarding) }} is up to date"
+    - match: "event.reason == 'NewArtifact'"
+      summary: "The Git repository {{ link(event.regarding.name, event.regarding) }} has new commits"
+    - match: "event.reason == 'GitCloneSucceeded'"
+      summary: "The Git repository {{ link(event.regarding.name, event.regarding) }} was cloned successfully"
+    - match: "event.reason == 'GitCloneFailed'"
+      summary: "The Git repository {{ link(event.regarding.name, event.regarding) }} failed to clone - check URL and credentials"
+    # Fallback
+    - match: "event.type == 'Warning'"
+      summary: "The Git repository {{ link(event.regarding.name, event.regarding) }} has a warning: {{ event.message }}"
+    - match: "true"
+      summary: "The Git repository {{ link(event.regarding.name, event.regarding) }} {{ event.reason }}"
+
+---
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: flux-kustomizations
+spec:
+  resource:
+    apiGroup: kustomize.toolkit.fluxcd.io
+    kind: Kustomization
+  auditRules:
+    # Only surface human-initiated changes
+    - match: "audit.verb == 'create' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} created Flux kustomization {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} removed Flux kustomization {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch'] && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} updated Flux kustomization {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "has(audit.objectRef.name) && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} modified Flux kustomization {{ link(audit.objectRef.name, audit.objectRef) }}"
+  eventRules:
+    # Kustomization lifecycle
+    - match: "event.reason == 'ReconciliationSucceeded'"
+      summary: "The Flux kustomization {{ link(event.regarding.name, event.regarding) }} applied successfully"
+    - match: "event.reason == 'ReconciliationFailed'"
+      summary: "The Flux kustomization {{ link(event.regarding.name, event.regarding) }} failed to apply - check manifests for errors"
+    - match: "event.reason == 'DependencyNotReady'"
+      summary: "The Flux kustomization {{ link(event.regarding.name, event.regarding) }} is waiting for dependencies"
+    - match: "event.reason == 'PruneFailed'"
+      summary: "The Flux kustomization {{ link(event.regarding.name, event.regarding) }} failed to prune old resources"
+    - match: "event.reason == 'HealthCheckFailed'"
+      summary: "The Flux kustomization {{ link(event.regarding.name, event.regarding) }} health check failed - deployed resources may be unhealthy"
+    # Fallback
+    - match: "event.type == 'Warning'"
+      summary: "The Flux kustomization {{ link(event.regarding.name, event.regarding) }} has a warning: {{ event.message }}"
+    - match: "true"
+      summary: "The Flux kustomization {{ link(event.regarding.name, event.regarding) }} {{ event.reason }}"

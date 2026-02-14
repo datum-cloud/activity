@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
@@ -13,6 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"go.miloapis.com/activity/internal/activityprocessor"
+	"go.miloapis.com/activity/internal/processor"
 )
 
 // ProcessorOptions contains configuration for the activity processor.
@@ -26,6 +28,10 @@ type ProcessorOptions struct {
 	NATSStreamName string
 	ConsumerName   string
 
+	// NATS event stream configuration
+	NATSEventStream   string
+	NATSEventConsumer string
+
 	// Output NATS stream
 	OutputStreamName    string
 	OutputSubjectPrefix string
@@ -37,9 +43,10 @@ type ProcessorOptions struct {
 	NATSTLSCAFile   string
 
 	// Processing configuration
-	Workers   int
-	BatchSize int
-	AckWait   time.Duration
+	Workers      int
+	BatchSize    int
+	AckWait      time.Duration
+	ResyncPeriod int
 
 	// Health probe configuration
 	HealthProbeAddr string
@@ -51,11 +58,14 @@ func NewProcessorOptions() *ProcessorOptions {
 		NATSURL:             "nats://localhost:4222",
 		NATSStreamName:      "AUDIT_EVENTS",
 		ConsumerName:        "activity-processor@activity.miloapis.com",
+		NATSEventStream:     "EVENTS",
+		NATSEventConsumer:   "activity-event-processor",
 		OutputStreamName:    "ACTIVITIES",
 		OutputSubjectPrefix: "activities",
 		Workers:             4,
 		BatchSize:           100,
 		AckWait:             30 * time.Second,
+		ResyncPeriod:        30,
 		HealthProbeAddr:     ":8081",
 	}
 }
@@ -74,7 +84,11 @@ func (o *ProcessorOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.NATSStreamName, "nats-stream", o.NATSStreamName,
 		"NATS JetStream stream name for audit events.")
 	fs.StringVar(&o.ConsumerName, "consumer-name", o.ConsumerName,
-		"Durable consumer name for the processor.")
+		"Durable consumer name for the audit log processor.")
+	fs.StringVar(&o.NATSEventStream, "nats-event-stream", o.NATSEventStream,
+		"NATS JetStream stream name for Kubernetes events.")
+	fs.StringVar(&o.NATSEventConsumer, "nats-event-consumer", o.NATSEventConsumer,
+		"Durable consumer name for the event processor.")
 	fs.StringVar(&o.OutputStreamName, "output-stream", o.OutputStreamName,
 		"NATS JetStream stream name for generated activities.")
 	fs.StringVar(&o.OutputSubjectPrefix, "output-subject-prefix", o.OutputSubjectPrefix,
@@ -97,6 +111,8 @@ func (o *ProcessorOptions) AddFlags(fs *pflag.FlagSet) {
 		"Number of messages to fetch per batch.")
 	fs.DurationVar(&o.AckWait, "ack-wait", o.AckWait,
 		"Time to wait before message redelivery.")
+	fs.IntVar(&o.ResyncPeriod, "resync-period", o.ResyncPeriod,
+		"Period in seconds between full re-syncs of the ActivityPolicy cache.")
 
 	// Health probe flags
 	fs.StringVar(&o.HealthProbeAddr, "health-probe-addr", o.HealthProbeAddr,
@@ -110,11 +126,12 @@ func NewProcessorCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "processor",
 		Short: "Run the activity processor",
-		Long: `Run the activity processor that consumes audit events from NATS,
+		Long: `Run the activity processor that consumes audit events and Kubernetes events from NATS,
 evaluates ActivityPolicy rules, and generates human-readable Activity resources.
 
 The processor:
-- Connects to NATS JetStream to consume Kubernetes audit events
+- Connects to NATS JetStream to consume Kubernetes audit events (AUDIT_EVENTS stream)
+- Connects to NATS JetStream to consume Kubernetes events (EVENTS stream)
 - Watches ActivityPolicy resources to know which rules to apply
 - Evaluates CEL expressions to match and transform events
 - Publishes activities to NATS for downstream consumption (Vector writes to ClickHouse)`,
@@ -148,42 +165,54 @@ func RunProcessor(options *ProcessorOptions) error {
 		return fmt.Errorf("failed to build kubeconfig: %w", err)
 	}
 
-	// Create processor
-	processorConfig := activityprocessor.Config{
-		NATSURL:             options.NATSURL,
-		NATSStreamName:      options.NATSStreamName,
-		ConsumerName:        options.ConsumerName,
-		OutputStreamName:    options.OutputStreamName,
-		OutputSubjectPrefix: options.OutputSubjectPrefix,
+	// Create dynamic client for watching ActivityPolicy via the informer factory.
+	dynamicClient, err := dynamic.NewForConfig(restConfig)
+	if err != nil {
+		return fmt.Errorf("failed to create dynamic client: %w", err)
+	}
+
+	// Build the shared policy cache and adapters that satisfy the processor interfaces.
+	// The PolicyCacheAdapter decouples the internal/processor package from
+	// internal/activityprocessor so that there is no import cycle.
+	policyCache := activityprocessor.NewPolicyCache()
+	policyAdapter := activityprocessor.NewPolicyCacheAdapter(policyCache)
+
+	// Build the new processor config that drives both the audit and event sub-processors.
+	// The policyAdapter implements all three interfaces: EventPolicyLookup, AuditPolicyLookup, and PolicyUpdater.
+	processorConfig := processor.Config{
+		DynamicClient:       dynamicClient,
+		EventPolicyLookup:   policyAdapter,
+		AuditPolicyLookup:   policyAdapter,
+		PolicyUpdater:       policyAdapter,
+		NATSInputURL:        options.NATSURL,
+		NATSOutputURL:       options.NATSURL,
+		NATSAuditStreamName: options.NATSStreamName,
+		NATSAuditConsumer:   options.ConsumerName,
+		NATSEventStreamName: options.NATSEventStream,
+		NATSEventConsumer:   options.NATSEventConsumer,
+		NATSActivityPrefix:  options.OutputSubjectPrefix,
 		NATSTLSEnabled:      options.NATSTLSEnabled,
 		NATSTLSCertFile:     options.NATSTLSCertFile,
 		NATSTLSKeyFile:      options.NATSTLSKeyFile,
 		NATSTLSCAFile:       options.NATSTLSCAFile,
 		Workers:             options.Workers,
 		BatchSize:           options.BatchSize,
-		AckWait:             options.AckWait,
-		MaxDeliver:          5,
+		ResyncPeriod:        options.ResyncPeriod,
 		HealthProbeAddr:     options.HealthProbeAddr,
 	}
 
-	proc, err := activityprocessor.New(processorConfig, restConfig)
+	proc, err := processor.New(processorConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create processor: %w", err)
 	}
 
-	// Use controller-runtime's signal handler for graceful shutdown
+	// Use controller-runtime's signal handler for graceful shutdown.
 	ctx := ctrl.SetupSignalHandler()
 
-	// Start the processor
-	if err := proc.Start(ctx); err != nil {
-		return fmt.Errorf("failed to start processor: %w", err)
+	// Run blocks until the context is cancelled or a lame-duck shutdown is triggered.
+	if err := proc.Run(ctx); err != nil {
+		return fmt.Errorf("processor exited with error: %w", err)
 	}
-
-	// Wait for shutdown signal
-	<-ctx.Done()
-
-	// Graceful shutdown
-	proc.Stop()
 
 	klog.Info("Activity processor shutdown complete")
 	return nil

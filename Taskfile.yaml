@@ -5,6 +5,8 @@ vars:
   # Container image configuration
   ACTIVITY_IMAGE_NAME: "ghcr.io/datum-cloud/activity"
   ACTIVITY_IMAGE_TAG: "dev"
+  ACTIVITY_UI_IMAGE_NAME: "ghcr.io/datum-cloud/activity-ui"
+  ACTIVITY_UI_IMAGE_TAG: "dev"
   TEST_INFRA_CLUSTER_NAME: "test-infra"
   # Test infra repository configuration - can be overridden with environment variable
   TEST_INFRA_REPO_REF: 'v0.6.0'
@@ -132,6 +134,28 @@ tasks:
         kind load docker-image "{{.ACTIVITY_IMAGE_NAME}}:{{.ACTIVITY_IMAGE_TAG}}" --name "{{.TEST_INFRA_CLUSTER_NAME}}"
         echo "Successfully loaded image into kind cluster"
 
+  dev:build-ui:
+    desc: Build the Activity UI container image for development
+    silent: true
+    cmds:
+      - |
+        set -e
+        echo "Building Activity UI container image: {{.ACTIVITY_UI_IMAGE_NAME}}:{{.ACTIVITY_UI_IMAGE_TAG}}"
+        docker build \
+          -t "{{.ACTIVITY_UI_IMAGE_NAME}}:{{.ACTIVITY_UI_IMAGE_TAG}}" \
+          ui/
+        echo "Successfully built {{.ACTIVITY_UI_IMAGE_NAME}}:{{.ACTIVITY_UI_IMAGE_TAG}}"
+
+  dev:load-ui:
+    desc: Load the Activity UI container image into the kind cluster
+    silent: true
+    cmds:
+      - |
+        set -e
+        echo "Loading image {{.ACTIVITY_UI_IMAGE_NAME}}:{{.ACTIVITY_UI_IMAGE_TAG}} into kind cluster '{{.TEST_INFRA_CLUSTER_NAME}}'..."
+        kind load docker-image "{{.ACTIVITY_UI_IMAGE_NAME}}:{{.ACTIVITY_UI_IMAGE_TAG}}" --name "{{.TEST_INFRA_CLUSTER_NAME}}"
+        echo "Successfully loaded UI image into kind cluster"
+
   # ============================================================
   # Lightweight Dev Environment (single-replica, minimal resources)
   # ============================================================
@@ -144,6 +168,8 @@ tasks:
       - task: dev:install-dependencies-minimal
       - task: dev:build
       - task: dev:load
+      - task: dev:build-ui
+      - task: dev:load-ui
       - task: dev:deploy
       - task: observability:deploy
 
@@ -269,6 +295,8 @@ tasks:
     deps:
       - dev:build
       - dev:load
+      - dev:build-ui
+      - dev:load-ui
     cmds:
       - |
         set -e
@@ -278,12 +306,16 @@ tasks:
         task test-infra:kubectl -- rollout restart -n activity-system deployment/activity-apiserver || echo "⚠️  Deployment not found, run 'task dev:deploy' first"
         task test-infra:kubectl -- rollout restart -n activity-system deployment/activity-processor || echo "⚠️  activity-processor deployment not found"
         task test-infra:kubectl -- rollout restart -n activity-system deployment/activity-controller-manager || echo "⚠️  activity-controller-manager deployment not found"
+        task test-infra:kubectl -- rollout restart -n activity-system deployment/activity-ui || echo "⚠️  UI deployment not found"
+        task test-infra:kubectl -- rollout restart -n activity-system deployment/k8s-event-exporter || echo "⚠️  k8s-event-exporter deployment not found"
 
         # Wait for rollouts to complete
         echo "Waiting for rollouts to complete..."
         task test-infra:kubectl -- rollout status -n activity-system deployment/activity-apiserver --timeout=120s || true
         task test-infra:kubectl -- rollout status -n activity-system deployment/activity-processor --timeout=120s || true
         task test-infra:kubectl -- rollout status -n activity-system deployment/activity-controller-manager --timeout=120s || true
+        task test-infra:kubectl -- rollout status -n activity-system deployment/activity-ui --timeout=120s || true
+        task test-infra:kubectl -- rollout status -n activity-system deployment/k8s-event-exporter --timeout=120s || true
 
         echo "✅ Redeployment complete!"
         echo "Check logs with: task test-infra:kubectl -- logs -l app=activity-apiserver -n activity-system -f"
@@ -301,6 +333,8 @@ tasks:
       - task: test:install-dependencies
       - task: dev:build
       - task: dev:load
+      - task: dev:build-ui
+      - task: dev:load-ui
       - task: test:deploy
       - task: observability:deploy
 
@@ -474,6 +508,8 @@ tasks:
     deps:
       - dev:build
       - dev:load
+      - dev:build-ui
+      - dev:load-ui
     cmds:
       - |
         set -e
@@ -483,12 +519,16 @@ tasks:
         task test-infra:kubectl -- rollout restart -n activity-system deployment/activity-apiserver || echo "⚠️  Deployment not found, run 'task test:deploy' first"
         task test-infra:kubectl -- rollout restart -n activity-system deployment/activity-processor || echo "⚠️  activity-processor deployment not found"
         task test-infra:kubectl -- rollout restart -n activity-system deployment/activity-controller-manager || echo "⚠️  activity-controller-manager deployment not found"
+        task test-infra:kubectl -- rollout restart -n activity-system deployment/activity-ui || echo "⚠️  UI deployment not found"
+        task test-infra:kubectl -- rollout restart -n activity-system deployment/k8s-event-exporter || echo "⚠️  k8s-event-exporter deployment not found"
 
         # Wait for rollouts to complete
         echo "Waiting for rollouts to complete..."
         task test-infra:kubectl -- rollout status -n activity-system deployment/activity-apiserver --timeout=120s || true
         task test-infra:kubectl -- rollout status -n activity-system deployment/activity-processor --timeout=120s || true
         task test-infra:kubectl -- rollout status -n activity-system deployment/activity-controller-manager --timeout=120s || true
+        task test-infra:kubectl -- rollout status -n activity-system deployment/activity-ui --timeout=120s || true
+        task test-infra:kubectl -- rollout status -n activity-system deployment/k8s-event-exporter --timeout=120s || true
 
         echo "✅ Redeployment complete!"
         echo "Check logs with: task test-infra:kubectl -- logs -l app=activity-apiserver -n activity-system -f"

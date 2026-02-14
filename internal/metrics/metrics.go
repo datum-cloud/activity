@@ -116,6 +116,132 @@ var (
 			Buckets: []float64{60, 300, 900, 3600, 21600, 86400, 259200, 604800, 1209600, 2592000},
 		},
 	)
+
+	// NATS connection metrics used by the processor.
+
+	// NATSConnectionStatus tracks the connected/disconnected state per named connection.
+	NATSConnectionStatus = metrics.NewGaugeVec(
+		&metrics.GaugeOpts{
+			Namespace:      namespace,
+			Name:           "nats_connection_status",
+			Help:           "NATS connection status (1 = connected, 0 = disconnected)",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"connection"},
+	)
+
+	// NATSDisconnectsTotal counts NATS disconnection events per connection.
+	NATSDisconnectsTotal = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Namespace:      namespace,
+			Name:           "nats_disconnects_total",
+			Help:           "Total number of NATS disconnection events",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"connection"},
+	)
+
+	// NATSReconnectsTotal counts NATS reconnection events per connection.
+	NATSReconnectsTotal = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Namespace:      namespace,
+			Name:           "nats_reconnects_total",
+			Help:           "Total number of NATS reconnection events",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"connection"},
+	)
+
+	// NATSErrorsTotal counts NATS async errors per connection.
+	NATSErrorsTotal = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Namespace:      namespace,
+			Name:           "nats_errors_total",
+			Help:           "Total number of NATS async errors",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"connection"},
+	)
+
+	// NATSLameDuckEventsTotal counts NATS lame-duck mode events per connection.
+	NATSLameDuckEventsTotal = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Namespace:      namespace,
+			Name:           "nats_lame_duck_events_total",
+			Help:           "Total number of NATS lame-duck mode events",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"connection"},
+	)
+
+	// Events API metrics (NFR-5).
+
+	// EventsOperationsTotal counts Events API operations by verb and status.
+	EventsOperationsTotal = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Namespace:      namespace,
+			Name:           "events_operations_total",
+			Help:           "Total number of Events API operations",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"verb", "status"},
+	)
+
+	// EventsOperationDuration tracks the latency of Events API operations by verb.
+	EventsOperationDuration = metrics.NewHistogramVec(
+		&metrics.HistogramOpts{
+			Namespace:      namespace,
+			Name:           "events_operation_duration_seconds",
+			Help:           "Duration of Events API operations in seconds",
+			StabilityLevel: metrics.ALPHA,
+			Buckets:        metrics.ExponentialBuckets(0.001, 2, 14),
+		},
+		[]string{"verb"},
+	)
+
+	// EventsWatchConnections tracks active watch connections per namespace.
+	EventsWatchConnections = metrics.NewGaugeVec(
+		&metrics.GaugeOpts{
+			Namespace:      namespace,
+			Name:           "events_watch_connections",
+			Help:           "Number of active Events watch connections",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"namespace"},
+	)
+
+	// EventsClickHouseErrorsTotal counts ClickHouse errors per operation for the Events backend.
+	EventsClickHouseErrorsTotal = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Namespace:      namespace,
+			Name:           "events_clickhouse_errors_total",
+			Help:           "Total number of ClickHouse errors for Events operations",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"operation"},
+	)
+
+	// EventsNATSMessagesPublished counts NATS messages published per namespace.
+	EventsNATSMessagesPublished = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Namespace:      namespace,
+			Name:           "events_nats_messages_published_total",
+			Help:           "Total number of Events published to NATS per namespace",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"namespace"},
+	)
+
+	// EventsNATSMessagesReceived counts NATS messages received per namespace.
+	EventsNATSMessagesReceived = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Namespace:      namespace,
+			Name:           "events_nats_messages_received_total",
+			Help:           "Total number of Events received from NATS per namespace",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"namespace"},
+	)
 )
 
 // init registers all custom metrics with the legacy registry
@@ -131,5 +257,18 @@ func init() {
 		AuditLogQueriesByScope,
 		AuditLogQueryLookbackDuration,
 		AuditLogQueryTimeRange,
+		// NATS connection metrics
+		NATSConnectionStatus,
+		NATSDisconnectsTotal,
+		NATSReconnectsTotal,
+		NATSErrorsTotal,
+		NATSLameDuckEventsTotal,
+		// Events API metrics
+		EventsOperationsTotal,
+		EventsOperationDuration,
+		EventsWatchConnections,
+		EventsClickHouseErrorsTotal,
+		EventsNATSMessagesPublished,
+		EventsNATSMessagesReceived,
 	)
 }

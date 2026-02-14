@@ -74,6 +74,8 @@ spec:
         - --nats-url=$(NATS_URL)
         - --nats-stream=$(NATS_STREAM)
         - --consumer-name=$(CONSUMER_NAME)
+        - --nats-event-stream=$(NATS_EVENT_STREAM)
+        - --nats-event-consumer=$(NATS_EVENT_CONSUMER)
         - --output-stream=$(OUTPUT_STREAM)
         - --output-subject-prefix=$(OUTPUT_SUBJECT_PREFIX)
         - --workers=$(WORKERS)
@@ -86,6 +88,10 @@ spec:
           value: "AUDIT_EVENTS"
         - name: CONSUMER_NAME
           value: "activity-processor"
+        - name: NATS_EVENT_STREAM
+          value: "EVENTS"
+        - name: NATS_EVENT_CONSUMER
+          value: "activity-event-processor"
         - name: OUTPUT_STREAM
           value: "ACTIVITIES"
         - name: OUTPUT_SUBJECT_PREFIX

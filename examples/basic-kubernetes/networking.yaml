@@ -11,11 +11,33 @@ spec:
     apiGroup: networking.k8s.io
     kind: Ingress
   auditRules:
-    - match: "audit.verb == 'create'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} created ingress {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb == 'delete'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed ingress {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb in ['update', 'patch']"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated ingress {{ link(audit.objectRef.name, audit.objectRef) }}"
+    # Only surface human-initiated changes
+    - match: "audit.verb == 'create' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} created ingress {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} removed ingress {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch'] && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} updated ingress {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "has(audit.objectRef.name) && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} modified ingress {{ link(audit.objectRef.name, audit.objectRef) }}"
+  eventRules:
+    # Ingress controller events
+    - match: "event.reason == 'Sync'"
+      summary: "The ingress {{ link(event.regarding.name, event.regarding) }} configuration was synced"
+    - match: "event.reason == 'AddedOrUpdated'"
+      summary: "The ingress {{ link(event.regarding.name, event.regarding) }} is now active"
+    # TLS certificate events
+    - match: "event.reason == 'CertificateIssued'"
+      summary: "The ingress {{ link(event.regarding.name, event.regarding) }} TLS certificate was issued"
+    - match: "event.reason == 'CertificateRenewed'"
+      summary: "The ingress {{ link(event.regarding.name, event.regarding) }} TLS certificate was renewed"
+    # Failures with remediation guidance
+    - match: "event.reason == 'SyncError'"
+      summary: "The ingress {{ link(event.regarding.name, event.regarding) }} failed to sync - check ingress configuration for errors"
+    - match: "event.reason == 'BadConfig'"
+      summary: "The ingress {{ link(event.regarding.name, event.regarding) }} has invalid configuration - review the ingress spec"
+    # Fallback
+    - match: "event.type == 'Warning'"
+      summary: "The ingress {{ link(event.regarding.name, event.regarding) }} has a warning: {{ event.message }}"
     - match: "true"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified ingress {{ link(audit.objectRef.name, audit.objectRef) }}"
+      summary: "The ingress {{ link(event.regarding.name, event.regarding) }} {{ event.reason }}"

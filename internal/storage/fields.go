@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	corev1 "k8s.io/api/core/v1"
 )
 
 // AuditLogFacetFields defines the supported fields for audit log facet queries.
@@ -137,5 +139,106 @@ func init() {
 		if _, ok := ActivityFacetFields[field]; !ok {
 			panic(fmt.Sprintf("activity facet column mapping %q has no field definition", field))
 		}
+	}
+
+	// Validate event facet fields
+	for field := range EventFacetFields {
+		if _, ok := eventFacetColumnMapping[field]; !ok {
+			panic(fmt.Sprintf("missing ClickHouse column mapping for event facet field %q", field))
+		}
+	}
+
+	for field := range eventFacetColumnMapping {
+		if _, ok := EventFacetFields[field]; !ok {
+			panic(fmt.Sprintf("event facet column mapping %q has no field definition", field))
+		}
+	}
+}
+
+// EventFacetFields defines the supported fields for Kubernetes Event facet queries.
+// Keys are API field paths (as used in queries), values are human-readable descriptions.
+var EventFacetFields = map[string]string{
+	"involvedObject.kind":      "The kind of resource the event is about (Pod, Deployment, etc.)",
+	"involvedObject.namespace": "The namespace of the involved object",
+	"reason":                   "The event reason (Scheduled, Pulled, Created, etc.)",
+	"type":                     "The event type (Normal, Warning)",
+	"source.component":         "The component that generated the event (kubelet, scheduler, etc.)",
+	"namespace":                "The namespace of the event itself",
+}
+
+// IsValidEventFacetField checks if a field is supported for event faceting.
+func IsValidEventFacetField(field string) bool {
+	_, ok := EventFacetFields[field]
+	return ok
+}
+
+// EventFacetFieldNames returns a sorted list of supported event facet field names.
+func EventFacetFieldNames() []string {
+	return sortedKeys(EventFacetFields)
+}
+
+// eventFacetColumnMapping maps API field paths to ClickHouse column names for events.
+var eventFacetColumnMapping = map[string]string{
+	"involvedObject.kind":      "involved_kind",
+	"involvedObject.namespace": "involved_namespace",
+	"reason":                   "reason",
+	"type":                     "type",
+	"source.component":         "source_component",
+	"namespace":                "namespace",
+}
+
+// GetEventFacetColumn returns the ClickHouse column name for an event facet field.
+// Returns an error if the field is not supported.
+func GetEventFacetColumn(field string) (string, error) {
+	col, ok := eventFacetColumnMapping[field]
+	if !ok {
+		return "", fmt.Errorf("unsupported event facet field: %s", field)
+	}
+	return col, nil
+}
+
+// GetEventFacetFieldNames returns a slice of supported event facet field names.
+// Useful for error messages showing valid options.
+func GetEventFacetFieldNames() []string {
+	names := make([]string, 0, len(EventFacetFields))
+	for name := range EventFacetFields {
+		names = append(names, name)
+	}
+	return names
+}
+
+// GetEventFieldValue extracts a field value from a Kubernetes Event object
+// given a ClickHouse column name. This is the shared implementation used by
+// both the watch and registry layers to apply field-selector filters in memory.
+func GetEventFieldValue(event *corev1.Event, column string) string {
+	switch column {
+	case "namespace":
+		return event.Namespace
+	case "name":
+		return event.Name
+	case "uid":
+		return string(event.UID)
+	case "involved_api_version":
+		return event.InvolvedObject.APIVersion
+	case "involved_kind":
+		return event.InvolvedObject.Kind
+	case "involved_namespace":
+		return event.InvolvedObject.Namespace
+	case "involved_name":
+		return event.InvolvedObject.Name
+	case "involved_uid":
+		return string(event.InvolvedObject.UID)
+	case "involved_field_path":
+		return event.InvolvedObject.FieldPath
+	case "reason":
+		return event.Reason
+	case "type":
+		return event.Type
+	case "source_component":
+		return event.Source.Component
+	case "source_host":
+		return event.Source.Host
+	default:
+		return ""
 	}
 }

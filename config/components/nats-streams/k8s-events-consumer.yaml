@@ -1,0 +1,36 @@
+---
+apiVersion: jetstream.nats.io/v1beta2
+kind: Consumer
+metadata:
+  name: k8s-events-clickhouse
+  namespace: nats-system
+spec:
+  # Link to the K8S_EVENTS stream
+  streamName: K8S_EVENTS
+
+  # Durable consumer name
+  durableName: k8s-events-clickhouse
+
+  # Delivery policy: deliver all messages (including historical)
+  deliverPolicy: all
+
+  # Ack policy: explicit acknowledgments required
+  ackPolicy: explicit
+
+  # Replay policy: instant (process as fast as possible)
+  replayPolicy: instant
+
+  # Filter subject: all Kubernetes events
+  filterSubject: events.k8s.>
+
+  # Max delivery attempts: unlimited (-1)
+  maxDeliver: -1
+
+  # Max ack pending: allow 10000 unacknowledged messages
+  maxAckPending: 10000
+
+  # Ack wait: 60 seconds before redelivery
+  ackWait: 60s
+
+  # PULL-based consumer (no deliverSubject)
+  # Vector will pull messages directly using JetStream pull consumer protocol

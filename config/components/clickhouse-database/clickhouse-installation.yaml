@@ -127,7 +127,7 @@ spec:
         spec:
           containers:
             - name: clickhouse
-              image: clickhouse/clickhouse-server:latest
+              image: clickhouse/clickhouse-server:26.1-alpine
               # Inject S3 credentials from S3-compatible storage
               envFrom:
                 - configMapRef:

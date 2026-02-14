@@ -11,18 +11,57 @@ spec:
     apiGroup: ""
     kind: Pod
   auditRules:
-    - match: "audit.verb == 'create'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} started {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb == 'delete'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} stopped pod {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb in ['update', 'patch'] && audit.objectRef.subresource == 'status'"
-      summary: "{{ link(audit.objectRef.name, audit.objectRef) }} status changed"
-    - match: "audit.verb == 'create' && audit.objectRef.subresource == 'eviction'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} evicted {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb in ['update', 'patch']"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated {{ link(audit.objectRef.name, audit.objectRef) }}"
+    # Only surface human-initiated changes (filter out system actors)
+    - match: "audit.verb == 'create' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} started {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} stopped pod {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'create' && audit.objectRef.subresource == 'eviction' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} evicted {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch'] && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} updated {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "has(audit.objectRef.name) && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} modified pod {{ link(audit.objectRef.name, audit.objectRef) }}"
+  eventRules:
+    # Pod scheduling
+    - match: "event.reason == 'Scheduled'"
+      summary: "The pod {{ link(event.regarding.name, event.regarding) }} was scheduled to a node"
+    - match: "event.reason == 'FailedScheduling'"
+      summary: "The pod {{ link(event.regarding.name, event.regarding) }} could not find a node to run on - check if there's enough capacity or if node selectors are too restrictive"
+    # Container image operations
+    - match: "event.reason == 'Pulling'"
+      summary: "The pod {{ link(event.regarding.name, event.regarding) }} is downloading its container image"
+    - match: "event.reason == 'Pulled'"
+      summary: "The pod {{ link(event.regarding.name, event.regarding) }}'s container image is ready"
+    # Container lifecycle
+    - match: "event.reason == 'Created'"
+      summary: "The pod {{ link(event.regarding.name, event.regarding) }}'s container was created"
+    - match: "event.reason == 'Started'"
+      summary: "The pod {{ link(event.regarding.name, event.regarding) }} is now running"
+    - match: "event.reason == 'Killing'"
+      summary: "The pod {{ link(event.regarding.name, event.regarding) }} is shutting down"
+    # Warning events - health and stability issues with remediation guidance
+    - match: "event.reason == 'BackOff'"
+      summary: "The pod {{ link(event.regarding.name, event.regarding) }} keeps crashing and restarting - check the logs to see what's going wrong"
+    - match: "event.reason == 'Unhealthy'"
+      summary: "The pod {{ link(event.regarding.name, event.regarding) }} is failing health checks - verify the app is responding correctly on its health endpoint"
+    - match: "event.reason == 'FailedMount'"
+      summary: "The pod {{ link(event.regarding.name, event.regarding) }} could not mount storage - check if the volume exists and has correct permissions"
+    - match: "event.reason == 'FailedAttachVolume'"
+      summary: "The pod {{ link(event.regarding.name, event.regarding) }} could not attach storage - the volume may be in use by another pod or node"
+    - match: "event.reason == 'OOMKilled'"
+      summary: "The pod {{ link(event.regarding.name, event.regarding) }} ran out of memory - consider increasing the memory limit or optimizing the application"
+    - match: "event.reason == 'CrashLoopBackOff'"
+      summary: "The pod {{ link(event.regarding.name, event.regarding) }} is stuck in a crash loop - check the container logs for error messages"
+    - match: "event.reason == 'ImagePullBackOff'"
+      summary: "The pod {{ link(event.regarding.name, event.regarding) }} cannot download its container image - verify the image name and registry credentials"
+    - match: "event.reason == 'ErrImagePull'"
+      summary: "The pod {{ link(event.regarding.name, event.regarding) }} failed to pull its image - check if the image exists and you have access"
+    # Fallback
+    - match: "event.type == 'Warning'"
+      summary: "The pod {{ link(event.regarding.name, event.regarding) }} has a warning: {{ event.message }}"
     - match: "true"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified pod {{ link(audit.objectRef.name, audit.objectRef) }}"
+      summary: "The pod {{ link(event.regarding.name, event.regarding) }} {{ event.reason }}"
 
 ---
 apiVersion: activity.miloapis.com/v1alpha1
@@ -34,14 +73,38 @@ spec:
     apiGroup: ""
     kind: Service
   auditRules:
-    - match: "audit.verb == 'create'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} created service {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb == 'delete'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed service {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb in ['update', 'patch']"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated service {{ link(audit.objectRef.name, audit.objectRef) }}"
+    # Only surface human-initiated changes
+    - match: "audit.verb == 'create' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} created service {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} removed service {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch'] && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} updated service {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "has(audit.objectRef.name) && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} modified service {{ link(audit.objectRef.name, audit.objectRef) }}"
+  eventRules:
+    # Load balancer events
+    - match: "event.reason == 'EnsuringLoadBalancer'"
+      summary: "The service {{ link(event.regarding.name, event.regarding) }} is setting up its load balancer"
+    - match: "event.reason == 'EnsuredLoadBalancer'"
+      summary: "The service {{ link(event.regarding.name, event.regarding) }} load balancer is ready"
+    - match: "event.reason == 'UpdatedLoadBalancer'"
+      summary: "The service {{ link(event.regarding.name, event.regarding) }} load balancer was updated"
+    - match: "event.reason == 'DeletingLoadBalancer'"
+      summary: "The service {{ link(event.regarding.name, event.regarding) }} load balancer is being removed"
+    - match: "event.reason == 'DeletedLoadBalancer'"
+      summary: "The service {{ link(event.regarding.name, event.regarding) }} load balancer was removed"
+    # External IP
+    - match: "event.reason == 'IPAllocated'"
+      summary: "The service {{ link(event.regarding.name, event.regarding) }} was assigned an IP address"
+    # Failures with remediation guidance
+    - match: "event.reason == 'CreatingLoadBalancerFailed'"
+      summary: "The service {{ link(event.regarding.name, event.regarding) }} failed to create load balancer - check cloud provider quotas and permissions"
+    # Fallback
+    - match: "event.type == 'Warning'"
+      summary: "The service {{ link(event.regarding.name, event.regarding) }} has a warning: {{ event.message }}"
     - match: "true"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified service {{ link(audit.objectRef.name, audit.objectRef) }}"
+      summary: "The service {{ link(event.regarding.name, event.regarding) }} {{ event.reason }}"
 
 ---
 apiVersion: activity.miloapis.com/v1alpha1
@@ -53,14 +116,15 @@ spec:
     apiGroup: ""
     kind: ConfigMap
   auditRules:
-    - match: "audit.verb == 'create'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} created config {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb == 'delete'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed config {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb in ['update', 'patch']"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated config {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "true"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified config {{ link(audit.objectRef.name, audit.objectRef) }}"
+    # Only surface human-initiated changes
+    - match: "audit.verb == 'create' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} created config {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} removed config {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch'] && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} updated config {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "has(audit.objectRef.name) && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} modified config {{ link(audit.objectRef.name, audit.objectRef) }}"
 
 ---
 apiVersion: activity.miloapis.com/v1alpha1
@@ -72,14 +136,15 @@ spec:
     apiGroup: ""
     kind: Secret
   auditRules:
-    - match: "audit.verb == 'create'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} created secret {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb == 'delete'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed secret {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb in ['update', 'patch']"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated secret {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "true"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified secret {{ link(audit.objectRef.name, audit.objectRef) }}"
+    # Only surface human-initiated changes
+    - match: "audit.verb == 'create' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} created secret {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} removed secret {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch'] && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} updated secret {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "has(audit.objectRef.name) && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} modified secret {{ link(audit.objectRef.name, audit.objectRef) }}"
 
 ---
 apiVersion: activity.miloapis.com/v1alpha1
@@ -91,14 +156,15 @@ spec:
     apiGroup: ""
     kind: Namespace
   auditRules:
-    - match: "audit.verb == 'create'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} created namespace {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb == 'delete'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed namespace {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb in ['update', 'patch']"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated namespace {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "true"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified namespace {{ link(audit.objectRef.name, audit.objectRef) }}"
+    # Only surface human-initiated changes
+    - match: "audit.verb == 'create' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} created namespace {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} removed namespace {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch'] && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} updated namespace {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "has(audit.objectRef.name) && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} modified namespace {{ link(audit.objectRef.name, audit.objectRef) }}"
 
 ---
 apiVersion: activity.miloapis.com/v1alpha1
@@ -110,14 +176,15 @@ spec:
     apiGroup: ""
     kind: ServiceAccount
   auditRules:
-    - match: "audit.verb == 'create'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} created service account {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb == 'delete'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed service account {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb in ['update', 'patch']"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated service account {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "true"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified service account {{ link(audit.objectRef.name, audit.objectRef) }}"
+    # Only surface human-initiated changes
+    - match: "audit.verb == 'create' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} created service account {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} removed service account {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch'] && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} updated service account {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "has(audit.objectRef.name) && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} modified service account {{ link(audit.objectRef.name, audit.objectRef) }}"
 
 ---
 apiVersion: activity.miloapis.com/v1alpha1
@@ -129,14 +196,45 @@ spec:
     apiGroup: ""
     kind: PersistentVolumeClaim
   auditRules:
-    - match: "audit.verb == 'create'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} requested storage {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb == 'delete'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} released storage {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb in ['update', 'patch']"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated storage claim {{ link(audit.objectRef.name, audit.objectRef) }}"
+    # Only surface human-initiated changes
+    - match: "audit.verb == 'create' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} requested storage {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} released storage {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch'] && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} updated storage claim {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "has(audit.objectRef.name) && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} modified storage claim {{ link(audit.objectRef.name, audit.objectRef) }}"
+  eventRules:
+    # Volume provisioning
+    - match: "event.reason == 'Provisioning'"
+      summary: "The storage {{ link(event.regarding.name, event.regarding) }} request is being provisioned"
+    - match: "event.reason == 'ProvisioningSucceeded'"
+      summary: "The storage {{ link(event.regarding.name, event.regarding) }} is ready"
+    - match: "event.reason == 'ExternalProvisioning'"
+      summary: "The storage {{ link(event.regarding.name, event.regarding) }} request is waiting for external provisioning"
+    # Volume binding
+    - match: "event.reason == 'WaitForFirstConsumer'"
+      summary: "The storage {{ link(event.regarding.name, event.regarding) }} is waiting for a pod to use it"
+    - match: "event.reason == 'Bound'"
+      summary: "The storage {{ link(event.regarding.name, event.regarding) }} is now attached"
+    # Resize operations
+    - match: "event.reason == 'Resizing'"
+      summary: "The storage {{ link(event.regarding.name, event.regarding) }} is being resized"
+    - match: "event.reason == 'FileSystemResizeRequired'"
+      summary: "The storage {{ link(event.regarding.name, event.regarding) }} needs filesystem expansion"
+    - match: "event.reason == 'FileSystemResizeSuccessful'"
+      summary: "The storage {{ link(event.regarding.name, event.regarding) }} filesystem was expanded"
+    # Failures with remediation guidance
+    - match: "event.reason == 'ProvisioningFailed'"
+      summary: "The storage {{ link(event.regarding.name, event.regarding) }} provisioning failed - check storage class configuration and available capacity"
+    - match: "event.reason == 'VolumeResizeFailed'"
+      summary: "The storage {{ link(event.regarding.name, event.regarding) }} resize failed - verify the storage class supports expansion"
+    # Fallback
+    - match: "event.type == 'Warning'"
+      summary: "The storage {{ link(event.regarding.name, event.regarding) }} request has a warning: {{ event.message }}"
     - match: "true"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified storage claim {{ link(audit.objectRef.name, audit.objectRef) }}"
+      summary: "The storage {{ link(event.regarding.name, event.regarding) }} request {{ event.reason }}"
 
 ---
 apiVersion: activity.miloapis.com/v1alpha1
@@ -148,11 +246,25 @@ spec:
     apiGroup: ""
     kind: PersistentVolume
   auditRules:
-    - match: "audit.verb == 'create'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} provisioned storage {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb == 'delete'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed storage {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb in ['update', 'patch']"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated storage {{ link(audit.objectRef.name, audit.objectRef) }}"
+    # Only surface human-initiated changes
+    - match: "audit.verb == 'create' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} provisioned storage {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} removed storage {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch'] && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} updated storage {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "has(audit.objectRef.name) && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} modified storage {{ link(audit.objectRef.name, audit.objectRef) }}"
+  eventRules:
+    # Volume lifecycle
+    - match: "event.reason == 'VolumeRecycled'"
+      summary: "The volume {{ link(event.regarding.name, event.regarding) }} was recycled"
+    - match: "event.reason == 'VolumeDelete'"
+      summary: "The volume {{ link(event.regarding.name, event.regarding) }} is being deleted"
+    - match: "event.reason == 'VolumeFailedDelete'"
+      summary: "The volume {{ link(event.regarding.name, event.regarding) }} deletion failed - check if the volume is still in use or has finalizers"
+    # Fallback
+    - match: "event.type == 'Warning'"
+      summary: "The volume {{ link(event.regarding.name, event.regarding) }} has a warning: {{ event.message }}"
     - match: "true"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified storage {{ link(audit.objectRef.name, audit.objectRef) }}"
+      summary: "The volume {{ link(event.regarding.name, event.regarding) }} {{ event.reason }}"

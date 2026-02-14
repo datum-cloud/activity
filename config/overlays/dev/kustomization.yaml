@@ -20,8 +20,10 @@ components:
   - ../../components/grafana-clickhouse
   - ../../components/vector-sidecar
   - ../../components/vector-aggregator
+  - ../../components/k8s-event-exporter            # Forwards K8s events to Vector
   - ../../components/tracing
   - ../../components/observability            # ServiceMonitors, alerts, dashboards
+  - ../../components/ui                       # Activity UI
 
 # Note: The following HA components are excluded for dev environments:
 # - clickhouse-keeper       # Replaced by clickhouse-keeper-standalone (1 replica)
@@ -32,6 +34,9 @@ components:
 images:
   - name: ghcr.io/datum-cloud/activity
     newName: ghcr.io/datum-cloud/activity
+    newTag: dev
+  - name: ghcr.io/datum-cloud/activity-ui
+    newName: ghcr.io/datum-cloud/activity-ui
     newTag: dev
 
 # Patches specific to dev environment

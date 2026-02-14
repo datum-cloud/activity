@@ -1,0 +1,53 @@
+---
+apiVersion: jetstream.nats.io/v1beta2
+kind: Stream
+metadata:
+  name: k8s-events
+  namespace: nats-system
+spec:
+  # Stream name in NATS
+  name: K8S_EVENTS
+
+  # Subjects to consume - wildcard for all Kubernetes events
+  # Subject structure: events.k8s.{namespace}.{operation}
+  # Operations: created, updated, deleted
+  subjects:
+    - events.k8s.>
+
+  # Retention policy: limits-based (time + size)
+  retention: limits
+
+  # Storage: file-based for durability
+  storage: file
+
+  # Maximum age: 1 hour retention (events are ephemeral, just for watch support)
+  # This is shorter than audit events since events are primarily for real-time watches
+  maxAge: 1h
+
+  # Maximum bytes: 1GB (events are smaller than audit logs)
+  maxBytes: 1073741824  # 1 * 1024 * 1024 * 1024
+
+  # Number of replicas for high availability
+  replicas: 1  # Can be increased to 3 for production HA
+
+  # Discard policy when limits are reached
+  discard: old
+
+  # Allow direct access for queries
+  allowDirect: true
+
+  # Deduplication window - prevents duplicate messages
+  # Short window since events should be unique by UID
+  duplicateWindow: 1m
+
+  # Maximum number of consumers (watch connections)
+  maxConsumers: 100
+
+  # Maximum message size (1MB - events are typically small)
+  maxMsgSize: 1048576  # 1 * 1024 * 1024
+
+  # No message limit - rely on age and size limits
+  maxMsgs: -1
+
+  # Performance tuning
+  noAck: false  # Require acknowledgments for durability

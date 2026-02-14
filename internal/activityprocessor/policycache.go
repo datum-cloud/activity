@@ -11,6 +11,7 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	"k8s.io/klog/v2"
 
+	internalcel "go.miloapis.com/activity/internal/cel"
 	"go.miloapis.com/activity/pkg/apis/activity/v1alpha1"
 )
 
@@ -31,6 +32,14 @@ type CompiledRule struct {
 	Valid bool
 	// CompileError holds any error from compilation.
 	CompileError string
+	// linkMu serialises access to linkSink so that concurrent goroutines evaluating
+	// the same CompiledRule (shared via *CompiledPolicy in the cache) do not race
+	// on the shared link collection buffer.
+	linkMu sync.Mutex
+	// linkSink is the per-evaluation collector written to by the link() CEL function.
+	// It is reset before each summary evaluation and read after.
+	// The pointer is shared between this struct and the compiled CEL program binding.
+	linkSink *[]internalcel.Link
 }
 
 // compiledTemplate represents a single {{ expression }} in a summary template.
@@ -54,9 +63,9 @@ type CompiledPolicy struct {
 	// Resource is the plural resource name (for audit event matching).
 	Resource string
 	// AuditRules are the compiled audit rules.
-	AuditRules []CompiledRule
+	AuditRules []*CompiledRule
 	// EventRules are the compiled event rules.
-	EventRules []CompiledRule
+	EventRules []*CompiledRule
 	// ResourceVersion is the policy's resource version for cache invalidation.
 	ResourceVersion string
 	// OriginalPolicy is the original policy for metrics and logging.
@@ -69,13 +78,19 @@ type PolicyCache struct {
 
 	// policies stores compiled policies indexed by apiGroup/resource (plural)
 	// Multiple policies can target the same resource.
+	// Used for audit event lookups which use plural resource names.
 	policies map[string][]*CompiledPolicy
+
+	// kindPolicies stores compiled policies indexed by apiGroup/kind (singular)
+	// Used for Kubernetes event lookups which use Kind names.
+	kindPolicies map[string][]*CompiledPolicy
 }
 
 // NewPolicyCache creates a new policy cache.
 func NewPolicyCache() *PolicyCache {
 	return &PolicyCache{
-		policies: make(map[string][]*CompiledPolicy),
+		policies:     make(map[string][]*CompiledPolicy),
+		kindPolicies: make(map[string][]*CompiledPolicy),
 	}
 }
 
@@ -89,12 +104,18 @@ func (c *PolicyCache) Add(policy *v1alpha1.ActivityPolicy, resource string) erro
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	// Add to resource-keyed index (for audit event lookups)
 	key := policyKey(policy.Spec.Resource.APIGroup, resource)
 	c.policies[key] = append(c.policies[key], compiled)
 
+	// Add to kind-keyed index (for Kubernetes event lookups)
+	kindKey := policyKey(policy.Spec.Resource.APIGroup, policy.Spec.Resource.Kind)
+	c.kindPolicies[kindKey] = append(c.kindPolicies[kindKey], compiled)
+
 	klog.V(2).InfoS("Added compiled policy to cache",
 		"policy", policy.Name,
-		"key", key,
+		"resourceKey", key,
+		"kindKey", kindKey,
 		"auditRules", len(compiled.AuditRules),
 		"eventRules", len(compiled.EventRules),
 	)
@@ -107,9 +128,13 @@ func (c *PolicyCache) Update(oldPolicy, newPolicy *v1alpha1.ActivityPolicy, oldR
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// Remove old policy
+	// Remove old policy from resource-keyed index
 	oldKey := policyKey(oldPolicy.Spec.Resource.APIGroup, oldResource)
-	c.removeLocked(oldKey, oldPolicy.Name)
+	c.removeLockedFromMap(c.policies, oldKey, oldPolicy.Name)
+
+	// Remove old policy from kind-keyed index
+	oldKindKey := policyKey(oldPolicy.Spec.Resource.APIGroup, oldPolicy.Spec.Resource.Kind)
+	c.removeLockedFromMap(c.kindPolicies, oldKindKey, oldPolicy.Name)
 
 	// Compile and add new policy
 	compiled, err := c.compile(newPolicy, newResource)
@@ -117,8 +142,13 @@ func (c *PolicyCache) Update(oldPolicy, newPolicy *v1alpha1.ActivityPolicy, oldR
 		return err
 	}
 
+	// Add to resource-keyed index
 	newKey := policyKey(newPolicy.Spec.Resource.APIGroup, newResource)
 	c.policies[newKey] = append(c.policies[newKey], compiled)
+
+	// Add to kind-keyed index
+	newKindKey := policyKey(newPolicy.Spec.Resource.APIGroup, newPolicy.Spec.Resource.Kind)
+	c.kindPolicies[newKindKey] = append(c.kindPolicies[newKindKey], compiled)
 
 	klog.V(2).InfoS("Updated compiled policy in cache",
 		"policy", newPolicy.Name,
@@ -134,35 +164,51 @@ func (c *PolicyCache) Remove(policy *v1alpha1.ActivityPolicy, resource string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	// Remove from resource-keyed index
 	key := policyKey(policy.Spec.Resource.APIGroup, resource)
-	c.removeLocked(key, policy.Name)
+	c.removeLockedFromMap(c.policies, key, policy.Name)
+
+	// Remove from kind-keyed index
+	kindKey := policyKey(policy.Spec.Resource.APIGroup, policy.Spec.Resource.Kind)
+	c.removeLockedFromMap(c.kindPolicies, kindKey, policy.Name)
 
 	klog.V(2).InfoS("Removed policy from cache", "policy", policy.Name, "key", key)
 }
 
-// removeLocked removes a policy by name from a key. Caller must hold the lock.
-func (c *PolicyCache) removeLocked(key, policyName string) {
-	policies := c.policies[key]
+// removeLockedFromMap removes a policy by name from a specific map. Caller must hold the lock.
+func (c *PolicyCache) removeLockedFromMap(m map[string][]*CompiledPolicy, key, policyName string) {
+	policies := m[key]
 	for i, p := range policies {
 		if p.Name == policyName {
 			// O(1) removal: swap with last element and truncate.
 			policies[i] = policies[len(policies)-1]
-			c.policies[key] = policies[:len(policies)-1]
+			m[key] = policies[:len(policies)-1]
 			break
 		}
 	}
-	if len(c.policies[key]) == 0 {
-		delete(c.policies, key)
+	if len(m[key]) == 0 {
+		delete(m, key)
 	}
 }
 
-// Get returns compiled policies for a given apiGroup and resource.
+// Get returns compiled policies for a given apiGroup and resource (plural).
+// Used for audit event lookups.
 func (c *PolicyCache) Get(apiGroup, resource string) []*CompiledPolicy {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
 	key := policyKey(apiGroup, resource)
 	return c.policies[key]
+}
+
+// GetByKind returns compiled policies for a given apiGroup and kind (singular).
+// Used for Kubernetes event lookups.
+func (c *PolicyCache) GetByKind(apiGroup, kind string) []*CompiledPolicy {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	key := policyKey(apiGroup, kind)
+	return c.kindPolicies[key]
 }
 
 // Len returns the total number of policies in the cache.
@@ -185,36 +231,37 @@ func (c *PolicyCache) compile(policy *v1alpha1.ActivityPolicy, resource string) 
 		Kind:            policy.Spec.Resource.Kind,
 		Resource:        resource,
 		ResourceVersion: policy.ResourceVersion,
-		AuditRules:      make([]CompiledRule, len(policy.Spec.AuditRules)),
-		EventRules:      make([]CompiledRule, len(policy.Spec.EventRules)),
+		AuditRules:      make([]*CompiledRule, len(policy.Spec.AuditRules)),
+		EventRules:      make([]*CompiledRule, len(policy.Spec.EventRules)),
 		OriginalPolicy:  policy.DeepCopy(),
 	}
 
 	// Compile audit rules
 	for i, rule := range policy.Spec.AuditRules {
-		compiledRule := c.compileAuditRule(rule, policy.Name, i)
-		compiled.AuditRules[i] = compiledRule
+		compiled.AuditRules[i] = c.compileAuditRule(rule, policy.Name, i)
 	}
 
 	// Compile event rules
 	for i, rule := range policy.Spec.EventRules {
-		compiledRule := c.compileEventRule(rule, policy.Name, i)
-		compiled.EventRules[i] = compiledRule
+		compiled.EventRules[i] = c.compileEventRule(rule, policy.Name, i)
 	}
 
 	return compiled, nil
 }
 
 // compileAuditRule compiles a single audit rule.
-func (c *PolicyCache) compileAuditRule(rule v1alpha1.ActivityPolicyRule, policyName string, ruleIndex int) CompiledRule {
-	compiled := CompiledRule{
-		Match:   rule.Match,
-		Summary: rule.Summary,
-		Valid:   true,
+func (c *PolicyCache) compileAuditRule(rule v1alpha1.ActivityPolicyRule, policyName string, ruleIndex int) *CompiledRule {
+	compiled := &CompiledRule{
+		Match:    rule.Match,
+		Summary:  rule.Summary,
+		Valid:    true,
+		linkSink: new([]internalcel.Link),
 	}
 
-	// Create audit environment for compilation
-	env, err := auditEnvironment()
+	// Create audit environment for compilation.
+	// The linkSink pointer is shared with the compiled program binding so that
+	// link() calls during evaluation write into compiled.linkSink automatically.
+	env, err := auditEnvironment(compiled.linkSink)
 	if err != nil {
 		compiled.Valid = false
 		compiled.CompileError = fmt.Sprintf("failed to create CEL environment: %v", err)
@@ -254,15 +301,18 @@ func (c *PolicyCache) compileAuditRule(rule v1alpha1.ActivityPolicyRule, policyN
 }
 
 // compileEventRule compiles a single event rule.
-func (c *PolicyCache) compileEventRule(rule v1alpha1.ActivityPolicyRule, policyName string, ruleIndex int) CompiledRule {
-	compiled := CompiledRule{
-		Match:   rule.Match,
-		Summary: rule.Summary,
-		Valid:   true,
+func (c *PolicyCache) compileEventRule(rule v1alpha1.ActivityPolicyRule, policyName string, ruleIndex int) *CompiledRule {
+	compiled := &CompiledRule{
+		Match:    rule.Match,
+		Summary:  rule.Summary,
+		Valid:    true,
+		linkSink: new([]internalcel.Link),
 	}
 
-	// Create event environment for compilation
-	env, err := eventEnvironment()
+	// Create event environment for compilation.
+	// The linkSink pointer is shared with the compiled program binding so that
+	// link() calls during evaluation write into compiled.linkSink automatically.
+	env, err := eventEnvironment(compiled.linkSink)
 	if err != nil {
 		compiled.Valid = false
 		compiled.CompileError = fmt.Sprintf("failed to create CEL environment: %v", err)
@@ -340,7 +390,9 @@ func compileSummaryTemplate(env *cel.Env, template string) ([]compiledTemplate, 
 }
 
 // auditEnvironment creates a CEL environment for audit rule expressions.
-func auditEnvironment() (*cel.Env, error) {
+// linkSink, when non-nil, receives Link values captured by link() calls during evaluation.
+// The same pointer is shared with the compiled program so links accumulate in place.
+func auditEnvironment(linkSink *[]internalcel.Link) (*cel.Env, error) {
 	auditType := cel.MapType(cel.StringType, cel.DynType)
 	actorRefType := cel.MapType(cel.StringType, cel.DynType)
 
@@ -353,7 +405,11 @@ func auditEnvironment() (*cel.Env, error) {
 				[]*cel.Type{cel.StringType, cel.DynType},
 				cel.StringType,
 				cel.BinaryBinding(func(displayText, resourceRef ref.Val) ref.Val {
-					return types.String(fmt.Sprintf("%v", displayText.Value()))
+					text := fmt.Sprintf("%v", displayText.Value())
+					if linkSink != nil {
+						appendLink(linkSink, text, resourceRef)
+					}
+					return types.String(text)
 				}),
 			),
 		),
@@ -361,7 +417,8 @@ func auditEnvironment() (*cel.Env, error) {
 }
 
 // eventEnvironment creates a CEL environment for event rule expressions.
-func eventEnvironment() (*cel.Env, error) {
+// linkSink, when non-nil, receives Link values captured by link() calls during evaluation.
+func eventEnvironment(linkSink *[]internalcel.Link) (*cel.Env, error) {
 	eventType := cel.MapType(cel.StringType, cel.DynType)
 	actorRefType := cel.MapType(cel.StringType, cel.DynType)
 
@@ -374,11 +431,39 @@ func eventEnvironment() (*cel.Env, error) {
 				[]*cel.Type{cel.StringType, cel.DynType},
 				cel.StringType,
 				cel.BinaryBinding(func(displayText, resourceRef ref.Val) ref.Val {
-					return types.String(fmt.Sprintf("%v", displayText.Value()))
+					text := fmt.Sprintf("%v", displayText.Value())
+					if linkSink != nil {
+						appendLink(linkSink, text, resourceRef)
+					}
+					return types.String(text)
 				}),
 			),
 		),
 	)
+}
+
+// appendLink converts a CEL ref.Val resource reference to an internalcel.Link and appends it.
+func appendLink(sink *[]internalcel.Link, text string, resourceRef ref.Val) {
+	link := internalcel.Link{Marker: text}
+
+	switch v := resourceRef.Value().(type) {
+	case map[string]interface{}:
+		link.Resource = v
+	case map[ref.Val]ref.Val:
+		// CEL map type — convert keys to strings.
+		goMap := make(map[string]interface{}, len(v))
+		for k, val := range v {
+			if keyStr, ok := k.Value().(string); ok {
+				goMap[keyStr] = val.Value()
+			}
+		}
+		link.Resource = goMap
+	default:
+		// Unrecognized resource type; store an empty map so the marker is still captured.
+		link.Resource = make(map[string]interface{})
+	}
+
+	*sink = append(*sink, link)
 }
 
 // EvaluateAuditRules evaluates audit rules against an audit event using pre-compiled programs.
@@ -408,21 +493,42 @@ func (r *CompiledRule) EvaluateAuditMatch(auditMap map[string]any) (bool, error)
 }
 
 // EvaluateSummary evaluates the summary template using pre-compiled programs.
-func (r *CompiledRule) EvaluateSummary(vars map[string]any) (string, error) {
+// It returns the rendered summary string and any links captured by link() calls.
+//
+// EvaluateSummary is safe to call from multiple goroutines: the mutex serialises
+// access to the shared linkSink so concurrent evaluations of the same rule do not
+// interleave their collected links.
+func (r *CompiledRule) EvaluateSummary(vars map[string]any) (string, []internalcel.Link, error) {
 	if len(r.SummaryTemplates) == 0 {
-		return r.Summary, nil
+		return r.Summary, nil, nil
+	}
+
+	r.linkMu.Lock()
+	defer r.linkMu.Unlock()
+
+	// Reset the link sink before each evaluation so we don't accumulate stale links
+	// from previous calls.
+	if r.linkSink != nil {
+		*r.linkSink = (*r.linkSink)[:0]
 	}
 
 	result := r.Summary
 	for _, tmpl := range r.SummaryTemplates {
 		out, _, err := tmpl.Program.Eval(vars)
 		if err != nil {
-			return "", fmt.Errorf("failed to evaluate summary expression '%s': %w", tmpl.Expression, err)
+			return "", nil, fmt.Errorf("failed to evaluate summary expression '%s': %w", tmpl.Expression, err)
 		}
 		result = strings.Replace(result, tmpl.FullMatch, fmt.Sprintf("%v", out.Value()), 1)
 	}
 
-	return result, nil
+	// Copy collected links out of the sink before releasing the lock.
+	var links []internalcel.Link
+	if r.linkSink != nil && len(*r.linkSink) > 0 {
+		links = make([]internalcel.Link, len(*r.linkSink))
+		copy(links, *r.linkSink)
+	}
+
+	return result, links, nil
 }
 
 // EvaluateEventMatch evaluates the match expression against a Kubernetes event.

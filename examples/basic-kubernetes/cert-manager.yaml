@@ -1,0 +1,143 @@
+# ActivityPolicies for cert-manager.io API group
+# Resources: CertificateRequest, Certificate, ClusterIssuer, Issuer
+
+---
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: certmanager-certificaterequests
+spec:
+  resource:
+    apiGroup: cert-manager.io
+    kind: CertificateRequest
+  auditRules:
+    # Only surface human-initiated changes
+    - match: "audit.verb == 'create' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} requested certificate {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} removed certificate request {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch'] && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} updated certificate request {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "has(audit.objectRef.name) && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} modified certificate request {{ link(audit.objectRef.name, audit.objectRef) }}"
+  eventRules:
+    # Certificate request workflow
+    - match: "event.reason == 'WaitingForApproval'"
+      summary: "The certificate request {{ link(event.regarding.name, event.regarding) }} is waiting for approval"
+    - match: "event.reason == 'cert-manager.io'"
+      summary: "The certificate request {{ link(event.regarding.name, event.regarding) }} was approved"
+    - match: "event.reason == 'CertificateIssued'"
+      summary: "The certificate {{ link(event.regarding.name, event.regarding) }} was issued successfully"
+    - match: "event.reason == 'Denied'"
+      summary: "The certificate request {{ link(event.regarding.name, event.regarding) }} was denied - check the issuer policy"
+    - match: "event.reason == 'Failed'"
+      summary: "The certificate request {{ link(event.regarding.name, event.regarding) }} failed - check the issuer configuration"
+    # Fallback
+    - match: "event.type == 'Warning'"
+      summary: "The certificate request {{ link(event.regarding.name, event.regarding) }} has a warning: {{ event.message }}"
+    - match: "true"
+      summary: "The certificate request {{ link(event.regarding.name, event.regarding) }} {{ event.reason }}"
+
+---
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: certmanager-certificates
+spec:
+  resource:
+    apiGroup: cert-manager.io
+    kind: Certificate
+  auditRules:
+    # Only surface human-initiated changes
+    - match: "audit.verb == 'create' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} created certificate {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} removed certificate {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch'] && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} updated certificate {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "has(audit.objectRef.name) && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} modified certificate {{ link(audit.objectRef.name, audit.objectRef) }}"
+  eventRules:
+    # Certificate lifecycle
+    - match: "event.reason == 'Issuing'"
+      summary: "The certificate {{ link(event.regarding.name, event.regarding) }} is being issued"
+    - match: "event.reason == 'Ready'"
+      summary: "The certificate {{ link(event.regarding.name, event.regarding) }} is ready"
+    - match: "event.reason == 'Renewed'"
+      summary: "The certificate {{ link(event.regarding.name, event.regarding) }} was renewed"
+    - match: "event.reason == 'Expired'"
+      summary: "The certificate {{ link(event.regarding.name, event.regarding) }} has expired - check auto-renewal settings"
+    - match: "event.reason == 'ExpiryWarning'"
+      summary: "The certificate {{ link(event.regarding.name, event.regarding) }} is expiring soon"
+    # Failures
+    - match: "event.reason == 'IssuerNotReady'"
+      summary: "The certificate {{ link(event.regarding.name, event.regarding) }} cannot be issued - the issuer is not ready"
+    - match: "event.reason == 'DoesNotExist'"
+      summary: "The certificate {{ link(event.regarding.name, event.regarding) }} issuer does not exist"
+    # Fallback
+    - match: "event.type == 'Warning'"
+      summary: "The certificate {{ link(event.regarding.name, event.regarding) }} has a warning: {{ event.message }}"
+    - match: "true"
+      summary: "The certificate {{ link(event.regarding.name, event.regarding) }} {{ event.reason }}"
+
+---
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: certmanager-clusterissuers
+spec:
+  resource:
+    apiGroup: cert-manager.io
+    kind: ClusterIssuer
+  auditRules:
+    # Only surface human-initiated changes
+    - match: "audit.verb == 'create' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} created cluster certificate issuer {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} removed cluster certificate issuer {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch'] && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} updated cluster certificate issuer {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "has(audit.objectRef.name) && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} modified cluster certificate issuer {{ link(audit.objectRef.name, audit.objectRef) }}"
+  eventRules:
+    # Issuer status
+    - match: "event.reason == 'Ready'"
+      summary: "The cluster issuer {{ link(event.regarding.name, event.regarding) }} is ready to issue certificates"
+    - match: "event.reason == 'ErrInitIssuer'"
+      summary: "The cluster issuer {{ link(event.regarding.name, event.regarding) }} failed to initialize - check credentials and configuration"
+    # Fallback
+    - match: "event.type == 'Warning'"
+      summary: "The cluster issuer {{ link(event.regarding.name, event.regarding) }} has a warning: {{ event.message }}"
+    - match: "true"
+      summary: "The cluster issuer {{ link(event.regarding.name, event.regarding) }} {{ event.reason }}"
+
+---
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: certmanager-issuers
+spec:
+  resource:
+    apiGroup: cert-manager.io
+    kind: Issuer
+  auditRules:
+    # Only surface human-initiated changes
+    - match: "audit.verb == 'create' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} created certificate issuer {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} removed certificate issuer {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch'] && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} updated certificate issuer {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "has(audit.objectRef.name) && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} modified certificate issuer {{ link(audit.objectRef.name, audit.objectRef) }}"
+  eventRules:
+    # Issuer status
+    - match: "event.reason == 'Ready'"
+      summary: "The issuer {{ link(event.regarding.name, event.regarding) }} is ready"
+    - match: "event.reason == 'ErrInitIssuer'"
+      summary: "The issuer {{ link(event.regarding.name, event.regarding) }} failed to initialize - check credentials and configuration"
+    # Fallback
+    - match: "event.type == 'Warning'"
+      summary: "The issuer {{ link(event.regarding.name, event.regarding) }} has a warning: {{ event.message }}"
+    - match: "true"
+      summary: "The issuer {{ link(event.regarding.name, event.regarding) }} {{ event.reason }}"

@@ -96,8 +96,8 @@ CREATE TABLE IF NOT EXISTS audit.activities
     -- Minmax for change source filtering (human vs system)
     INDEX idx_change_source change_source TYPE set(10) GRANULARITY 4,
 
-    -- Full-text index for summary search (ngrams enable substring/prefix matching)
-    INDEX idx_summary_search summary TYPE text(tokenizer = ngrams(3)) GRANULARITY 1,
+    -- Token bloom filter for full-text search on summaries
+    INDEX idx_summary_search summary TYPE tokenbf_v1(32768, 3, 0) GRANULARITY 1,
 
     -- ========================================================================
     -- Projections (defined inline for ReplicatedReplacingMergeTree compatibility)

@@ -11,18 +11,38 @@ spec:
     apiGroup: apps
     kind: Deployment
   auditRules:
-    - match: "audit.verb == 'create'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} deployed {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb == 'delete'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed deployment {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb in ['update', 'patch'] && audit.objectRef.subresource == 'scale'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} scaled {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb in ['update', 'patch'] && audit.objectRef.subresource == 'status'"
-      summary: "{{ link(audit.objectRef.name, audit.objectRef) }} status changed"
-    - match: "audit.verb in ['update', 'patch']"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated {{ link(audit.objectRef.name, audit.objectRef) }}"
+    # Only surface human-initiated changes
+    - match: "audit.verb == 'create' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} deployed {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} removed deployment {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch'] && has(audit.objectRef.subresource) && audit.objectRef.subresource == 'scale' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} scaled {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch'] && !has(audit.objectRef.subresource) && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} updated {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "has(audit.objectRef.name) && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} modified deployment {{ link(audit.objectRef.name, audit.objectRef) }}"
+  eventRules:
+    # Scaling operations
+    - match: "event.reason == 'ScalingReplicaSet'"
+      summary: "The deployment {{ link(event.regarding.name, event.regarding) }} is rolling out new pods"
+    # Progress tracking
+    - match: "event.reason == 'Progressing'"
+      summary: "The deployment {{ link(event.regarding.name, event.regarding) }} rollout is in progress"
+    - match: "event.reason == 'Available'"
+      summary: "The deployment {{ link(event.regarding.name, event.regarding) }} is ready to serve traffic"
+    - match: "event.reason == 'ReplicaSetUpdated'"
+      summary: "The deployment {{ link(event.regarding.name, event.regarding) }} pods are being updated"
+    # Failure conditions with remediation guidance
+    - match: "event.reason == 'FailedCreate'"
+      summary: "The deployment {{ link(event.regarding.name, event.regarding) }} failed to create new pods - check resource quotas and node availability"
+    - match: "event.reason == 'MinimumReplicasUnavailable'"
+      summary: "The deployment {{ link(event.regarding.name, event.regarding) }} does not have enough healthy pods - check pod logs and events for issues"
+    # Fallback
+    - match: "event.type == 'Warning'"
+      summary: "The deployment {{ link(event.regarding.name, event.regarding) }} has a warning: {{ event.message }}"
     - match: "true"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified deployment {{ link(audit.objectRef.name, audit.objectRef) }}"
+      summary: "The deployment {{ link(event.regarding.name, event.regarding) }} {{ event.reason }}"
 
 ---
 apiVersion: activity.miloapis.com/v1alpha1
@@ -34,16 +54,31 @@ spec:
     apiGroup: apps
     kind: ReplicaSet
   auditRules:
-    - match: "audit.verb == 'create'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} created replica set {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb == 'delete'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed replica set {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb in ['update', 'patch'] && audit.objectRef.subresource == 'scale'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} scaled {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb in ['update', 'patch']"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated replica set {{ link(audit.objectRef.name, audit.objectRef) }}"
+    # Only surface human-initiated changes
+    - match: "audit.verb == 'create' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} created replica set {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} removed replica set {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch'] && has(audit.objectRef.subresource) && audit.objectRef.subresource == 'scale' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} scaled {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch'] && !has(audit.objectRef.subresource) && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} updated replica set {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "has(audit.objectRef.name) && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} modified replica set {{ link(audit.objectRef.name, audit.objectRef) }}"
+  eventRules:
+    # Pod management by replica set
+    - match: "event.reason == 'SuccessfulCreate'"
+      summary: "The replica set {{ link(event.regarding.name, event.regarding) }} launched a new pod"
+    - match: "event.reason == 'SuccessfulDelete'"
+      summary: "The replica set {{ link(event.regarding.name, event.regarding) }} removed a pod"
+    # Failure conditions with remediation guidance
+    - match: "event.reason == 'FailedCreate'"
+      summary: "The replica set {{ link(event.regarding.name, event.regarding) }} failed to create a pod - check resource quotas, node capacity, or pod spec issues"
+    # Fallback
+    - match: "event.type == 'Warning'"
+      summary: "The replica set {{ link(event.regarding.name, event.regarding) }} has a warning: {{ event.message }}"
     - match: "true"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified replica set {{ link(audit.objectRef.name, audit.objectRef) }}"
+      summary: "The replica set {{ link(event.regarding.name, event.regarding) }} {{ event.reason }}"
 
 ---
 apiVersion: activity.miloapis.com/v1alpha1
@@ -55,16 +90,31 @@ spec:
     apiGroup: apps
     kind: StatefulSet
   auditRules:
-    - match: "audit.verb == 'create'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} created stateful set {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb == 'delete'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed stateful set {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb in ['update', 'patch'] && audit.objectRef.subresource == 'scale'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} scaled {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb in ['update', 'patch']"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated stateful set {{ link(audit.objectRef.name, audit.objectRef) }}"
+    # Only surface human-initiated changes
+    - match: "audit.verb == 'create' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} created stateful set {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} removed stateful set {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch'] && has(audit.objectRef.subresource) && audit.objectRef.subresource == 'scale' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} scaled {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch'] && !has(audit.objectRef.subresource) && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} updated stateful set {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "has(audit.objectRef.name) && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} modified stateful set {{ link(audit.objectRef.name, audit.objectRef) }}"
+  eventRules:
+    # Pod management
+    - match: "event.reason == 'SuccessfulCreate'"
+      summary: "The stateful set {{ link(event.regarding.name, event.regarding) }} launched a pod instance"
+    - match: "event.reason == 'SuccessfulDelete'"
+      summary: "The stateful set {{ link(event.regarding.name, event.regarding) }} removed a pod instance"
+    # Failure conditions
+    - match: "event.reason == 'FailedCreate'"
+      summary: "The stateful set {{ link(event.regarding.name, event.regarding) }} failed to create a pod - check resource quotas, persistent volume claims, or pod spec issues"
+    # Fallback
+    - match: "event.type == 'Warning'"
+      summary: "The stateful set {{ link(event.regarding.name, event.regarding) }} has a warning: {{ event.message }}"
     - match: "true"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified stateful set {{ link(audit.objectRef.name, audit.objectRef) }}"
+      summary: "The stateful set {{ link(event.regarding.name, event.regarding) }} {{ event.reason }}"
 
 ---
 apiVersion: activity.miloapis.com/v1alpha1
@@ -76,11 +126,28 @@ spec:
     apiGroup: apps
     kind: DaemonSet
   auditRules:
-    - match: "audit.verb == 'create'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} created daemon set {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb == 'delete'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed daemon set {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb in ['update', 'patch']"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated daemon set {{ link(audit.objectRef.name, audit.objectRef) }}"
+    # Only surface human-initiated changes
+    - match: "audit.verb == 'create' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} created daemon set {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} removed daemon set {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch'] && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} updated daemon set {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "has(audit.objectRef.name) && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} modified daemon set {{ link(audit.objectRef.name, audit.objectRef) }}"
+  eventRules:
+    # Pod management on nodes
+    - match: "event.reason == 'SuccessfulCreate'"
+      summary: "The daemon set {{ link(event.regarding.name, event.regarding) }} deployed to a node"
+    - match: "event.reason == 'SuccessfulDelete'"
+      summary: "The daemon set {{ link(event.regarding.name, event.regarding) }} removed from a node"
+    # Node selection events
+    - match: "event.reason == 'SelectingAll'"
+      summary: "The daemon set {{ link(event.regarding.name, event.regarding) }} is targeting all nodes"
+    - match: "event.reason == 'MissingDaemon'"
+      summary: "The daemon set {{ link(event.regarding.name, event.regarding) }} is missing from some nodes - check node selectors and taints"
+    # Fallback
+    - match: "event.type == 'Warning'"
+      summary: "The daemon set {{ link(event.regarding.name, event.regarding) }} has a warning: {{ event.message }}"
     - match: "true"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified daemon set {{ link(audit.objectRef.name, audit.objectRef) }}"
+      summary: "The daemon set {{ link(event.regarding.name, event.regarding) }} {{ event.reason }}"

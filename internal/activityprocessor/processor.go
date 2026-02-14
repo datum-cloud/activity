@@ -781,8 +781,7 @@ func (p *Processor) processMessage(msg *nats.Msg) error {
 func (p *Processor) evaluateCompiledAuditRules(policy *CompiledPolicy, auditMap map[string]any, audit *auditv1.Event) (*v1alpha1.Activity, int, error) {
 	vars := BuildAuditVars(auditMap)
 
-	for i := range policy.AuditRules {
-		rule := &policy.AuditRules[i]
+	for i, rule := range policy.AuditRules {
 		if !rule.Valid {
 			continue
 		}
@@ -793,7 +792,7 @@ func (p *Processor) evaluateCompiledAuditRules(policy *CompiledPolicy, auditMap 
 		}
 
 		if matched {
-			summary, err := rule.EvaluateSummary(vars)
+			summary, links, err := rule.EvaluateSummary(vars)
 			if err != nil {
 				return nil, -1, fmt.Errorf("rule %d summary: %w", i, err)
 			}
@@ -803,7 +802,7 @@ func (p *Processor) evaluateCompiledAuditRules(policy *CompiledPolicy, auditMap 
 				APIGroup: policy.APIGroup,
 				Kind:     policy.Kind,
 			}
-			activity := builder.BuildFromAudit(audit, summary, nil)
+			activity := builder.BuildFromAudit(audit, summary, links)
 
 			return activity, i, nil
 		}

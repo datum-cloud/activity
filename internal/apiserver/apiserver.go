@@ -16,6 +16,9 @@ import (
 	"go.miloapis.com/activity/internal/registry/activity/activityquery"
 	"go.miloapis.com/activity/internal/registry/activity/auditlog"
 	"go.miloapis.com/activity/internal/registry/activity/auditlogfacet"
+	"go.miloapis.com/activity/internal/registry/activity/eventfacet"
+	"go.miloapis.com/activity/internal/registry/activity/eventquery"
+	"go.miloapis.com/activity/internal/registry/activity/events"
 	"go.miloapis.com/activity/internal/registry/activity/facet"
 	"go.miloapis.com/activity/internal/registry/activity/policy"
 	"go.miloapis.com/activity/internal/registry/activity/preview"
@@ -51,8 +54,9 @@ func init() {
 
 // ExtraConfig extends the generic apiserver configuration with activity-specific settings.
 type ExtraConfig struct {
-	ClickHouseConfig storage.ClickHouseConfig
-	NATSConfig       watch.NATSConfig
+	ClickHouseConfig    storage.ClickHouseConfig
+	NATSConfig          watch.NATSConfig
+	EventsNATSConfig    watch.EventsNATSConfig
 }
 
 // Config combines generic and activity-specific configuration.
@@ -66,6 +70,7 @@ type ActivityServer struct {
 	GenericAPIServer *genericapiserver.GenericAPIServer
 	storage          *storage.ClickHouseStorage
 	watcher          *watch.NATSWatcher
+	eventsWatcher    *watch.EventsNATSWatcher
 }
 
 type completedConfig struct {
@@ -107,10 +112,17 @@ func (c completedConfig) New() (*ActivityServer, error) {
 		return nil, fmt.Errorf("failed to create NATS watcher: %w", err)
 	}
 
+	// Create NATS watcher for Events Watch API (optional - returns nil if not configured)
+	eventsWatcher, err := watch.NewEventsNATSWatcher(c.ExtraConfig.EventsNATSConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create events NATS watcher: %w", err)
+	}
+
 	s := &ActivityServer{
 		GenericAPIServer: genericServer,
 		storage:          clickhouseStorage,
 		watcher:          watcher,
+		eventsWatcher:    eventsWatcher,
 	}
 
 	apiGroupInfo := genericapiserver.NewDefaultAPIGroupInfo(v1alpha1.GroupName, Scheme, metav1.ParameterCodec, Codecs)
@@ -139,6 +151,24 @@ func (c completedConfig) New() (*ActivityServer, error) {
 	// PolicyPreview for testing policies without persisting
 	v1alpha1Storage["policypreviews"] = preview.NewPolicyPreviewStorage()
 
+	// Create events backend using the same ClickHouse connection
+	// K8s Events use audit.k8s_events table (migration 003)
+	eventsBackend := storage.NewClickHouseEventsBackend(clickhouseStorage.Conn(), storage.ClickHouseEventsConfig{
+		Database: clickhouseStorage.Config().Database,
+		Table:    "k8s_events",
+	})
+	v1alpha1Storage["events"] = events.NewEventsRESTWithWatcher(eventsBackend, eventsWatcher)
+
+	// EventFacetQuery for faceted search on Kubernetes Events
+	v1alpha1Storage["eventfacetqueries"] = eventfacet.NewEventFacetQueryStorage(eventsBackend)
+
+	// EventQuery for historical event queries up to 60 days (no 24-hour limit)
+	eventQueryBackend := storage.NewClickHouseEventQueryBackend(clickhouseStorage.Conn(), storage.ClickHouseEventsConfig{
+		Database: clickhouseStorage.Config().Database,
+		Table:    "k8s_events",
+	})
+	v1alpha1Storage["eventqueries"] = eventquery.NewEventQueryREST(eventQueryBackend)
+
 	apiGroupInfo.VersionedResourcesStorageMap["v1alpha1"] = v1alpha1Storage
 
 	if err := s.GenericAPIServer.InstallAPIGroup(&apiGroupInfo); err != nil {
@@ -156,5 +186,9 @@ func (s *ActivityServer) Run(ctx context.Context) error {
 	if s.watcher != nil {
 		defer s.watcher.Close()
 	}
+	if s.eventsWatcher != nil {
+		defer s.eventsWatcher.Close()
+	}
+
 	return s.GenericAPIServer.PrepareRun().RunWithContext(ctx)
 }

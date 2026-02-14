@@ -67,6 +67,11 @@ spec:
         - --logging-format=$(LOGGING_FORMAT)
         - --tracing-config-file=$(TRACING_CONFIG_FILE)
         - --etcd-servers=$(ETCD_SERVERS)
+        - --nats-url=$(NATS_URL)
+        - --nats-stream-name=$(NATS_STREAM_NAME)
+        - --events-nats-url=$(EVENTS_NATS_URL)
+        - --events-nats-stream-name=$(EVENTS_NATS_STREAM_NAME)
+        - --events-nats-subject-prefix=$(EVENTS_NATS_SUBJECT_PREFIX)
         - -v=$(LOG_LEVEL)
         env:
         - name: SECURE_PORT
@@ -108,7 +113,7 @@ spec:
         - name: CLICKHOUSE_DATABASE
           value: "audit"
         - name: CLICKHOUSE_TABLE
-          value: "events"
+          value: "audit_logs"
         - name: CLICKHOUSE_USERNAME
           value: "default"
         - name: CLICKHOUSE_PASSWORD
@@ -125,6 +130,16 @@ spec:
           value: ""
         - name: CLICKHOUSE_TLS_CA_FILE
           value: ""
+        - name: NATS_URL
+          value: "nats://nats.nats-system.svc.cluster.local:4222"
+        - name: NATS_STREAM_NAME
+          value: "ACTIVITIES"
+        - name: EVENTS_NATS_URL
+          value: "nats://nats.nats-system.svc.cluster.local:4222"
+        - name: EVENTS_NATS_STREAM_NAME
+          value: "EVENTS"
+        - name: EVENTS_NATS_SUBJECT_PREFIX
+          value: "events"
         - name: ETCD_SERVERS
           value: "http://etcd.activity-system.svc.cluster.local:2379"
         resources:

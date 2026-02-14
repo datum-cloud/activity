@@ -126,8 +126,8 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `timeRange` _[FacetTimeRange](#facettimerange)_ | TimeRange sets how far back to look. Defaults to the last 7 days if not set.<br />Use relative times like "now-7d" or absolute timestamps. |  |  |
-| `filter` _string_ | Filter lets you narrow down which activities to include before computing facets.<br />Uses CEL (Common Expression Language) syntax.<br /><br />This is useful when you want facet values for a specific subset - for example,<br />"show me actors, but only for human-initiated changes."<br /><br />Fields you can filter on:<br />  spec.changeSource       - "human" or "system"<br />  spec.actor.name         - who did it (e.g., "alice@example.com")<br />  spec.actor.type         - user, serviceaccount, or controller<br />  spec.resource.kind      - what type of resource (Deployment, Pod, etc.)<br />  spec.resource.namespace - which namespace<br />  spec.resource.name      - resource name<br />  spec.resource.apiGroup  - API group (empty string for core resources)<br /><br />Example filters:<br />  "spec.changeSource == 'human'"              - Only human actions<br />  "spec.resource.kind == 'Deployment'"        - Only Deployment changes<br />  "!spec.actor.name.startsWith('system:')"    - Exclude system accounts |  |  |
+| `timeRange` _[FacetTimeRange](#facettimerange)_ | TimeRange limits the time window for facet aggregation.<br />If not specified, defaults to the last 7 days. |  |  |
+| `filter` _string_ | Filter narrows the activities before computing facets using CEL.<br />This allows you to get facet values for a subset of activities.<br /><br />Available Fields:<br />  spec.changeSource              - "human" or "system"<br />  spec.actor.name                - actor display name<br />  spec.actor.type                - actor type (user, serviceaccount, controller)<br />  spec.actor.uid                 - actor UID<br />  spec.resource.apiGroup         - resource API group<br />  spec.resource.kind             - resource kind<br />  spec.resource.name             - resource name<br />  spec.resource.namespace        - resource namespace<br />  spec.summary                   - activity summary text<br />  spec.origin.type               - origin type (audit, event)<br />  metadata.namespace             - activity namespace<br /><br />Operators: ==, !=, &&, \|\|, !, in<br />String Functions: startsWith(), endsWith(), contains()<br /><br />Examples:<br />  "spec.changeSource == 'human'"                     - Human actions only<br />  "!(spec.changeSource == 'system')"                 - Exclude system actions<br />  "spec.resource.kind == 'Deployment'"               - Deployment activities<br />  "!spec.actor.name.startsWith('system:')"           - Exclude system actors |  |  |
 | `facets` _[FacetSpec](#facetspec) array_ | Facets specifies which fields to get distinct values for.<br />Each facet returns the top N values with counts. |  |  |
 
 
@@ -495,6 +495,41 @@ _Appears in:_
 | `effectiveEndTime` _string_ | EffectiveEndTime is the actual end time used for this query (RFC3339 format).<br /><br />When you use relative times like "now", this shows the exact timestamp that was<br />calculated. Useful for understanding exactly what time range was queried.<br /><br />Example: If you query with endTime="now" at 2025-12-17T12:00:00Z,<br />this will be "2025-12-17T12:00:00Z". |  |  |
 
 
+
+
+#### EventFacetQuerySpec
+
+
+
+EventFacetQuerySpec defines which facets to retrieve from Kubernetes Events.
+
+
+
+_Appears in:_
+- [EventFacetQuery](#eventfacetquery)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `timeRange` _[FacetTimeRange](#facettimerange)_ | TimeRange limits the time window for facet aggregation.<br />If not specified, defaults to the last 7 days. |  |  |
+| `facets` _[FacetSpec](#facetspec) array_ | Facets specifies which fields to get distinct values for.<br />Each facet returns the top N values with counts.<br /><br />Supported fields:<br />  - involvedObject.kind: Resource kinds (Pod, Deployment, etc.)<br />  - involvedObject.namespace: Namespaces of involved objects<br />  - reason: Event reasons (Scheduled, Pulled, Created, etc.)<br />  - type: Event types (Normal, Warning)<br />  - source.component: Source components (kubelet, scheduler, etc.)<br />  - namespace: Event namespace |  |  |
+
+
+#### EventFacetQueryStatus
+
+
+
+EventFacetQueryStatus contains the facet results.
+
+
+
+_Appears in:_
+- [EventFacetQuery](#eventfacetquery)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `facets` _[FacetResult](#facetresult) array_ | Facets contains the results for each requested facet. |  |  |
+
+
 #### FacetResult
 
 
@@ -506,6 +541,7 @@ FacetResult contains the distinct values for a single facet.
 _Appears in:_
 - [ActivityFacetQueryStatus](#activityfacetquerystatus)
 - [AuditLogFacetsQueryStatus](#auditlogfacetsquerystatus)
+- [EventFacetQueryStatus](#eventfacetquerystatus)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
@@ -524,6 +560,7 @@ FacetSpec defines a single facet to retrieve.
 _Appears in:_
 - [ActivityFacetQuerySpec](#activityfacetqueryspec)
 - [AuditLogFacetsQuerySpec](#auditlogfacetsqueryspec)
+- [EventFacetQuerySpec](#eventfacetqueryspec)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
@@ -542,6 +579,7 @@ FacetTimeRange specifies the time window for facet queries.
 _Appears in:_
 - [ActivityFacetQuerySpec](#activityfacetqueryspec)
 - [AuditLogFacetsQuerySpec](#auditlogfacetsqueryspec)
+- [EventFacetQuerySpec](#eventfacetqueryspec)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |

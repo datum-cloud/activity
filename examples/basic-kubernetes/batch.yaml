@@ -11,16 +11,35 @@ spec:
     apiGroup: batch
     kind: Job
   auditRules:
-    - match: "audit.verb == 'create'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} started job {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb == 'delete'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed job {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb in ['update', 'patch'] && audit.objectRef.subresource == 'status'"
-      summary: "Job {{ link(audit.objectRef.name, audit.objectRef) }} status changed"
-    - match: "audit.verb in ['update', 'patch']"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated job {{ link(audit.objectRef.name, audit.objectRef) }}"
+    # Only surface human-initiated changes
+    - match: "audit.verb == 'create' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} started job {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} removed job {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch'] && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} updated job {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "has(audit.objectRef.name) && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} modified job {{ link(audit.objectRef.name, audit.objectRef) }}"
+  eventRules:
+    # Job lifecycle
+    - match: "event.reason == 'SuccessfulCreate'"
+      summary: "The job {{ link(event.regarding.name, event.regarding) }} launched a worker pod"
+    - match: "event.reason == 'SuccessfulDelete'"
+      summary: "The job {{ link(event.regarding.name, event.regarding) }} cleaned up a worker pod"
+    - match: "event.reason == 'Completed'"
+      summary: "The job {{ link(event.regarding.name, event.regarding) }} finished successfully"
+    # Failure conditions with remediation guidance
+    - match: "event.reason == 'BackoffLimitExceeded'"
+      summary: "The job {{ link(event.regarding.name, event.regarding) }} failed after too many retries - check the pod logs to see what's causing failures"
+    - match: "event.reason == 'DeadlineExceeded'"
+      summary: "The job {{ link(event.regarding.name, event.regarding) }} timed out - the job took longer than allowed, consider increasing the deadline"
+    - match: "event.reason == 'FailedCreate'"
+      summary: "The job {{ link(event.regarding.name, event.regarding) }} could not create worker pod - check resource quotas and pod spec for issues"
+    # Fallback
+    - match: "event.type == 'Warning'"
+      summary: "The job {{ link(event.regarding.name, event.regarding) }} has a warning: {{ event.message }}"
     - match: "true"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified job {{ link(audit.objectRef.name, audit.objectRef) }}"
+      summary: "The job {{ link(event.regarding.name, event.regarding) }} {{ event.reason }}"
 
 ---
 apiVersion: activity.miloapis.com/v1alpha1
@@ -32,11 +51,30 @@ spec:
     apiGroup: batch
     kind: CronJob
   auditRules:
-    - match: "audit.verb == 'create'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} created scheduled job {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb == 'delete'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed scheduled job {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb in ['update', 'patch']"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated scheduled job {{ link(audit.objectRef.name, audit.objectRef) }}"
+    # Only surface human-initiated changes
+    - match: "audit.verb == 'create' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} created scheduled job {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb == 'delete' && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} removed scheduled job {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "audit.verb in ['update', 'patch'] && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} updated scheduled job {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - match: "has(audit.objectRef.name) && !actor.startsWith('system:')"
+      summary: "{{ link(actor, actorRef) }} modified scheduled job {{ link(audit.objectRef.name, audit.objectRef) }}"
+  eventRules:
+    # Scheduled execution
+    - match: "event.reason == 'SuccessfulCreate'"
+      summary: "The scheduled job {{ link(event.regarding.name, event.regarding) }} triggered a run"
+    - match: "event.reason == 'SuccessfulDelete'"
+      summary: "The scheduled job {{ link(event.regarding.name, event.regarding) }} cleaned up a completed run"
+    - match: "event.reason == 'SawCompletedJob'"
+      summary: "The scheduled job {{ link(event.regarding.name, event.regarding) }} run completed"
+    # Failures with remediation guidance
+    - match: "event.reason == 'MissSchedule'"
+      summary: "The scheduled job {{ link(event.regarding.name, event.regarding) }} missed its scheduled time - this can happen if too many jobs are queued or the controller was down"
+    - match: "event.reason == 'FailedNeedsStart'"
+      summary: "The scheduled job {{ link(event.regarding.name, event.regarding) }} could not start - check concurrency policy and existing job status"
+    # Fallback
+    - match: "event.type == 'Warning'"
+      summary: "The scheduled job {{ link(event.regarding.name, event.regarding) }} has a warning: {{ event.message }}"
     - match: "true"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified scheduled job {{ link(audit.objectRef.name, audit.objectRef) }}"
+      summary: "The scheduled job {{ link(event.regarding.name, event.regarding) }} {{ event.reason }}"

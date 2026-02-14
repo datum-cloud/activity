@@ -45,6 +45,9 @@ spec:
         - name: webhook
           port: 8080
           protocol: TCP
+        - name: k8s-events
+          port: 8081
+          protocol: TCP
 
     customConfig:
       data_dir: /vector-data-dir
@@ -54,11 +57,22 @@ spec:
         address: 0.0.0.0:8686
 
       sources:
-        # Webhook endpoint for receiving logs via HTTP
+        # Webhook endpoint for receiving audit logs via HTTP
         webhook:
           type: http_server
           address: 0.0.0.0:8080
           path: /events
+          strict_path: true
+          decoding:
+            codec: json
+          framing:
+            method: bytes
+
+        # Webhook endpoint for receiving Kubernetes Events from kubernetes-event-exporter
+        k8s_events_webhook:
+          type: http_server
+          address: 0.0.0.0:8081
+          path: /k8s-events
           strict_path: true
           decoding:
             codec: json
@@ -107,6 +121,39 @@ spec:
               .timestamp = parse_timestamp!(.stageTimestamp, format: "%+")
             }
 
+        # ========================================================================
+        # Kubernetes Events Pipeline (from kubernetes-event-exporter)
+        # ========================================================================
+
+        # Set timestamp for K8s events from lastTimestamp or firstTimestamp
+        set_k8s_event_timestamp:
+          type: remap
+          inputs:
+            - k8s_events_webhook
+          source: |
+            # Use lastTimestamp for the event timestamp (most recent occurrence)
+            # Fall back to firstTimestamp, then eventTime, then now()
+            if exists(.lastTimestamp) && .lastTimestamp != "" && .lastTimestamp != null {
+              ts, err = parse_timestamp(.lastTimestamp, format: "%+")
+              if err == null {
+                .timestamp = ts
+              }
+            } else if exists(.firstTimestamp) && .firstTimestamp != "" && .firstTimestamp != null {
+              ts, err = parse_timestamp(.firstTimestamp, format: "%+")
+              if err == null {
+                .timestamp = ts
+              }
+            } else if exists(.eventTime) && .eventTime != "" && .eventTime != null {
+              ts, err = parse_timestamp(.eventTime, format: "%+")
+              if err == null {
+                .timestamp = ts
+              }
+            }
+
+            if !exists(.timestamp) {
+              .timestamp = now()
+            }
+
       sinks:
         # Publish to NATS JetStream
         nats_jetstream:
@@ -128,13 +175,39 @@ spec:
               # Uses the Kubernetes auditID as the NATS message ID to enable
               # JetStream's duplicate detection within the duplicateWindow (10m)
               # This prevents duplicate events from webhook retries or Vector restarts
-              message_id: "{{ .auditID }}"
+              message_id: '{{ "{{" }} .auditID {{ "}}" }}'
 
           # Buffer for durability
           # 10GB disk buffer to survive NATS outages
           buffer:
             type: disk
             max_size: 10737418240
+            when_full: block
+
+        # Publish Kubernetes Events to NATS JetStream EVENTS stream
+        nats_k8s_events:
+          type: nats
+          inputs:
+            - set_k8s_event_timestamp
+          url: nats://nats.nats-system.svc.cluster.local:4222
+          connection_name: vector-sidecar-k8s-events
+          # Subject includes namespace for routing: events.{namespace}
+          subject: 'events.{{ "{{" }} .metadata.namespace {{ "}}" }}'
+          encoding:
+            codec: json
+          healthcheck:
+            enabled: true
+
+          jetstream:
+            enabled: true
+            headers:
+              # NATS message ID for de-duplication using event UID
+              message_id: '{{ "{{" }} .metadata.uid {{ "}}" }}'
+
+          # Buffer for durability
+          buffer:
+            type: disk
+            max_size: 1073741824  # 1GB buffer for events
             when_full: block
 
         internal_prometheus:

@@ -45,8 +45,8 @@ func NewMCPCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "mcp",
 		Short: "Start the MCP server for AI tool integration",
-		Long: `Start an MCP (Model Context Protocol) server that exposes audit log
-query tools for AI assistants.
+		Long: `Start an MCP (Model Context Protocol) server that exposes audit log,
+activity, and Kubernetes event query tools for AI assistants.
 
 The server communicates via stdio and can be connected to Claude Desktop,
 VS Code extensions, or other MCP-compatible clients.
@@ -55,8 +55,27 @@ The server uses the Activity API via a Kubernetes client, so it requires
 a valid kubeconfig with access to the Activity API resources.
 
 Available tools:
+  Audit Logs:
   - query_audit_logs: Search audit logs with CEL filters
   - get_audit_log_facets: Get distinct values for audit log fields
+  - find_failed_operations: Find operations with HTTP 4xx/5xx responses
+  - get_resource_history: Get change history for specific resources
+
+  Activities:
+  - query_activities: Search human-readable activity summaries
+  - get_activity_facets: Get distinct values for activity fields
+  - get_user_activity_summary: Get summary of a user's recent actions
+  - get_activity_timeline: Get activity counts grouped by time
+  - summarize_recent_activity: Generate summary of recent activity
+  - compare_activity_periods: Compare activity between time periods
+
+  Kubernetes Events:
+  - query_kubernetes_events: Search Kubernetes Events
+  - get_kubernetes_event_facets: Get distinct values for event fields
+
+  Policies:
+  - list_activity_policies: List configured ActivityPolicies
+  - preview_activity_policy: Test ActivityPolicy against sample events
 
 Example configuration for Claude Desktop (claude_desktop_config.json):
   {
