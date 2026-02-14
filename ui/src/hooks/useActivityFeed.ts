@@ -1,0 +1,494 @@
+import { useState, useCallback, useMemo, useEffect, useRef, useDeferredValue } from 'react';
+import type { Activity, ActivityListParams, ChangeSource, WatchEvent } from '../types/activity';
+import { ActivityApiClient } from '../api/client';
+
+// Debounce delay for filter changes (ms)
+const FILTER_DEBOUNCE_MS = 300;
+
+/**
+ * Filter options for the activity feed
+ */
+export interface ActivityFeedFilters {
+  /** Filter by change source (human/system/all) */
+  changeSource?: ChangeSource | 'all';
+  /** Full-text search on summaries */
+  search?: string;
+  /** Filter to a specific resource UID */
+  resourceUid?: string;
+  /** Filter by resource kinds (multi-select) */
+  resourceKinds?: string[];
+  /** Filter by actor names (multi-select) */
+  actorNames?: string[];
+  /** Filter by API groups (multi-select) */
+  apiGroups?: string[];
+  /** Filter by resource name (partial match) */
+  resourceName?: string;
+  /** Filter by resource namespaces (multi-select) */
+  resourceNamespaces?: string[];
+  /** Custom CEL filter expression */
+  customFilter?: string;
+}
+
+/**
+ * Time range for the activity feed
+ */
+export interface TimeRange {
+  /** Start of time range (RFC3339 or relative like "now-24h") */
+  start: string;
+  /** End of time range (RFC3339 or relative, default: now) */
+  end?: string;
+}
+
+/**
+ * Options for the useActivityFeed hook
+ */
+export interface UseActivityFeedOptions {
+  /** API client instance */
+  client: ActivityApiClient;
+  /** Initial filter settings */
+  initialFilters?: ActivityFeedFilters;
+  /** Initial time range */
+  initialTimeRange?: TimeRange;
+  /** Number of items per page (default: 30) */
+  pageSize?: number;
+  /** Enable real-time streaming (default: false) */
+  enableStreaming?: boolean;
+  /** Auto-start streaming when enabled (default: true) */
+  autoStartStreaming?: boolean;
+}
+
+/**
+ * Result returned by the useActivityFeed hook
+ */
+export interface UseActivityFeedResult {
+  /** List of activities */
+  activities: Activity[];
+  /** Whether the feed is loading */
+  isLoading: boolean;
+  /** Error if any occurred */
+  error: Error | null;
+  /** Whether there are more activities to load */
+  hasMore: boolean;
+  /** Current filter settings */
+  filters: ActivityFeedFilters;
+  /** Current time range */
+  timeRange: TimeRange;
+  /** Execute/refresh the feed query */
+  refresh: () => Promise<void>;
+  /** Load more activities (pagination) */
+  loadMore: () => Promise<void>;
+  /** Update filter settings */
+  setFilters: (filters: ActivityFeedFilters) => void;
+  /** Update time range */
+  setTimeRange: (timeRange: TimeRange) => void;
+  /** Reset to initial state */
+  reset: () => void;
+  /** Total count if available */
+  totalCount?: number;
+  /** Whether streaming is currently active */
+  isStreaming: boolean;
+  /** Start streaming (when enableStreaming is true) */
+  startStreaming: () => void;
+  /** Stop streaming */
+  stopStreaming: () => void;
+  /** Number of new activities received via streaming since last refresh */
+  newActivitiesCount: number;
+}
+
+/**
+ * Build CEL filter expression from filter options
+ */
+function buildCelFilter(filters: ActivityFeedFilters): string | undefined {
+  const conditions: string[] = [];
+
+  // Change source filter
+  if (filters.changeSource && filters.changeSource !== 'all') {
+    conditions.push(`spec.changeSource == "${filters.changeSource}"`);
+  }
+
+  // Resource UID filter (for resource-specific views)
+  if (filters.resourceUid) {
+    conditions.push(`spec.resource.uid == "${filters.resourceUid}"`);
+  }
+
+  // Resource kinds filter (multi-select)
+  if (filters.resourceKinds && filters.resourceKinds.length > 0) {
+    if (filters.resourceKinds.length === 1) {
+      conditions.push(`spec.resource.kind == "${filters.resourceKinds[0]}"`);
+    } else {
+      const kindConditions = filters.resourceKinds.map((k) => `spec.resource.kind == "${k}"`);
+      conditions.push(`(${kindConditions.join(' || ')})`);
+    }
+  }
+
+  // Actor names filter (multi-select)
+  if (filters.actorNames && filters.actorNames.length > 0) {
+    if (filters.actorNames.length === 1) {
+      conditions.push(`spec.actor.name == "${filters.actorNames[0]}"`);
+    } else {
+      const actorConditions = filters.actorNames.map((a) => `spec.actor.name == "${a}"`);
+      conditions.push(`(${actorConditions.join(' || ')})`);
+    }
+  }
+
+  // API groups filter (multi-select)
+  if (filters.apiGroups && filters.apiGroups.length > 0) {
+    if (filters.apiGroups.length === 1) {
+      conditions.push(`spec.resource.apiGroup == "${filters.apiGroups[0]}"`);
+    } else {
+      const groupConditions = filters.apiGroups.map((g) => `spec.resource.apiGroup == "${g}"`);
+      conditions.push(`(${groupConditions.join(' || ')})`);
+    }
+  }
+
+  // Resource name filter (partial match)
+  if (filters.resourceName) {
+    conditions.push(`spec.resource.name.contains("${filters.resourceName}")`);
+  }
+
+  // Resource namespaces filter (multi-select)
+  if (filters.resourceNamespaces && filters.resourceNamespaces.length > 0) {
+    if (filters.resourceNamespaces.length === 1) {
+      conditions.push(`spec.resource.namespace == "${filters.resourceNamespaces[0]}"`);
+    } else {
+      const nsConditions = filters.resourceNamespaces.map((ns) => `spec.resource.namespace == "${ns}"`);
+      conditions.push(`(${nsConditions.join(' || ')})`);
+    }
+  }
+
+  // Custom filter
+  if (filters.customFilter) {
+    conditions.push(filters.customFilter);
+  }
+
+  return conditions.length > 0 ? conditions.join(' && ') : undefined;
+}
+
+/**
+ * React hook for fetching and managing the activity feed with optional real-time streaming
+ */
+export function useActivityFeed({
+  client,
+  initialFilters = {},
+  initialTimeRange = { start: 'now-7d' },
+  pageSize = 30,
+  enableStreaming = false,
+  autoStartStreaming = true,
+}: UseActivityFeedOptions): UseActivityFeedResult {
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+  const [continueCursor, setContinueCursor] = useState<string | undefined>();
+  const [filters, setFilters] = useState<ActivityFeedFilters>(initialFilters);
+  const [timeRange, setTimeRange] = useState<TimeRange>(initialTimeRange);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [newActivitiesCount, setNewActivitiesCount] = useState(0);
+
+  // Track the latest resource version for watch resume
+  const resourceVersionRef = useRef<string | undefined>();
+  // Track the watch stop function
+  const watchStopRef = useRef<(() => void) | null>(null);
+  // Track whether streaming should restart after filter change
+  const shouldRestartStreamingRef = useRef(false);
+  // Track if we've done the initial load
+  const hasInitialLoadRef = useRef(false);
+  // Debounce timer for filter changes
+  const filterDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Build query parameters from current state
+  const buildParams = useCallback(
+    (cursor?: string): ActivityListParams => {
+      return {
+        filter: buildCelFilter(filters),
+        search: filters.search,
+        start: timeRange.start,
+        end: timeRange.end,
+        limit: pageSize,
+        continue: cursor,
+      };
+    },
+    [filters, timeRange, pageSize]
+  );
+
+  // Handle incoming watch events
+  const handleWatchEvent = useCallback((event: WatchEvent<Activity>) => {
+    if (event.type === 'ERROR') {
+      console.error('Watch error:', event.object);
+      return;
+    }
+
+    if (event.type === 'BOOKMARK') {
+      // Update resource version for resume capability
+      if (event.object.metadata?.resourceVersion) {
+        resourceVersionRef.current = event.object.metadata.resourceVersion;
+      }
+      return;
+    }
+
+    // Update resource version from the event
+    if (event.object.metadata?.resourceVersion) {
+      resourceVersionRef.current = event.object.metadata.resourceVersion;
+    }
+
+    if (event.type === 'ADDED') {
+      // Prepend new activity to the list
+      setActivities((prev) => {
+        // Check for duplicates by name
+        const exists = prev.some((a) => a.metadata?.name === event.object.metadata?.name);
+        if (exists) {
+          return prev;
+        }
+        return [event.object, ...prev];
+      });
+      setNewActivitiesCount((prev) => prev + 1);
+    } else if (event.type === 'MODIFIED') {
+      // Update existing activity
+      setActivities((prev) =>
+        prev.map((a) =>
+          a.metadata?.name === event.object.metadata?.name ? event.object : a
+        )
+      );
+    } else if (event.type === 'DELETED') {
+      // Remove deleted activity
+      setActivities((prev) =>
+        prev.filter((a) => a.metadata?.name !== event.object.metadata?.name)
+      );
+    }
+  }, []);
+
+  // Start watching for real-time updates
+  const startStreaming = useCallback(() => {
+    if (watchStopRef.current) {
+      // Already watching
+      return;
+    }
+
+    const params = buildParams();
+    const { stop } = client.watchActivities(params, {
+      resourceVersion: resourceVersionRef.current,
+      onEvent: handleWatchEvent,
+      onError: (err) => {
+        console.error('Watch stream error:', err);
+        setError(err);
+        setIsStreaming(false);
+        watchStopRef.current = null;
+      },
+      onClose: () => {
+        setIsStreaming(false);
+        watchStopRef.current = null;
+      },
+    });
+
+    watchStopRef.current = stop;
+    setIsStreaming(true);
+    setNewActivitiesCount(0);
+  }, [client, buildParams, handleWatchEvent]);
+
+  // Stop watching
+  const stopStreaming = useCallback(() => {
+    if (watchStopRef.current) {
+      watchStopRef.current();
+      watchStopRef.current = null;
+    }
+    setIsStreaming(false);
+  }, []);
+
+  // Execute the feed query
+  const refresh = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    setNewActivitiesCount(0);
+
+    try {
+      const params = buildParams();
+      const result = await client.listActivities(params);
+
+      setActivities(result.items || []);
+      setContinueCursor(result.metadata?.continue);
+
+      // Store resource version for watch resume
+      if (result.metadata?.resourceVersion) {
+        resourceVersionRef.current = result.metadata.resourceVersion;
+      }
+
+      hasInitialLoadRef.current = true;
+
+      // Auto-restart streaming if it was active before filter change
+      if (shouldRestartStreamingRef.current && enableStreaming) {
+        shouldRestartStreamingRef.current = false;
+        // Defer streaming start to next tick to ensure state is updated
+        setTimeout(() => {
+          if (watchStopRef.current === null) {
+            // startStreaming will be called via the effect
+          }
+        }, 0);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error(String(err)));
+      shouldRestartStreamingRef.current = false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [client, buildParams, enableStreaming]);
+
+  // Load more activities (pagination)
+  const loadMore = useCallback(async () => {
+    if (!continueCursor || isLoading) {
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const params = buildParams(continueCursor);
+      const result = await client.listActivities(params);
+
+      setActivities((prev) => [...prev, ...(result.items || [])]);
+      setContinueCursor(result.metadata?.continue);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error(String(err)));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [client, buildParams, continueCursor, isLoading]);
+
+  // Update filters and reset pagination with debounced auto-refresh
+  const updateFilters = useCallback((newFilters: ActivityFeedFilters) => {
+    // Track if streaming was active so we can restart it
+    if (isStreaming) {
+      shouldRestartStreamingRef.current = true;
+      stopStreaming();
+    }
+
+    setFilters(newFilters);
+    setActivities([]);
+    setContinueCursor(undefined);
+    resourceVersionRef.current = undefined;
+
+    // Cancel any pending debounced refresh
+    if (filterDebounceRef.current) {
+      clearTimeout(filterDebounceRef.current);
+    }
+
+    // Debounce the refresh to avoid excessive API calls
+    filterDebounceRef.current = setTimeout(() => {
+      filterDebounceRef.current = null;
+    }, FILTER_DEBOUNCE_MS);
+  }, [stopStreaming, isStreaming]);
+
+  // Update time range and reset pagination with auto-refresh
+  const updateTimeRange = useCallback((newTimeRange: TimeRange) => {
+    // Track if streaming was active so we can restart it
+    if (isStreaming) {
+      shouldRestartStreamingRef.current = true;
+      stopStreaming();
+    }
+
+    setTimeRange(newTimeRange);
+    setActivities([]);
+    setContinueCursor(undefined);
+    resourceVersionRef.current = undefined;
+
+    // Cancel any pending debounced refresh
+    if (filterDebounceRef.current) {
+      clearTimeout(filterDebounceRef.current);
+    }
+
+    // Debounce the refresh
+    filterDebounceRef.current = setTimeout(() => {
+      filterDebounceRef.current = null;
+    }, FILTER_DEBOUNCE_MS);
+  }, [stopStreaming, isStreaming]);
+
+  // Reset to initial state
+  const reset = useCallback(() => {
+    stopStreaming();
+    setActivities([]);
+    setError(null);
+    setContinueCursor(undefined);
+    setFilters(initialFilters);
+    setTimeRange(initialTimeRange);
+    setNewActivitiesCount(0);
+    resourceVersionRef.current = undefined;
+  }, [initialFilters, initialTimeRange, stopStreaming]);
+
+  // Auto-refresh when filters or time range change (debounced)
+  useEffect(() => {
+    // Skip the initial render - we'll handle that separately
+    if (!hasInitialLoadRef.current) {
+      return;
+    }
+
+    // Cancel any pending refresh
+    if (filterDebounceRef.current) {
+      clearTimeout(filterDebounceRef.current);
+    }
+
+    // Debounce the refresh
+    filterDebounceRef.current = setTimeout(() => {
+      filterDebounceRef.current = null;
+      refresh();
+    }, FILTER_DEBOUNCE_MS);
+
+    return () => {
+      if (filterDebounceRef.current) {
+        clearTimeout(filterDebounceRef.current);
+        filterDebounceRef.current = null;
+      }
+    };
+  }, [filters, timeRange]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-start streaming after initial load when enabled
+  useEffect(() => {
+    if (enableStreaming && autoStartStreaming && activities.length > 0 && !isStreaming && !isLoading) {
+      startStreaming();
+    }
+  }, [enableStreaming, autoStartStreaming, activities.length, isStreaming, isLoading, startStreaming]);
+
+  // Restart streaming after filter change refresh completes
+  useEffect(() => {
+    if (
+      enableStreaming &&
+      shouldRestartStreamingRef.current &&
+      activities.length > 0 &&
+      !isStreaming &&
+      !isLoading
+    ) {
+      shouldRestartStreamingRef.current = false;
+      startStreaming();
+    }
+  }, [enableStreaming, activities.length, isStreaming, isLoading, startStreaming]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (watchStopRef.current) {
+        watchStopRef.current();
+      }
+      if (filterDebounceRef.current) {
+        clearTimeout(filterDebounceRef.current);
+      }
+    };
+  }, []);
+
+  const hasMore = useMemo(() => !!continueCursor, [continueCursor]);
+
+  return {
+    activities,
+    isLoading,
+    error,
+    hasMore,
+    filters,
+    timeRange,
+    refresh,
+    loadMore,
+    setFilters: updateFilters,
+    setTimeRange: updateTimeRange,
+    reset,
+    isStreaming,
+    startStreaming,
+    stopStreaming,
+    newActivitiesCount,
+  };
+}

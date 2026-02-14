@@ -23,6 +23,7 @@ components:
   - ../../components/k8s-event-exporter            # Kubernetes events → NATS
   - ../../components/tracing
   - ../../components/observability            # ServiceMonitors, alerts, dashboards
+  - ../../components/ui                       # Activity UI web application
 
 # Note: The following HA components are excluded for dev environments:
 # - clickhouse-keeper       # Replaced by clickhouse-keeper-standalone (1 replica)
@@ -33,6 +34,9 @@ components:
 images:
   - name: ghcr.io/datum-cloud/activity
     newName: ghcr.io/datum-cloud/activity
+    newTag: dev
+  - name: ghcr.io/datum-cloud/activity-ui
+    newName: ghcr.io/datum-cloud/activity-ui
     newTag: dev
 
 # Patches specific to dev environment
