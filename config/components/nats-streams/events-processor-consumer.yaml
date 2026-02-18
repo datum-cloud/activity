@@ -1,0 +1,33 @@
+---
+apiVersion: jetstream.nats.io/v1beta2
+kind: Consumer
+metadata:
+  name: events-processor
+spec:
+  # Link to the EVENTS stream
+  streamName: EVENTS
+
+  # Durable consumer name (per design: activity-event-processor)
+  durableName: activity-event-processor
+
+  # Delivery policy: deliver all messages (including historical)
+  deliverPolicy: all
+
+  # Ack policy: explicit acknowledgments required
+  ackPolicy: explicit
+
+  # Replay policy: instant (process as fast as possible)
+  replayPolicy: instant
+
+  # Filter subject: all events
+  filterSubject: events.>
+
+  # Retry indefinitely - don't drop messages on failure
+  maxDeliver: -1
+
+  # Max ack pending: allow batch processing
+  maxAckPending: 1000
+
+  # Ack wait: 30 seconds before redelivery
+  # Should be long enough for policy evaluation and ClickHouse write
+  ackWait: 30s

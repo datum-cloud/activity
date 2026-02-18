@@ -87,7 +87,7 @@ spec:
         spec:
           containers:
             - name: clickhouse
-              image: clickhouse/clickhouse-server:latest
+              image: clickhouse/clickhouse-server:26.1-alpine
               resources:
                 # Resources for dev environments
                 requests:
