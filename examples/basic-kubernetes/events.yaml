@@ -1,0 +1,67 @@
+# ActivityPolicies for Kubernetes Events
+# These rules transform raw Kubernetes events into human-readable activities.
+#
+# Events are emitted by controllers and provide a way to understand what's
+# happening in the cluster. Common event types include pod scheduling,
+# image pulling, volume mounting, etc.
+
+---
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: pod-events
+spec:
+  resource:
+    apiGroup: ""
+    kind: Pod
+  eventRules:
+    - match: 'event.reason == "Scheduled"'
+      summary: "{{ link(event.regarding.name, event.regarding) }} scheduled to node {{ event.note }}"
+    - match: 'event.reason == "Pulling"'
+      summary: "Pulling image for {{ link(event.regarding.name, event.regarding) }}"
+    - match: 'event.reason == "Pulled"'
+      summary: "Successfully pulled image for {{ link(event.regarding.name, event.regarding) }}"
+    - match: 'event.reason == "Created"'
+      summary: "Created container in {{ link(event.regarding.name, event.regarding) }}"
+    - match: 'event.reason == "Started"'
+      summary: "Started container in {{ link(event.regarding.name, event.regarding) }}"
+    - match: 'event.reason == "Killing"'
+      summary: "Stopping container in {{ link(event.regarding.name, event.regarding) }}"
+    - match: 'event.reason == "BackOff"'
+      summary: "{{ link(event.regarding.name, event.regarding) }} failed to start: {{ event.note }}"
+    - match: 'event.reason == "FailedScheduling"'
+      summary: "Failed to schedule {{ link(event.regarding.name, event.regarding) }}: {{ event.note }}"
+
+---
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: node-events
+spec:
+  resource:
+    apiGroup: ""
+    kind: Node
+  eventRules:
+    - match: 'event.reason == "NodeReady"'
+      summary: "Node {{ link(event.regarding.name, event.regarding) }} is ready"
+    - match: 'event.reason == "NodeNotReady"'
+      summary: "Node {{ link(event.regarding.name, event.regarding) }} is not ready"
+    - match: 'event.reason == "NodeSchedulable"'
+      summary: "Node {{ link(event.regarding.name, event.regarding) }} is now schedulable"
+    - match: 'event.reason == "RegisteredNode"'
+      summary: "Node {{ link(event.regarding.name, event.regarding) }} joined the cluster"
+
+---
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: deployment-events
+spec:
+  resource:
+    apiGroup: "apps"
+    kind: Deployment
+  eventRules:
+    - match: 'event.reason == "ScalingReplicaSet"'
+      summary: "Scaling replica set for {{ link(event.regarding.name, event.regarding) }}"
+    - match: 'event.reason == "SuccessfulCreate"'
+      summary: "Created replica set for {{ link(event.regarding.name, event.regarding) }}"
