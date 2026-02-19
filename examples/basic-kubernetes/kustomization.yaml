@@ -10,3 +10,4 @@ resources:
   - batch.yaml      # Job, CronJob
   - networking.yaml # Ingress
   - rbac.yaml       # ClusterRole, ClusterRoleBinding, Role, RoleBinding
+  - events.yaml     # Event rules for Pods, Nodes, Deployments
