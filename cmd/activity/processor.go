@@ -26,6 +26,10 @@ type ProcessorOptions struct {
 	NATSStreamName string
 	ConsumerName   string
 
+	// NATS event stream configuration
+	NATSEventStream   string
+	NATSEventConsumer string
+
 	// Output NATS stream
 	OutputStreamName    string
 	OutputSubjectPrefix string
@@ -51,6 +55,8 @@ func NewProcessorOptions() *ProcessorOptions {
 		NATSURL:             "nats://localhost:4222",
 		NATSStreamName:      "AUDIT_EVENTS",
 		ConsumerName:        "activity-processor@activity.miloapis.com",
+		NATSEventStream:     "EVENTS",
+		NATSEventConsumer:   "activity-event-processor",
 		OutputStreamName:    "ACTIVITIES",
 		OutputSubjectPrefix: "activities",
 		Workers:             4,
@@ -74,7 +80,11 @@ func (o *ProcessorOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.NATSStreamName, "nats-stream", o.NATSStreamName,
 		"NATS JetStream stream name for audit events.")
 	fs.StringVar(&o.ConsumerName, "consumer-name", o.ConsumerName,
-		"Durable consumer name for the processor.")
+		"Durable consumer name for the audit log processor.")
+	fs.StringVar(&o.NATSEventStream, "nats-event-stream", o.NATSEventStream,
+		"NATS JetStream stream name for Kubernetes events.")
+	fs.StringVar(&o.NATSEventConsumer, "nats-event-consumer", o.NATSEventConsumer,
+		"Durable consumer name for the event processor.")
 	fs.StringVar(&o.OutputStreamName, "output-stream", o.OutputStreamName,
 		"NATS JetStream stream name for generated activities.")
 	fs.StringVar(&o.OutputSubjectPrefix, "output-subject-prefix", o.OutputSubjectPrefix,
@@ -110,11 +120,12 @@ func NewProcessorCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "processor",
 		Short: "Run the activity processor",
-		Long: `Run the activity processor that consumes audit events from NATS,
+		Long: `Run the activity processor that consumes audit events and Kubernetes events from NATS,
 evaluates ActivityPolicy rules, and generates human-readable Activity resources.
 
 The processor:
-- Connects to NATS JetStream to consume Kubernetes audit events
+- Connects to NATS JetStream to consume Kubernetes audit events (AUDIT_EVENTS stream)
+- Connects to NATS JetStream to consume Kubernetes events (EVENTS stream)
 - Watches ActivityPolicy resources to know which rules to apply
 - Evaluates CEL expressions to match and transform events
 - Publishes activities to NATS for downstream consumption (Vector writes to ClickHouse)`,
