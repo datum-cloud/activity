@@ -1,0 +1,34 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: k8s-event-exporter
+  labels:
+    app: k8s-event-exporter
+    app.kubernetes.io/name: k8s-event-exporter
+    app.kubernetes.io/component: event-forwarder
+rules:
+  # Read events from all namespaces
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["get", "watch", "list"]
+  # Read events.k8s.io (newer Events API)
+  - apiGroups: ["events.k8s.io"]
+    resources: ["events"]
+    verbs: ["get", "watch", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: k8s-event-exporter
+  labels:
+    app: k8s-event-exporter
+    app.kubernetes.io/name: k8s-event-exporter
+    app.kubernetes.io/component: event-forwarder
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: k8s-event-exporter
+subjects:
+  - kind: ServiceAccount
+    name: k8s-event-exporter
+    namespace: activity-system
