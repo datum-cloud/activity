@@ -27,8 +27,9 @@ func ClassifyChangeSource(user authnv1.UserInfo) string {
 
 // ActorType constants for actor classification.
 const (
-	ActorTypeUser   = "user"
-	ActorTypeSystem = "system"
+	ActorTypeUser       = "user"
+	ActorTypeSystem     = "system"
+	ActorTypeController = "controller"
 )
 
 // ResolveActor extracts actor information from the audit user field.
