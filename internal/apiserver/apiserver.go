@@ -16,6 +16,9 @@ import (
 	"go.miloapis.com/activity/internal/registry/activity/activityquery"
 	"go.miloapis.com/activity/internal/registry/activity/auditlog"
 	"go.miloapis.com/activity/internal/registry/activity/auditlogfacet"
+	"go.miloapis.com/activity/internal/registry/activity/eventfacet"
+	"go.miloapis.com/activity/internal/registry/activity/eventquery"
+	"go.miloapis.com/activity/internal/registry/activity/events"
 	"go.miloapis.com/activity/internal/registry/activity/facet"
 	"go.miloapis.com/activity/internal/registry/activity/policy"
 	"go.miloapis.com/activity/internal/registry/activity/preview"
@@ -138,6 +141,24 @@ func (c completedConfig) New() (*ActivityServer, error) {
 
 	// PolicyPreview for testing policies without persisting
 	v1alpha1Storage["policypreviews"] = preview.NewPolicyPreviewStorage()
+
+	// Create events backend using the same ClickHouse connection
+	// K8s Events use audit.k8s_events table (migration 003)
+	eventsBackend := storage.NewClickHouseEventsBackend(clickhouseStorage.Conn(), storage.ClickHouseEventsConfig{
+		Database: clickhouseStorage.Config().Database,
+		Table:    "k8s_events",
+	})
+	v1alpha1Storage["events"] = events.NewEventsREST(eventsBackend)
+
+	// EventFacetQuery for faceted search on Kubernetes Events
+	v1alpha1Storage["eventfacetqueries"] = eventfacet.NewEventFacetQueryStorage(eventsBackend)
+
+	// EventQuery for historical event queries up to 60 days (no 24-hour limit)
+	eventQueryBackend := storage.NewClickHouseEventQueryBackend(clickhouseStorage.Conn(), storage.ClickHouseEventsConfig{
+		Database: clickhouseStorage.Config().Database,
+		Table:    "k8s_events",
+	})
+	v1alpha1Storage["eventqueries"] = eventquery.NewEventQueryREST(eventQueryBackend)
 
 	apiGroupInfo.VersionedResourcesStorageMap["v1alpha1"] = v1alpha1Storage
 
