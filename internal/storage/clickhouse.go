@@ -217,6 +217,16 @@ func (s *ClickHouseStorage) Close() error {
 	return nil
 }
 
+// Conn returns the underlying ClickHouse connection.
+func (s *ClickHouseStorage) Conn() driver.Conn {
+	return s.conn
+}
+
+// Config returns the ClickHouse configuration.
+func (s *ClickHouseStorage) Config() ClickHouseConfig {
+	return s.config
+}
+
 func (s *ClickHouseStorage) GetMaxQueryWindow() time.Duration {
 	return s.config.MaxQueryWindow
 }

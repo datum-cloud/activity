@@ -36,6 +36,14 @@ func (c *FakeActivityV1alpha1) AuditLogQueries() v1alpha1.AuditLogQueryInterface
 	return newFakeAuditLogQueries(c)
 }
 
+func (c *FakeActivityV1alpha1) EventFacetQueries() v1alpha1.EventFacetQueryInterface {
+	return newFakeEventFacetQueries(c)
+}
+
+func (c *FakeActivityV1alpha1) EventQueries() v1alpha1.EventQueryInterface {
+	return newFakeEventQueries(c)
+}
+
 func (c *FakeActivityV1alpha1) PolicyPreviews() v1alpha1.PolicyPreviewInterface {
 	return newFakePolicyPreviews(c)
 }
