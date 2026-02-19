@@ -1,0 +1,1 @@
+import{u as s,b as c,j as a}from"./index-Cpyx2Kcx.js";import{f as l}from"./index.esm-BHZ-heAd.js";function u(){const{client:t}=s(),e=c(),o=()=>{e("/policies/new")},i=n=>{e(`/policies/${encodeURIComponent(n)}/edit`)};return a.jsx(l,{client:t,onEditPolicy:i,onCreatePolicy:o})}export{u as default};

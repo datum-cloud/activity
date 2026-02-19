@@ -1,0 +1,34 @@
+# ActivityPolicy for Pod events
+# Translates Kubernetes events related to Pods into human-readable activities
+
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: pod-events
+spec:
+  resource:
+    apiGroup: ""
+    kind: Pod
+  eventRules:
+    - match: 'event.reason == "Scheduled"'
+      summary: "{{ link(event.regarding.name, event.regarding) }} scheduled to node {{ event.note }}"
+    - match: 'event.reason == "Pulling"'
+      summary: "Pulling container image for {{ link(event.regarding.name, event.regarding) }}"
+    - match: 'event.reason == "Pulled"'
+      summary: "Container image pulled for {{ link(event.regarding.name, event.regarding) }}"
+    - match: 'event.reason == "Created"'
+      summary: "Container created for {{ link(event.regarding.name, event.regarding) }}"
+    - match: 'event.reason == "Started"'
+      summary: "Container started for {{ link(event.regarding.name, event.regarding) }}"
+    - match: 'event.reason == "Killing"'
+      summary: "Stopping container for {{ link(event.regarding.name, event.regarding) }}"
+    - match: 'event.reason == "Failed"'
+      summary: "{{ link(event.regarding.name, event.regarding) }} failed: {{ event.note }}"
+    - match: 'event.reason == "BackOff"'
+      summary: "{{ link(event.regarding.name, event.regarding) }} back-off restarting failed container"
+    - match: 'event.reason == "Unhealthy"'
+      summary: "Health check failed for {{ link(event.regarding.name, event.regarding) }}: {{ event.note }}"
+    - match: 'event.type == "Warning"'
+      summary: "{{ link(event.regarding.name, event.regarding) }}: {{ event.reason }}"
+    - match: 'true'
+      summary: "{{ link(event.regarding.name, event.regarding) }}: {{ event.reason }}"

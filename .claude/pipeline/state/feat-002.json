@@ -1,0 +1,59 @@
+{
+  "id": "feat-002",
+  "name": "activity-links-ui",
+  "created": "2026-02-18T01:00:00Z",
+  "current_stage": "deploy",
+  "stages": {
+    "request": {
+      "status": "completed",
+      "artifact": "pipeline/requests/feat-002-activity-links-ui.md",
+      "completed_at": "2026-02-18T01:00:00Z"
+    },
+    "discovery": {
+      "status": "completed",
+      "artifact": "pipeline/briefs/feat-002-activity-links-ui.md",
+      "completed_at": "2026-02-17T22:30:00Z"
+    },
+    "spec": {
+      "status": "completed",
+      "artifact": "pipeline/specs/feat-002-activity-links-ui.md",
+      "completed_at": "2026-02-17T23:45:00Z"
+    },
+    "pricing": {
+      "status": "skipped",
+      "reason": "UI-only feature, no commercial impact"
+    },
+    "design": {
+      "status": "completed",
+      "artifact": "pipeline/designs/feat-002-activity-links-ui.md",
+      "completed_at": "2026-02-18T01:15:00Z"
+    },
+    "implementation": {
+      "status": "completed",
+      "artifact": "ui/src/components/ActivityFeedSummary.tsx",
+      "completed_at": "2026-02-18T01:30:00Z"
+    },
+    "test": {
+      "status": "completed",
+      "results": {
+        "build": "passed",
+        "type_check": "passed",
+        "lint": "passed (no new errors)"
+      },
+      "completed_at": "2026-02-18T01:45:00Z"
+    },
+    "deploy": {
+      "status": "completed",
+      "target": "dev",
+      "started_at": "2026-02-18T02:00:00Z",
+      "completed_at": "2026-02-18T02:15:00Z"
+    }
+  },
+  "gates": {
+    "spec": "passed",
+    "pricing": "skipped",
+    "review": "approved",
+    "announce": "pending"
+  },
+  "parallel_enabled": []
+}

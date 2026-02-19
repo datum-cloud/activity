@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -184,9 +185,11 @@ func init() {
 // Config contains configuration for the activity processor.
 type Config struct {
 	// NATS configuration
-	NATSURL        string
-	NATSStreamName string // Source stream for audit events (e.g., "AUDIT_EVENTS")
-	ConsumerName   string // Durable consumer name
+	NATSURL             string
+	NATSStreamName      string // Source stream for audit events (e.g., "AUDIT_EVENTS")
+	ConsumerName        string // Durable consumer name
+	EventsStreamName    string // Source stream for Kubernetes events (e.g., "EVENTS")
+	EventsConsumerName  string // Durable consumer name for events
 
 	// Output NATS stream for generated activities
 	OutputStreamName    string // Stream for publishing activities (e.g., "ACTIVITIES")
@@ -214,6 +217,8 @@ func DefaultConfig() Config {
 		NATSURL:             "nats://localhost:4222",
 		NATSStreamName:      "AUDIT_EVENTS",
 		ConsumerName:        "activity-processor@activity.miloapis.com",
+		EventsStreamName:    "EVENTS",
+		EventsConsumerName:  "activity-event-processor@activity.miloapis.com",
 		OutputStreamName:    "ACTIVITIES",
 		OutputSubjectPrefix: "activities",
 		Workers:             4,
@@ -388,6 +393,13 @@ func (p *Processor) Start(ctx context.Context) error {
 			p.config.ConsumerName, p.config.NATSStreamName, err)
 	}
 
+	_, err = js.ConsumerInfo(p.config.EventsStreamName, p.config.EventsConsumerName)
+	if err != nil {
+		nc.Close()
+		return fmt.Errorf("consumer %q not found on stream %q (ensure NATS JetStream resources are deployed): %w",
+			p.config.EventsConsumerName, p.config.EventsStreamName, err)
+	}
+
 	_, err = js.StreamInfo(p.config.OutputStreamName)
 	if err != nil {
 		nc.Close()
@@ -396,17 +408,28 @@ func (p *Processor) Start(ctx context.Context) error {
 	}
 
 	klog.InfoS("Activity processor starting",
-		"stream", p.config.NATSStreamName,
-		"consumer", p.config.ConsumerName,
+		"auditStream", p.config.NATSStreamName,
+		"auditConsumer", p.config.ConsumerName,
+		"eventsStream", p.config.EventsStreamName,
+		"eventsConsumer", p.config.EventsConsumerName,
 		"outputStream", p.config.OutputStreamName,
 		"workers", p.config.Workers,
 	)
 
-	workerErrors := make(chan error, p.config.Workers)
+	workerErrors := make(chan error, p.config.Workers*2)
+
+	// Start workers for audit events
 	for i := 0; i < p.config.Workers; i++ {
 		p.wg.Add(1)
-		go p.worker(ctx, i, workerErrors)
+		go p.auditWorker(ctx, i, workerErrors)
 	}
+
+	// Start workers for Kubernetes events
+	for i := 0; i < p.config.Workers; i++ {
+		p.wg.Add(1)
+		go p.eventWorker(ctx, i, workerErrors)
+	}
+
 	go p.monitorWorkers(ctx, workerErrors)
 
 	// Mark as ready and healthy now that everything is initialized
@@ -642,7 +665,7 @@ func (p *Processor) onPolicyDelete(obj any) {
 	)
 }
 
-func (p *Processor) worker(ctx context.Context, id int, errors chan<- error) {
+func (p *Processor) auditWorker(ctx context.Context, id int, errors chan<- error) {
 	defer p.wg.Done()
 	defer workerCount.Dec()
 
@@ -654,18 +677,18 @@ func (p *Processor) worker(ctx context.Context, id int, errors chan<- error) {
 		nats.Bind(p.config.NATSStreamName, p.config.ConsumerName),
 	)
 	if err != nil {
-		klog.ErrorS(err, "Failed to create pull subscription", "worker", id)
-		errors <- fmt.Errorf("worker %d: failed to create subscription: %w", id, err)
+		klog.ErrorS(err, "Failed to create audit pull subscription", "worker", id)
+		errors <- fmt.Errorf("audit worker %d: failed to create subscription: %w", id, err)
 		return
 	}
 	defer sub.Unsubscribe()
 
-	klog.V(2).InfoS("Worker started", "worker", id)
+	klog.V(2).InfoS("Audit worker started", "worker", id)
 
 	for {
 		select {
 		case <-ctx.Done():
-			klog.V(2).InfoS("Worker stopping", "worker", id)
+			klog.V(2).InfoS("Audit worker stopping", "worker", id)
 			return
 		default:
 		}
@@ -675,13 +698,13 @@ func (p *Processor) worker(ctx context.Context, id int, errors chan<- error) {
 			if err == nats.ErrTimeout {
 				continue
 			}
-			klog.ErrorS(err, "Failed to fetch messages", "worker", id)
+			klog.ErrorS(err, "Failed to fetch audit messages", "worker", id)
 			continue
 		}
 
 		for _, msg := range msgs {
-			if err := p.processMessage(msg); err != nil {
-				klog.ErrorS(err, "Failed to process message", "worker", id)
+			if err := p.processAuditMessage(msg); err != nil {
+				klog.ErrorS(err, "Failed to process audit message", "worker", id)
 				msg.Nak()
 				continue
 			}
@@ -690,7 +713,55 @@ func (p *Processor) worker(ctx context.Context, id int, errors chan<- error) {
 	}
 }
 
-func (p *Processor) processMessage(msg *nats.Msg) error {
+func (p *Processor) eventWorker(ctx context.Context, id int, errors chan<- error) {
+	defer p.wg.Done()
+	defer workerCount.Dec()
+
+	workerCount.Inc()
+
+	sub, err := p.js.PullSubscribe(
+		"events.>",
+		p.config.EventsConsumerName,
+		nats.Bind(p.config.EventsStreamName, p.config.EventsConsumerName),
+	)
+	if err != nil {
+		klog.ErrorS(err, "Failed to create event pull subscription", "worker", id)
+		errors <- fmt.Errorf("event worker %d: failed to create subscription: %w", id, err)
+		return
+	}
+	defer sub.Unsubscribe()
+
+	klog.V(2).InfoS("Event worker started", "worker", id)
+
+	for {
+		select {
+		case <-ctx.Done():
+			klog.V(2).InfoS("Event worker stopping", "worker", id)
+			return
+		default:
+		}
+
+		msgs, err := sub.Fetch(p.config.BatchSize, nats.MaxWait(5*time.Second))
+		if err != nil {
+			if err == nats.ErrTimeout {
+				continue
+			}
+			klog.ErrorS(err, "Failed to fetch event messages", "worker", id)
+			continue
+		}
+
+		for _, msg := range msgs {
+			if err := p.processEventMessage(msg); err != nil {
+				klog.ErrorS(err, "Failed to process event message", "worker", id)
+				msg.Nak()
+				continue
+			}
+			msg.Ack()
+		}
+	}
+}
+
+func (p *Processor) processAuditMessage(msg *nats.Msg) error {
 	var audit auditv1.Event
 	if err := json.Unmarshal(msg.Data, &audit); err != nil {
 		eventsErrored.WithLabelValues("unmarshal").Inc()
@@ -777,6 +848,117 @@ func (p *Processor) processMessage(msg *nats.Msg) error {
 	return nil
 }
 
+func (p *Processor) processEventMessage(msg *nats.Msg) error {
+	// Unmarshal the Kubernetes event
+	var eventMap map[string]interface{}
+	if err := json.Unmarshal(msg.Data, &eventMap); err != nil {
+		eventsErrored.WithLabelValues("unmarshal").Inc()
+		return fmt.Errorf("failed to unmarshal event: %w", err)
+	}
+
+	// Extract regarding object info to find matching policies
+	regarding, ok := eventMap["regarding"].(map[string]interface{})
+	if !ok {
+		eventsSkipped.WithLabelValues("no_regarding_object").Inc()
+		return nil
+	}
+
+	// Extract kind and apiVersion to determine resource type
+	apiVersion, _ := regarding["apiVersion"].(string)
+	kind, _ := regarding["kind"].(string)
+	if kind == "" {
+		eventsSkipped.WithLabelValues("no_kind").Inc()
+		return nil
+	}
+
+	// Parse apiVersion to get group
+	apiGroup := ""
+	if apiVersion != "" {
+		parts := strings.Split(apiVersion, "/")
+		if len(parts) == 2 {
+			apiGroup = parts[0]
+		}
+		// For core resources like v1 (pods, services), apiGroup is empty
+	}
+
+	// Convert kind to resource (plural form)
+	resource, err := p.kindToResource(apiGroup, kind)
+	if err != nil {
+		klog.V(2).InfoS("Failed to resolve resource for event",
+			"apiGroup", apiGroup,
+			"kind", kind,
+			"error", err,
+		)
+		eventsSkipped.WithLabelValues("unknown_resource").Inc()
+		return nil
+	}
+
+	displayGroup := apiGroup
+	if displayGroup == "" {
+		displayGroup = "core"
+	}
+	eventsReceived.WithLabelValues(displayGroup, resource).Inc()
+
+	// Get compiled policies for this resource
+	policies := p.policyCache.Get(apiGroup, resource)
+	if len(policies) == 0 {
+		eventsSkipped.WithLabelValues("no_matching_policy").Inc()
+		return nil
+	}
+
+	// First matching policy wins
+	for _, policy := range policies {
+		policyStart := time.Now()
+
+		// Evaluate event rules using pre-compiled programs
+		activity, ruleIndex, err := p.evaluateCompiledEventRules(policy, eventMap)
+		if err != nil {
+			klog.ErrorS(err, "Failed to evaluate event policy",
+				"policy", policy.Name,
+			)
+			eventsErrored.WithLabelValues("evaluate").Inc()
+			eventsEvaluated.WithLabelValues(
+				policy.Name,
+				policy.APIGroup,
+				policy.Kind,
+				"error",
+			).Inc()
+			eventProcessingDuration.WithLabelValues(policy.Name).Observe(time.Since(policyStart).Seconds())
+			continue
+		}
+
+		ruleMatched := activity != nil
+		eventsEvaluated.WithLabelValues(
+			policy.Name,
+			policy.APIGroup,
+			policy.Kind,
+			fmt.Sprintf("%t", ruleMatched),
+		).Inc()
+
+		if !ruleMatched {
+			eventProcessingDuration.WithLabelValues(policy.Name).Observe(time.Since(policyStart).Seconds())
+			continue
+		}
+
+		if err := p.publishActivity(activity, policy); err != nil {
+			eventsErrored.WithLabelValues("publish").Inc()
+			eventProcessingDuration.WithLabelValues(policy.Name).Observe(time.Since(policyStart).Seconds())
+			return fmt.Errorf("failed to publish activity: %w", err)
+		}
+
+		klog.V(4).InfoS("Generated activity from event",
+			"activity", activity.Name,
+			"policy", policy.Name,
+			"ruleIndex", ruleIndex,
+		)
+
+		eventProcessingDuration.WithLabelValues(policy.Name).Observe(time.Since(policyStart).Seconds())
+		return nil
+	}
+
+	return nil
+}
+
 // evaluateCompiledAuditRules evaluates audit rules using pre-compiled CEL programs.
 func (p *Processor) evaluateCompiledAuditRules(policy *CompiledPolicy, auditMap map[string]any, audit *auditv1.Event) (*v1alpha1.Activity, int, error) {
 	vars := BuildAuditVars(auditMap)
@@ -804,6 +986,41 @@ func (p *Processor) evaluateCompiledAuditRules(policy *CompiledPolicy, auditMap 
 				Kind:     policy.Kind,
 			}
 			activity := builder.BuildFromAudit(audit, summary, nil)
+
+			return activity, i, nil
+		}
+	}
+
+	return nil, -1, nil
+}
+
+// evaluateCompiledEventRules evaluates event rules using pre-compiled CEL programs.
+func (p *Processor) evaluateCompiledEventRules(policy *CompiledPolicy, eventMap map[string]interface{}) (*v1alpha1.Activity, int, error) {
+	vars := BuildEventVars(eventMap)
+
+	for i := range policy.EventRules {
+		rule := &policy.EventRules[i]
+		if !rule.Valid {
+			continue
+		}
+
+		matched, err := rule.EvaluateEventMatch(eventMap)
+		if err != nil {
+			return nil, -1, fmt.Errorf("rule %d match: %w", i, err)
+		}
+
+		if matched {
+			summary, err := rule.EvaluateSummary(vars)
+			if err != nil {
+				return nil, -1, fmt.Errorf("rule %d summary: %w", i, err)
+			}
+
+			// Build activity using the processor package
+			builder := &processor.ActivityBuilder{
+				APIGroup: policy.APIGroup,
+				Kind:     policy.Kind,
+			}
+			activity := builder.BuildFromEvent(eventMap, summary, nil)
 
 			return activity, i, nil
 		}

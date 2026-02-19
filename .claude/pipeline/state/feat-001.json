@@ -1,0 +1,79 @@
+{
+  "id": "feat-001",
+  "name": "event-processing-pipeline",
+  "created": "2026-02-17T00:00:00Z",
+  "current_stage": "deploy",
+  "stages": {
+    "request": {
+      "status": "completed",
+      "artifact": "pipeline/requests/feat-001-event-processing-pipeline.md",
+      "completed_at": "2026-02-17T00:00:00Z"
+    },
+    "discovery": {
+      "status": "completed",
+      "artifact": "pipeline/briefs/feat-001-event-processing-pipeline.md",
+      "completed_at": "2026-02-17T00:00:00Z"
+    },
+    "spec": {
+      "status": "completed",
+      "artifact": "pipeline/specs/feat-001-event-processing-pipeline.md",
+      "completed_at": "2026-02-17T00:00:00Z"
+    },
+    "pricing": {
+      "status": "completed",
+      "artifact": "pipeline/pricing/feat-001-event-processing-pipeline.md",
+      "completed_at": "2026-02-17T00:00:00Z"
+    },
+    "design": {
+      "status": "completed",
+      "artifact": "pipeline/designs/feat-001-event-processing-pipeline.md",
+      "completed_at": "2026-02-17T00:00:00Z"
+    },
+    "implementation": {
+      "status": "completed",
+      "started_at": "2026-02-18T15:00:00Z",
+      "completed_at": "2026-02-18T15:10:00Z",
+      "iteration": 2,
+      "changes": [
+        "cmd/activity/processor.go - Wired EventProcessor to CLI",
+        "config/base/processor.yaml - Added event stream env vars"
+      ]
+    },
+    "test": {
+      "status": "completed",
+      "completed_at": "2026-02-18T15:12:00Z",
+      "results": {
+        "processor": "ok",
+        "activityprocessor": "ok",
+        "all": "passed"
+      }
+    },
+    "deploy": {
+      "status": "in_progress",
+      "target": "dev",
+      "started_at": "2026-02-18T15:12:00Z"
+    },
+    "document": {
+      "status": "completed",
+      "artifact": "docs/events.md",
+      "started_at": "2026-02-18T02:30:00Z",
+      "completed_at": "2026-02-18T14:45:00Z"
+    },
+    "announce": {
+      "status": "completed",
+      "artifacts": [
+        "pipeline/announcements/feat-001-changelog.md",
+        "pipeline/announcements/feat-001-enablement.md"
+      ],
+      "started_at": "2026-02-18T02:30:00Z",
+      "completed_at": "2026-02-18T14:50:00Z"
+    }
+  },
+  "gates": {
+    "spec": "approved",
+    "pricing": "approved",
+    "review": "approved",
+    "announce": "approved"
+  },
+  "parallel_enabled": ["spec", "pricing", "document", "announce"]
+}

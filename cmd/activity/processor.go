@@ -22,9 +22,11 @@ type ProcessorOptions struct {
 	MasterURL  string
 
 	// NATS configuration
-	NATSURL        string
-	NATSStreamName string
-	ConsumerName   string
+	NATSURL             string
+	NATSStreamName      string
+	ConsumerName        string
+	EventsStreamName    string
+	EventsConsumerName  string
 
 	// Output NATS stream
 	OutputStreamName    string
@@ -51,6 +53,8 @@ func NewProcessorOptions() *ProcessorOptions {
 		NATSURL:             "nats://localhost:4222",
 		NATSStreamName:      "AUDIT_EVENTS",
 		ConsumerName:        "activity-processor@activity.miloapis.com",
+		EventsStreamName:    "EVENTS",
+		EventsConsumerName:  "activity-event-processor@activity.miloapis.com",
 		OutputStreamName:    "ACTIVITIES",
 		OutputSubjectPrefix: "activities",
 		Workers:             4,
@@ -74,7 +78,11 @@ func (o *ProcessorOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.NATSStreamName, "nats-stream", o.NATSStreamName,
 		"NATS JetStream stream name for audit events.")
 	fs.StringVar(&o.ConsumerName, "consumer-name", o.ConsumerName,
-		"Durable consumer name for the processor.")
+		"Durable consumer name for audit events.")
+	fs.StringVar(&o.EventsStreamName, "events-stream", o.EventsStreamName,
+		"NATS JetStream stream name for Kubernetes events.")
+	fs.StringVar(&o.EventsConsumerName, "events-consumer-name", o.EventsConsumerName,
+		"Durable consumer name for Kubernetes events.")
 	fs.StringVar(&o.OutputStreamName, "output-stream", o.OutputStreamName,
 		"NATS JetStream stream name for generated activities.")
 	fs.StringVar(&o.OutputSubjectPrefix, "output-subject-prefix", o.OutputSubjectPrefix,
@@ -153,6 +161,8 @@ func RunProcessor(options *ProcessorOptions) error {
 		NATSURL:             options.NATSURL,
 		NATSStreamName:      options.NATSStreamName,
 		ConsumerName:        options.ConsumerName,
+		EventsStreamName:    options.EventsStreamName,
+		EventsConsumerName:  options.EventsConsumerName,
 		OutputStreamName:    options.OutputStreamName,
 		OutputSubjectPrefix: options.OutputSubjectPrefix,
 		NATSTLSEnabled:      options.NATSTLSEnabled,
