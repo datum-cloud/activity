@@ -47,6 +47,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.AuditLogQuery":             schema_pkg_apis_activity_v1alpha1_AuditLogQuery(ref),
 		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.AuditLogQuerySpec":         schema_pkg_apis_activity_v1alpha1_AuditLogQuerySpec(ref),
 		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.AuditLogQueryStatus":       schema_pkg_apis_activity_v1alpha1_AuditLogQueryStatus(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventFacetQuery":           schema_pkg_apis_activity_v1alpha1_EventFacetQuery(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventFacetQuerySpec":       schema_pkg_apis_activity_v1alpha1_EventFacetQuerySpec(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventFacetQueryStatus":     schema_pkg_apis_activity_v1alpha1_EventFacetQueryStatus(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventQuery":                schema_pkg_apis_activity_v1alpha1_EventQuery(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventQueryList":            schema_pkg_apis_activity_v1alpha1_EventQueryList(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventQuerySpec":            schema_pkg_apis_activity_v1alpha1_EventQuerySpec(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventQueryStatus":          schema_pkg_apis_activity_v1alpha1_EventQueryStatus(ref),
 		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetResult":               schema_pkg_apis_activity_v1alpha1_FacetResult(ref),
 		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetSpec":                 schema_pkg_apis_activity_v1alpha1_FacetSpec(ref),
 		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetTimeRange":            schema_pkg_apis_activity_v1alpha1_FacetTimeRange(ref),
@@ -1680,6 +1687,340 @@ func schema_pkg_apis_activity_v1alpha1_AuditLogQueryStatus(ref common.ReferenceC
 		},
 		Dependencies: []string{
 			auditv1.Event{}.OpenAPIModelName()},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_EventFacetQuery(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "EventFacetQuery is an ephemeral resource for getting distinct field values from Kubernetes Events. Use this to power autocomplete, filter dropdowns, and faceted search in UIs.\n\nThe query returns counts for each distinct value, allowing you to show both available options and their frequency.\n\nExample:\n\n\tapiVersion: activity.miloapis.com/v1alpha1\n\tkind: EventFacetQuery\n\tmetadata:\n\t  name: get-facets\n\tspec:\n\t  timeRange:\n\t    start: \"now-7d\"\n\t  facets:\n\t    - field: involvedObject.kind\n\t      limit: 10\n\t    - field: reason\n\t    - field: type",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ObjectMeta{}.OpenAPIModelName()),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventFacetQuerySpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventFacetQueryStatus"),
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventFacetQuerySpec", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventFacetQueryStatus", metav1.ObjectMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_EventFacetQuerySpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "EventFacetQuerySpec defines which facets to retrieve from Kubernetes Events.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"timeRange": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TimeRange limits the time window for facet aggregation. If not specified, defaults to the last 7 days.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetTimeRange"),
+						},
+					},
+					"facets": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Facets specifies which fields to get distinct values for. Each facet returns the top N values with counts.\n\nSupported fields:\n  - involvedObject.kind: Resource kinds (Pod, Deployment, etc.)\n  - involvedObject.namespace: Namespaces of involved objects\n  - reason: Event reasons (Scheduled, Pulled, Created, etc.)\n  - type: Event types (Normal, Warning)\n  - source.component: Source components (kubelet, scheduler, etc.)\n  - namespace: Event namespace",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetSpec"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"facets"},
+			},
+		},
+		Dependencies: []string{
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetSpec", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetTimeRange"},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_EventFacetQueryStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "EventFacetQueryStatus contains the facet results.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"facets": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Facets contains the results for each requested facet.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetResult"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetResult"},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_EventQuery(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "EventQuery searches Kubernetes Events stored in ClickHouse.\n\nUnlike the native Events list (limited to 24 hours), EventQuery supports up to 60 days of history. Results are returned in the Status field, ordered newest-first.\n\nQuick Start:\n\n\tapiVersion: activity.miloapis.com/v1alpha1\n\tkind: EventQuery\n\tmetadata:\n\t  name: recent-pod-failures\n\tspec:\n\t  startTime: \"now-7d\"          # last 7 days\n\t  endTime: \"now\"\n\t  namespace: \"production\"      # optional: limit to namespace\n\t  fieldSelector: \"type=Warning\" # optional: standard K8s field selector\n\t  limit: 100\n\nTime Formats: - Relative: \"now-30d\" (great for dashboards and recurring queries) - Absolute: \"2024-01-01T00:00:00Z\" (great for historical analysis)",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ObjectMeta{}.OpenAPIModelName()),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventQuerySpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventQueryStatus"),
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventQuerySpec", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventQueryStatus", metav1.ObjectMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_EventQueryList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "EventQueryList is required by the code generator but is not used directly. EventQuery is an ephemeral resource that only supports Create.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ListMeta{}.OpenAPIModelName()),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventQuery"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventQuery", metav1.ListMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_EventQuerySpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "EventQuerySpec defines the search parameters.\n\nRequired: startTime and endTime define your search window (max 60 days). Optional: namespace (limit to namespace), fieldSelector (standard K8s syntax), limit (page size, default 100), continue (pagination).",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"startTime": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StartTime is the beginning of your search window (inclusive).\n\nFormat Options: - Relative: \"now-30d\", \"now-2h\", \"now-30m\" (units: s, m, h, d, w)\n  Use for dashboards and recurring queries - they adjust automatically.\n- Absolute: \"2024-01-01T00:00:00Z\" (RFC3339 with timezone)\n  Use for historical analysis of specific time periods.\n\nMaximum lookback is 60 days from now.\n\nExamples:\n  \"now-7d\"                      → 7 days ago\n  \"2024-06-15T14:30:00-05:00\"   → specific time with timezone offset",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"endTime": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EndTime is the end of your search window (exclusive).\n\nUses the same formats as StartTime. Commonly \"now\" for the current moment. Must be greater than StartTime.\n\nExamples:\n  \"now\"                  → current time\n  \"2024-01-02T00:00:00Z\" → specific end point",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"namespace": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Namespace limits results to events from a specific namespace. Leave empty to query events across all namespaces.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"fieldSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "FieldSelector filters events using standard Kubernetes field selector syntax.\n\nSupported Fields:\n  metadata.name               - event name\n  metadata.namespace          - event namespace\n  metadata.uid                - event UID\n  involvedObject.apiVersion   - involved resource API version\n  involvedObject.kind         - involved resource kind (e.g., Pod, Deployment)\n  involvedObject.namespace    - involved resource namespace\n  involvedObject.name         - involved resource name\n  involvedObject.uid          - involved resource UID\n  involvedObject.fieldPath    - involved resource field path\n  reason                      - event reason (e.g., FailedMount, Pulled)\n  type                        - event type (Normal or Warning)\n  source.component            - reporting component\n  source.host                 - reporting host\n\nOperators: = (or ==), != Multiple conditions: comma-separated (all must match)\n\nCommon Patterns:\n  \"type=Warning\"                                  - Warning events only\n  \"involvedObject.kind=Pod\"                       - Events for pods\n  \"reason=FailedMount\"                            - Mount failure events\n  \"involvedObject.name=my-pod,type=Warning\"       - Warnings for a specific pod",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"limit": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Limit sets the maximum number of results per page. Default: 100, Maximum: 1000.\n\nUse smaller values (10-50) for exploration, larger (500-1000) for data collection. Use continue to fetch additional pages.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"continue": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Continue is the pagination cursor for fetching additional pages.\n\nLeave empty for the first page. If status.continue is non-empty after a query, copy that value here in a new query with identical parameters to get the next page. Repeat until status.continue is empty.\n\nImportant: Keep all other parameters (startTime, endTime, namespace, fieldSelector, limit) identical across paginated requests. The cursor is opaque - copy it exactly without modification.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"startTime", "endTime"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_EventQueryStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "EventQueryStatus contains the query results and pagination state.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"results": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Results contains matching Kubernetes Events, sorted newest-first.\n\nEach event follows the standard corev1.Event format with fields like:\n  involvedObject.{kind,name,namespace}, reason, message, type,\n  firstTimestamp, lastTimestamp, count, source.component\n\nEmpty results? Try broadening your field selector or time range.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(corev1.Event{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+					"continue": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Continue is the pagination cursor. Non-empty means more results are available - copy this to spec.continue for the next page. Empty means you have all results.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"effectiveStartTime": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EffectiveStartTime is the actual start time used for this query (RFC3339 format).\n\nWhen you use relative times like \"now-7d\", this shows the exact timestamp that was calculated. Useful for understanding exactly what time range was queried, especially for auditing, debugging, or recreating queries with absolute timestamps.\n\nExample: If you query with startTime=\"now-7d\" at 2025-12-17T12:00:00Z, this will be \"2025-12-10T12:00:00Z\".",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"effectiveEndTime": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EffectiveEndTime is the actual end time used for this query (RFC3339 format).\n\nWhen you use relative times like \"now\", this shows the exact timestamp that was calculated. Useful for understanding exactly what time range was queried.\n\nExample: If you query with endTime=\"now\" at 2025-12-17T12:00:00Z, this will be \"2025-12-17T12:00:00Z\".",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			corev1.Event{}.OpenAPIModelName()},
 	}
 }
 
