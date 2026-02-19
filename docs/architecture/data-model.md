@@ -20,8 +20,8 @@ All tables use `ReplicatedReplacingMergeTree` with:
 | Table | Retention | Storage |
 |-------|-----------|---------|
 | Audit Events | Unlimited | Hot (90 days) → Cold (S3) |
-| Events | 90 days | Hot only |
-| Activities | 30 days | Hot only |
+| Events | 60 days | Hot only |
+| Activities | 60 days | Hot only |
 
 Audit logs use tiered storage: data automatically moves from local SSD to
 S3-compatible cold storage after 90 days. A 10 GB local cache accelerates
@@ -97,8 +97,116 @@ PROJECTION uid_queries (
 
 ## Events Table
 
-The events table schema will be defined in a future iteration when Kubernetes
-event ingestion is implemented.
+The `audit.k8s_events` table stores Kubernetes Events (core/v1.Event) for
+multi-tenant environments.
+
+### Storage Model
+
+Events use an **insert-only model** where each event state (as `lastTimestamp`
+changes) becomes a separate row. This allows `last_timestamp` to be in the
+primary key for efficient ordering. Queries use `LIMIT 1 BY uid` to get the
+latest state per event. `ReplacingMergeTree` handles true duplicates from
+pipeline retries.
+
+```sql
+CREATE TABLE audit.k8s_events (
+    -- Full event as compressed JSON
+    event_json String CODEC(ZSTD(3)),
+
+    -- Insertion timestamp for ResourceVersion (nanoseconds for monotonicity)
+    inserted_at DateTime64(9),
+
+    -- Tenant scope (primary query dimension)
+    scope_type LowCardinality(String),   -- Organization, Project
+    scope_name String,
+
+    -- Timestamps
+    first_timestamp DateTime64(3),
+    last_timestamp DateTime64(3),
+
+    -- Event metadata
+    namespace LowCardinality(String),
+    name String,
+    uid String,
+
+    -- Involved object (the resource the event is about)
+    involved_api_group LowCardinality(String),  -- e.g., "apps", "networking.k8s.io"
+    involved_api_version LowCardinality(String),
+    involved_kind LowCardinality(String),       -- e.g., "Pod", "Deployment"
+    involved_namespace LowCardinality(String),
+    involved_name String,
+    involved_uid String,
+
+    -- Event classification
+    reason LowCardinality(String),   -- e.g., "Scheduled", "Pulling", "Created"
+    type LowCardinality(String),     -- "Normal" or "Warning"
+
+    -- Source (what generated the event)
+    source_component LowCardinality(String),  -- e.g., "kubelet", "deployment-controller"
+    source_host String
+
+) ENGINE = ReplicatedReplacingMergeTree(inserted_at)
+PARTITION BY toYYYYMMDD(last_timestamp)
+ORDER BY (scope_type, scope_name, last_timestamp, involved_api_group, involved_kind, type, uid)
+TTL last_timestamp + INTERVAL 60 DAY DELETE;
+```
+
+### Example Query
+
+To get the latest state of each event, sorted by most recent activity:
+
+```sql
+SELECT * FROM audit.k8s_events
+WHERE scope_type = 'organization' AND scope_name = 'acme'
+ORDER BY last_timestamp DESC
+LIMIT 1 BY uid
+```
+
+### Query Patterns
+
+The table is optimized for four primary query patterns:
+
+1. **Multi-tenant queries** (default): Filter by scope, then time range
+2. **API group/resource queries**: Find events for specific resource types
+3. **Platform-wide queries**: Time-range queries across all tenants
+4. **Source component queries**: Events from specific controllers
+
+### Indexes
+
+| Index | Type | Columns | Purpose |
+|-------|------|---------|---------|
+| `idx_scope_name_bloom` | bloom_filter | `scope_name` | Tenant filtering |
+| `idx_involved_api_group` | set | `involved_api_group` | API group queries |
+| `idx_involved_kind_set` | set | `involved_kind` | Resource type filtering |
+| `idx_involved_name_bloom` | bloom_filter | `involved_name` | Resource name lookups |
+| `idx_involved_uid_bloom` | bloom_filter | `involved_uid` | Resource UID lookups |
+| `idx_reason_set` | set | `reason` | Event reason filtering |
+| `idx_type_set` | set | `type` | Normal vs Warning |
+| `idx_source_component` | set | `source_component` | Controller/component filtering |
+
+### Projections
+
+Three projections provide optimized sort orders:
+
+```sql
+-- Platform-wide queries (sorted by time across all tenants)
+PROJECTION platform_query_projection (
+    SELECT * ORDER BY (last_timestamp, scope_type, scope_name,
+                       involved_api_group, involved_kind, type, uid)
+)
+
+-- API group/resource queries (sorted by involved object type)
+PROJECTION involved_object_query_projection (
+    SELECT * ORDER BY (involved_api_group, involved_kind, scope_type,
+                       scope_name, last_timestamp, type, uid)
+)
+
+-- Source component queries (by generating controller/component)
+PROJECTION source_query_projection (
+    SELECT * ORDER BY (source_component, last_timestamp, scope_type,
+                       scope_name, involved_api_group, involved_kind, type, uid)
+)
+```
 
 ## Activities Table
 
