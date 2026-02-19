@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k8s-event-exporter
+  namespace: activity-system
+  labels:
+    app: k8s-event-exporter
+    app.kubernetes.io/name: k8s-event-exporter
+    app.kubernetes.io/component: event-forwarder
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: k8s-event-exporter
+  template:
+    metadata:
+      labels:
+        app: k8s-event-exporter
+        app.kubernetes.io/name: k8s-event-exporter
+        app.kubernetes.io/component: event-forwarder
+    spec:
+      serviceAccountName: k8s-event-exporter
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        fsGroup: 65532
+      containers:
+        - name: event-exporter
+          # Uses the same activity image with the event-exporter subcommand
+          image: ghcr.io/datum-cloud/activity:dev
+          imagePullPolicy: IfNotPresent
+          args:
+            - event-exporter
+            - -v=2
+          env:
+            - name: NATS_URL
+              value: "nats://nats.nats-system.svc.cluster.local:4222"
+            - name: SUBJECT_PREFIX
+              value: "events"
+            # SCOPE_TYPE and SCOPE_NAME provide default scope annotations for bootstrapping.
+            # In production, Milo injects these values at request time via admission webhook.
+            # Override these defaults per-environment using Kustomize patches.
+            - name: SCOPE_TYPE
+              value: "organization"
+            - name: SCOPE_NAME
+              value: "dev-org"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
