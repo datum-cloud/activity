@@ -11,6 +11,7 @@ import (
 	activityapiserver "go.miloapis.com/activity/internal/apiserver"
 	"go.miloapis.com/activity/internal/storage"
 	"go.miloapis.com/activity/internal/version"
+	"go.miloapis.com/activity/internal/watch"
 	"go.miloapis.com/activity/pkg/generated/openapi"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	apiopenapi "k8s.io/apiserver/pkg/endpoints/openapi"
@@ -133,6 +134,15 @@ type ActivityServerOptions struct {
 
 	MaxQueryWindow time.Duration // Maximum time range allowed for queries
 	MaxPageSize    int32         // Maximum number of results per page
+
+	// NATS configuration for events watch
+	EventsNATSURL           string
+	EventsNATSStream        string
+	EventsNATSSubjectPrefix string
+	EventsNATSTLSEnabled    bool
+	EventsNATSTLSCertFile   string
+	EventsNATSTLSKeyFile    string
+	EventsNATSTLSCAFile     string
 }
 
 // NewActivityServerOptions creates options with default values.
@@ -185,6 +195,22 @@ func (o *ActivityServerOptions) AddFlags(fs *pflag.FlagSet) {
 		"Maximum time range for a single query (e.g., 720h for 30 days)")
 	fs.Int32Var(&o.MaxPageSize, "max-page-size", o.MaxPageSize,
 		"Maximum results returned per page")
+
+	// Events NATS watch configuration
+	fs.StringVar(&o.EventsNATSURL, "events-nats-url", o.EventsNATSURL,
+		"NATS server URL for events watch (e.g., nats://localhost:4222). If not set, watch API will be disabled.")
+	fs.StringVar(&o.EventsNATSStream, "events-nats-stream", o.EventsNATSStream,
+		"NATS JetStream stream name for events (defaults to 'EVENTS')")
+	fs.StringVar(&o.EventsNATSSubjectPrefix, "events-nats-subject-prefix", o.EventsNATSSubjectPrefix,
+		"NATS subject prefix for events (defaults to 'events')")
+	fs.BoolVar(&o.EventsNATSTLSEnabled, "events-nats-tls-enabled", o.EventsNATSTLSEnabled,
+		"Enable TLS for Events NATS connection")
+	fs.StringVar(&o.EventsNATSTLSCertFile, "events-nats-tls-cert-file", o.EventsNATSTLSCertFile,
+		"Path to client certificate file for Events NATS TLS")
+	fs.StringVar(&o.EventsNATSTLSKeyFile, "events-nats-tls-key-file", o.EventsNATSTLSKeyFile,
+		"Path to client private key file for Events NATS TLS")
+	fs.StringVar(&o.EventsNATSTLSCAFile, "events-nats-tls-ca-file", o.EventsNATSTLSCAFile,
+		"Path to CA certificate file for Events NATS TLS")
 }
 
 func (o *ActivityServerOptions) Complete() error {
@@ -253,6 +279,15 @@ func (o *ActivityServerOptions) Config() (*activityapiserver.Config, error) {
 				TLSCAFile:      o.ClickHouseTLSCAFile,
 				MaxQueryWindow: o.MaxQueryWindow,
 				MaxPageSize:    o.MaxPageSize,
+			},
+			EventsNATSConfig: watch.NATSConfig{
+				URL:           o.EventsNATSURL,
+				StreamName:    o.EventsNATSStream,
+				SubjectPrefix: o.EventsNATSSubjectPrefix,
+				TLSEnabled:    o.EventsNATSTLSEnabled,
+				TLSCertFile:   o.EventsNATSTLSCertFile,
+				TLSKeyFile:    o.EventsNATSTLSKeyFile,
+				TLSCAFile:     o.EventsNATSTLSCAFile,
 			},
 		},
 	}

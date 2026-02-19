@@ -56,6 +56,7 @@ func init() {
 type ExtraConfig struct {
 	ClickHouseConfig storage.ClickHouseConfig
 	NATSConfig       watch.NATSConfig
+	EventsNATSConfig watch.NATSConfig
 }
 
 // Config combines generic and activity-specific configuration.
@@ -69,6 +70,7 @@ type ActivityServer struct {
 	GenericAPIServer *genericapiserver.GenericAPIServer
 	storage          *storage.ClickHouseStorage
 	watcher          *watch.NATSWatcher
+	eventsWatcher    *watch.EventsWatcher
 }
 
 type completedConfig struct {
@@ -110,10 +112,22 @@ func (c completedConfig) New() (*ActivityServer, error) {
 		return nil, fmt.Errorf("failed to create NATS watcher: %w", err)
 	}
 
+	// Create NATS watcher for Events Watch API (optional - returns nil if not configured)
+	eventsNATSWatcher, err := watch.NewNATSWatcher(c.ExtraConfig.EventsNATSConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Events NATS watcher: %w", err)
+	}
+
+	var eventsWatcher *watch.EventsWatcher
+	if eventsNATSWatcher != nil {
+		eventsWatcher = watch.NewEventsWatcher(eventsNATSWatcher)
+	}
+
 	s := &ActivityServer{
 		GenericAPIServer: genericServer,
 		storage:          clickhouseStorage,
 		watcher:          watcher,
+		eventsWatcher:    eventsWatcher,
 	}
 
 	apiGroupInfo := genericapiserver.NewDefaultAPIGroupInfo(v1alpha1.GroupName, Scheme, metav1.ParameterCodec, Codecs)
@@ -148,7 +162,11 @@ func (c completedConfig) New() (*ActivityServer, error) {
 		Database: clickhouseStorage.Config().Database,
 		Table:    "k8s_events",
 	})
-	v1alpha1Storage["events"] = events.NewEventsREST(eventsBackend)
+	if s.eventsWatcher != nil {
+		v1alpha1Storage["events"] = events.NewEventsRESTWithWatcher(eventsBackend, s.eventsWatcher)
+	} else {
+		v1alpha1Storage["events"] = events.NewEventsREST(eventsBackend)
+	}
 
 	// EventFacetQuery for faceted search on Kubernetes Events
 	v1alpha1Storage["eventfacetqueries"] = eventfacet.NewEventFacetQueryStorage(eventsBackend)
