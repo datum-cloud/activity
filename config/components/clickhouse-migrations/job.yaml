@@ -58,9 +58,10 @@ spec:
           items:
           - key: 001_initial_schema.sql
             path: 001_initial_schema.sql
-          # Add more migrations here as they are created:
-          # - key: 002_add_field.sql
-          #   path: 002_add_field.sql
+          - key: 002_activities_table.sql
+            path: 002_activities_table.sql
+          - key: 003_k8s_events_table.sql
+            path: 003_k8s_events_table.sql
       # Scripts volume - same ConfigMap, separate mount
       - name: scripts
         configMap:

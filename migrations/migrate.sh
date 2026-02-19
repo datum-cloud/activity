@@ -297,24 +297,42 @@ show_migration_status() {
 verify_schema() {
     log_info "Verifying schema..."
 
-    # Check if audit.events table exists
-    local events_table_exists=$(clickhouse_cmd "
+    # Check if audit.audit_logs table exists (renamed from events in migration 003)
+    local audit_logs_table_exists=$(clickhouse_cmd "
         SELECT count()
         FROM system.tables
-        WHERE database = '${CLICKHOUSE_DATABASE}' AND name = 'events'
+        WHERE database = '${CLICKHOUSE_DATABASE}' AND name = 'audit_logs'
     ")
 
-    if [ "${events_table_exists}" -eq 0 ]; then
-        log_error "Table ${CLICKHOUSE_DATABASE}.events does not exist!"
+    if [ "${audit_logs_table_exists}" -eq 0 ]; then
+        log_error "Table ${CLICKHOUSE_DATABASE}.audit_logs does not exist!"
+        return 1
+    fi
+
+    # Check if audit.k8s_events table exists (created in migration 003)
+    local k8s_events_table_exists=$(clickhouse_cmd "
+        SELECT count()
+        FROM system.tables
+        WHERE database = '${CLICKHOUSE_DATABASE}' AND name = 'k8s_events'
+    ")
+
+    if [ "${k8s_events_table_exists}" -eq 0 ]; then
+        log_error "Table ${CLICKHOUSE_DATABASE}.k8s_events does not exist!"
         return 1
     fi
 
     log_success "Schema verification passed"
 
     # Show table structure
-    log_info "Table structure:"
+    log_info "audit_logs table structure:"
     clickhouse_cmd "
-        DESCRIBE TABLE ${CLICKHOUSE_DATABASE}.events
+        DESCRIBE TABLE ${CLICKHOUSE_DATABASE}.audit_logs
+        FORMAT PrettyCompact
+    " || true
+
+    log_info "k8s_events table structure:"
+    clickhouse_cmd "
+        DESCRIBE TABLE ${CLICKHOUSE_DATABASE}.k8s_events
         FORMAT PrettyCompact
     " || true
 }
