@@ -11,6 +11,7 @@ import (
 	activityapiserver "go.miloapis.com/activity/internal/apiserver"
 	"go.miloapis.com/activity/internal/storage"
 	"go.miloapis.com/activity/internal/version"
+	"go.miloapis.com/activity/internal/watch"
 	"go.miloapis.com/activity/pkg/generated/openapi"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	apiopenapi "k8s.io/apiserver/pkg/endpoints/openapi"
@@ -132,6 +133,22 @@ type ActivityServerOptions struct {
 
 	MaxQueryWindow time.Duration // Maximum time range allowed for queries
 	MaxPageSize    int32         // Maximum number of results per page
+
+	// NATS configuration for Activities Watch API
+	NATSURL           string // NATS server URL (empty disables Watch API)
+	NATSStreamName    string // JetStream stream name for activities
+	NATSSubjectPrefix string // Subject prefix for activities
+
+	// NATS TLS configuration
+	NATSTLSEnabled  bool
+	NATSTLSCertFile string
+	NATSTLSKeyFile  string
+	NATSTLSCAFile   string
+
+	// NATS configuration for Events Watch API
+	EventsNATSURL           string // NATS server URL for events (empty disables Events Watch API)
+	EventsNATSStreamName    string // JetStream stream name for events
+	EventsNATSSubjectPrefix string // Subject prefix for events
 }
 
 // NewActivityServerOptions creates options with default values.
@@ -149,6 +166,14 @@ func NewActivityServerOptions() *ActivityServerOptions {
 		ClickHouseTable:    "events",
 		MaxQueryWindow:     30 * 24 * time.Hour,
 		MaxPageSize:        1000,
+		// NATS defaults (empty URL disables Watch API)
+		NATSURL:           "",
+		NATSStreamName:    "ACTIVITIES",
+		NATSSubjectPrefix: "activities",
+		// Events NATS defaults (empty URL disables Events Watch API)
+		EventsNATSURL:           "",
+		EventsNATSStreamName:    "K8S_EVENTS",
+		EventsNATSSubjectPrefix: "events.k8s",
 	}
 
 	// Disable admission plugins since this server doesn't mutate or validate resources.
@@ -184,6 +209,30 @@ func (o *ActivityServerOptions) AddFlags(fs *pflag.FlagSet) {
 		"Maximum time range for a single query (e.g., 720h for 30 days)")
 	fs.Int32Var(&o.MaxPageSize, "max-page-size", o.MaxPageSize,
 		"Maximum results returned per page")
+
+	// NATS flags for Activities Watch API
+	fs.StringVar(&o.NATSURL, "nats-url", o.NATSURL,
+		"NATS server URL for Watch API (empty disables Watch API)")
+	fs.StringVar(&o.NATSStreamName, "nats-stream-name", o.NATSStreamName,
+		"JetStream stream name for activity events")
+	fs.StringVar(&o.NATSSubjectPrefix, "nats-subject-prefix", o.NATSSubjectPrefix,
+		"Subject prefix for activity events")
+	fs.BoolVar(&o.NATSTLSEnabled, "nats-tls-enabled", o.NATSTLSEnabled,
+		"Enable TLS for NATS connection")
+	fs.StringVar(&o.NATSTLSCertFile, "nats-tls-cert-file", o.NATSTLSCertFile,
+		"Path to client certificate file for NATS TLS")
+	fs.StringVar(&o.NATSTLSKeyFile, "nats-tls-key-file", o.NATSTLSKeyFile,
+		"Path to client private key file for NATS TLS")
+	fs.StringVar(&o.NATSTLSCAFile, "nats-tls-ca-file", o.NATSTLSCAFile,
+		"Path to CA certificate file for NATS TLS")
+
+	// NATS flags for Events Watch API
+	fs.StringVar(&o.EventsNATSURL, "events-nats-url", o.EventsNATSURL,
+		"NATS server URL for Events Watch API (empty disables Events Watch API)")
+	fs.StringVar(&o.EventsNATSStreamName, "events-nats-stream-name", o.EventsNATSStreamName,
+		"JetStream stream name for Kubernetes events")
+	fs.StringVar(&o.EventsNATSSubjectPrefix, "events-nats-subject-prefix", o.EventsNATSSubjectPrefix,
+		"Subject prefix for Kubernetes events")
 }
 
 func (o *ActivityServerOptions) Complete() error {
@@ -252,6 +301,20 @@ func (o *ActivityServerOptions) Config() (*activityapiserver.Config, error) {
 				TLSCAFile:      o.ClickHouseTLSCAFile,
 				MaxQueryWindow: o.MaxQueryWindow,
 				MaxPageSize:    o.MaxPageSize,
+			},
+			NATSConfig: watch.NATSConfig{
+				URL:           o.NATSURL,
+				StreamName:    o.NATSStreamName,
+				SubjectPrefix: o.NATSSubjectPrefix,
+				TLSEnabled:    o.NATSTLSEnabled,
+				TLSCertFile:   o.NATSTLSCertFile,
+				TLSKeyFile:    o.NATSTLSKeyFile,
+				TLSCAFile:     o.NATSTLSCAFile,
+			},
+			EventsNATSConfig: watch.EventsNATSConfig{
+				URL:           o.EventsNATSURL,
+				StreamName:    o.EventsNATSStreamName,
+				SubjectPrefix: o.EventsNATSSubjectPrefix,
 			},
 		},
 	}

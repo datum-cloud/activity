@@ -217,6 +217,18 @@ func (s *ClickHouseStorage) Close() error {
 	return nil
 }
 
+// Conn returns the underlying ClickHouse driver connection.
+// Used by subsystems that need direct access to the connection (e.g., events backend).
+func (s *ClickHouseStorage) Conn() driver.Conn {
+	return s.conn
+}
+
+// Config returns the ClickHouse configuration.
+// Used by subsystems that need to access configuration values (e.g., database name).
+func (s *ClickHouseStorage) Config() ClickHouseConfig {
+	return s.config
+}
+
 func (s *ClickHouseStorage) GetMaxQueryWindow() time.Duration {
 	return s.config.MaxQueryWindow
 }
