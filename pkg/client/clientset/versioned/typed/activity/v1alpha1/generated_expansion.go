@@ -14,4 +14,8 @@ type AuditLogFacetsQueryExpansion interface{}
 
 type AuditLogQueryExpansion interface{}
 
+type EventFacetQueryExpansion interface{}
+
+type EventQueryExpansion interface{}
+
 type PolicyPreviewExpansion interface{}

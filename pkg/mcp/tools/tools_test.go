@@ -30,6 +30,8 @@ type mockActivityV1alpha1Client struct {
 	activityPolicies      *mockActivityPolicyInterface
 	policyPreviews        *mockPolicyPreviewInterface
 	activities            *mockActivityInterface
+	eventFacetQueries     *mockEventFacetQueryInterface
+	eventQueries          *mockEventQueryInterface
 }
 
 func newMockClient() *mockActivityV1alpha1Client {
@@ -41,6 +43,8 @@ func newMockClient() *mockActivityV1alpha1Client {
 		activityPolicies:      &mockActivityPolicyInterface{},
 		policyPreviews:        &mockPolicyPreviewInterface{},
 		activities:            &mockActivityInterface{},
+		eventFacetQueries:     &mockEventFacetQueryInterface{},
+		eventQueries:          &mockEventQueryInterface{},
 	}
 }
 
@@ -71,6 +75,15 @@ func (m *mockActivityV1alpha1Client) PolicyPreviews() activityclient.PolicyPrevi
 func (m *mockActivityV1alpha1Client) Activities(namespace string) activityclient.ActivityInterface {
 	return m.activities
 }
+
+func (m *mockActivityV1alpha1Client) EventFacetQueries() activityclient.EventFacetQueryInterface {
+	return m.eventFacetQueries
+}
+
+func (m *mockActivityV1alpha1Client) EventQueries() activityclient.EventQueryInterface {
+	return m.eventQueries
+}
+
 
 func (m *mockActivityV1alpha1Client) RESTClient() rest.Interface {
 	return nil
@@ -351,6 +364,79 @@ func (m *mockActivityInterface) Watch(ctx context.Context, opts metav1.ListOptio
 
 func (m *mockActivityInterface) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*v1alpha1.Activity, error) {
 	return &v1alpha1.Activity{ObjectMeta: metav1.ObjectMeta{Name: name}}, nil
+}
+
+// =============================================================================
+// Mock EventFacetQuery Interface
+// =============================================================================
+
+type mockEventFacetQueryInterface struct{}
+
+func (m *mockEventFacetQueryInterface) Create(ctx context.Context, query *v1alpha1.EventFacetQuery, opts metav1.CreateOptions) (*v1alpha1.EventFacetQuery, error) {
+	return query, nil
+}
+
+func (m *mockEventFacetQueryInterface) Update(ctx context.Context, query *v1alpha1.EventFacetQuery, opts metav1.UpdateOptions) (*v1alpha1.EventFacetQuery, error) {
+	return query, nil
+}
+
+func (m *mockEventFacetQueryInterface) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
+	return nil
+}
+
+func (m *mockEventFacetQueryInterface) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
+	return nil
+}
+
+func (m *mockEventFacetQueryInterface) Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1alpha1.EventFacetQuery, error) {
+	return &v1alpha1.EventFacetQuery{ObjectMeta: metav1.ObjectMeta{Name: name}}, nil
+}
+
+
+func (m *mockEventFacetQueryInterface) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
+	return nil, nil
+}
+
+func (m *mockEventFacetQueryInterface) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*v1alpha1.EventFacetQuery, error) {
+	return &v1alpha1.EventFacetQuery{ObjectMeta: metav1.ObjectMeta{Name: name}}, nil
+}
+
+// =============================================================================
+// Mock EventQuery Interface
+// =============================================================================
+
+type mockEventQueryInterface struct{}
+
+func (m *mockEventQueryInterface) Create(ctx context.Context, query *v1alpha1.EventQuery, opts metav1.CreateOptions) (*v1alpha1.EventQuery, error) {
+	return query, nil
+}
+
+func (m *mockEventQueryInterface) Update(ctx context.Context, query *v1alpha1.EventQuery, opts metav1.UpdateOptions) (*v1alpha1.EventQuery, error) {
+	return query, nil
+}
+
+func (m *mockEventQueryInterface) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
+	return nil
+}
+
+func (m *mockEventQueryInterface) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
+	return nil
+}
+
+func (m *mockEventQueryInterface) Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1alpha1.EventQuery, error) {
+	return &v1alpha1.EventQuery{ObjectMeta: metav1.ObjectMeta{Name: name}}, nil
+}
+
+func (m *mockEventQueryInterface) List(ctx context.Context, opts metav1.ListOptions) (*v1alpha1.EventQueryList, error) {
+	return &v1alpha1.EventQueryList{}, nil
+}
+
+func (m *mockEventQueryInterface) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
+	return nil, nil
+}
+
+func (m *mockEventQueryInterface) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*v1alpha1.EventQuery, error) {
+	return &v1alpha1.EventQuery{ObjectMeta: metav1.ObjectMeta{Name: name}}, nil
 }
 
 // =============================================================================
