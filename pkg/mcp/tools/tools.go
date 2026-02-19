@@ -19,7 +19,7 @@ import (
 )
 
 // ToolProvider provides MCP tools for interacting with the Activity API.
-// It wraps a Kubernetes client and exposes query capabilities as MCP tools.
+// It wraps an Activity API client and exposes query capabilities as MCP tools.
 type ToolProvider struct {
 	client    activityclient.ActivityV1alpha1Interface
 	namespace string
@@ -172,6 +172,17 @@ func (p *ToolProvider) RegisterTools(server *mcp.Server) {
 		Name:        "preview_activity_policy",
 		Description: "Test an ActivityPolicy against sample audit events to see what activities would be generated. Use this to develop and debug policies before deployment.",
 	}, p.handlePreviewActivityPolicy)
+
+	// Event tools
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "query_events",
+		Description: "Search control plane events stored in the Activity service. Events capture resource lifecycle changes, provisioning status, warnings, and errors. Use this to investigate issues, debug deployments, or monitor system health. Results are returned newest-first.",
+	}, p.handleQueryEvents)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "get_event_facets",
+		Description: "Get distinct values and counts for event fields. Use this to discover what event types, reasons, source components, and involved resources appear in the event stream. Useful for building filters or understanding event patterns.",
+	}, p.handleGetEventFacets)
 }
 
 // =============================================================================
@@ -1284,6 +1295,207 @@ func (p *ToolProvider) handlePreviewActivityPolicy(ctx context.Context, req *mcp
 	output := map[string]any{
 		"results":    results,
 		"activities": activities,
+	}
+
+	return jsonResult(output)
+}
+
+// =============================================================================
+// Query Events
+// =============================================================================
+
+// QueryEventsArgs contains the arguments for the query_events tool.
+type QueryEventsArgs struct {
+	// StartTime is the beginning of the search window.
+	StartTime string `json:"startTime"`
+
+	// EndTime is the end of the search window.
+	EndTime string `json:"endTime"`
+
+	// Namespace limits results to events from a specific namespace.
+	Namespace string `json:"namespace,omitempty"`
+
+	// InvolvedObjectKind filters by the kind of the involved object.
+	InvolvedObjectKind string `json:"involvedObjectKind,omitempty"`
+
+	// InvolvedObjectName filters by the name of the involved object.
+	InvolvedObjectName string `json:"involvedObjectName,omitempty"`
+
+	// Reason filters by event reason.
+	Reason string `json:"reason,omitempty"`
+
+	// Type filters by event type (Normal or Warning).
+	Type string `json:"type,omitempty"`
+
+	// SourceComponent filters by source component.
+	SourceComponent string `json:"sourceComponent,omitempty"`
+
+	// Limit is the maximum number of results to return.
+	Limit int `json:"limit,omitempty"`
+}
+
+func (p *ToolProvider) handleQueryEvents(ctx context.Context, req *mcp.CallToolRequest, args QueryEventsArgs) (*mcp.CallToolResult, any, error) {
+	limit := int32(args.Limit)
+	if limit == 0 {
+		limit = 100
+	}
+
+	// Build field selector for filtering
+	var fieldSelectors []string
+	if args.InvolvedObjectKind != "" {
+		fieldSelectors = append(fieldSelectors, fmt.Sprintf("involvedObject.kind=%s", args.InvolvedObjectKind))
+	}
+	if args.InvolvedObjectName != "" {
+		fieldSelectors = append(fieldSelectors, fmt.Sprintf("involvedObject.name=%s", args.InvolvedObjectName))
+	}
+	if args.Reason != "" {
+		fieldSelectors = append(fieldSelectors, fmt.Sprintf("reason=%s", args.Reason))
+	}
+	if args.Type != "" {
+		fieldSelectors = append(fieldSelectors, fmt.Sprintf("type=%s", args.Type))
+	}
+	if args.SourceComponent != "" {
+		fieldSelectors = append(fieldSelectors, fmt.Sprintf("source.component=%s", args.SourceComponent))
+	}
+
+	fieldSelector := ""
+	if len(fieldSelectors) > 0 {
+		fieldSelector = strings.Join(fieldSelectors, ",")
+	}
+
+	query := &v1alpha1.EventQuery{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "mcp-event-query-",
+		},
+		Spec: v1alpha1.EventQuerySpec{
+			StartTime:     args.StartTime,
+			EndTime:       args.EndTime,
+			Namespace:     args.Namespace,
+			FieldSelector: fieldSelector,
+			Limit:         limit,
+		},
+	}
+
+	result, err := p.client.EventQueries().Create(ctx, query, metav1.CreateOptions{})
+	if err != nil {
+		return errorResult(fmt.Sprintf("Query failed: %v", err)), nil, nil
+	}
+
+	// Format results for readability
+	events := make([]map[string]any, 0, len(result.Status.Results))
+	for _, event := range result.Status.Results {
+		eventMap := map[string]any{
+			"name":      event.Name,
+			"namespace": event.Namespace,
+			"type":      event.Type,
+			"reason":    event.Reason,
+			"message":   event.Message,
+			"involvedObject": map[string]any{
+				"kind":      event.InvolvedObject.Kind,
+				"name":      event.InvolvedObject.Name,
+				"namespace": event.InvolvedObject.Namespace,
+			},
+			"source": map[string]any{
+				"component": event.Source.Component,
+				"host":      event.Source.Host,
+			},
+			"count": event.Count,
+		}
+
+		// Use the most recent timestamp available
+		if !event.LastTimestamp.Time.IsZero() {
+			eventMap["timestamp"] = event.LastTimestamp.Format("2006-01-02T15:04:05Z")
+		} else if !event.EventTime.Time.IsZero() {
+			eventMap["timestamp"] = event.EventTime.Format("2006-01-02T15:04:05Z")
+		} else {
+			eventMap["timestamp"] = event.FirstTimestamp.Format("2006-01-02T15:04:05Z")
+		}
+
+		events = append(events, eventMap)
+	}
+
+	output := map[string]any{
+		"count":              len(events),
+		"continue":           result.Status.Continue,
+		"effectiveStartTime": result.Status.EffectiveStartTime,
+		"effectiveEndTime":   result.Status.EffectiveEndTime,
+		"events":             events,
+	}
+
+	return jsonResult(output)
+}
+
+// =============================================================================
+// Get Event Facets
+// =============================================================================
+
+// GetEventFacetsArgs contains the arguments for the get_event_facets tool.
+type GetEventFacetsArgs struct {
+	// Fields to get facets for.
+	Fields []string `json:"fields"`
+
+	// StartTime is the beginning of the time window for facet aggregation.
+	StartTime string `json:"startTime,omitempty"`
+
+	// EndTime is the end of the time window for facet aggregation.
+	EndTime string `json:"endTime,omitempty"`
+
+	// Limit is the maximum number of distinct values per field.
+	Limit int `json:"limit,omitempty"`
+}
+
+func (p *ToolProvider) handleGetEventFacets(ctx context.Context, req *mcp.CallToolRequest, args GetEventFacetsArgs) (*mcp.CallToolResult, any, error) {
+	limit := int32(args.Limit)
+	if limit == 0 {
+		limit = 20
+	}
+
+	startTime := args.StartTime
+	if startTime == "" {
+		startTime = "now-7d"
+	}
+
+	endTime := args.EndTime
+	if endTime == "" {
+		endTime = "now"
+	}
+
+	facetSpecs := make([]v1alpha1.FacetSpec, 0, len(args.Fields))
+	for _, field := range args.Fields {
+		facetSpecs = append(facetSpecs, v1alpha1.FacetSpec{
+			Field: field,
+			Limit: limit,
+		})
+	}
+
+	query := &v1alpha1.EventFacetQuery{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "mcp-event-facets-",
+		},
+		Spec: v1alpha1.EventFacetQuerySpec{
+			TimeRange: v1alpha1.FacetTimeRange{
+				Start: startTime,
+				End:   endTime,
+			},
+			Facets: facetSpecs,
+		},
+	}
+
+	result, err := p.client.EventFacetQueries().Create(ctx, query, metav1.CreateOptions{})
+	if err != nil {
+		return errorResult(fmt.Sprintf("Query failed: %v", err)), nil, nil
+	}
+
+	output := make(map[string]any)
+	for _, facet := range result.Status.Facets {
+		values := make([]map[string]any, 0, len(facet.Values))
+		for _, v := range facet.Values {
+			values = append(values, map[string]any{
+				"value": v.Value,
+				"count": v.Count,
+			})
+		}
+		output[facet.Field] = values
 	}
 
 	return jsonResult(output)
