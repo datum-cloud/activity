@@ -3,9 +3,11 @@ package events
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/fields"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -15,12 +17,14 @@ import (
 	"k8s.io/klog/v2"
 
 	"go.miloapis.com/activity/internal/storage"
+	eventwatch "go.miloapis.com/activity/internal/watch"
 )
 
 // EventsREST implements the REST interface for Kubernetes Events.
 // Unlike AuditLogQuery (which is an ephemeral resource), Events support full CRUD operations.
 type EventsREST struct {
 	backend EventsBackend
+	watcher *eventwatch.EventsWatcher
 }
 
 // NewEventsREST returns a REST storage object for Events.
@@ -31,10 +35,10 @@ func NewEventsREST(backend EventsBackend) *EventsREST {
 }
 
 // NewEventsRESTWithWatcher returns a REST storage object for Events with watch support.
-// For now, watch is not implemented, so this is an alias to NewEventsREST.
-func NewEventsRESTWithWatcher(backend EventsBackend, watcher interface{}) *EventsREST {
+func NewEventsRESTWithWatcher(backend EventsBackend, watcher *eventwatch.EventsWatcher) *EventsREST {
 	return &EventsREST{
 		backend: backend,
+		watcher: watcher,
 	}
 }
 
@@ -323,9 +327,51 @@ func (r *EventsREST) Delete(ctx context.Context, name string, deleteValidation r
 }
 
 // Watch returns a watch.Interface that streams event changes.
-// Watch support is not yet implemented for Events.
 func (r *EventsREST) Watch(ctx context.Context, options *metainternalversion.ListOptions) (watch.Interface, error) {
-	return nil, errors.NewServiceUnavailable("Watch API is not yet available for events. Use EventQuery for historical queries.")
+	if r.watcher == nil {
+		return nil, errors.NewServiceUnavailable("Watch API is not available. NATS is not configured.")
+	}
+
+	namespace, _ := request.NamespaceFrom(ctx)
+
+	reqUser, ok := request.UserFrom(ctx)
+	if !ok {
+		klog.Error("No user in context for events watch request")
+		return nil, errors.NewServiceUnavailable("Unable to process request. Please try again.")
+	}
+
+	scope := ExtractScopeFromUser(reqUser)
+
+	filter := eventwatch.EventsWatchFilter{
+		Namespace: namespace,
+	}
+
+	// Parse resourceVersion for replay support
+	if options.ResourceVersion != "" && options.ResourceVersion != "0" {
+		rv, err := strconv.ParseUint(options.ResourceVersion, 10, 64)
+		if err != nil {
+			klog.V(4).InfoS("Invalid resourceVersion, starting from now", "resourceVersion", options.ResourceVersion)
+		} else {
+			filter.ResourceVersion = rv
+		}
+	}
+
+	// Parse field selectors for watch filtering
+	if options.FieldSelector != nil && !options.FieldSelector.Empty() {
+		parseFieldSelectorForWatch(options.FieldSelector, &filter)
+	}
+
+	klog.V(4).InfoS("Starting events watch",
+		"namespace", namespace,
+		"scopeType", scope.Type,
+		"scopeName", scope.Name,
+		"filter", filter,
+	)
+
+	return r.watcher.Watch(ctx, storage.ScopeContext{
+		Type: scope.Type,
+		Name: scope.Name,
+	}, filter)
 }
 
 // ConvertToTable converts to table format.
@@ -342,4 +388,33 @@ func (r *EventsREST) convertToStatusError(err error) error {
 
 	klog.ErrorS(err, "Error in events storage")
 	return errors.NewServiceUnavailable("Failed to access events storage. Please try again later.")
+}
+
+// parseFieldSelectorForWatch extracts watch filter parameters from standard field selectors.
+func parseFieldSelectorForWatch(selector fields.Selector, filter *eventwatch.EventsWatchFilter) {
+	if selector == nil || selector.Empty() {
+		return
+	}
+
+	if value, found := selector.RequiresExactMatch("involvedObject.kind"); found {
+		filter.InvolvedObjectKind = value
+	}
+	if value, found := selector.RequiresExactMatch("involvedObject.namespace"); found {
+		filter.InvolvedObjectNamespace = value
+	}
+	if value, found := selector.RequiresExactMatch("involvedObject.name"); found {
+		filter.InvolvedObjectName = value
+	}
+	if value, found := selector.RequiresExactMatch("involvedObject.uid"); found {
+		filter.InvolvedObjectUID = value
+	}
+	if value, found := selector.RequiresExactMatch("reason"); found {
+		filter.Reason = value
+	}
+	if value, found := selector.RequiresExactMatch("type"); found {
+		filter.Type = value
+	}
+	if value, found := selector.RequiresExactMatch("source"); found {
+		filter.Source = value
+	}
 }
