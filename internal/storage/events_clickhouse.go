@@ -51,14 +51,10 @@ type NATSSubscription interface {
 // ClickHouseEventsConfig configures the ClickHouse events storage.
 type ClickHouseEventsConfig struct {
 	Database string
-	Table    string // defaults to "events"
 }
 
 // NewClickHouseEventsBackend creates a new ClickHouse-backed events storage.
 func NewClickHouseEventsBackend(conn driver.Conn, config ClickHouseEventsConfig) *ClickHouseEventsBackend {
-	if config.Table == "" {
-		config.Table = "events"
-	}
 	return &ClickHouseEventsBackend{
 		conn:   conn,
 		config: config,
@@ -116,7 +112,7 @@ func (b *ClickHouseEventsBackend) Create(ctx context.Context, event *corev1.Even
 	// Insert into ClickHouse
 	insertTime := time.Now()
 	query := fmt.Sprintf("INSERT INTO %s.%s (event_json, inserted_at) VALUES (?, ?)",
-		b.config.Database, b.config.Table)
+		b.config.Database, "k8s_events")
 
 	if err := b.conn.Exec(ctx, query, string(eventJSON), insertTime); err != nil {
 		metrics.ClickHouseQueryErrors.WithLabelValues("insert").Inc()
@@ -170,7 +166,7 @@ func (b *ClickHouseEventsBackend) Get(ctx context.Context, namespace, name strin
 
 	query := fmt.Sprintf(
 		"SELECT event_json, inserted_at FROM %s.%s WHERE %s ORDER BY inserted_at DESC LIMIT 1",
-		b.config.Database, b.config.Table, strings.Join(conditions, " AND "))
+		b.config.Database, "k8s_events", strings.Join(conditions, " AND "))
 
 	row := b.conn.QueryRow(ctx, query, args...)
 
@@ -270,7 +266,7 @@ func (b *ClickHouseEventsBackend) List(ctx context.Context, namespace string, op
 
 	query := fmt.Sprintf(
 		"SELECT event_json, inserted_at FROM %s.%s %s ORDER BY last_timestamp DESC, namespace, name LIMIT %d",
-		b.config.Database, b.config.Table, whereClause, limit+1)
+		b.config.Database, "k8s_events", whereClause, limit+1)
 
 	klog.V(4).InfoS("Executing events list query",
 		"query", query,
@@ -396,7 +392,7 @@ func (b *ClickHouseEventsBackend) Update(ctx context.Context, event *corev1.Even
 	// Insert new version (ReplacingMergeTree will deduplicate by namespace, name, uid)
 	insertTime := time.Now()
 	query := fmt.Sprintf("INSERT INTO %s.%s (event_json, inserted_at) VALUES (?, ?)",
-		b.config.Database, b.config.Table)
+		b.config.Database, "k8s_events")
 
 	if err := b.conn.Exec(ctx, query, string(eventJSON), insertTime); err != nil {
 		metrics.ClickHouseQueryErrors.WithLabelValues("insert").Inc()
@@ -462,7 +458,7 @@ func (b *ClickHouseEventsBackend) Delete(ctx context.Context, namespace, name st
 	// Use lightweight delete (ALTER TABLE ... DELETE)
 	query := fmt.Sprintf(
 		"ALTER TABLE %s.%s DELETE WHERE %s",
-		b.config.Database, b.config.Table, strings.Join(conditions, " AND "))
+		b.config.Database, "k8s_events", strings.Join(conditions, " AND "))
 
 	if err := b.conn.Exec(ctx, query, args...); err != nil {
 		metrics.ClickHouseQueryErrors.WithLabelValues("delete").Inc()
