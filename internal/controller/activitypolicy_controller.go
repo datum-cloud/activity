@@ -28,9 +28,9 @@ type ActivityPolicyReconciler struct {
 	RESTMapper meta.RESTMapper
 }
 
-// +kubebuilder:rbac:groups=activity.milo.io,resources=activitypolicies,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=activity.milo.io,resources=activitypolicies/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=activity.milo.io,resources=activitypolicies/finalizers,verbs=update
+// +kubebuilder:rbac:groups=activity.miloapis.com,resources=activitypolicies,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=activity.miloapis.com,resources=activitypolicies/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=activity.miloapis.com,resources=activitypolicies/finalizers,verbs=update
 // +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch
 
 // Reconcile handles the reconciliation of an ActivityPolicy resource.

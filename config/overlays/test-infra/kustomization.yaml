@@ -11,17 +11,16 @@ components:
   - ../../components/namespace
   - ../../components/api-registration
   - ../../components/cert-manager-ca
+  - ../../components/etcd                   # etcd for ActivityPolicy storage
   - ../../components/rustfs-bucket
   - ../../components/clickhouse-keeper      # Keeper coordination for HA
   - ../../components/clickhouse-database     # HA ClickHouse with 3 replicas
   - ../../components/clickhouse-migrations
+  - ../../components/nats-streams           # NATS JetStream streams and consumers
   - ../../components/grafana-clickhouse
   - ../../components/vector-sidecar
   - ../../components/vector-aggregator
   - ../../components/tracing
-
-# Note: NATS stream configuration (nats-streams) is in a different namespace (nats-system)
-# and must be applied separately. See dev:deploy task in Taskfile.yaml
 # Note: Vector sidecar is deployed to kube-system namespace
 # Note: RustFS bucket initialization job will create the S3 bucket on first deployment
 
@@ -40,7 +39,9 @@ patches:
   - path: patches/clickhouse-storage-patch.yaml         # RustFS storage configuration
 
 labels:
-  - includeSelectors: true
+  # Note: includeSelectors is false because operators (ClickHouse, etcd) create pods
+  # without kustomize labels, causing service selector mismatches
+  - includeSelectors: false
     includeTemplates: true
     pairs:
       environment: test-infra

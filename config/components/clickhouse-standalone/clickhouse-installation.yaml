@@ -24,11 +24,7 @@ spec:
       default/networks/ip:
         - "0.0.0.0/0"
     settings:
-      # Default settings for ClickHouse
       default/default_database: audit
-
-      # No quorum settings needed for single replica
-      # Disabled: insert_quorum, select_sequential_consistency
 
     profiles:
       default/max_memory_usage: 10000000000  # 10GB max memory usage for dev
@@ -43,6 +39,15 @@ spec:
                 <count>3</count>
                 <console>1</console>
             </logger>
+        </clickhouse>
+      # Enable full-text index feature for ngrams tokenizer in activities table
+      users.d/full_text_index.xml: |-
+        <clickhouse>
+            <users>
+                <default>
+                    <enable_full_text_index>1</enable_full_text_index>
+                </default>
+            </users>
         </clickhouse>
       # Storage configuration compatible with migrations (hot_cold policy)
       # Uses local disk for both hot and cold (no S3 in dev)
