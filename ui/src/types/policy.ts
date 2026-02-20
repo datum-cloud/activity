@@ -11,8 +11,8 @@ import type { ActivityLink } from './activity';
  * Identifies which API group/kind this policy applies to
  */
 export interface ActivityPolicyResource {
-  /** API group (e.g., "networking.datumapis.com"). Undefined means not yet selected. */
-  apiGroup?: string;
+  /** API group (e.g., "networking.datumapis.com") */
+  apiGroup: string;
   /** Resource kind (e.g., "HTTPProxy") */
   kind: string;
   /** Optional human-readable label (defaults to kind) */

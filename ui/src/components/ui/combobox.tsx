@@ -25,12 +25,6 @@ export interface ComboboxProps {
   /** Show "All" option at the top */
   showAllOption?: boolean;
   allOptionLabel?: string;
-  /** Allow using the search term as a custom value when no results match */
-  allowCustomValue?: boolean;
-  /** Label for the custom value option. Use {value} as placeholder for the search term. */
-  customValueLabel?: string;
-  /** Callback when a custom value is selected (receives the search term) */
-  onCustomValue?: (value: string) => void;
 }
 
 /**
@@ -50,9 +44,6 @@ export function Combobox({
   clearable = false,
   showAllOption = true,
   allOptionLabel = 'All',
-  allowCustomValue = false,
-  customValueLabel = 'Use "{value}"',
-  onCustomValue,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false);
   const [search, setSearch] = React.useState('');
@@ -83,14 +74,6 @@ export function Combobox({
     },
     [onValueChange]
   );
-
-  const handleCustomValue = React.useCallback(() => {
-    if (search.trim() && onCustomValue) {
-      onCustomValue(search.trim());
-      setOpen(false);
-      setSearch('');
-    }
-  }, [search, onCustomValue]);
 
   // Custom fuzzy filter function
   const filterOptions = React.useCallback(
@@ -189,22 +172,8 @@ export function Combobox({
               />
             </div>
             <CommandList className="max-h-[300px] overflow-y-auto p-1">
-              <CommandEmpty className="py-2 text-center text-sm">
-                {allowCustomValue && search.trim() ? (
-                  <button
-                    type="button"
-                    onClick={handleCustomValue}
-                    className={cn(
-                      'w-full px-2 py-1.5 text-left rounded-sm',
-                      'hover:bg-accent hover:text-accent-foreground',
-                      'cursor-pointer'
-                    )}
-                  >
-                    {customValueLabel.replace('{value}', search.trim())}
-                  </button>
-                ) : (
-                  <span className="text-muted-foreground py-4 block">{emptyMessage}</span>
-                )}
+              <CommandEmpty className="py-6 text-center text-sm text-muted-foreground">
+                {emptyMessage}
               </CommandEmpty>
               <CommandGroup>
                 {showAllOption && (

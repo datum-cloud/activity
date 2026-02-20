@@ -1,7 +1,6 @@
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import type { ActivityPolicyResource } from '../types/policy';
 import type { ActivityApiClient } from '../api/client';
-import { Combobox, type ComboboxOption } from './ui/combobox';
 import {
   Select,
   SelectContent,
@@ -82,23 +81,6 @@ function resourceToKind(resource: string): string {
 }
 
 const CUSTOM_VALUE = '__custom__';
-const CORE_API_GROUP_VALUE = '__core__'; // Sentinel for empty string (core Kubernetes API group)
-
-/**
- * Convert API group value for Select component
- * Empty string (core API group) -> sentinel value
- */
-function toSelectValue(apiGroup: string): string {
-  return apiGroup === '' ? CORE_API_GROUP_VALUE : apiGroup;
-}
-
-/**
- * Convert Select value back to API group
- * Sentinel value -> empty string (core API group)
- */
-function fromSelectValue(value: string): string {
-  return value === CORE_API_GROUP_VALUE ? '' : value;
-}
 
 /**
  * PolicyResourceForm provides the form for editing policy resource configuration
@@ -126,13 +108,13 @@ export function PolicyResourceForm({
     [resource.kindLabel, derivedKindLabel]
   );
 
-  // Load API groups from Kubernetes API discovery
+  // Load API groups that have audit events
   const loadApiGroups = useCallback(async () => {
     if (!client) return;
     setIsLoadingGroups(true);
     try {
-      const groups = await client.getAllAPIGroups();
-      setApiGroups(groups);
+      const groups = await client.getAuditedAPIGroups();
+      setApiGroups(groups.filter((g) => g)); // Filter out empty strings
     } catch (err) {
       console.error('Failed to load API groups:', err);
     } finally {
@@ -140,29 +122,39 @@ export function PolicyResourceForm({
     }
   }, [client]);
 
-  // Load resources for the selected API group from Kubernetes API discovery
+  // Load resources for the selected API group
   const loadResources = useCallback(async () => {
-    // Allow empty string for core Kubernetes API group (pods, services, etc.)
-    if (!client || resource.apiGroup === undefined) {
+    if (!client || !resource.apiGroup) {
       setResources([]);
       return;
     }
     setIsLoadingResources(true);
     try {
-      const discoveryResult = await client.discoverAPIResources(resource.apiGroup);
-      // Map API resources to name/kind pairs, filtering out subresources (those with /)
-      const resourcesWithKind = (discoveryResult.resources || [])
-        .filter((r) => !r.name.includes('/'))
+      // Get audited resource names from audit logs
+      const auditedResources = await client.getAuditedResources(resource.apiGroup);
+
+      // Get the actual Kind from Kubernetes API discovery
+      let resourceMap = new Map<string, string>();
+      try {
+        const discoveryResult = await client.discoverAPIResources(resource.apiGroup);
+        resourceMap = new Map(
+          discoveryResult.resources?.map((r) => [r.name, r.kind]) || []
+        );
+      } catch {
+        // API discovery not available - will use derived Kind names
+      }
+
+      // Combine audited resources with Kind names (from discovery or derived)
+      const resourcesWithKind = auditedResources
+        .filter((r) => r)
         .map((r) => ({
-          name: r.name,
-          kind: r.kind,
-        }))
-        .sort((a, b) => a.kind.localeCompare(b.kind));
+          name: r,
+          kind: resourceMap.get(r) || resourceToKind(r),
+        }));
 
       setResources(resourcesWithKind);
     } catch (err) {
       console.error('Failed to load resources:', err);
-      setResources([]);
     } finally {
       setIsLoadingResources(false);
     }
@@ -175,17 +167,16 @@ export function PolicyResourceForm({
     }
   }, [client, loadApiGroups]);
 
-  // Load resources when API group changes (including empty string for core API group)
+  // Load resources when API group changes
   useEffect(() => {
-    if (client && resource.apiGroup !== undefined) {
+    if (client && resource.apiGroup) {
       loadResources();
     }
   }, [client, resource.apiGroup, loadResources]);
 
   // Check if current value is in the list (for determining if custom mode is needed)
-  // Use explicit undefined check to allow empty string (core API group)
   useEffect(() => {
-    if (resource.apiGroup !== undefined && resource.apiGroup !== '' && apiGroups.length > 0 && !apiGroups.includes(resource.apiGroup)) {
+    if (resource.apiGroup && apiGroups.length > 0 && !apiGroups.includes(resource.apiGroup)) {
       setCustomApiGroup(true);
     }
   }, [resource.apiGroup, apiGroups]);
@@ -200,17 +191,12 @@ export function PolicyResourceForm({
     }
   }, [resource.kind, resources]);
 
-  const handleApiGroupComboboxChange = (value: string) => {
+  const handleApiGroupSelectChange = (value: string) => {
     if (value === CUSTOM_VALUE) {
       setCustomApiGroup(true);
-    } else if (value === '') {
-      // User cleared selection - set apiGroup to undefined to show placeholder
-      setCustomApiGroup(false);
-      onChange({ ...resource, apiGroup: undefined, kind: '' });
     } else {
       setCustomApiGroup(false);
-      // Convert sentinel value back to empty string for core API group
-      onChange({ ...resource, apiGroup: fromSelectValue(value), kind: '' }); // Clear kind when group changes
+      onChange({ ...resource, apiGroup: value, kind: '' }); // Clear kind when group changes
     }
   };
 
@@ -218,13 +204,9 @@ export function PolicyResourceForm({
     onChange({ ...resource, apiGroup: e.target.value, kind: '' }); // Clear kind when group changes
   };
 
-  const handleKindComboboxChange = (value: string) => {
+  const handleKindSelectChange = (value: string) => {
     if (value === CUSTOM_VALUE) {
       setCustomKind(true);
-    } else if (value === '') {
-      // User cleared selection
-      setCustomKind(false);
-      onChange({ ...resource, kind: '' });
     } else {
       setCustomKind(false);
       // Find the resource and use its actual Kind from API discovery
@@ -249,7 +231,7 @@ export function PolicyResourceForm({
   const handleBackToSelect = (field: 'apiGroup' | 'kind') => {
     if (field === 'apiGroup') {
       setCustomApiGroup(false);
-      onChange({ ...resource, apiGroup: undefined, kind: '' });
+      onChange({ ...resource, apiGroup: '', kind: '' });
     } else {
       setCustomKind(false);
       onChange({ ...resource, kind: '' });
@@ -257,40 +239,10 @@ export function PolicyResourceForm({
   };
 
   // Check if current apiGroup is in the list
-  const apiGroupInList = resource.apiGroup !== undefined && apiGroups.includes(resource.apiGroup);
+  const apiGroupInList = apiGroups.includes(resource.apiGroup);
 
   // Find matching resource for current kind
   const currentResourceName = resources.find((r) => r.kind === resource.kind)?.name || '';
-
-  // Build options for API Group combobox (sorted alphabetically)
-  const apiGroupOptions = useMemo((): ComboboxOption[] => {
-    const options: ComboboxOption[] = apiGroups
-      .map((group) => ({
-        value: group === '' ? CORE_API_GROUP_VALUE : group,
-        label: group === '' ? 'core (pods, services, etc.)' : group,
-      }))
-      .sort((a, b) => a.label.localeCompare(b.label));
-    // Add custom option at the end
-    options.push({
-      value: CUSTOM_VALUE,
-      label: 'Enter custom value...',
-    });
-    return options;
-  }, [apiGroups]);
-
-  // Build options for Kind combobox
-  const kindOptions = useMemo((): ComboboxOption[] => {
-    const options: ComboboxOption[] = resources.map((res) => ({
-      value: res.name,
-      label: res.kind,
-    }));
-    // Add custom option at the end
-    options.push({
-      value: CUSTOM_VALUE,
-      label: 'Enter custom value...',
-    });
-    return options;
-  }, [resources]);
 
   return (
     <div className={`rounded-lg bg-muted p-6 ${className}`}>
@@ -299,7 +251,7 @@ export function PolicyResourceForm({
         Define which API group and kind this policy applies to.
         {client && (
           <span className="italic text-muted-foreground/70">
-            {' '}Options populated from Kubernetes API discovery.
+            {' '}Options based on audit events in your cluster.
           </span>
         )}
       </p>
@@ -310,29 +262,39 @@ export function PolicyResourceForm({
           API Group <span className="text-destructive">*</span>
         </Label>
         {client && !customApiGroup ? (
-          <Combobox
-            options={apiGroupOptions}
-            value={resource.apiGroup === undefined ? '' : (apiGroupInList ? toSelectValue(resource.apiGroup) : '')}
-            onValueChange={handleApiGroupComboboxChange}
-            placeholder="Select an API Group..."
-            searchPlaceholder="Search API groups..."
-            emptyMessage="No API groups found."
-            loading={isLoadingGroups}
-            showAllOption={false}
-            allowCustomValue={true}
-            customValueLabel='Use "{value}"'
-            onCustomValue={(value) => {
-              setCustomApiGroup(true);
-              onChange({ ...resource, apiGroup: value, kind: '' });
-            }}
-          />
+          <div className="relative">
+            <Select
+              value={apiGroupInList ? resource.apiGroup : ''}
+              onValueChange={handleApiGroupSelectChange}
+              disabled={isLoadingGroups}
+            >
+              <SelectTrigger className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm transition-all duration-200 focus:border-[#BF9595] focus:outline-none focus:ring-[3px] focus:ring-[#BF9595]/10 disabled:cursor-not-allowed disabled:opacity-50">
+                <SelectValue placeholder={isLoadingGroups ? "Loading..." : "Select an API Group..."} />
+              </SelectTrigger>
+              <SelectContent>
+                {apiGroups.length === 0 && !isLoadingGroups && (
+                  <SelectItem value={CUSTOM_VALUE} disabled className="italic text-muted-foreground">
+                    No API groups found
+                  </SelectItem>
+                )}
+                {apiGroups.map((group) => (
+                  <SelectItem key={group} value={group}>
+                    {group}
+                  </SelectItem>
+                ))}
+                <SelectItem value={CUSTOM_VALUE} className="italic text-muted-foreground">
+                  Enter custom value...
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         ) : (
           <div className="flex gap-2">
             <Input
               id="resource-apiGroup"
               type="text"
               className="flex-1"
-              value={resource.apiGroup ?? ''}
+              value={resource.apiGroup}
               onChange={handleApiGroupInputChange}
               placeholder="e.g., networking.datumapis.com"
             />
@@ -357,27 +319,40 @@ export function PolicyResourceForm({
           Kind <span className="text-destructive">*</span>
         </Label>
         {client && !customKind ? (
-          <Combobox
-            options={kindOptions}
-            value={currentResourceName}
-            onValueChange={handleKindComboboxChange}
-            placeholder={
-              resource.apiGroup === undefined
-                ? 'Select API Group first...'
-                : 'Select a Kind...'
-            }
-            searchPlaceholder="Search kinds..."
-            emptyMessage="No kinds found."
-            loading={isLoadingResources}
-            disabled={resource.apiGroup === undefined}
-            showAllOption={false}
-            allowCustomValue={true}
-            customValueLabel='Use "{value}"'
-            onCustomValue={(value) => {
-              setCustomKind(true);
-              onChange({ ...resource, kind: value });
-            }}
-          />
+          <div className="relative">
+            <Select
+              value={currentResourceName}
+              onValueChange={handleKindSelectChange}
+              disabled={isLoadingResources || !resource.apiGroup}
+            >
+              <SelectTrigger className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm transition-all duration-200 focus:border-[#BF9595] focus:outline-none focus:ring-[3px] focus:ring-[#BF9595]/10 disabled:cursor-not-allowed disabled:opacity-50">
+                <SelectValue
+                  placeholder={
+                    !resource.apiGroup
+                      ? 'Select API Group first...'
+                      : isLoadingResources
+                      ? 'Loading...'
+                      : 'Select a Kind...'
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {resources.length === 0 && resource.apiGroup && !isLoadingResources && (
+                  <SelectItem value={CUSTOM_VALUE} disabled className="italic text-muted-foreground">
+                    No resources found
+                  </SelectItem>
+                )}
+                {resources.map((res) => (
+                  <SelectItem key={res.name} value={res.name}>
+                    {res.kind}
+                  </SelectItem>
+                ))}
+                <SelectItem value={CUSTOM_VALUE} className="italic text-muted-foreground">
+                  Enter custom value...
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         ) : (
           <div className="flex gap-2">
             <Input
@@ -386,8 +361,8 @@ export function PolicyResourceForm({
               className="flex-1"
               value={resource.kind}
               onChange={handleKindInputChange}
-              placeholder={resource.apiGroup !== undefined ? 'e.g., HTTPProxy' : 'Select API Group first'}
-              disabled={resource.apiGroup === undefined}
+              placeholder={resource.apiGroup ? 'e.g., HTTPProxy' : 'Select API Group first'}
+              disabled={!resource.apiGroup}
             />
             {client && (
               <Button

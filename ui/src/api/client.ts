@@ -529,20 +529,12 @@ export class ActivityApiClient {
   }
 
   /**
-   * Discover resources for a specific API group.
-   * For the core API group (empty string), uses /api/v1.
-   * For other groups, uses /apis/{group}/{version}.
+   * Discover resources for a specific API group
    */
   async discoverAPIResources(
     group: string,
     version?: string
   ): Promise<{ resources: APIResource[] }> {
-    // Core API group (pods, services, etc.) uses /api/v1
-    if (group === '') {
-      const response = await this.fetch('/api/v1');
-      return response.json();
-    }
-
     // If no version specified, try to get the preferred version first
     let apiVersion = version;
     if (!apiVersion) {
@@ -557,21 +549,6 @@ export class ActivityApiClient {
 
     const response = await this.fetch(`/apis/${group}/${apiVersion}`);
     return response.json();
-  }
-
-  /**
-   * Get all API groups available in the cluster, including the core group.
-   * Returns group names suitable for policy configuration.
-   */
-  async getAllAPIGroups(): Promise<string[]> {
-    try {
-      const result = await this.discoverAPIGroups();
-      // Include empty string for core API group, then all other groups
-      const groups = ['', ...(result.groups?.map(g => g.name) || [])];
-      return groups;
-    } catch {
-      return [''];
-    }
   }
 
   // ============================================
@@ -611,8 +588,7 @@ export class ActivityApiClient {
         facets: [{ field: 'objectRef.apiGroup', limit: 100 }],
       });
       const apiGroupFacet = result.status?.facets?.find(f => f.field === 'objectRef.apiGroup');
-      // Include empty string for core Kubernetes API group (pods, services, etc.)
-      return apiGroupFacet?.values?.map(v => v.value).filter(v => v !== undefined && v !== null) || [];
+      return apiGroupFacet?.values?.map(v => v.value).filter(v => v) || [];
     } catch {
       return [];
     }

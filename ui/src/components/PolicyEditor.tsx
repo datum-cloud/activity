@@ -97,10 +97,10 @@ export function PolicyEditor({
     });
   }, [editor.spec, preview]);
 
-  // Validation - apiGroup can be empty string (core API group) but must be defined
+  // Validation
   const canSave =
     editor.name.trim() !== '' &&
-    editor.spec.resource.apiGroup !== undefined &&
+    editor.spec.resource.apiGroup.trim() !== '' &&
     editor.spec.resource.kind.trim() !== '';
 
   return (

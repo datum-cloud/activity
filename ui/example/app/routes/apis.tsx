@@ -23,15 +23,10 @@ async function proxyRequest(request: Request): Promise<Response> {
   const headers: Record<string, string> = {};
   request.headers.forEach((value, key) => {
     const lowerKey = key.toLowerCase();
-    if (lowerKey !== "host" && lowerKey !== "connection" && lowerKey !== "authorization") {
+    if (lowerKey !== "host" && lowerKey !== "connection") {
       headers[key] = value;
     }
   });
-
-  // Add bearer token if available (for in-cluster auth)
-  if (config.token) {
-    headers["Authorization"] = `Bearer ${config.token}`;
-  }
 
   return new Promise((resolve) => {
     const options: https.RequestOptions = {
@@ -40,15 +35,13 @@ async function proxyRequest(request: Request): Promise<Response> {
       path: targetUrl.pathname + targetUrl.search,
       method: request.method,
       headers,
-      // TLS options
-      ...(isHttps
+      // Add client certificates for mTLS
+      ...(isHttps && config.clientCert && config.clientKey
         ? {
+            cert: config.clientCert,
+            key: config.clientKey,
             ca: config.caCert,
-            rejectUnauthorized: false, // TODO: Enable proper cert verification
-            // Add client certificates for mTLS if available
-            ...(config.clientCert && config.clientKey
-              ? { cert: config.clientCert, key: config.clientKey }
-              : {}),
+            rejectUnauthorized: false,
           }
         : {}),
     };

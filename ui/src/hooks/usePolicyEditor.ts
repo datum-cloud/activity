@@ -75,6 +75,7 @@ export interface UsePolicyEditorResult {
 function createEmptySpec(): ActivityPolicySpec {
   return {
     resource: {
+      apiGroup: '',
       kind: '',
     },
     auditRules: [],
