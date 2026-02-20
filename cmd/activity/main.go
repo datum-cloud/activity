@@ -124,7 +124,6 @@ type ActivityServerOptions struct {
 	ClickHouseDatabase string
 	ClickHouseUsername string
 	ClickHousePassword string
-	ClickHouseTable    string
 
 	// TLS configuration for ClickHouse connection
 	ClickHouseTLSEnabled  bool
@@ -166,7 +165,6 @@ func NewActivityServerOptions() *ActivityServerOptions {
 		ClickHouseDatabase: "audit",
 		ClickHouseUsername: "default",
 		ClickHousePassword: "",
-		ClickHouseTable:    "events",
 		MaxQueryWindow:     30 * 24 * time.Hour,
 		MaxPageSize:        1000,
 	}
@@ -188,8 +186,6 @@ func (o *ActivityServerOptions) AddFlags(fs *pflag.FlagSet) {
 		"Username for ClickHouse authentication")
 	fs.StringVar(&o.ClickHousePassword, "clickhouse-password", o.ClickHousePassword,
 		"Password for ClickHouse authentication")
-	fs.StringVar(&o.ClickHouseTable, "clickhouse-table", o.ClickHouseTable,
-		"Table containing audit events")
 
 	fs.BoolVar(&o.ClickHouseTLSEnabled, "clickhouse-tls-enabled", o.ClickHouseTLSEnabled,
 		"Enable TLS for ClickHouse connection")
@@ -252,9 +248,6 @@ func (o *ActivityServerOptions) Validate() error {
 	if o.ClickHouseDatabase == "" {
 		errors = append(errors, fmt.Errorf("--clickhouse-database is required"))
 	}
-	if o.ClickHouseTable == "" {
-		errors = append(errors, fmt.Errorf("--clickhouse-table is required"))
-	}
 
 	if len(errors) > 0 {
 		return fmt.Errorf("validation errors: %v", errors)
@@ -297,7 +290,6 @@ func (o *ActivityServerOptions) Config() (*activityapiserver.Config, error) {
 				Database:       o.ClickHouseDatabase,
 				Username:       o.ClickHouseUsername,
 				Password:       o.ClickHousePassword,
-				Table:          o.ClickHouseTable,
 				TLSEnabled:     o.ClickHouseTLSEnabled,
 				TLSCertFile:    o.ClickHouseTLSCertFile,
 				TLSKeyFile:     o.ClickHouseTLSKeyFile,
