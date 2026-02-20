@@ -4,6 +4,7 @@ vars:
   TOOL_DIR: "{{.USER_WORKING_DIR}}/bin"
   # Container image configuration
   ACTIVITY_IMAGE_NAME: "ghcr.io/datum-cloud/activity"
+  ACTIVITY_UI_IMAGE_NAME: "ghcr.io/datum-cloud/activity-ui"
   ACTIVITY_IMAGE_TAG: "dev"
   TEST_INFRA_CLUSTER_NAME: "test-infra"
   # Test infra repository configuration - can be overridden with environment variable
@@ -131,6 +132,35 @@ tasks:
         kind load docker-image "{{.ACTIVITY_IMAGE_NAME}}:{{.ACTIVITY_IMAGE_TAG}}" --name "{{.TEST_INFRA_CLUSTER_NAME}}"
         echo "Successfully loaded image into kind cluster"
 
+  dev:build-ui:
+    desc: Build the Activity UI container image for development
+    silent: true
+    cmds:
+      - |
+        set -e
+        echo "Building Activity UI container image: {{.ACTIVITY_UI_IMAGE_NAME}}:{{.ACTIVITY_IMAGE_TAG}}"
+
+        if [ ! -f "ui/Dockerfile" ]; then
+          echo "⚠️  Warning: ui/Dockerfile not found - skipping UI container build"
+          exit 1
+        fi
+
+        docker build \
+          -t "{{.ACTIVITY_UI_IMAGE_NAME}}:{{.ACTIVITY_IMAGE_TAG}}" \
+          -f ui/Dockerfile \
+          ui/
+        echo "Successfully built {{.ACTIVITY_UI_IMAGE_NAME}}:{{.ACTIVITY_IMAGE_TAG}}"
+
+  dev:load-ui:
+    desc: Load the Activity UI container image into the kind cluster
+    silent: true
+    cmds:
+      - |
+        set -e
+        echo "Loading image {{.ACTIVITY_UI_IMAGE_NAME}}:{{.ACTIVITY_IMAGE_TAG}} into kind cluster '{{.TEST_INFRA_CLUSTER_NAME}}'..."
+        kind load docker-image "{{.ACTIVITY_UI_IMAGE_NAME}}:{{.ACTIVITY_IMAGE_TAG}}" --name "{{.TEST_INFRA_CLUSTER_NAME}}"
+        echo "Successfully loaded UI image into kind cluster"
+
   # ============================================================
   # Lightweight Dev Environment (single-replica, minimal resources)
   # ============================================================
@@ -143,6 +173,8 @@ tasks:
       - task: dev:install-dependencies-minimal
       - task: dev:build
       - task: dev:load
+      - task: dev:build-ui
+      - task: dev:load-ui
       - task: dev:deploy
       - task: observability:deploy
 
@@ -241,7 +273,7 @@ tasks:
         task test-infra:kubectl -- wait --for=condition=ready pod -l app=activity-apiserver -n activity-system --timeout=120s || echo "⚠️  API server pods not ready yet"
 
         echo "⏳ Waiting for Activity APIService to be available..."
-        task test-infra:kubectl -- wait --for=condition=Available apiservice/v1alpha1.activity.datum.net --timeout=120s || echo "⚠️  APIService not available yet"
+        task test-infra:kubectl -- wait --for=condition=Available apiservice/v1alpha1.activity.miloapis.com --timeout=120s || echo "⚠️  APIService not available yet"
 
         echo "⏳ Waiting for Vector aggregator to be ready..."
         task test-infra:kubectl -- wait --for=condition=ready pod -l app.kubernetes.io/instance=vector-aggregator -n activity-system --timeout=120s 2>/dev/null || echo "⚠️  Vector aggregator pods not ready yet"
@@ -301,6 +333,8 @@ tasks:
       - task: test:install-dependencies
       - task: dev:build
       - task: dev:load
+      - task: dev:build-ui
+      - task: dev:load-ui
       - task: test:deploy
       - task: observability:deploy
 
@@ -458,7 +492,7 @@ tasks:
         echo "  NATS pods:         task test-infra:kubectl -- get pods -n nats-system"
         echo "  NATS streams:      task test-infra:kubectl -- get streams -n activity-system"
         echo "  S3 bucket:         task test-infra:kubectl -- get objectbucketclaim -n activity-system"
-        echo "  API service:       kubectl get apiservice v1alpha1.activity.datum.net"
+        echo "  API service:       kubectl get apiservice v1alpha1.activity.miloapis.com"
         echo "  Grafana datasrc:   task test-infra:kubectl -- get grafanadatasource clickhouse-datasource -n activity-system"
         echo "  ActivityPolicies:  task test-infra:kubectl -- get activitypolicies"
         echo ""
