@@ -157,10 +157,8 @@ func (c completedConfig) New() (*ActivityServer, error) {
 	v1alpha1Storage["policypreviews"] = preview.NewPolicyPreviewStorage()
 
 	// Create events backend using the same ClickHouse connection
-	// K8s Events use audit.k8s_events table (migration 003)
 	eventsBackend := storage.NewClickHouseEventsBackend(clickhouseStorage.Conn(), storage.ClickHouseEventsConfig{
 		Database: clickhouseStorage.Config().Database,
-		Table:    "k8s_events",
 	})
 	if s.eventsWatcher != nil {
 		v1alpha1Storage["events"] = events.NewEventsRESTWithWatcher(eventsBackend, s.eventsWatcher)
@@ -174,7 +172,6 @@ func (c completedConfig) New() (*ActivityServer, error) {
 	// EventQuery for historical event queries up to 60 days (no 24-hour limit)
 	eventQueryBackend := storage.NewClickHouseEventQueryBackend(clickhouseStorage.Conn(), storage.ClickHouseEventsConfig{
 		Database: clickhouseStorage.Config().Database,
-		Table:    "k8s_events",
 	})
 	v1alpha1Storage["eventqueries"] = eventquery.NewEventQueryREST(eventQueryBackend)
 
