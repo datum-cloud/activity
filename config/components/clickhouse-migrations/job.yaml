@@ -36,6 +36,9 @@ spec:
           value: "audit"
         - name: MIGRATIONS_DIR
           value: "/migrations"
+        # Enable full-text index feature for ngrams tokenizer in activities table
+        - name: CLICKHOUSE_CLIENT_EXTRA_ARGS
+          value: "--enable_full_text_index=1"
         volumeMounts:
         - name: migrations
           mountPath: /migrations

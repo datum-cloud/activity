@@ -90,7 +90,7 @@ CREATE TABLE IF NOT EXISTS audit.k8s_events
     involved_api_group LowCardinality(String) MATERIALIZED
         if(
             position(JSONExtractString(event_json, 'involvedObject', 'apiVersion'), '/') > 0,
-            substringBefore(JSONExtractString(event_json, 'involvedObject', 'apiVersion'), '/'),
+            splitByChar('/', JSONExtractString(event_json, 'involvedObject', 'apiVersion'))[1],
             ''
         ),
 

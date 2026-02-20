@@ -7,7 +7,8 @@ resources:
   - serviceaccount.yaml
   - deployment.yaml
   - processor.yaml             # Activity processor deployment + RBAC
-  - controller-manager.yaml    # Controller manager deployment + RBAC
+  - controller-manager.yaml    # Controller manager deployment + ServiceAccount + ClusterRoleBinding
+  - generated/controller-manager-rbac.yaml  # Auto-generated ClusterRole from kubebuilder annotations
   - service.yaml
   - secret.yaml
   - rbac-auth-reader.yaml

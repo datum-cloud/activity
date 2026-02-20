@@ -67,6 +67,12 @@ spec:
         - --logging-format=$(LOGGING_FORMAT)
         - --tracing-config-file=$(TRACING_CONFIG_FILE)
         - --etcd-servers=$(ETCD_SERVERS)
+        - --activities-nats-url=$(ACTIVITIES_NATS_URL)
+        - --activities-nats-stream=$(ACTIVITIES_NATS_STREAM)
+        - --activities-nats-subject-prefix=$(ACTIVITIES_NATS_SUBJECT_PREFIX)
+        - --events-nats-url=$(EVENTS_NATS_URL)
+        - --events-nats-stream=$(EVENTS_NATS_STREAM)
+        - --events-nats-subject-prefix=$(EVENTS_NATS_SUBJECT_PREFIX)
         - -v=$(LOG_LEVEL)
         env:
         - name: SECURE_PORT
@@ -127,6 +133,20 @@ spec:
           value: ""
         - name: ETCD_SERVERS
           value: "http://etcd.activity-system.svc.cluster.local:2379"
+        # NATS configuration for Activities Watch API (empty = Watch API disabled)
+        - name: ACTIVITIES_NATS_URL
+          value: ""
+        - name: ACTIVITIES_NATS_STREAM
+          value: "ACTIVITIES"
+        - name: ACTIVITIES_NATS_SUBJECT_PREFIX
+          value: "activities"
+        # NATS configuration for Events Watch API (empty = Watch API disabled)
+        - name: EVENTS_NATS_URL
+          value: ""
+        - name: EVENTS_NATS_STREAM
+          value: "EVENTS"
+        - name: EVENTS_NATS_SUBJECT_PREFIX
+          value: "events"
         resources:
           requests:
             cpu: 100m
