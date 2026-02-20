@@ -117,7 +117,6 @@ type ClickHouseConfig struct {
 	Database string
 	Username string
 	Password string
-	Table    string
 
 	// TLS configuration (optional - disabled by default)
 	TLSEnabled  bool   // Enable TLS for ClickHouse connection
@@ -479,7 +478,7 @@ func hasUserFilter(filter string) bool {
 func (s *ClickHouseStorage) buildQuery(ctx context.Context, spec v1alpha1.AuditLogQuerySpec, scope ScopeContext) (string, []interface{}, error) {
 	var args []interface{}
 
-	query := fmt.Sprintf("SELECT event_json FROM %s.%s", s.config.Database, s.config.Table)
+	query := fmt.Sprintf("SELECT event_json FROM %s.audit_logs", s.config.Database)
 
 	var conditions []string
 
@@ -1088,7 +1087,7 @@ func (s *ClickHouseStorage) queryAuditLogFacet(ctx context.Context, facet FacetF
 
 	// Build query against the audit logs table
 	// Use toString() to ensure consistent string output for all column types (including UInt16 status_code)
-	query := fmt.Sprintf("SELECT toString(%s) as value, COUNT(*) as count FROM %s.%s", column, s.config.Database, s.config.Table)
+	query := fmt.Sprintf("SELECT toString(%s) as value, COUNT(*) as count FROM %s.audit_logs", column, s.config.Database)
 
 	if len(conditions) > 0 {
 		query += " WHERE " + strings.Join(conditions, " AND ")

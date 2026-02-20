@@ -10,7 +10,6 @@ vars:
   TEST_INFRA_REPO_REF: 'v0.6.0'
   # ClickHouse configuration for testing
   CLICKHOUSE_DATABASE: "audit"
-  CLICKHOUSE_TABLE: "events"
   CLICKHOUSE_USERNAME: "default"
   CLICKHOUSE_PASSWORD: ""
 

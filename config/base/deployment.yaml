@@ -46,7 +46,6 @@ spec:
         - --tls-private-key-file=$(TLS_PRIVATE_KEY_FILE)
         - --clickhouse-address=$(CLICKHOUSE_ADDRESS)
         - --clickhouse-database=$(CLICKHOUSE_DATABASE)
-        - --clickhouse-table=$(CLICKHOUSE_TABLE)
         - --clickhouse-username=$(CLICKHOUSE_USERNAME)
         - --clickhouse-password=$(CLICKHOUSE_PASSWORD)
         - --clickhouse-tls-enabled=$(CLICKHOUSE_TLS_ENABLED)
@@ -113,8 +112,6 @@ spec:
           value: "clickhouse.activity-system.svc.cluster.local:9000"
         - name: CLICKHOUSE_DATABASE
           value: "audit"
-        - name: CLICKHOUSE_TABLE
-          value: "events"
         - name: CLICKHOUSE_USERNAME
           value: "default"
         - name: CLICKHOUSE_PASSWORD

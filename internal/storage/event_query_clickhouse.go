@@ -54,9 +54,6 @@ type ClickHouseEventQueryBackend struct {
 
 // NewClickHouseEventQueryBackend creates a new ClickHouse-backed EventQuery storage.
 func NewClickHouseEventQueryBackend(conn driver.Conn, config ClickHouseEventsConfig) *ClickHouseEventQueryBackend {
-	if config.Table == "" {
-		config.Table = "events"
-	}
 	return &ClickHouseEventQueryBackend{
 		conn:   conn,
 		config: config,
@@ -201,7 +198,7 @@ func (b *ClickHouseEventQueryBackend) buildQuery(_ context.Context, spec v1alpha
 		}
 		// Offset-based pagination: skip rows already returned in previous pages
 		limit := resolveEventQueryLimit(spec.Limit)
-		query := fmt.Sprintf("SELECT event_json FROM %s.%s", b.config.Database, b.config.Table)
+		query := fmt.Sprintf("SELECT event_json FROM %s.%s", b.config.Database, "k8s_events")
 		if len(conditions) > 0 {
 			query += " WHERE " + strings.Join(conditions, " AND ")
 		}
@@ -210,7 +207,7 @@ func (b *ClickHouseEventQueryBackend) buildQuery(_ context.Context, spec v1alpha
 		return query, args, nil
 	}
 
-	query := fmt.Sprintf("SELECT event_json FROM %s.%s", b.config.Database, b.config.Table)
+	query := fmt.Sprintf("SELECT event_json FROM %s.%s", b.config.Database, "k8s_events")
 	if len(conditions) > 0 {
 		query += " WHERE " + strings.Join(conditions, " AND ")
 	}

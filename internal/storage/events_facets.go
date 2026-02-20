@@ -99,7 +99,7 @@ func (b *ClickHouseEventsBackend) queryEventFacet(ctx context.Context, facet Fac
 	}
 
 	// Build query against the events table
-	query := fmt.Sprintf("SELECT %s, COUNT(*) as count FROM %s.%s", column, b.config.Database, b.config.Table)
+	query := fmt.Sprintf("SELECT %s, COUNT(*) as count FROM %s.%s", column, b.config.Database, "k8s_events")
 
 	if len(conditions) > 0 {
 		query += " WHERE " + strings.Join(conditions, " AND ")
