@@ -45,7 +45,9 @@ patches:
   - path: patches/vector-aggregator-patch.yaml
 
 labels:
-  - includeSelectors: true
+  # Note: includeSelectors is false because operators (ClickHouse, etcd) create pods
+  # without kustomize labels, causing service selector mismatches
+  - includeSelectors: false
     includeTemplates: true
     pairs:
       environment: dev

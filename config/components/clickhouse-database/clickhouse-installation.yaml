@@ -32,7 +32,6 @@ spec:
       default/networks/ip:
         - "0.0.0.0/0"
     settings:
-      # Default settings for ClickHouse
       default/default_database: audit
 
       # These control how CREATE/ALTER/DROP with ON CLUSTER are executed
@@ -68,6 +67,15 @@ spec:
                 <count>5</count>
                 <console>1</console>
             </logger>
+        </clickhouse>
+      # Enable full-text index feature for ngrams tokenizer in activities table
+      users.d/full_text_index.xml: |-
+        <clickhouse>
+            <users>
+                <default>
+                    <enable_full_text_index>1</enable_full_text_index>
+                </default>
+            </users>
         </clickhouse>
       # Storage configuration for hot/cold tiering with S3
       # Hot storage: local disk for recent data (fast queries)

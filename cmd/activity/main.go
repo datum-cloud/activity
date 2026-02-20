@@ -135,6 +135,15 @@ type ActivityServerOptions struct {
 	MaxQueryWindow time.Duration // Maximum time range allowed for queries
 	MaxPageSize    int32         // Maximum number of results per page
 
+	// NATS configuration for activities watch
+	ActivitiesNATSURL           string
+	ActivitiesNATSStream        string
+	ActivitiesNATSSubjectPrefix string
+	ActivitiesNATSTLSEnabled    bool
+	ActivitiesNATSTLSCertFile   string
+	ActivitiesNATSTLSKeyFile    string
+	ActivitiesNATSTLSCAFile     string
+
 	// NATS configuration for events watch
 	EventsNATSURL           string
 	EventsNATSStream        string
@@ -195,6 +204,22 @@ func (o *ActivityServerOptions) AddFlags(fs *pflag.FlagSet) {
 		"Maximum time range for a single query (e.g., 720h for 30 days)")
 	fs.Int32Var(&o.MaxPageSize, "max-page-size", o.MaxPageSize,
 		"Maximum results returned per page")
+
+	// Activities NATS watch configuration
+	fs.StringVar(&o.ActivitiesNATSURL, "activities-nats-url", o.ActivitiesNATSURL,
+		"NATS server URL for activities watch (e.g., nats://localhost:4222). If not set, watch API will be disabled.")
+	fs.StringVar(&o.ActivitiesNATSStream, "activities-nats-stream", o.ActivitiesNATSStream,
+		"NATS JetStream stream name for activities (defaults to 'ACTIVITIES')")
+	fs.StringVar(&o.ActivitiesNATSSubjectPrefix, "activities-nats-subject-prefix", o.ActivitiesNATSSubjectPrefix,
+		"NATS subject prefix for activities (defaults to 'activities')")
+	fs.BoolVar(&o.ActivitiesNATSTLSEnabled, "activities-nats-tls-enabled", o.ActivitiesNATSTLSEnabled,
+		"Enable TLS for Activities NATS connection")
+	fs.StringVar(&o.ActivitiesNATSTLSCertFile, "activities-nats-tls-cert-file", o.ActivitiesNATSTLSCertFile,
+		"Path to client certificate file for Activities NATS TLS")
+	fs.StringVar(&o.ActivitiesNATSTLSKeyFile, "activities-nats-tls-key-file", o.ActivitiesNATSTLSKeyFile,
+		"Path to client private key file for Activities NATS TLS")
+	fs.StringVar(&o.ActivitiesNATSTLSCAFile, "activities-nats-tls-ca-file", o.ActivitiesNATSTLSCAFile,
+		"Path to CA certificate file for Activities NATS TLS")
 
 	// Events NATS watch configuration
 	fs.StringVar(&o.EventsNATSURL, "events-nats-url", o.EventsNATSURL,
@@ -279,6 +304,15 @@ func (o *ActivityServerOptions) Config() (*activityapiserver.Config, error) {
 				TLSCAFile:      o.ClickHouseTLSCAFile,
 				MaxQueryWindow: o.MaxQueryWindow,
 				MaxPageSize:    o.MaxPageSize,
+			},
+			NATSConfig: watch.NATSConfig{
+				URL:           o.ActivitiesNATSURL,
+				StreamName:    o.ActivitiesNATSStream,
+				SubjectPrefix: o.ActivitiesNATSSubjectPrefix,
+				TLSEnabled:    o.ActivitiesNATSTLSEnabled,
+				TLSCertFile:   o.ActivitiesNATSTLSCertFile,
+				TLSKeyFile:    o.ActivitiesNATSTLSKeyFile,
+				TLSCAFile:     o.ActivitiesNATSTLSCAFile,
 			},
 			EventsNATSConfig: watch.NATSConfig{
 				URL:           o.EventsNATSURL,

@@ -16,6 +16,11 @@ spec:
           value: "4"  # Verbosity level: 0=info, 2=debug, 4=trace
         - name: ENABLE_DEBUG_ENDPOINTS
           value: "true"
+        # Enable Watch API via NATS
+        - name: ACTIVITIES_NATS_URL
+          value: "nats://nats.nats-system.svc.cluster.local:4222"
+        - name: EVENTS_NATS_URL
+          value: "nats://nats.nats-system.svc.cluster.local:4222"
         resources:
           requests:
             cpu: 100m

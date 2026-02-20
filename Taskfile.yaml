@@ -225,6 +225,7 @@ tasks:
         echo "⏳ Waiting for NATS streams to be ready..."
         task test-infra:kubectl -- wait --for=condition=ready stream/audit-events -n activity-system --timeout=60s 2>/dev/null || echo "⚠️  audit-events stream not ready yet"
         task test-infra:kubectl -- wait --for=condition=ready stream/activities -n activity-system --timeout=60s 2>/dev/null || echo "⚠️  activities stream not ready yet"
+        task test-infra:kubectl -- wait --for=condition=ready stream/events -n activity-system --timeout=60s 2>/dev/null || echo "⚠️  events stream not ready yet (needed for Watch API)"
 
         echo ""
         echo "⏳ Waiting for ClickHouse Keeper to be ready..."
@@ -409,9 +410,14 @@ tasks:
         echo "📋 Deploying Activity server and components (test-infra overlay)..."
         task test-infra:kubectl -- apply -k config/overlays/test-infra
 
+        echo "⏳ Waiting for etcd to be ready..."
+        task test-infra:kubectl -- wait --for=condition=ready helmrelease/etcd -n activity-system --timeout=300s 2>/dev/null || echo "⚠️  etcd HelmRelease not ready yet"
+        task test-infra:kubectl -- wait --for=condition=ready pod -l app.kubernetes.io/name=etcd -n activity-system --timeout=120s 2>/dev/null || echo "⚠️  etcd pods not ready yet"
+
         echo "⏳ Waiting for NATS streams to be ready..."
         task test-infra:kubectl -- wait --for=condition=ready stream/audit-events -n activity-system --timeout=60s 2>/dev/null || echo "⚠️  audit-events stream not ready yet"
         task test-infra:kubectl -- wait --for=condition=ready stream/activities -n activity-system --timeout=60s 2>/dev/null || echo "⚠️  activities stream not ready yet"
+        task test-infra:kubectl -- wait --for=condition=ready stream/events -n activity-system --timeout=60s 2>/dev/null || echo "⚠️  events stream not ready yet (needed for Watch API)"
 
         echo ""
         echo "⏳ Waiting for RustFS bucket initialization..."
@@ -505,6 +511,17 @@ tasks:
         echo "✅ OpenAPI generation complete"
     silent: true
 
+  # RBAC generation from kubebuilder annotations
+  generate:rbac:
+    desc: Generate RBAC manifests from kubebuilder annotations
+    cmds:
+      - |
+        set -e
+        echo "🔄 Generating RBAC manifests from kubebuilder annotations..."
+        ./hack/generate-rbac.sh
+        echo "✅ RBAC generation complete"
+    silent: true
+
   # API documentation generation
   generate:docs:
     desc: Generate API reference documentation
@@ -526,9 +543,10 @@ tasks:
 
   # Unified code generation task - composes all generate:* subtasks
   generate:
-    desc: Run all code generation tasks (OpenAPI, migrations ConfigMap, API docs, diagrams, k6 tests, etc.)
+    desc: Run all code generation tasks (OpenAPI, RBAC, migrations ConfigMap, API docs, diagrams, k6 tests, etc.)
     deps:
       - generate:openapi
+      - generate:rbac
       - migrations:generate
       - load:generate
       - observability:build-mixin
@@ -541,6 +559,7 @@ tasks:
         echo ""
         echo "Generated files:"
         echo "  - pkg/generated/openapi/zz_generated.openapi.go"
+        echo "  - config/base/generated/controller-manager-rbac.yaml"
         echo "  - config/components/clickhouse-migrations/configmap.yaml"
         echo "  - config/components/k6-performance-tests/generated/query-load-test.js"
         echo "  - docs/api.md"
