@@ -20,6 +20,7 @@ components:
   - ../../components/grafana-clickhouse
   - ../../components/vector-sidecar
   - ../../components/vector-aggregator
+  - ../../components/k8s-event-exporter            # Kubernetes events → NATS
   - ../../components/tracing
   - ../../components/observability            # ServiceMonitors, alerts, dashboards
 

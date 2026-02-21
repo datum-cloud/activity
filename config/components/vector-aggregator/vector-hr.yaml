@@ -102,6 +102,28 @@ spec:
           decoding:
             codec: json
 
+        # NATS JetStream consumer for Kubernetes events
+        # Events are exported by the activity-event-exporter from the Kubernetes API
+        nats_events_consumer:
+          type: nats
+          connection_name: vector-aggregator-events
+          url: nats://nats.nats-system.svc.cluster.local:4222
+
+          # Subject filter for all events
+          subject: events.>
+
+          # JetStream configuration
+          jetstream:
+            stream: EVENTS
+            consumer: clickhouse-ingest-events
+
+            batch_config:
+              batch: 1000
+              # Maximum 5MB per batch (events are smaller than audit events)
+              max_bytes: 5242880
+          decoding:
+            codec: json
+
         internal_metrics:
           type: internal_metrics
           namespace: vector
@@ -223,6 +245,24 @@ spec:
               "activity_json": .activity_json
             }
 
+        # ========================================================================
+        # Events Pipeline
+        # ========================================================================
+
+        # Prepare events for ClickHouse
+        # Events are exported by the activity-event-exporter from the Kubernetes API.
+        # We wrap them as event_json for the k8s_events table schema.
+        prepare_events_for_clickhouse:
+          type: remap
+          inputs:
+            - nats_events_consumer
+          source: |
+            # Wrap entire event as event_json for ClickHouse
+            .event_json = encode_json(.)
+            . = {
+              "event_json": .event_json
+            }
+
       sinks:
         # Export audit events to ClickHouse audit.events table
         clickhouse_audit_events:
@@ -263,6 +303,34 @@ spec:
           encoding:
             only_fields:
               - activity_json
+          batch:
+            max_bytes: 5242880
+            max_events: 5000
+            timeout_secs: 10
+          buffer:
+            type: disk
+            max_size: 5368709120
+            when_full: block
+          request:
+            retry_attempts: 9999999
+            retry_initial_backoff_secs: 1
+            retry_max_duration_secs: 300
+            timeout_secs: 60
+          healthcheck:
+            enabled: true
+          compression: gzip
+
+        # Export Kubernetes events to ClickHouse audit.k8s_events table
+        clickhouse_k8s_events:
+          type: clickhouse
+          inputs:
+            - prepare_events_for_clickhouse
+          endpoint: http://clickhouse.activity-system.svc.cluster.local:8123
+          database: audit
+          table: k8s_events
+          encoding:
+            only_fields:
+              - event_json
           batch:
             max_bytes: 5242880
             max_events: 5000
