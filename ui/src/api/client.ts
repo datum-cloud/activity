@@ -662,10 +662,10 @@ export class ActivityApiClient {
 
     const queryString = searchParams.toString();
 
-    // Support namespace-scoped or cluster-wide listing
+    // Support namespace-scoped or cluster-wide listing via Activity API
     const basePath = params?.namespace
-      ? `/api/v1/namespaces/${params.namespace}/events`
-      : '/api/v1/events';
+      ? `/apis/activity.miloapis.com/v1alpha1/namespaces/${params.namespace}/events`
+      : '/apis/activity.miloapis.com/v1alpha1/events';
 
     const path = `${basePath}${queryString ? `?${queryString}` : ''}`;
 
@@ -727,10 +727,10 @@ export class ActivityApiClient {
 
     const queryString = searchParams.toString();
 
-    // Support namespace-scoped or cluster-wide watching
+    // Support namespace-scoped or cluster-wide watching via Activity API
     const basePath = params?.namespace
-      ? `/api/v1/namespaces/${params.namespace}/events`
-      : '/api/v1/events';
+      ? `/apis/activity.miloapis.com/v1alpha1/namespaces/${params.namespace}/events`
+      : '/apis/activity.miloapis.com/v1alpha1/events';
 
     const path = `${basePath}?${queryString}`;
     const url = `${this.config.baseUrl}${path}`;
