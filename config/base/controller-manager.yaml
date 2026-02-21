@@ -66,11 +66,14 @@ spec:
         - /activity
         - controller-manager
         args:
+        - --kubeconfig=$(KUBECONFIG)
         - --workers=$(WORKERS)
         - --metrics-addr=$(METRICS_ADDR)
         - --health-probe-addr=$(HEALTH_PROBE_ADDR)
         - -v=$(LOG_LEVEL)
         env:
+        - name: KUBECONFIG
+          value: ""
         - name: WORKERS
           value: "2"
         - name: METRICS_ADDR

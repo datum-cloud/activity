@@ -76,8 +76,13 @@ spec:
         - --consumer-name=$(CONSUMER_NAME)
         - --output-stream=$(OUTPUT_STREAM)
         - --output-subject-prefix=$(OUTPUT_SUBJECT_PREFIX)
+        - --nats-tls-enabled=$(NATS_TLS_ENABLED)
+        - --nats-tls-cert-file=$(NATS_TLS_CERT_FILE)
+        - --nats-tls-key-file=$(NATS_TLS_KEY_FILE)
+        - --nats-tls-ca-file=$(NATS_TLS_CA_FILE)
         - --workers=$(WORKERS)
         - --batch-size=$(BATCH_SIZE)
+        - --health-probe-addr=$(HEALTH_PROBE_ADDR)
         - -v=$(LOG_LEVEL)
         env:
         - name: NATS_URL
@@ -90,10 +95,20 @@ spec:
           value: "ACTIVITIES"
         - name: OUTPUT_SUBJECT_PREFIX
           value: "activities"
+        - name: NATS_TLS_ENABLED
+          value: "false"
+        - name: NATS_TLS_CERT_FILE
+          value: ""
+        - name: NATS_TLS_KEY_FILE
+          value: ""
+        - name: NATS_TLS_CA_FILE
+          value: ""
         - name: WORKERS
           value: "4"
         - name: BATCH_SIZE
           value: "100"
+        - name: HEALTH_PROBE_ADDR
+          value: ":8081"
         - name: LOG_LEVEL
           value: "2"
         resources:
