@@ -4,8 +4,14 @@ export { FilterBuilderWithAutocomplete } from './components/FilterBuilderWithAut
 export { SimpleQueryBuilder } from './components/SimpleQueryBuilder';
 export { AuditEventViewer } from './components/AuditEventViewer';
 export { AuditLogQueryComponent } from './components/AuditLogQueryComponent';
+export { AuditLogFeedItem } from './components/AuditLogFeedItem';
+export type { AuditLogFeedItemProps } from './components/AuditLogFeedItem';
+export { AuditLogExpandedDetails } from './components/AuditLogExpandedDetails';
+export type { AuditLogExpandedDetailsProps } from './components/AuditLogExpandedDetails';
 export { DateTimeRangePicker } from './components/DateTimeRangePicker';
 export type { DateTimeRange, DateTimeRangePickerProps } from './components/DateTimeRangePicker';
+export { AuditLogFilters, buildAuditLogCEL } from './components/AuditLogFilters';
+export type { AuditLogFiltersProps, AuditLogFilterState } from './components/AuditLogFilters';
 
 // Components - Activity Feed (new)
 export { ActivityFeed } from './components/ActivityFeed';
@@ -213,9 +219,10 @@ export type {
   WatchEvent,
   WatchEventType,
   WatchErrorStatus,
+  ResourceLinkResolver,
 } from './types/activity';
 
-export { ACTIVITY_FILTER_FIELDS } from './types/activity';
+export { ACTIVITY_FILTER_FIELDS, defaultResourceLinkResolver } from './types/activity';
 
 // Types - Kubernetes Events (new)
 export type {

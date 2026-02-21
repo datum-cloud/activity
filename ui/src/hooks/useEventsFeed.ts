@@ -14,6 +14,8 @@ export interface EventsFeedFilters {
   eventType?: K8sEventType | 'all';
   /** Filter by namespaces (multi-select) */
   namespaces?: string[];
+  /** Filter by involved object API group (multi-select) */
+  involvedApiGroups?: string[];
   /** Filter by involved object kind (multi-select) */
   involvedKinds?: string[];
   /** Filter by involved object name */
@@ -22,6 +24,8 @@ export interface EventsFeedFilters {
   reasons?: string[];
   /** Filter by source components (multi-select) */
   sourceComponents?: string[];
+  /** Full-text search on event messages */
+  search?: string;
 }
 
 /**
@@ -101,6 +105,17 @@ function buildFieldSelector(filters: EventsFeedFilters): string | undefined {
     selectors.push(`type=${filters.eventType}`);
   }
 
+  // Involved object API group filter (multi-select)
+  if (filters.involvedApiGroups && filters.involvedApiGroups.length > 0) {
+    if (filters.involvedApiGroups.length === 1) {
+      selectors.push(`involvedObject.apiVersion=${filters.involvedApiGroups[0]}`);
+    } else {
+      // Kubernetes field selectors don't support OR, so we'll handle this client-side
+      // Just use the first one for server-side filtering
+      selectors.push(`involvedObject.apiVersion=${filters.involvedApiGroups[0]}`);
+    }
+  }
+
   // Involved object kind filter (multi-select)
   if (filters.involvedKinds && filters.involvedKinds.length > 0) {
     if (filters.involvedKinds.length === 1) {
@@ -154,6 +169,13 @@ function buildFieldSelector(filters: EventsFeedFilters): string | undefined {
  * Client-side filtering for multi-value filters that can't be expressed in field selectors
  */
 function matchesClientFilters(event: K8sEvent, filters: EventsFeedFilters): boolean {
+  // Check involved API groups (multi-select)
+  if (filters.involvedApiGroups && filters.involvedApiGroups.length > 1) {
+    if (!filters.involvedApiGroups.includes(event.involvedObject.apiVersion || '')) {
+      return false;
+    }
+  }
+
   // Check involved kinds (multi-select)
   if (filters.involvedKinds && filters.involvedKinds.length > 1) {
     if (!filters.involvedKinds.includes(event.involvedObject.kind || '')) {

@@ -107,7 +107,7 @@ export function EventFeedItem({
       className={cn(
         'cursor-pointer transition-all duration-200',
         'hover:border-rose-300 hover:shadow-sm hover:-translate-y-px dark:hover:border-rose-600',
-        compact ? 'p-3 mb-2' : 'p-4 mb-3',
+        compact ? 'p-2 mb-1.5' : 'p-2.5 mb-2',
         isSelected && 'border-rose-300 bg-rose-50 shadow-md dark:border-rose-600 dark:bg-rose-950/50',
         isNew && 'border-l-4 border-l-green-500 bg-green-50/50 dark:border-l-green-400 dark:bg-green-950/30',
         isWarning && !isSelected && 'border-yellow-200 bg-yellow-50/30 dark:border-yellow-800 dark:bg-yellow-950/20',
@@ -115,77 +115,78 @@ export function EventFeedItem({
       )}
       onClick={handleClick}
     >
-      <div className="flex gap-4">
+      <div className="flex gap-2">
         {/* Event Type Icon */}
-        <div className={cn('shrink-0 flex items-start', compact ? 'pt-0.5' : 'pt-1')}>
+        <div className="shrink-0 flex items-start pt-0.5">
           {getEventTypeIcon(type)}
         </div>
 
         {/* Main Content */}
         <div className="flex-1 min-w-0">
-          {/* Header: Badges + Timestamp */}
-          <div className="flex justify-between items-start gap-4 mb-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant={getEventTypeBadgeVariant(type)} className={compact ? 'text-xs' : 'text-sm'}>
+          {/* Single row layout: Object + Message + Metadata */}
+          <div className="flex items-start gap-2 mb-1">
+            {/* Involved Object - inline with type badge */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Badge variant={getEventTypeBadgeVariant(type)} className="text-xs h-5">
                 {type || 'Normal'}
               </Badge>
-              {reason && (
-                <Badge variant="outline" className={compact ? 'text-xs' : 'text-sm'}>
-                  {reason}
-                </Badge>
-              )}
-              {count && count > 1 && (
-                <Badge variant="secondary" className={compact ? 'text-xs' : 'text-sm'}>
-                  x{count}
-                </Badge>
-              )}
+              <span className="text-xs font-medium text-foreground whitespace-nowrap">
+                {involvedObject.kind || 'Unknown'}/{involvedObject.name || 'Unknown'}
+              </span>
             </div>
+
+            {/* Message - takes remaining space */}
+            {message && (
+              <p className="text-xs text-muted-foreground leading-snug m-0 flex-1 min-w-0 truncate" title={message}>
+                {message}
+              </p>
+            )}
+
+            {/* Timestamp - aligned right */}
             <span
-              className="text-xs text-muted-foreground whitespace-nowrap"
+              className="text-xs text-muted-foreground whitespace-nowrap shrink-0"
               title={formatTimestampFull(timestamp)}
             >
               {formatTimestamp(timestamp)}
             </span>
           </div>
 
-          {/* Involved Object */}
-          <div className={cn('mb-2', compact ? 'text-sm' : 'text-[0.9375rem]')}>
-            <span className="font-medium text-foreground">
-              {involvedObject.kind || 'Unknown'}/{involvedObject.name || 'Unknown'}
-            </span>
-            {involvedObject.namespace && (
-              <Badge variant="outline" className="ml-2 text-xs">
-                {involvedObject.namespace}
-              </Badge>
-            )}
-          </div>
-
-          {/* Message */}
-          {message && (
-            <p className={cn('text-muted-foreground leading-relaxed m-0 mb-2', compact ? 'text-xs' : 'text-sm')}>
-              {message}
-            </p>
-          )}
-
-          {/* Meta info row */}
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            {event.source?.component && (
-              <span className="inline-flex items-center gap-1">
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                {event.source.component}
-              </span>
-            )}
+          {/* Second row: Additional badges and metadata with expand button */}
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {reason && (
+                <Badge variant="outline" className="text-xs h-4 py-0">
+                  {reason}
+                </Badge>
+              )}
+              {count && count > 1 && (
+                <Badge variant="secondary" className="text-xs h-4 py-0">
+                  x{count}
+                </Badge>
+              )}
+              {involvedObject.namespace && (
+                <Badge variant="outline" className="text-xs h-4 py-0">
+                  {involvedObject.namespace}
+                </Badge>
+              )}
+              {event.source?.component && (
+                <span className="inline-flex items-center gap-1 text-muted-foreground">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  {event.source.component}
+                </span>
+              )}
+            </div>
             <Button
               variant="ghost"
               size="sm"
-              className="ml-auto h-auto py-0 px-1 text-xs text-muted-foreground hover:text-foreground"
+              className="h-4 py-0 px-1 text-xs text-muted-foreground hover:text-foreground"
               onClick={toggleExpand}
               aria-expanded={isExpanded}
             >
-              {isExpanded ? '▾ Less' : '▸ More'}
+              {isExpanded ? '▾' : '▸'}
             </Button>
           </div>
         </div>

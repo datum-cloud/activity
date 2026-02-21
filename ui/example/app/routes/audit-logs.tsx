@@ -50,7 +50,6 @@ export default function AuditLogsPage() {
           client={client}
           onEventSelect={handleEventSelect}
           initialFilter='verb == "delete"'
-          initialLimit={50}
         />
       )}
 

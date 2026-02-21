@@ -67,6 +67,14 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		return err
 	}
 
+	// Register field label conversions for Activity
+	// This enables field selectors like spec.changeSource=human, spec.resource.kind=HTTPProxy, etc.
+	activityGVK := SchemeGroupVersion.WithKind("Activity")
+	if err := scheme.AddFieldLabelConversionFunc(activityGVK,
+		ActivityFieldLabelConversionFunc); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -127,4 +135,54 @@ var SupportedEventFieldSelectors = []string{
 	"source.host",
 	"reportingComponent",
 	"reportingInstance",
+}
+
+// ActivityFieldLabelConversionFunc converts field selectors for Activity resources.
+// This allows filtering activities by fields beyond the default metadata.name and metadata.namespace.
+func ActivityFieldLabelConversionFunc(label, value string) (string, string, error) {
+	switch label {
+	// Metadata fields
+	case "metadata.name",
+		"metadata.namespace":
+		return label, value, nil
+
+	// Change source (human vs system)
+	case "spec.changeSource":
+		return label, value, nil
+
+	// Resource fields
+	case "spec.resource.apiGroup",
+		"spec.resource.kind",
+		"spec.resource.name",
+		"spec.resource.namespace",
+		"spec.resource.uid":
+		return label, value, nil
+
+	// Actor fields
+	case "spec.actor.name",
+		"spec.actor.type",
+		"spec.actor.uid",
+		"spec.actor.email":
+		return label, value, nil
+
+	default:
+		return "", "", fmt.Errorf("%q is not a known field selector: only %q",
+			label, SupportedActivityFieldSelectors)
+	}
+}
+
+// SupportedActivityFieldSelectors lists all supported field selectors for Activities
+var SupportedActivityFieldSelectors = []string{
+	"metadata.name",
+	"metadata.namespace",
+	"spec.changeSource",
+	"spec.resource.apiGroup",
+	"spec.resource.kind",
+	"spec.resource.name",
+	"spec.resource.namespace",
+	"spec.resource.uid",
+	"spec.actor.name",
+	"spec.actor.type",
+	"spec.actor.uid",
+	"spec.actor.email",
 }

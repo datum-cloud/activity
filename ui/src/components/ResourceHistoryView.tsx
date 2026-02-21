@@ -1,5 +1,5 @@
 import { useEffect, useCallback, useMemo } from 'react';
-import type { Activity } from '../types/activity';
+import type { Activity, ResourceLinkResolver } from '../types/activity';
 import type { ActivityFeedFilters } from '../hooks/useActivityFeed';
 import { useActivityFeed } from '../hooks/useActivityFeed';
 import { ActivityFeedItem } from './ActivityFeedItem';
@@ -41,8 +41,12 @@ export interface ResourceHistoryViewProps {
   compact?: boolean;
   /** Handler called when an activity is clicked */
   onActivityClick?: (activity: Activity) => void;
-  /** Handler called when a resource link is clicked */
+  /** Handler called when a resource link is clicked (deprecated: use resourceLinkResolver) */
   onResourceClick?: ResourceLinkClickHandler;
+  /** Function that resolves resource references to URLs */
+  resourceLinkResolver?: ResourceLinkResolver;
+  /** Handler called when the actor name or avatar is clicked */
+  onActorClick?: (actorName: string) => void;
   /** Additional CSS class */
   className?: string;
 }
@@ -89,6 +93,8 @@ export function ResourceHistoryView({
   compact = false,
   onActivityClick,
   onResourceClick,
+  resourceLinkResolver,
+  onActorClick,
   className,
 }: ResourceHistoryViewProps) {
   // Build the activity feed filters from the resource filter
@@ -263,6 +269,8 @@ export function ResourceHistoryView({
                   isLast={index === activities.length - 1 && !hasMore}
                   onActivityClick={onActivityClick}
                   onResourceClick={onResourceClick}
+                  resourceLinkResolver={resourceLinkResolver}
+                  onActorClick={onActorClick}
                 />
               );
             })}

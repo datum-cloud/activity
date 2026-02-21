@@ -4,7 +4,7 @@ import {
   ActivityFeed,
   ActivityApiClient,
   type Activity,
-  type ResourceRef,
+  defaultResourceLinkResolver,
 } from "@miloapis/activity-ui";
 import { EventDetailModal } from "~/components/EventDetailModal";
 import { AppLayout } from "~/components/AppLayout";
@@ -46,20 +46,6 @@ export default function ActivityFeedPage() {
     setSelectedActivity(activity);
   };
 
-  const handleResourceClick = (resource: ResourceRef) => {
-    // Build URL params for resource history deep link
-    const params = new URLSearchParams();
-    if (resource.uid) {
-      params.set("uid", resource.uid);
-    } else {
-      if (resource.apiGroup) params.set("apiGroup", resource.apiGroup);
-      if (resource.kind) params.set("kind", resource.kind);
-      if (resource.namespace) params.set("namespace", resource.namespace);
-      if (resource.name) params.set("name", resource.name);
-    }
-    navigate(`/resource-history?${params.toString()}`);
-  };
-
   return (
     <AppLayout>
       <NavigationToolbar />
@@ -68,7 +54,7 @@ export default function ActivityFeedPage() {
         <ActivityFeed
           client={client}
           onActivityClick={handleActivityClick}
-          onResourceClick={handleResourceClick}
+          resourceLinkResolver={defaultResourceLinkResolver}
           onCreatePolicy={() => navigate("/policies")}
           initialTimeRange={{ start: "now-7d" }}
           pageSize={30}

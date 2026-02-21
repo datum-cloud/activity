@@ -1,4 +1,4 @@
-import type { ActivityLink, ResourceRef } from '../types/activity';
+import type { ActivityLink, ResourceRef, ResourceLinkResolver } from '../types/activity';
 
 export interface ResourceLinkClickHandler {
   (resource: ResourceRef): void;
@@ -9,8 +9,10 @@ export interface ActivityFeedSummaryProps {
   summary: string;
   /** Links within the summary to make clickable */
   links?: ActivityLink[];
-  /** Handler called when a resource link is clicked */
+  /** Handler called when a resource link is clicked (deprecated: use resourceLinkResolver) */
   onResourceClick?: ResourceLinkClickHandler;
+  /** Function that resolves resource references to URLs (renders as <a> tags) */
+  resourceLinkResolver?: ResourceLinkResolver;
   /** Additional CSS class */
   className?: string;
 }
@@ -21,7 +23,8 @@ export interface ActivityFeedSummaryProps {
 function parseSummaryWithLinks(
   summary: string,
   links: ActivityLink[] | undefined,
-  onResourceClick?: ResourceLinkClickHandler
+  onResourceClick?: ResourceLinkClickHandler,
+  resourceLinkResolver?: ResourceLinkResolver
 ): (string | JSX.Element)[] {
   if (!links || links.length === 0) {
     return [summary];
@@ -76,26 +79,42 @@ function parseSummaryWithLinks(
       result.push(summary.substring(lastEnd, range.start));
     }
 
-    // Add the clickable link
-    const handleClick = onResourceClick
-      ? (e: React.MouseEvent) => {
-          e.preventDefault();
-          e.stopPropagation();
-          onResourceClick(range.link.resource);
-        }
-      : undefined;
+    // If resourceLinkResolver is provided, render as <a> tag
+    if (resourceLinkResolver) {
+      const url = resourceLinkResolver(range.link.resource);
+      result.push(
+        <a
+          key={`link-${i}`}
+          href={url}
+          className="underline underline-offset-2 text-primary hover:text-primary/80"
+          title={`${range.link.resource.kind}: ${range.link.resource.name}`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {range.link.marker}
+        </a>
+      );
+    } else {
+      // Fallback to button with onResourceClick handler for backward compatibility
+      const handleClick = onResourceClick
+        ? (e: React.MouseEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onResourceClick(range.link.resource);
+          }
+        : undefined;
 
-    result.push(
-      <button
-        key={`link-${i}`}
-        type="button"
-        className="bg-transparent border-none p-0 cursor-pointer underline underline-offset-2 text-primary hover:text-primary/80"
-        onClick={handleClick}
-        title={`${range.link.resource.kind}: ${range.link.resource.name}`}
-      >
-        {range.link.marker}
-      </button>
-    );
+      result.push(
+        <button
+          key={`link-${i}`}
+          type="button"
+          className="bg-transparent border-none p-0 cursor-pointer underline underline-offset-2 text-primary hover:text-primary/80"
+          onClick={handleClick}
+          title={`${range.link.resource.kind}: ${range.link.resource.name}`}
+        >
+          {range.link.marker}
+        </button>
+      );
+    }
 
     lastEnd = range.end;
   }
@@ -115,9 +134,10 @@ export function ActivityFeedSummary({
   summary,
   links,
   onResourceClick,
+  resourceLinkResolver,
   className = '',
 }: ActivityFeedSummaryProps) {
-  const parsedContent = parseSummaryWithLinks(summary, links, onResourceClick);
+  const parsedContent = parseSummaryWithLinks(summary, links, onResourceClick, resourceLinkResolver);
 
   return (
     <span className={`text-[0.9375rem] text-foreground leading-normal break-words ${className}`}>

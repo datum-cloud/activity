@@ -265,6 +265,62 @@ export interface ActivityFilterField {
 /**
  * Available filter fields for activities
  */
+
+/**
+ * ActivityQuery spec for querying historical activities
+ */
+export interface ActivityQuerySpec {
+  /** Start of time range (required) */
+  startTime: string;
+  /** End of time range (required) */
+  endTime: string;
+  /** Filter by namespace */
+  namespace?: string;
+  /** Filter by change source (human/system) */
+  changeSource?: ChangeSource;
+  /** Full-text search on summaries */
+  search?: string;
+  /** CEL filter expression */
+  filter?: string;
+  /** Filter by resource kind */
+  resourceKind?: string;
+  /** Filter by resource UID */
+  resourceUID?: string;
+  /** Filter by API group */
+  apiGroup?: string;
+  /** Filter by actor name */
+  actorName?: string;
+  /** Max results per page (default 100, max 1000) */
+  limit?: number;
+  /** Pagination cursor */
+  continue?: string;
+}
+
+/**
+ * ActivityQuery status with results
+ */
+export interface ActivityQueryStatus {
+  /** Matching activities, newest first */
+  results?: Activity[];
+  /** Pagination cursor for next page */
+  continue?: string;
+  /** Resolved start time (RFC3339) */
+  effectiveStartTime?: string;
+  /** Resolved end time (RFC3339) */
+  effectiveEndTime?: string;
+}
+
+/**
+ * ActivityQuery resource for historical queries
+ */
+export interface ActivityQuery {
+  apiVersion: 'activity.miloapis.com/v1alpha1';
+  kind: 'ActivityQuery';
+  metadata?: { name?: string };
+  spec: ActivityQuerySpec;
+  status?: ActivityQueryStatus;
+}
+
 /**
  * Watch event types from Kubernetes watch API
  */
@@ -288,6 +344,29 @@ export interface WatchErrorStatus {
   message: string;
   reason?: string;
   code: number;
+}
+
+/**
+ * Function that resolves a ResourceRef to a navigation URL
+ * Returns a URL string to navigate to when the resource link is clicked
+ */
+export type ResourceLinkResolver = (resource: ResourceRef) => string;
+
+/**
+ * Default resource link resolver that navigates to resource history
+ * Uses UID if available, otherwise falls back to apiGroup, kind, namespace, name
+ */
+export function defaultResourceLinkResolver(resource: ResourceRef): string {
+  const params = new URLSearchParams();
+  if (resource.uid) {
+    params.set('uid', resource.uid);
+  } else {
+    if (resource.apiGroup) params.set('apiGroup', resource.apiGroup);
+    if (resource.kind) params.set('kind', resource.kind);
+    if (resource.namespace) params.set('namespace', resource.namespace);
+    if (resource.name) params.set('name', resource.name);
+  }
+  return `/resource-history?${params.toString()}`;
 }
 
 export const ACTIVITY_FILTER_FIELDS: ActivityFilterField[] = [

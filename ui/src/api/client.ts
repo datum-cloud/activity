@@ -3,6 +3,8 @@ import type {
   Activity,
   ActivityList,
   ActivityListParams,
+  ActivityQuery,
+  ActivityQuerySpec,
   ActivityFacetQuery,
   ActivityFacetQuerySpec,
   AuditLogFacetsQuery,
@@ -136,6 +138,28 @@ export class ActivityApiClient {
   // ============================================
   // Activity API Methods
   // ============================================
+
+  /**
+   * Create an ActivityQuery to search historical activities.
+   * This is the preferred method for loading activity history with filters.
+   */
+  async createActivityQuery(spec: ActivityQuerySpec): Promise<ActivityQuery> {
+    const query: ActivityQuery = {
+      apiVersion: 'activity.miloapis.com/v1alpha1',
+      kind: 'ActivityQuery',
+      spec,
+    };
+
+    const response = await this.fetch(
+      '/apis/activity.miloapis.com/v1alpha1/activityqueries',
+      {
+        method: 'POST',
+        body: JSON.stringify(query),
+      }
+    );
+
+    return response.json();
+  }
 
   /**
    * List activities with optional filtering and pagination

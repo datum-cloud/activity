@@ -153,23 +153,23 @@ export function EventsFeed({
 
   // Build container classes
   const containerClasses = compact
-    ? `p-4 shadow-none border-border ${className}`
-    : `p-6 ${className}`;
+    ? `p-3 shadow-none border-border ${className}`
+    : `p-4 ${className}`;
 
   // Build list classes
   const listClasses = compact
     ? 'max-h-[40vh] overflow-y-auto pr-2'
-    : 'max-h-[60vh] overflow-y-auto pr-2';
+    : 'max-h-[70vh] overflow-y-auto pr-2';
 
   return (
     <Card className={containerClasses}>
       {/* Header with streaming status */}
       {enableStreaming && (
-        <div className="flex items-center justify-between mb-4 pb-3 border-b border-border">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between mb-2 pb-2 border-b border-border">
+          <div className="flex items-center gap-2">
             <h3 className="text-sm font-medium text-foreground m-0">Events Feed</h3>
             {isStreaming && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 dark:bg-green-500 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500 dark:bg-green-400"></span>
@@ -187,11 +187,11 @@ export function EventsFeed({
             variant="ghost"
             size="sm"
             onClick={handleStreamingToggle}
-            className="text-xs"
+            className="text-xs h-7"
           >
             {isStreaming ? (
               <>
-                <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <rect x="6" y="4" width="4" height="16" />
                   <rect x="14" y="4" width="4" height="16" />
                 </svg>
@@ -199,7 +199,7 @@ export function EventsFeed({
               </>
             ) : (
               <>
-                <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <polygon points="5,3 19,12 5,21" fill="currentColor" />
                 </svg>
                 Resume
@@ -218,14 +218,13 @@ export function EventsFeed({
           onFiltersChange={handleFiltersChange}
           onTimeRangeChange={handleTimeRangeChange}
           disabled={isLoading}
-          showSearch={!compact}
           namespace={namespace}
         />
       )}
 
       {/* Error Display */}
       {error && (
-        <Alert variant="destructive" className="mb-4 flex justify-between items-center gap-4">
+        <Alert variant="destructive" className="mb-2 flex justify-between items-center gap-4 py-2">
           <AlertDescription className="text-sm">{error.message}</AlertDescription>
           <Button
             variant="outline"
@@ -240,9 +239,9 @@ export function EventsFeed({
       {/* Event List */}
       <div className={listClasses} ref={scrollContainerRef}>
         {events.length === 0 && !isLoading && (
-          <div className="py-12 text-center text-muted-foreground">
+          <div className="py-8 text-center text-muted-foreground">
             <p className="m-0">No events found</p>
-            <p className="text-sm text-muted-foreground mt-2 m-0">
+            <p className="text-sm text-muted-foreground mt-1 m-0">
               Try adjusting your filters or time range
             </p>
           </div>
@@ -260,20 +259,20 @@ export function EventsFeed({
 
         {/* Load More Trigger for Infinite Scroll */}
         {infiniteScroll && hasMore && (
-          <div ref={loadMoreTriggerRef} className="h-px mt-4" />
+          <div ref={loadMoreTriggerRef} className="h-px mt-2" />
         )}
 
         {/* Loading Indicator */}
         {isLoading && (
-          <div className="flex items-center justify-center gap-3 py-8 text-muted-foreground text-sm">
-            <div className="w-5 h-5 border-[3px] border-muted border-t-primary rounded-full animate-spin" />
+          <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground text-sm">
+            <div className="w-4 h-4 border-[3px] border-muted border-t-primary rounded-full animate-spin" />
             <span>Loading events...</span>
           </div>
         )}
 
         {/* Load More Button (when infinite scroll is disabled) */}
         {!infiniteScroll && hasMore && !isLoading && (
-          <div className="flex justify-center p-4 mt-4">
+          <div className="flex justify-center p-2 mt-2">
             <Button onClick={handleLoadMoreClick}>
               Load more
             </Button>
@@ -282,7 +281,7 @@ export function EventsFeed({
 
         {/* End of Results */}
         {!hasMore && events.length > 0 && !isLoading && (
-          <div className="text-center py-6 text-muted-foreground text-sm border-t border-border mt-4">
+          <div className="text-center py-3 text-muted-foreground text-sm border-t border-border mt-2">
             No more events to load
           </div>
         )}

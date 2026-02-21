@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* Scan library components for Tailwind classes */
-@source "../../../node_modules/@miloapis/activity-ui/dist/index.esm.js";
+@source "../../../src/**/*.{ts,tsx}";
 
 @theme {
   /* Datum Brand Colors */

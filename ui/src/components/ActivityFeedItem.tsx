@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { format, formatDistanceToNow } from 'date-fns';
-import type { Activity } from '../types/activity';
+import type { Activity, ResourceLinkResolver } from '../types/activity';
 import { ActivityFeedSummary, ResourceLinkClickHandler } from './ActivityFeedSummary';
 import { ActivityExpandedDetails } from './ActivityExpandedDetails';
 import { cn } from '../lib/utils';
@@ -10,8 +10,12 @@ import { Card } from './ui/card';
 export interface ActivityFeedItemProps {
   /** The activity to render */
   activity: Activity;
-  /** Handler called when a resource link is clicked */
+  /** Handler called when a resource link is clicked (deprecated: use resourceLinkResolver) */
   onResourceClick?: ResourceLinkClickHandler;
+  /** Function that resolves resource references to URLs */
+  resourceLinkResolver?: ResourceLinkResolver;
+  /** Handler called when the actor name or avatar is clicked */
+  onActorClick?: (actorName: string) => void;
   /** Handler called when the item is clicked */
   onActivityClick?: (activity: Activity) => void;
   /** Whether the item is selected */
@@ -132,6 +136,8 @@ function getTimelineNodeClasses(verb: string): string {
 export function ActivityFeedItem({
   activity,
   onResourceClick,
+  resourceLinkResolver,
+  onActorClick,
   onActivityClick,
   isSelected = false,
   className = '',
@@ -145,10 +151,17 @@ export function ActivityFeedItem({
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
   const { spec, metadata } = activity;
-  const { actor, summary, changeSource, resource, links } = spec;
+  const { actor, summary, changeSource, links } = spec;
 
   const handleClick = () => {
     onActivityClick?.(activity);
+  };
+
+  const handleActorClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onActorClick) {
+      onActorClick(actor.name);
+    }
   };
 
   const toggleExpand = (e: React.MouseEvent) => {
@@ -221,6 +234,7 @@ export function ActivityFeedItem({
                 summary={summary}
                 links={links}
                 onResourceClick={onResourceClick}
+                resourceLinkResolver={resourceLinkResolver}
               />
             </div>
             <span
@@ -251,6 +265,18 @@ export function ActivityFeedItem({
               )}
               {changeSource}
             </span>
+            {onActorClick ? (
+              <button
+                type="button"
+                className="bg-transparent border-none p-0 cursor-pointer text-xs text-muted-foreground hover:text-foreground hover:underline"
+                onClick={handleActorClick}
+                title="Filter by this actor"
+              >
+                by {actor.name}
+              </button>
+            ) : (
+              <span className="text-xs">by {actor.name}</span>
+            )}
             <Button
               variant="ghost"
               size="sm"
@@ -284,7 +310,14 @@ export function ActivityFeedItem({
     >
       <div className="flex gap-4">
         {/* Actor Avatar */}
-        <div className={getActorAvatarClasses(actor.type, compact)} title={actor.name}>
+        <div
+          className={cn(
+            getActorAvatarClasses(actor.type, compact),
+            onActorClick && 'cursor-pointer hover:opacity-80 transition-opacity'
+          )}
+          title={actor.name}
+          onClick={onActorClick ? handleActorClick : undefined}
+        >
           {actor.type === 'controller' ? (
             <span className={compact ? 'text-base' : 'text-xl'}>⚙</span>
           ) : actor.type === 'machine account' ? (
@@ -303,6 +336,7 @@ export function ActivityFeedItem({
                 summary={summary}
                 links={links}
                 onResourceClick={onResourceClick}
+                resourceLinkResolver={resourceLinkResolver}
               />
             </div>
             <span
@@ -333,6 +367,18 @@ export function ActivityFeedItem({
               )}
               {changeSource}
             </span>
+            {onActorClick ? (
+              <button
+                type="button"
+                className="bg-transparent border-none p-0 cursor-pointer text-xs text-muted-foreground hover:text-foreground hover:underline"
+                onClick={handleActorClick}
+                title="Filter by this actor"
+              >
+                by {actor.name}
+              </button>
+            ) : (
+              <span className="text-xs">by {actor.name}</span>
+            )}
             <Button
               variant="ghost"
               size="sm"

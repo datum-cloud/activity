@@ -679,6 +679,7 @@ func (s *ClickHouseStorage) QueryActivities(ctx context.Context, spec ActivityQu
 	klog.V(3).InfoS("Built activities ClickHouse query",
 		"query", query,
 		"argsCount", len(args),
+		"args", args,
 	)
 
 	// Add trace context
@@ -715,6 +716,23 @@ func (s *ClickHouseStorage) QueryActivities(ctx context.Context, spec ActivityQu
 			klog.ErrorS(err, "Failed to scan activity row")
 			return nil, fmt.Errorf("unable to retrieve activities. Try again or contact support if the problem persists")
 		}
+
+		// Debug log to see what changeSource is in the returned data
+		if klog.V(4).Enabled() {
+			var activity struct {
+				Spec struct {
+					ChangeSource string `json:"changeSource"`
+					Summary      string `json:"summary"`
+				} `json:"spec"`
+			}
+			if err := json.Unmarshal([]byte(activityJSON), &activity); err == nil {
+				klog.V(4).InfoS("Retrieved activity",
+					"changeSource", activity.Spec.ChangeSource,
+					"summary", activity.Spec.Summary,
+				)
+			}
+		}
+
 		activities = append(activities, activityJSON)
 	}
 
@@ -796,6 +814,10 @@ func (s *ClickHouseStorage) buildActivityQuery(ctx context.Context, spec Activit
 
 	// Field selectors
 	if spec.ChangeSource != "" {
+		klog.V(3).InfoS("Adding change_source filter",
+			"changeSource", spec.ChangeSource,
+			"sql", "change_source = ?",
+		)
 		conditions = append(conditions, "change_source = ?")
 		args = append(args, spec.ChangeSource)
 	}

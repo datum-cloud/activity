@@ -28,3 +28,9 @@ yarn-error.log*
 
 ./build/
 ./example/build
+
+# Playwright
+/test-results/
+/playwright-report/
+/playwright/.cache/
+/blob-report/

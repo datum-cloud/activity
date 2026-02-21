@@ -32,6 +32,7 @@ export interface UseEventFacetsResult {
 export function useEventFacets(
   client: ActivityApiClient,
   timeRange: TimeRange,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _filters: EventsFeedFilters = {}
 ): UseEventFacetsResult {
   const [involvedKinds, setInvolvedKinds] = useState<FacetValue[]>([]);

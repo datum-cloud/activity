@@ -1,18 +1,16 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { formatISO, subDays } from 'date-fns';
+import { Search } from 'lucide-react';
 
-// Debounce delay for search input (ms)
-const SEARCH_DEBOUNCE_MS = 300;
 import type { EventsFeedFilters as FilterState } from '../hooks/useEventsFeed';
 import type { TimeRange } from '../hooks/useEventsFeed';
 import type { ActivityApiClient } from '../api/client';
 import { useEventFacets } from '../hooks/useEventFacets';
 import { EventTypeToggle, EventTypeOption } from './EventTypeToggle';
-import { Input } from './ui/input';
-import { Button } from './ui/button';
-import { Label } from './ui/label';
-import { MultiCombobox } from './ui/multi-combobox';
 import { TimeRangeDropdown } from './ui/time-range-dropdown';
+import { FilterChip } from './ui/filter-chip';
+import { AddFilterDropdown, type FilterOption } from './ui/add-filter-dropdown';
+import { Input } from './ui/input';
 
 export interface EventsFeedFiltersProps {
   /** API client instance for fetching facets */
@@ -29,8 +27,6 @@ export interface EventsFeedFiltersProps {
   disabled?: boolean;
   /** Additional CSS class */
   className?: string;
-  /** Whether to show the search input */
-  showSearch?: boolean;
   /** Namespace filter (when scoped to a specific namespace) */
   namespace?: string;
 }
@@ -45,6 +41,52 @@ const TIME_PRESETS = [
   { key: 'now-7d', label: 'Last 7 days' },
   { key: 'now-30d', label: 'Last 30 days' },
 ];
+
+/**
+ * Filter configuration registry
+ */
+type FilterId = 'involvedKinds' | 'reasons' | 'namespaces' | 'sourceComponents' | 'involvedName';
+
+interface FilterConfig {
+  id: FilterId;
+  label: string;
+  inputMode: 'typeahead' | 'text';
+  placeholder?: string;
+  searchPlaceholder?: string;
+}
+
+const FILTER_CONFIGS: Record<FilterId, FilterConfig> = {
+  involvedKinds: {
+    id: 'involvedKinds',
+    label: 'Kind',
+    inputMode: 'typeahead',
+    searchPlaceholder: 'Search kinds...',
+  },
+  reasons: {
+    id: 'reasons',
+    label: 'Reason',
+    inputMode: 'typeahead',
+    searchPlaceholder: 'Search reasons...',
+  },
+  namespaces: {
+    id: 'namespaces',
+    label: 'Namespace',
+    inputMode: 'typeahead',
+    searchPlaceholder: 'Search namespaces...',
+  },
+  sourceComponents: {
+    id: 'sourceComponents',
+    label: 'Source',
+    inputMode: 'typeahead',
+    searchPlaceholder: 'Search sources...',
+  },
+  involvedName: {
+    id: 'involvedName',
+    label: 'Resource Name',
+    inputMode: 'text',
+    placeholder: 'Enter resource name...',
+  },
+};
 
 /**
  * Helper function to convert ISO string to datetime-local format
@@ -78,18 +120,17 @@ export function EventsFeedFilters({
   onTimeRangeChange,
   disabled = false,
   className = '',
-  showSearch = true,
   namespace,
 }: EventsFeedFiltersProps) {
-  const { involvedKinds, reasons, namespaces, sourceComponents, isLoading: facetsLoading, error: facetsError } = useEventFacets(client, timeRange, filters);
+  const { involvedKinds, reasons, namespaces, sourceComponents, error: facetsError } = useEventFacets(client, timeRange, filters);
 
   // Log facets error for debugging
   if (facetsError) {
     console.error('Failed to load event facets:', facetsError);
   }
 
-  const [involvedNameValue, setInvolvedNameValue] = useState(filters.involvedName || '');
-  const involvedNameDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Track which filter was just added to auto-open it
+  const [pendingFilter, setPendingFilter] = useState<FilterId | null>(null);
 
   // Custom time range state
   const selectedPreset = getSelectedPreset(timeRange);
@@ -105,22 +146,6 @@ export function EventsFeedFilters({
     }
     return formatDatetimeLocal(formatISO(new Date()));
   });
-
-  // Sync involved name value when filters change externally
-  useEffect(() => {
-    if (filters.involvedName !== involvedNameValue) {
-      setInvolvedNameValue(filters.involvedName || '');
-    }
-  }, [filters.involvedName]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Cleanup debounce timer on unmount
-  useEffect(() => {
-    return () => {
-      if (involvedNameDebounceRef.current) {
-        clearTimeout(involvedNameDebounceRef.current);
-      }
-    };
-  }, []);
 
   // Handle event type change
   const handleEventTypeChange = useCallback(
@@ -157,75 +182,6 @@ export function EventsFeedFilters({
     [onTimeRangeChange]
   );
 
-  // Handle involved kinds change (multi-select)
-  const handleInvolvedKindsChange = (values: string[]) => {
-    onFiltersChange({
-      ...filters,
-      involvedKinds: values.length > 0 ? values : undefined,
-    });
-  };
-
-  // Handle reasons change (multi-select)
-  const handleReasonsChange = (values: string[]) => {
-    onFiltersChange({
-      ...filters,
-      reasons: values.length > 0 ? values : undefined,
-    });
-  };
-
-  // Handle namespaces change (multi-select)
-  const handleNamespacesChange = (values: string[]) => {
-    onFiltersChange({
-      ...filters,
-      namespaces: values.length > 0 ? values : undefined,
-    });
-  };
-
-  // Handle source components change (multi-select)
-  const handleSourceComponentsChange = (values: string[]) => {
-    onFiltersChange({
-      ...filters,
-      sourceComponents: values.length > 0 ? values : undefined,
-    });
-  };
-
-  // Handle involved name change with debouncing
-  const handleInvolvedNameChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const value = e.target.value;
-      setInvolvedNameValue(value);
-
-      // Cancel any pending debounced update
-      if (involvedNameDebounceRef.current) {
-        clearTimeout(involvedNameDebounceRef.current);
-      }
-
-      // Debounce the filter update
-      involvedNameDebounceRef.current = setTimeout(() => {
-        involvedNameDebounceRef.current = null;
-        onFiltersChange({
-          ...filters,
-          involvedName: value || undefined,
-        });
-      }, SEARCH_DEBOUNCE_MS);
-    },
-    [filters, onFiltersChange]
-  );
-
-  // Handle involved name clear - immediate update
-  const handleInvolvedNameClear = useCallback(() => {
-    if (involvedNameDebounceRef.current) {
-      clearTimeout(involvedNameDebounceRef.current);
-      involvedNameDebounceRef.current = null;
-    }
-
-    setInvolvedNameValue('');
-    onFiltersChange({
-      ...filters,
-      involvedName: undefined,
-    });
-  }, [filters, onFiltersChange]);
-
   // Get display label for time range
   const getTimeRangeLabel = () => {
     const preset = TIME_PRESETS.find((p) => p.key === selectedPreset);
@@ -241,164 +197,208 @@ export function EventsFeedFilters({
   // Get current event type value for toggle
   const eventTypeValue: EventTypeOption = filters.eventType || 'all';
 
+  // Determine which filters are currently active (have values)
+  const filtersWithValues: FilterId[] = [];
+  if (filters.involvedKinds && filters.involvedKinds.length > 0) filtersWithValues.push('involvedKinds');
+  if (filters.reasons && filters.reasons.length > 0) filtersWithValues.push('reasons');
+  if (!namespace && filters.namespaces && filters.namespaces.length > 0) filtersWithValues.push('namespaces');
+  if (filters.sourceComponents && filters.sourceComponents.length > 0) filtersWithValues.push('sourceComponents');
+  if (filters.involvedName) filtersWithValues.push('involvedName');
+
+  // Include pendingFilter (newly added filter awaiting value selection) in the displayed filters
+  const activeFilterIds: FilterId[] = pendingFilter && !filtersWithValues.includes(pendingFilter)
+    ? [...filtersWithValues, pendingFilter]
+    : filtersWithValues;
+
+  // Clear pending filter when filter values change (user selected something)
+  useEffect(() => {
+    if (pendingFilter && filtersWithValues.includes(pendingFilter)) {
+      // Filter now has values, clear pending state
+      setPendingFilter(null);
+    }
+  }, [pendingFilter, filtersWithValues]);
+
+  // Build available filters list (exclude namespace if scoped)
+  const availableFilters: FilterOption[] = [
+    { id: 'involvedKinds', label: 'Kind' },
+    { id: 'reasons', label: 'Reason' },
+    ...(namespace ? [] : [{ id: 'namespaces' as const, label: 'Namespace' }]),
+    { id: 'sourceComponents', label: 'Source' },
+    { id: 'involvedName', label: 'Resource Name' },
+  ];
+
+  // Handle adding a filter
+  const handleAddFilter = useCallback((filterId: string) => {
+    setPendingFilter(filterId as FilterId);
+  }, []);
+
+  // Handle popover close - clear pending filter if no values were selected
+  const handlePopoverClose = useCallback(
+    (filterId: FilterId) => {
+      if (pendingFilter === filterId) {
+        const hasValues = (() => {
+          const value = filters[filterId];
+          if (filterId === 'involvedName') return !!value;
+          return Array.isArray(value) && value.length > 0;
+        })();
+        if (!hasValues) {
+          setPendingFilter(null);
+        }
+      }
+    },
+    [pendingFilter, filters]
+  );
+
+  // Handle filter value changes
+  const handleFilterChange = useCallback(
+    (filterId: FilterId, values: string[]) => {
+      onFiltersChange({
+        ...filters,
+        [filterId]: values.length > 0 ? values : undefined,
+      });
+    },
+    [filters, onFiltersChange]
+  );
+
+  // Handle filter clear
+  const handleFilterClear = useCallback(
+    (filterId: FilterId) => {
+      onFiltersChange({
+        ...filters,
+        [filterId]: undefined,
+      });
+    },
+    [filters, onFiltersChange]
+  );
+
+  // Get options for a specific filter
+  const getFilterOptions = (filterId: FilterId) => {
+    switch (filterId) {
+      case 'involvedKinds':
+        return involvedKinds
+          .filter((facet) => facet.value)
+          .map((facet) => ({
+            value: facet.value,
+            label: facet.value,
+            count: facet.count,
+          }));
+      case 'reasons':
+        return reasons
+          .filter((facet) => facet.value)
+          .map((facet) => ({
+            value: facet.value,
+            label: facet.value,
+            count: facet.count,
+          }));
+      case 'namespaces':
+        return namespaces
+          .filter((facet) => facet.value)
+          .map((facet) => ({
+            value: facet.value,
+            label: facet.value,
+            count: facet.count,
+          }));
+      case 'sourceComponents':
+        return sourceComponents
+          .filter((facet) => facet.value)
+          .map((facet) => ({
+            value: facet.value,
+            label: facet.value,
+            count: facet.count,
+          }));
+      default:
+        return [];
+    }
+  };
+
+  // Get values for a specific filter
+  const getFilterValues = (filterId: FilterId): string[] => {
+    const value = filters[filterId];
+    if (filterId === 'involvedName') {
+      return value ? [value as string] : [];
+    }
+    return (value as string[] | undefined) || [];
+  };
+
+  // Handle search input change with debouncing
+  const handleSearchChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const value = event.target.value;
+      onFiltersChange({
+        ...filters,
+        search: value || undefined,
+      });
+    },
+    [filters, onFiltersChange]
+  );
+
   return (
-    <div className={`mb-6 pb-6 border-b border-border ${className}`}>
-      {/* Filters Row */}
-      <div className="flex flex-wrap gap-4 items-end">
+    <div className={`mb-3 pb-3 border-b border-border ${className}`}>
+      <div className="flex flex-wrap gap-2 items-center">
         {/* Event Type Toggle */}
-        <div className="flex flex-col gap-2">
-          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-            Type
-          </Label>
-          <EventTypeToggle
-            value={eventTypeValue}
-            onChange={handleEventTypeChange}
+        <EventTypeToggle
+          value={eventTypeValue}
+          onChange={handleEventTypeChange}
+          disabled={disabled}
+        />
+
+        {/* Search Input */}
+        <div className="relative min-w-[200px] flex-1 max-w-xs">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Search events..."
+            value={filters.search || ''}
+            onChange={handleSearchChange}
             disabled={disabled}
+            className="pl-9 h-10"
           />
         </div>
 
-        {/* Involved Kind */}
-        <div className="flex flex-col gap-2">
-          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-            Kind
-          </Label>
-          <MultiCombobox
-            options={involvedKinds
-              .filter((facet) => facet.value)
-              .map((facet) => ({
-                value: facet.value,
-                label: facet.value,
-                count: facet.count,
-              }))}
-            values={filters.involvedKinds || []}
-            onValuesChange={handleInvolvedKindsChange}
-            placeholder="All"
-            searchPlaceholder="Search kinds..."
-            disabled={disabled}
-            loading={facetsLoading}
-            className="min-w-[140px]"
-          />
-        </div>
-
-        {/* Reason */}
-        <div className="flex flex-col gap-2">
-          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-            Reason
-          </Label>
-          <MultiCombobox
-            options={reasons
-              .filter((facet) => facet.value)
-              .map((facet) => ({
-                value: facet.value,
-                label: facet.value,
-                count: facet.count,
-              }))}
-            values={filters.reasons || []}
-            onValuesChange={handleReasonsChange}
-            placeholder="All"
-            searchPlaceholder="Search reasons..."
-            disabled={disabled}
-            loading={facetsLoading}
-            className="min-w-[140px]"
-          />
-        </div>
-
-        {/* Namespace (only show if not scoped to a specific namespace) */}
-        {!namespace && (
-          <div className="flex flex-col gap-2">
-            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              Namespace
-            </Label>
-            <MultiCombobox
-              options={namespaces
-                .filter((facet) => facet.value)
-                .map((facet) => ({
-                  value: facet.value,
-                  label: facet.value,
-                  count: facet.count,
-                }))}
-              values={filters.namespaces || []}
-              onValuesChange={handleNamespacesChange}
-              placeholder="All"
-              searchPlaceholder="Search namespaces..."
+        {/* Active Filter Chips */}
+        {activeFilterIds.map((filterId) => {
+          const config = FILTER_CONFIGS[filterId];
+          return (
+            <FilterChip
+              key={filterId}
+              label={config.label}
+              values={getFilterValues(filterId)}
+              options={config.inputMode === 'typeahead' ? getFilterOptions(filterId) : undefined}
+              onValuesChange={(values) => handleFilterChange(filterId, values)}
+              onClear={() => handleFilterClear(filterId)}
+              onPopoverClose={() => handlePopoverClose(filterId)}
+              inputMode={config.inputMode}
+              placeholder={config.placeholder}
+              searchPlaceholder={config.searchPlaceholder}
+              autoOpen={pendingFilter === filterId}
               disabled={disabled}
-              loading={facetsLoading}
-              className="min-w-[140px]"
             />
-          </div>
-        )}
+          );
+        })}
 
-        {/* Source Component */}
-        <div className="flex flex-col gap-2">
-          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-            Source
-          </Label>
-          <MultiCombobox
-            options={sourceComponents
-              .filter((facet) => facet.value)
-              .map((facet) => ({
-                value: facet.value,
-                label: facet.value,
-                count: facet.count,
-              }))}
-            values={filters.sourceComponents || []}
-            onValuesChange={handleSourceComponentsChange}
-            placeholder="All"
-            searchPlaceholder="Search sources..."
-            disabled={disabled}
-            loading={facetsLoading}
-            className="min-w-[140px]"
-          />
-        </div>
+        {/* Add Filter Dropdown */}
+        <AddFilterDropdown
+          availableFilters={availableFilters}
+          activeFilterIds={activeFilterIds}
+          onAddFilter={handleAddFilter}
+          hasActiveFilters={activeFilterIds.length > 0}
+          disabled={disabled}
+        />
 
-        {/* Involved Object Name */}
-        {showSearch && (
-          <div className="flex flex-col gap-2 flex-1 min-w-[180px]">
-            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              Resource Name
-            </Label>
-            <div className="relative">
-              <Input
-                type="text"
-                value={involvedNameValue}
-                onChange={handleInvolvedNameChange}
-                placeholder="Filter by name..."
-                className="pr-8"
-                disabled={disabled}
-              />
-              {involvedNameValue && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6"
-                  onClick={handleInvolvedNameClear}
-                  disabled={disabled}
-                  aria-label="Clear resource name"
-                >
-                  ×
-                </Button>
-              )}
-            </div>
-          </div>
-        )}
+        {/* Spacer */}
+        <div className="flex-1 min-w-[20px]" />
 
-        {/* Time Range Dropdown - Right aligned */}
-        <div className="flex flex-col gap-2 ml-auto">
-          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-            Time Range
-          </Label>
-          <TimeRangeDropdown
-            presets={TIME_PRESETS}
-            selectedPreset={selectedPreset}
-            onPresetSelect={handleTimePresetSelect}
-            onCustomRangeApply={handleCustomRangeApply}
-            customStart={customStart}
-            customEnd={customEnd}
-            disabled={disabled}
-            displayLabel={getTimeRangeLabel()}
-          />
-        </div>
+        {/* Time Range Dropdown */}
+        <TimeRangeDropdown
+          presets={TIME_PRESETS}
+          selectedPreset={selectedPreset}
+          onPresetSelect={handleTimePresetSelect}
+          onCustomRangeApply={handleCustomRangeApply}
+          customStart={customStart}
+          customEnd={customEnd}
+          disabled={disabled}
+          displayLabel={getTimeRangeLabel()}
+        />
       </div>
     </div>
   );

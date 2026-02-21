@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
-import type { Activity, ResourceRef } from '../types/activity';
+import type { Activity, ResourceRef, ResourceLinkResolver } from '../types/activity';
 import type {
   ActivityFeedFilters as FilterState,
   TimeRange,
@@ -22,8 +22,10 @@ export interface ActivityFeedProps {
   initialTimeRange?: TimeRange;
   /** Number of items per page */
   pageSize?: number;
-  /** Handler called when a resource link is clicked */
+  /** Handler called when a resource link is clicked (deprecated: use resourceLinkResolver) */
   onResourceClick?: (resource: ResourceRef) => void;
+  /** Function that resolves resource references to URLs */
+  resourceLinkResolver?: ResourceLinkResolver;
   /** Handler called when an activity is clicked */
   onActivityClick?: (activity: Activity) => void;
   /** Whether to show in compact mode (for resource detail tabs) */
@@ -54,6 +56,7 @@ export function ActivityFeed({
   initialTimeRange = { start: 'now-7d' },
   pageSize = 30,
   onResourceClick,
+  resourceLinkResolver,
   onActivityClick,
   compact = false,
   resourceUid,
@@ -177,6 +180,14 @@ export function ActivityFeed({
     }
   }, [isStreaming, startStreaming, stopStreaming]);
 
+  // Handle actor click - filter by actor name
+  const handleActorClick = useCallback((actorName: string) => {
+    setFilters({
+      ...filters,
+      actorNames: [actorName],
+    });
+  }, [filters, setFilters]);
+
   // Build container classes
   const containerClasses = compact
     ? `p-4 shadow-none border-border ${className}`
@@ -244,8 +255,6 @@ export function ActivityFeed({
           onFiltersChange={handleFiltersChange}
           onTimeRangeChange={handleTimeRangeChange}
           disabled={isLoading}
-          showSearch={!compact}
-          showAdvancedFilters={false}
         />
       )}
 
@@ -303,6 +312,8 @@ export function ActivityFeed({
             key={activity.metadata?.uid || activity.metadata?.name}
             activity={activity}
             onResourceClick={onResourceClick}
+            resourceLinkResolver={resourceLinkResolver}
+            onActorClick={handleActorClick}
             onActivityClick={onActivityClick}
             compact={compact}
             isNew={enableStreaming && index < newActivitiesCount}

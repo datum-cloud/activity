@@ -1,5 +1,5 @@
-import { useState, useCallback, useMemo, useEffect, useRef, useDeferredValue } from 'react';
-import type { Activity, ActivityListParams, ChangeSource, WatchEvent } from '../types/activity';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import type { Activity, ActivityListParams, ActivityQuerySpec, ChangeSource, WatchEvent } from '../types/activity';
 import { ActivityApiClient } from '../api/client';
 
 // Debounce delay for filter changes (ms)
@@ -96,15 +96,11 @@ export interface UseActivityFeedResult {
 }
 
 /**
- * Build CEL filter expression from filter options
+ * Build CEL filter expression from filter options for ActivityQuery
+ * Note: changeSource is handled as a spec field, not in the CEL filter
  */
 function buildCelFilter(filters: ActivityFeedFilters): string | undefined {
   const conditions: string[] = [];
-
-  // Change source filter
-  if (filters.changeSource && filters.changeSource !== 'all') {
-    conditions.push(`spec.changeSource == "${filters.changeSource}"`);
-  }
 
   // Resource UID filter (for resource-specific views)
   if (filters.resourceUid) {
@@ -195,22 +191,91 @@ export function useActivityFeed({
   // Debounce timer for filter changes
   const filterDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Build query parameters from current state
-  const buildParams = useCallback(
-    (cursor?: string): ActivityListParams => {
-      return {
-        filter: buildCelFilter(filters),
-        search: filters.search,
-        start: timeRange.start,
-        end: timeRange.end,
+  // Build ActivityQuerySpec from current state
+  const buildQuerySpec = useCallback(
+    (cursor?: string): ActivityQuerySpec => {
+      const spec: ActivityQuerySpec = {
+        startTime: timeRange.start,
+        endTime: timeRange.end || 'now',
         limit: pageSize,
-        continue: cursor,
       };
+
+      // Add changeSource as a spec field (not in CEL filter)
+      if (filters.changeSource && filters.changeSource !== 'all') {
+        spec.changeSource = filters.changeSource;
+      }
+
+      // Add search
+      if (filters.search) {
+        spec.search = filters.search;
+      }
+
+      // Add CEL filter
+      const celFilter = buildCelFilter(filters);
+      if (celFilter) {
+        spec.filter = celFilter;
+      }
+
+      // Add pagination cursor
+      if (cursor) {
+        spec.continue = cursor;
+      }
+
+      return spec;
     },
     [filters, timeRange, pageSize]
   );
 
-  // Handle incoming watch events
+  // Build field selector string for Watch API
+  // Supported fields: spec.changeSource, spec.resource.*, spec.actor.*
+  const buildFieldSelector = useCallback((): string | undefined => {
+    const selectors: string[] = [];
+
+    // changeSource filter (single value)
+    if (filters.changeSource && filters.changeSource !== 'all') {
+      selectors.push(`spec.changeSource=${filters.changeSource}`);
+    }
+
+    // Resource UID filter (single value)
+    if (filters.resourceUid) {
+      selectors.push(`spec.resource.uid=${filters.resourceUid}`);
+    }
+
+    // Single resource kind (multi-value requires client-side filtering)
+    if (filters.resourceKinds && filters.resourceKinds.length === 1) {
+      selectors.push(`spec.resource.kind=${filters.resourceKinds[0]}`);
+    }
+
+    // Single actor name (multi-value requires client-side filtering)
+    if (filters.actorNames && filters.actorNames.length === 1) {
+      selectors.push(`spec.actor.name=${filters.actorNames[0]}`);
+    }
+
+    // Single API group (multi-value requires client-side filtering)
+    if (filters.apiGroups && filters.apiGroups.length === 1) {
+      selectors.push(`spec.resource.apiGroup=${filters.apiGroups[0]}`);
+    }
+
+    // Single resource namespace (multi-value requires client-side filtering)
+    if (filters.resourceNamespaces && filters.resourceNamespaces.length === 1) {
+      selectors.push(`spec.resource.namespace=${filters.resourceNamespaces[0]}`);
+    }
+
+    return selectors.length > 0 ? selectors.join(',') : undefined;
+  }, [filters]);
+
+  // Build watch params with field selectors for server-side filtering
+  const buildWatchParams = useCallback((): ActivityListParams => {
+    return {
+      start: timeRange.start,
+      end: timeRange.end,
+      fieldSelector: buildFieldSelector(),
+    };
+  }, [timeRange, buildFieldSelector]);
+
+  // Handle incoming watch events with client-side filtering for multi-value scenarios
+  // Single-value filters (changeSource, single resourceKind, etc.) are handled server-side via fieldSelector
+  // Multi-value filters (multiple resourceKinds, actorNames, etc.) require client-side filtering
   const handleWatchEvent = useCallback((event: WatchEvent<Activity>) => {
     if (event.type === 'ERROR') {
       console.error('Watch error:', event.object);
@@ -228,6 +293,45 @@ export function useActivityFeed({
     // Update resource version from the event
     if (event.object.metadata?.resourceVersion) {
       resourceVersionRef.current = event.object.metadata.resourceVersion;
+    }
+
+    const activity = event.object;
+    const spec = activity.spec;
+
+    // Client-side filtering for multi-value filters (field selectors only support single values)
+    // Multi-value resourceKinds filter
+    if (filters.resourceKinds && filters.resourceKinds.length > 1) {
+      if (!spec?.resource?.kind || !filters.resourceKinds.includes(spec.resource.kind)) {
+        return;
+      }
+    }
+
+    // Multi-value actorNames filter
+    if (filters.actorNames && filters.actorNames.length > 1) {
+      if (!spec?.actor?.name || !filters.actorNames.includes(spec.actor.name)) {
+        return;
+      }
+    }
+
+    // Multi-value apiGroups filter
+    if (filters.apiGroups && filters.apiGroups.length > 1) {
+      if (!spec?.resource?.apiGroup || !filters.apiGroups.includes(spec.resource.apiGroup)) {
+        return;
+      }
+    }
+
+    // Multi-value resourceNamespaces filter
+    if (filters.resourceNamespaces && filters.resourceNamespaces.length > 1) {
+      if (!spec?.resource?.namespace || !filters.resourceNamespaces.includes(spec.resource.namespace)) {
+        return;
+      }
+    }
+
+    // Resource name partial match filter (field selectors don't support partial matches)
+    if (filters.resourceName) {
+      if (!spec?.resource?.name || !spec.resource.name.includes(filters.resourceName)) {
+        return;
+      }
     }
 
     if (event.type === 'ADDED') {
@@ -254,7 +358,7 @@ export function useActivityFeed({
         prev.filter((a) => a.metadata?.name !== event.object.metadata?.name)
       );
     }
-  }, []);
+  }, [filters]);
 
   // Start watching for real-time updates
   const startStreaming = useCallback(() => {
@@ -263,7 +367,7 @@ export function useActivityFeed({
       return;
     }
 
-    const params = buildParams();
+    const params = buildWatchParams();
     const { stop } = client.watchActivities(params, {
       resourceVersion: resourceVersionRef.current,
       onEvent: handleWatchEvent,
@@ -282,7 +386,7 @@ export function useActivityFeed({
     watchStopRef.current = stop;
     setIsStreaming(true);
     setNewActivitiesCount(0);
-  }, [client, buildParams, handleWatchEvent]);
+  }, [client, buildWatchParams, handleWatchEvent]);
 
   // Stop watching
   const stopStreaming = useCallback(() => {
@@ -293,24 +397,20 @@ export function useActivityFeed({
     setIsStreaming(false);
   }, []);
 
-  // Execute the feed query
+  // Execute the feed query using ActivityQuery
   const refresh = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     setNewActivitiesCount(0);
 
     try {
-      const params = buildParams();
-      const result = await client.listActivities(params);
+      const spec = buildQuerySpec();
+      const result = await client.createActivityQuery(spec);
 
-      setActivities(result.items || []);
-      setContinueCursor(result.metadata?.continue);
+      setActivities(result.status?.results || []);
+      setContinueCursor(result.status?.continue);
 
-      // Store resource version for watch resume
-      if (result.metadata?.resourceVersion) {
-        resourceVersionRef.current = result.metadata.resourceVersion;
-      }
-
+      // Note: ActivityQuery doesn't return resourceVersion, so we'll get it from the watch
       hasInitialLoadRef.current = true;
 
       // Auto-restart streaming if it was active before filter change
@@ -329,9 +429,9 @@ export function useActivityFeed({
     } finally {
       setIsLoading(false);
     }
-  }, [client, buildParams, enableStreaming]);
+  }, [client, buildQuerySpec, enableStreaming]);
 
-  // Load more activities (pagination)
+  // Load more activities (pagination) using ActivityQuery
   const loadMore = useCallback(async () => {
     if (!continueCursor || isLoading) {
       return;
@@ -341,17 +441,17 @@ export function useActivityFeed({
     setError(null);
 
     try {
-      const params = buildParams(continueCursor);
-      const result = await client.listActivities(params);
+      const spec = buildQuerySpec(continueCursor);
+      const result = await client.createActivityQuery(spec);
 
-      setActivities((prev) => [...prev, ...(result.items || [])]);
-      setContinueCursor(result.metadata?.continue);
+      setActivities((prev) => [...prev, ...(result.status?.results || [])]);
+      setContinueCursor(result.status?.continue);
     } catch (err) {
       setError(err instanceof Error ? err : new Error(String(err)));
     } finally {
       setIsLoading(false);
     }
-  }, [client, buildParams, continueCursor, isLoading]);
+  }, [client, buildQuerySpec, continueCursor, isLoading]);
 
   // Update filters and reset pagination with debounced auto-refresh
   const updateFilters = useCallback((newFilters: ActivityFeedFilters) => {
