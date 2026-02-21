@@ -1,0 +1,11 @@
+apiVersion: iam.miloapis.com/v1alpha1
+kind: Role
+metadata:
+  name: activity.miloapis.com-event-viewer
+  namespace: milo-system
+spec:
+  launchStage: Beta
+  includedPermissions:
+    # Event queries - search cluster events
+    - activity.miloapis.com/eventqueries.create
+    - activity.miloapis.com/eventfacetqueries.create
