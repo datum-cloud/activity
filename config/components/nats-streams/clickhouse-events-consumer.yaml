@@ -1,0 +1,40 @@
+---
+apiVersion: jetstream.nats.io/v1beta2
+kind: Consumer
+metadata:
+  name: clickhouse-ingest-events
+spec:
+  # Link to the stream
+  streamName: EVENTS
+
+  # Durable consumer name
+  durableName: clickhouse-ingest-events
+
+  # Delivery policy: deliver all messages (including historical)
+  deliverPolicy: all
+
+  # Ack policy: explicit acknowledgments required
+  ackPolicy: explicit
+
+  # Replay policy: instant (process as fast as possible)
+  replayPolicy: instant
+
+  # Filter subject: all events
+  filterSubject: events.>
+
+  # Max delivery attempts: unlimited (-1)
+  maxDeliver: -1
+
+  # Max ack pending: allow 5000 unacknowledged messages
+  # Vector pulls in batches of 1000, so this allows multiple batches in-flight
+  # Events are smaller than audit logs, so we can use a smaller buffer
+  maxAckPending: 5000
+
+  # Ack wait: 60 seconds before redelivery
+  # Vector v0.50.0+ properly acknowledges messages after successful processing
+  # This timeout handles cases where Vector crashes during processing
+  ackWait: 60s
+
+  # PULL-based consumer (no deliverSubject)
+  # Vector will pull messages directly using JetStream pull consumer protocol
+  # Messages are acknowledged only after successful delivery to ClickHouse
