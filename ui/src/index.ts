@@ -26,6 +26,14 @@ export type { ActivityExpandedDetailsProps } from './components/ActivityExpanded
 // Components - Events Feed (new)
 export { EventsFeed } from './components/EventsFeed';
 export type { EventsFeedProps } from './components/EventsFeed';
+export { EventFeedItem } from './components/EventFeedItem';
+export type { EventFeedItemProps } from './components/EventFeedItem';
+export { EventsFeedFilters } from './components/EventsFeedFilters';
+export type { EventsFeedFiltersProps } from './components/EventsFeedFilters';
+export { EventTypeToggle } from './components/EventTypeToggle';
+export type { EventTypeToggleProps, EventTypeOption } from './components/EventTypeToggle';
+export { EventExpandedDetails } from './components/EventExpandedDetails';
+export type { EventExpandedDetailsProps } from './components/EventExpandedDetails';
 
 // Components - Policy Authoring (new)
 export { PolicyList } from './components/PolicyList';

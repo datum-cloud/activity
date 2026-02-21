@@ -1,50 +1,67 @@
-import React, { useState } from 'react';
-import { useEventsFeed } from '../hooks/useEventsFeed';
-import { useEventFacets } from '../hooks/useEventFacets';
-import type { ActivityApiClient } from '../api/client';
+import { useEffect, useRef, useCallback } from 'react';
 import type { K8sEvent } from '../types/k8s-event';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Badge } from './ui/badge';
+import type {
+  EventsFeedFilters as FilterState,
+  TimeRange,
+} from '../hooks/useEventsFeed';
+import { useEventsFeed } from '../hooks/useEventsFeed';
+import { EventFeedItem } from './EventFeedItem';
+import { EventsFeedFilters } from './EventsFeedFilters';
+import { ActivityApiClient } from '../api/client';
 import { Button } from './ui/button';
+import { Card } from './ui/card';
 import { Alert, AlertDescription } from './ui/alert';
-import { TimeRangeDropdown } from './ui/time-range-dropdown';
-import { MultiCombobox } from './ui/multi-combobox';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Separator } from './ui/separator';
-import { AlertCircle, CheckCircle, ChevronDown, ChevronUp, RefreshCw, Radio } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { Badge } from './ui/badge';
 
 export interface EventsFeedProps {
   /** API client instance */
   client: ActivityApiClient;
-  /** Initial time range (default: now-24h) */
-  initialTimeRange?: { start: string; end?: string };
-  /** Page size (default: 50) */
+  /** Initial filter settings */
+  initialFilters?: FilterState;
+  /** Initial time range */
+  initialTimeRange?: TimeRange;
+  /** Number of items per page */
   pageSize?: number;
-  /** Namespace to filter events (optional) */
+  /** Handler called when an event is clicked */
+  onEventClick?: (event: K8sEvent) => void;
+  /** Whether to show in compact mode (for resource detail tabs) */
+  compact?: boolean;
+  /** Filter to a specific namespace */
   namespace?: string;
+  /** Whether to show filters */
+  showFilters?: boolean;
+  /** Additional CSS class */
+  className?: string;
+  /** Enable infinite scroll (default: true) */
+  infiniteScroll?: boolean;
+  /** Threshold in pixels for triggering load more (default: 200) */
+  loadMoreThreshold?: number;
   /** Enable real-time streaming (default: false) */
   enableStreaming?: boolean;
-  /** Show filter controls (default: true) */
-  showFilters?: boolean;
-  /** Callback when an event is clicked */
-  onEventClick?: (event: K8sEvent) => void;
 }
 
 /**
- * EventsFeed component - displays Kubernetes events with filtering and real-time updates
+ * EventsFeed displays a chronological list of Kubernetes events with filtering and pagination.
+ * Supports optional real-time streaming of new events.
  */
 export function EventsFeed({
   client,
+  initialFilters = {},
   initialTimeRange = { start: 'now-24h' },
   pageSize = 50,
-  namespace,
-  enableStreaming = false,
-  showFilters = true,
   onEventClick,
+  compact = false,
+  namespace,
+  showFilters = true,
+  className = '',
+  infiniteScroll = true,
+  loadMoreThreshold = 200,
+  enableStreaming = false,
 }: EventsFeedProps) {
-  const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
+  // Merge namespace into initial filters if provided
+  const mergedInitialFilters: FilterState = {
+    ...initialFilters,
+  };
 
   const {
     events,
@@ -63,6 +80,7 @@ export function EventsFeed({
     newEventsCount,
   } = useEventsFeed({
     client,
+    initialFilters: mergedInitialFilters,
     initialTimeRange,
     pageSize,
     namespace,
@@ -70,367 +88,205 @@ export function EventsFeed({
     autoStartStreaming: true,
   });
 
-  const facets = useEventFacets(client, timeRange, filters);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
 
-  const timeRangePresets = [
-    { key: 'now-1h', label: 'Last hour' },
-    { key: 'now-6h', label: 'Last 6 hours' },
-    { key: 'now-24h', label: 'Last 24 hours' },
-    { key: 'now-7d', label: 'Last 7 days' },
-    { key: 'now-30d', label: 'Last 30 days' },
-  ];
+  // Auto-execute on mount
+  useEffect(() => {
+    refresh();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleTimeRangeChange = (preset: string) => {
-    setTimeRange({ start: preset });
-  };
+  // Infinite scroll using Intersection Observer
+  useEffect(() => {
+    if (!infiniteScroll || !loadMoreTriggerRef.current) return;
 
-  const handleCustomTimeRange = (start: string, end: string) => {
-    setTimeRange({ start, end });
-  };
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry.isIntersecting && hasMore && !isLoading) {
+          loadMore();
+        }
+      },
+      {
+        root: scrollContainerRef.current,
+        rootMargin: `${loadMoreThreshold}px`,
+        threshold: 0,
+      }
+    );
 
-  const toggleEventExpanded = (eventName: string) => {
-    setExpandedEvent(expandedEvent === eventName ? null : eventName);
-  };
+    observer.observe(loadMoreTriggerRef.current);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [infiniteScroll, hasMore, isLoading, loadMore, loadMoreThreshold]);
+
+  // Handle filter changes - refresh is automatic via the hook
+  const handleFiltersChange = useCallback(
+    (newFilters: FilterState) => {
+      setFilters(newFilters);
+    },
+    [setFilters]
+  );
+
+  // Handle time range changes - refresh is automatic via the hook
+  const handleTimeRangeChange = useCallback(
+    (newTimeRange: TimeRange) => {
+      setTimeRange(newTimeRange);
+    },
+    [setTimeRange]
+  );
+
+  // Handle manual load more click
+  const handleLoadMoreClick = useCallback(() => {
+    loadMore();
+  }, [loadMore]);
+
+  // Handle streaming toggle
+  const handleStreamingToggle = useCallback(() => {
+    if (isStreaming) {
+      stopStreaming();
+    } else {
+      startStreaming();
+    }
+  }, [isStreaming, startStreaming, stopStreaming]);
+
+  // Build container classes
+  const containerClasses = compact
+    ? `p-4 shadow-none border-border ${className}`
+    : `p-6 ${className}`;
+
+  // Build list classes
+  const listClasses = compact
+    ? 'max-h-[40vh] overflow-y-auto pr-2'
+    : 'max-h-[60vh] overflow-y-auto pr-2';
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h2 className="text-2xl font-bold">Events</h2>
-          {isStreaming && (
-            <Badge variant="outline" className="gap-1">
-              <Radio className="h-3 w-3 text-green-500 animate-pulse" />
-              Live
-            </Badge>
-          )}
+    <Card className={containerClasses}>
+      {/* Header with streaming status */}
+      {enableStreaming && (
+        <div className="flex items-center justify-between mb-4 pb-3 border-b border-border">
+          <div className="flex items-center gap-3">
+            <h3 className="text-sm font-medium text-foreground m-0">Events Feed</h3>
+            {isStreaming && (
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 dark:bg-green-500 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500 dark:bg-green-400"></span>
+                </span>
+                <span className="text-xs text-muted-foreground">Live</span>
+              </div>
+            )}
+            {newEventsCount > 0 && (
+              <Badge variant="secondary" className="text-xs">
+                +{newEventsCount} new
+              </Badge>
+            )}
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleStreamingToggle}
+            className="text-xs"
+          >
+            {isStreaming ? (
+              <>
+                <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <rect x="6" y="4" width="4" height="16" />
+                  <rect x="14" y="4" width="4" height="16" />
+                </svg>
+                Pause
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <polygon points="5,3 19,12 5,21" fill="currentColor" />
+                </svg>
+                Resume
+              </>
+            )}
+          </Button>
         </div>
+      )}
 
-        <div className="flex items-center gap-2">
-          {enableStreaming && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={isStreaming ? stopStreaming : startStreaming}
-            >
-              {isStreaming ? 'Stop Stream' : 'Start Stream'}
-            </Button>
-          )}
+      {/* Filters */}
+      {showFilters && (
+        <EventsFeedFilters
+          client={client}
+          filters={filters}
+          timeRange={timeRange}
+          onFiltersChange={handleFiltersChange}
+          onTimeRangeChange={handleTimeRangeChange}
+          disabled={isLoading}
+          showSearch={!compact}
+          namespace={namespace}
+        />
+      )}
+
+      {/* Error Display */}
+      {error && (
+        <Alert variant="destructive" className="mb-4 flex justify-between items-center gap-4">
+          <AlertDescription className="text-sm">{error.message}</AlertDescription>
           <Button
             variant="outline"
             size="sm"
             onClick={refresh}
-            disabled={isLoading}
           >
-            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            Retry
           </Button>
-        </div>
-      </div>
-
-      {/* Time Range Picker */}
-      <div className="flex items-center gap-2">
-        <Label>Time Range:</Label>
-        <TimeRangeDropdown
-          presets={timeRangePresets}
-          selectedPreset={timeRange.start}
-          onPresetSelect={handleTimeRangeChange}
-          onCustomRangeApply={handleCustomTimeRange}
-        />
-      </div>
-
-      {/* Filters */}
-      {showFilters && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Filters</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {/* Event Type */}
-              <div className="space-y-2">
-                <Label>Event Type</Label>
-                <MultiCombobox
-                  options={[
-                    { value: 'Normal', label: 'Normal' },
-                    { value: 'Warning', label: 'Warning' },
-                  ]}
-                  values={filters.eventType && filters.eventType !== 'all' ? [filters.eventType] : []}
-                  onValuesChange={(values: string[]) => {
-                    setFilters({
-                      ...filters,
-                      eventType: values.length === 0 ? 'all' : values[0] as 'Normal' | 'Warning',
-                    });
-                  }}
-                  placeholder="All types"
-                />
-              </div>
-
-              {/* Involved Object Kind */}
-              <div className="space-y-2">
-                <Label>Resource Kind</Label>
-                <MultiCombobox
-                  options={facets.involvedKinds.map((k: { value: string; count: number }) => ({
-                    value: k.value,
-                    label: `${k.value} (${k.count})`,
-                  }))}
-                  values={filters.involvedKinds || []}
-                  onValuesChange={(values: string[]) => {
-                    setFilters({ ...filters, involvedKinds: values });
-                  }}
-                  placeholder="All kinds"
-                />
-              </div>
-
-              {/* Reason */}
-              <div className="space-y-2">
-                <Label>Reason</Label>
-                <MultiCombobox
-                  options={facets.reasons.map((r: { value: string; count: number }) => ({
-                    value: r.value,
-                    label: `${r.value} (${r.count})`,
-                  }))}
-                  values={filters.reasons || []}
-                  onValuesChange={(values: string[]) => {
-                    setFilters({ ...filters, reasons: values });
-                  }}
-                  placeholder="All reasons"
-                />
-              </div>
-
-              {/* Namespace */}
-              {!namespace && (
-                <div className="space-y-2">
-                  <Label>Namespace</Label>
-                  <MultiCombobox
-                    options={facets.namespaces.map((n: { value: string; count: number }) => ({
-                      value: n.value,
-                      label: `${n.value} (${n.count})`,
-                    }))}
-                    values={filters.namespaces || []}
-                    onValuesChange={(values: string[]) => {
-                      setFilters({ ...filters, namespaces: values });
-                    }}
-                    placeholder="All namespaces"
-                  />
-                </div>
-              )}
-
-              {/* Source Component */}
-              <div className="space-y-2">
-                <Label>Source</Label>
-                <MultiCombobox
-                  options={facets.sourceComponents.map((c: { value: string; count: number }) => ({
-                    value: c.value,
-                    label: `${c.value} (${c.count})`,
-                  }))}
-                  values={filters.sourceComponents || []}
-                  onValuesChange={(values: string[]) => {
-                    setFilters({ ...filters, sourceComponents: values });
-                  }}
-                  placeholder="All sources"
-                />
-              </div>
-
-              {/* Involved Object Name */}
-              <div className="space-y-2">
-                <Label>Resource Name</Label>
-                <Input
-                  type="text"
-                  placeholder="Filter by name..."
-                  value={filters.involvedName || ''}
-                  onChange={(e) => {
-                    setFilters({ ...filters, involvedName: e.target.value });
-                  }}
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* New events banner */}
-      {newEventsCount > 0 && (
-        <Alert>
-          <AlertDescription>
-            {newEventsCount} new event{newEventsCount > 1 ? 's' : ''} received.{' '}
-            <Button variant="link" size="sm" onClick={refresh} className="p-0 h-auto">
-              Refresh to view
-            </Button>
-          </AlertDescription>
         </Alert>
       )}
 
-      {/* Error state */}
-      {error && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error.message}</AlertDescription>
-        </Alert>
-      )}
-
-      {/* Loading state */}
-      {isLoading && events.length === 0 && (
-        <div className="flex items-center justify-center py-12">
-          <RefreshCw className="h-8 w-8 animate-spin text-gray-400" />
-        </div>
-      )}
-
-      {/* Empty state */}
-      {!isLoading && events.length === 0 && !error && (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <p className="text-gray-500">No events found for the selected filters.</p>
-            <Button variant="link" onClick={refresh} className="mt-2">
-              Refresh
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Events list */}
-      {events.length > 0 && (
-        <div className="space-y-2">
-          {events.map((event: K8sEvent) => (
-            <EventItem
-              key={event.metadata?.name || event.metadata?.uid}
-              event={event}
-              isExpanded={expandedEvent === event.metadata?.name}
-              onToggleExpand={() => toggleEventExpanded(event.metadata?.name || '')}
-              onClick={() => onEventClick?.(event)}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Load more button */}
-      {hasMore && (
-        <div className="flex justify-center">
-          <Button
-            variant="outline"
-            onClick={loadMore}
-            disabled={isLoading}
-          >
-            {isLoading ? 'Loading...' : 'Load More'}
-          </Button>
-        </div>
-      )}
-
-      {/* Results count */}
-      <div className="text-sm text-gray-500 text-center">
-        Showing {events.length} event{events.length !== 1 ? 's' : ''}
-        {hasMore && ' (more available)'}
-      </div>
-    </div>
-  );
-}
-
-interface EventItemProps {
-  event: K8sEvent;
-  isExpanded: boolean;
-  onToggleExpand: () => void;
-  onClick?: () => void;
-}
-
-function EventItem({ event, isExpanded, onToggleExpand, onClick }: EventItemProps) {
-  const isWarning = event.type === 'Warning';
-  const timestamp = event.lastTimestamp || event.firstTimestamp || event.eventTime;
-
-  return (
-    <Card
-      className={`cursor-pointer transition-colors ${
-        isWarning ? 'border-orange-200 bg-orange-50/50' : 'hover:bg-gray-50'
-      }`}
-      onClick={onClick}
-    >
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-2">
-              {isWarning ? (
-                <AlertCircle className="h-4 w-4 text-orange-500 flex-shrink-0" />
-              ) : (
-                <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
-              )}
-              <Badge variant={isWarning ? 'destructive' : 'default'} className="flex-shrink-0">
-                {event.type || 'Normal'}
-              </Badge>
-              <Badge variant="outline" className="flex-shrink-0">
-                {event.reason || 'Unknown'}
-              </Badge>
-              {event.count && event.count > 1 && (
-                <Badge variant="secondary" className="flex-shrink-0">
-                  x{event.count}
-                </Badge>
-              )}
-              <span className="text-xs text-gray-500 flex-shrink-0">
-                {timestamp ? formatDistanceToNow(new Date(timestamp), { addSuffix: true }) : ''}
-              </span>
-            </div>
-
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-sm">
-                <span className="font-medium">
-                  {event.involvedObject.kind}/{event.involvedObject.name}
-                </span>
-                {event.involvedObject.namespace && (
-                  <Badge variant="outline" className="text-xs">
-                    {event.involvedObject.namespace}
-                  </Badge>
-                )}
-              </div>
-              <p className="text-sm text-gray-700">{event.message}</p>
-            </div>
-
-            {/* Expanded details */}
-            {isExpanded && (
-              <>
-                <Separator className="my-3" />
-                <div className="space-y-2 text-xs text-gray-600">
-                  {event.source && (
-                    <div>
-                      <span className="font-medium">Source:</span> {event.source.component}
-                      {event.source.host && ` (${event.source.host})`}
-                    </div>
-                  )}
-                  {event.reportingComponent && (
-                    <div>
-                      <span className="font-medium">Reporting Component:</span>{' '}
-                      {event.reportingComponent}
-                    </div>
-                  )}
-                  {event.firstTimestamp && event.lastTimestamp && event.firstTimestamp !== event.lastTimestamp && (
-                    <div>
-                      <span className="font-medium">First seen:</span>{' '}
-                      {formatDistanceToNow(new Date(event.firstTimestamp), { addSuffix: true })}
-                    </div>
-                  )}
-                  {event.action && (
-                    <div>
-                      <span className="font-medium">Action:</span> {event.action}
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
+      {/* Event List */}
+      <div className={listClasses} ref={scrollContainerRef}>
+        {events.length === 0 && !isLoading && (
+          <div className="py-12 text-center text-muted-foreground">
+            <p className="m-0">No events found</p>
+            <p className="text-sm text-muted-foreground mt-2 m-0">
+              Try adjusting your filters or time range
+            </p>
           </div>
+        )}
 
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleExpand();
-            }}
-            className="flex-shrink-0"
-          >
-            {isExpanded ? (
-              <ChevronUp className="h-4 w-4" />
-            ) : (
-              <ChevronDown className="h-4 w-4" />
-            )}
-          </Button>
-        </div>
-      </CardContent>
+        {events.map((event, index) => (
+          <EventFeedItem
+            key={event.metadata?.uid || event.metadata?.name}
+            event={event}
+            onEventClick={onEventClick}
+            compact={compact}
+            isNew={enableStreaming && index < newEventsCount}
+          />
+        ))}
+
+        {/* Load More Trigger for Infinite Scroll */}
+        {infiniteScroll && hasMore && (
+          <div ref={loadMoreTriggerRef} className="h-px mt-4" />
+        )}
+
+        {/* Loading Indicator */}
+        {isLoading && (
+          <div className="flex items-center justify-center gap-3 py-8 text-muted-foreground text-sm">
+            <div className="w-5 h-5 border-[3px] border-muted border-t-primary rounded-full animate-spin" />
+            <span>Loading events...</span>
+          </div>
+        )}
+
+        {/* Load More Button (when infinite scroll is disabled) */}
+        {!infiniteScroll && hasMore && !isLoading && (
+          <div className="flex justify-center p-4 mt-4">
+            <Button onClick={handleLoadMoreClick}>
+              Load more
+            </Button>
+          </div>
+        )}
+
+        {/* End of Results */}
+        {!hasMore && events.length > 0 && !isLoading && (
+          <div className="text-center py-6 text-muted-foreground text-sm border-t border-border mt-4">
+            No more events to load
+          </div>
+        )}
+      </div>
     </Card>
   );
 }
