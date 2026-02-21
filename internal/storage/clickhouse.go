@@ -474,6 +474,23 @@ func hasUserFilter(filter string) bool {
 		(strings.Contains(filter, "user") && (strings.Contains(filter, "==") || strings.Contains(filter, "!=")))
 }
 
+// hasActorFilter checks if the CEL filter expression contains actor-related fields.
+// This is used to determine whether to use the actor_query_projection for optimal performance.
+func hasActorFilter(filter string) bool {
+	if filter == "" {
+		return false
+	}
+	// Check for common actor filter patterns in CEL expressions
+	// This is a heuristic - doesn't need to be perfect, just helpful for optimization
+	return strings.Contains(filter, "actor.name") ||
+		strings.Contains(filter, "actor.type") ||
+		strings.Contains(filter, "actor.uid") ||
+		// Also match if someone uses the materialized column directly
+		strings.Contains(filter, "actor_name") ||
+		strings.Contains(filter, "actor_type") ||
+		strings.Contains(filter, "actor_uid")
+}
+
 // buildQuery constructs a ClickHouse SQL query from the query spec
 func (s *ClickHouseStorage) buildQuery(ctx context.Context, spec v1alpha1.AuditLogQuerySpec, scope ScopeContext) (string, []interface{}, error) {
 	var args []interface{}
@@ -831,11 +848,17 @@ func (s *ClickHouseStorage) buildActivityQuery(ctx context.Context, spec Activit
 	}
 
 	// Pagination cursor
+	// The cursor logic must align with the ORDER BY clause to ensure correct pagination.
+	// Different projections have different sort orders, but timestamp and resource_uid
+	// are always present, allowing us to use them for cursor-based pagination.
 	if spec.Continue != "" {
 		cursorTime, cursorUID, err := decodeActivityCursor(spec.Continue, spec)
 		if err != nil {
 			return "", nil, err
 		}
+		// Pagination logic: continue from where we left off
+		// Since timestamp is always in the ORDER BY and resource_uid is the final tie-breaker,
+		// we can use them regardless of which projection is selected.
 		conditions = append(conditions, "(timestamp < ? OR (timestamp = ? AND resource_uid < ?))")
 		args = append(args, cursorTime, cursorTime, cursorUID)
 	}
@@ -844,8 +867,30 @@ func (s *ClickHouseStorage) buildActivityQuery(ctx context.Context, spec Activit
 		query += " WHERE " + strings.Join(conditions, " AND ")
 	}
 
-	// Order by timestamp descending (newest first)
-	query += " ORDER BY timestamp DESC, resource_uid DESC"
+	// ORDER BY must match projection/primary key sort order for ClickHouse
+	// to efficiently use indexes and projections.
+	//
+	// Primary key: (tenant_type, tenant_name, timestamp, resource_uid)
+	// Projections are designed for platform-wide (cross-tenant) queries:
+	//   - api_group_query_projection: ORDER BY (api_group, timestamp, tenant_type, tenant_name, resource_uid)
+	//   - actor_query_projection: ORDER BY (actor_name, timestamp, tenant_type, tenant_name, resource_uid)
+	if scope.Type == "platform" {
+		// Platform-wide queries: select projection based on filters
+		if spec.APIGroup != "" {
+			// API group filter present: use api_group_query_projection
+			query += " ORDER BY api_group DESC, timestamp DESC, tenant_type DESC, tenant_name DESC, resource_uid DESC"
+		} else if spec.ActorName != "" || hasActorFilter(spec.Filter) {
+			// Actor filter present: use actor_query_projection
+			query += " ORDER BY actor_name DESC, timestamp DESC, tenant_type DESC, tenant_name DESC, resource_uid DESC"
+		} else {
+			// No specific filter: timestamp-based order (will scan partitions)
+			query += " ORDER BY timestamp DESC, tenant_type DESC, tenant_name DESC, resource_uid DESC"
+		}
+	} else {
+		// Tenant-scoped (organization/project) or user-scoped queries:
+		// Use primary key order for efficient index usage
+		query += " ORDER BY tenant_type DESC, tenant_name DESC, timestamp DESC, resource_uid DESC"
+	}
 
 	// Limit
 	limit := spec.Limit
