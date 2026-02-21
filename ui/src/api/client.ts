@@ -16,6 +16,13 @@ import type {
   PolicyPreview,
   PolicyPreviewSpec,
 } from '../types/policy';
+import type {
+  K8sEvent,
+  K8sEventList,
+  K8sEventListParams,
+  EventFacetQuery,
+  EventFacetQuerySpec,
+} from '../types/k8s-event';
 
 /**
  * API Group information from Kubernetes discovery
@@ -636,6 +643,167 @@ export class ActivityApiClient {
     );
 
     return response.json();
+  }
+
+  // ============================================
+  // Kubernetes Events API Methods
+  // ============================================
+
+  /**
+   * List Kubernetes events with optional filtering and pagination
+   */
+  async listEvents(params?: K8sEventListParams): Promise<K8sEventList> {
+    const searchParams = new URLSearchParams();
+
+    if (params?.fieldSelector) searchParams.set('fieldSelector', params.fieldSelector);
+    if (params?.labelSelector) searchParams.set('labelSelector', params.labelSelector);
+    if (params?.limit) searchParams.set('limit', String(params.limit));
+    if (params?.continue) searchParams.set('continue', params.continue);
+
+    const queryString = searchParams.toString();
+
+    // Support namespace-scoped or cluster-wide listing
+    const basePath = params?.namespace
+      ? `/api/v1/namespaces/${params.namespace}/events`
+      : '/api/v1/events';
+
+    const path = `${basePath}${queryString ? `?${queryString}` : ''}`;
+
+    const response = await this.fetch(path);
+    return response.json();
+  }
+
+  /**
+   * Query event facets for filtering UI (autocomplete, distinct values)
+   */
+  async queryEventFacets(spec: EventFacetQuerySpec): Promise<EventFacetQuery> {
+    const query: EventFacetQuery = {
+      apiVersion: 'activity.miloapis.com/v1alpha1',
+      kind: 'EventFacetQuery',
+      spec,
+    };
+
+    const response = await this.fetch(
+      '/apis/activity.miloapis.com/v1alpha1/eventfacetqueries',
+      {
+        method: 'POST',
+        body: JSON.stringify(query),
+      }
+    );
+
+    return response.json();
+  }
+
+  /**
+   * Watch events in real-time using the Kubernetes watch API.
+   * Returns a stop function and provides callbacks for handling events.
+   *
+   * @param params - Query parameters (fieldSelector, namespace, etc.)
+   * @param options - Watch options
+   * @returns Object with stop function
+   */
+  watchEvents(
+    params?: Omit<K8sEventListParams, 'watch'>,
+    options?: {
+      /** Resource version to start watching from */
+      resourceVersion?: string;
+      /** Callback when an event is received */
+      onEvent?: (event: WatchEvent<K8sEvent>) => void;
+      /** Callback when an error occurs */
+      onError?: (error: Error) => void;
+      /** Callback when the connection closes */
+      onClose?: () => void;
+    }
+  ): { stop: () => void } {
+    const abortController = new AbortController();
+
+    // Build URL with watch=true
+    const searchParams = new URLSearchParams();
+    searchParams.set('watch', 'true');
+
+    if (params?.fieldSelector) searchParams.set('fieldSelector', params.fieldSelector);
+    if (params?.labelSelector) searchParams.set('labelSelector', params.labelSelector);
+    if (options?.resourceVersion) searchParams.set('resourceVersion', options.resourceVersion);
+
+    const queryString = searchParams.toString();
+
+    // Support namespace-scoped or cluster-wide watching
+    const basePath = params?.namespace
+      ? `/api/v1/namespaces/${params.namespace}/events`
+      : '/api/v1/events';
+
+    const path = `${basePath}?${queryString}`;
+    const url = `${this.config.baseUrl}${path}`;
+
+    const headers: Record<string, string> = {
+      'Accept': 'application/json',
+    };
+
+    if (this.config.token) {
+      headers['Authorization'] = `Bearer ${this.config.token}`;
+    }
+
+    // Start the watch connection
+    const startWatch = async () => {
+      try {
+        const response = await this.config.fetch!(url, {
+          headers,
+          signal: abortController.signal,
+        });
+
+        if (!response.ok) {
+          const error = await response.text();
+          throw new Error(`Watch request failed: ${response.status} ${error}`);
+        }
+
+        if (!response.body) {
+          throw new Error('Response body is not available');
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+
+          if (done) {
+            options?.onClose?.();
+            break;
+          }
+
+          buffer += decoder.decode(value, { stream: true });
+
+          // Process complete lines (newline-delimited JSON)
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+          for (const line of lines) {
+            if (line.trim()) {
+              try {
+                const event = JSON.parse(line) as WatchEvent<K8sEvent>;
+                options?.onEvent?.(event);
+              } catch (parseError) {
+                console.warn('Failed to parse watch event:', parseError, line);
+              }
+            }
+          }
+        }
+      } catch (error) {
+        if ((error as Error).name === 'AbortError') {
+          options?.onClose?.();
+          return;
+        }
+        options?.onError?.(error as Error);
+      }
+    };
+
+    // Start watching in background
+    startWatch();
+
+    return {
+      stop: () => abortController.abort(),
+    };
   }
 
   private async fetch(path: string, init?: RequestInit): Promise<Response> {

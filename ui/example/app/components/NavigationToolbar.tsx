@@ -8,6 +8,7 @@ type TabConfig = {
 
 const TABS: TabConfig[] = [
   { path: "/activity-feed", label: "Activity Feed" },
+  { path: "/events", label: "Events" },
   { path: "/resource-history", label: "Resource History" },
   { path: "/audit-logs", label: "Audit Logs" },
   { path: "/policies", label: "Policies", matchPrefix: true },
