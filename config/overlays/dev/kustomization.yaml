@@ -24,6 +24,7 @@ components:
   - ../../components/tracing
   - ../../components/observability            # ServiceMonitors, alerts, dashboards
   - ../../components/ui                       # Activity UI web application
+  - ../../components/ui-gateway               # Envoy Gateway routing for UI
 
 # Note: The following HA components are excluded for dev environments:
 # - clickhouse-keeper       # Replaced by clickhouse-keeper-standalone (1 replica)

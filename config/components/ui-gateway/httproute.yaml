@@ -27,23 +27,6 @@ spec:
       backendRefs:
         - name: activity-apiserver
           port: 443
-    # Route other API requests to the Kubernetes API server
-    # This enables API discovery for resource Kind lookups
-    - matches:
-        - path:
-            type: PathPrefix
-            value: /apis
-      filters:
-        - type: RequestHeaderModifier
-          requestHeaderModifier:
-            set:
-              - name: X-Remote-User
-                value: activity-ui
-              - name: X-Remote-Group
-                value: system:serviceaccounts:activity-system
-      backendRefs:
-        - name: kubernetes-api
-          port: 443
     # Route all other requests to the UI
     - matches:
         - path:
