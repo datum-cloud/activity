@@ -69,9 +69,17 @@ spec:
         - --activities-nats-url=$(ACTIVITIES_NATS_URL)
         - --activities-nats-stream=$(ACTIVITIES_NATS_STREAM)
         - --activities-nats-subject-prefix=$(ACTIVITIES_NATS_SUBJECT_PREFIX)
+        - --activities-nats-tls-enabled=$(ACTIVITIES_NATS_TLS_ENABLED)
+        - --activities-nats-tls-cert-file=$(ACTIVITIES_NATS_TLS_CERT_FILE)
+        - --activities-nats-tls-key-file=$(ACTIVITIES_NATS_TLS_KEY_FILE)
+        - --activities-nats-tls-ca-file=$(ACTIVITIES_NATS_TLS_CA_FILE)
         - --events-nats-url=$(EVENTS_NATS_URL)
         - --events-nats-stream=$(EVENTS_NATS_STREAM)
         - --events-nats-subject-prefix=$(EVENTS_NATS_SUBJECT_PREFIX)
+        - --events-nats-tls-enabled=$(EVENTS_NATS_TLS_ENABLED)
+        - --events-nats-tls-cert-file=$(EVENTS_NATS_TLS_CERT_FILE)
+        - --events-nats-tls-key-file=$(EVENTS_NATS_TLS_KEY_FILE)
+        - --events-nats-tls-ca-file=$(EVENTS_NATS_TLS_CA_FILE)
         - -v=$(LOG_LEVEL)
         env:
         - name: SECURE_PORT
@@ -137,6 +145,14 @@ spec:
           value: "ACTIVITIES"
         - name: ACTIVITIES_NATS_SUBJECT_PREFIX
           value: "activities"
+        - name: ACTIVITIES_NATS_TLS_ENABLED
+          value: "false"
+        - name: ACTIVITIES_NATS_TLS_CERT_FILE
+          value: ""
+        - name: ACTIVITIES_NATS_TLS_KEY_FILE
+          value: ""
+        - name: ACTIVITIES_NATS_TLS_CA_FILE
+          value: ""
         # NATS configuration for Events Watch API (empty = Watch API disabled)
         - name: EVENTS_NATS_URL
           value: ""
@@ -144,6 +160,14 @@ spec:
           value: "EVENTS"
         - name: EVENTS_NATS_SUBJECT_PREFIX
           value: "events"
+        - name: EVENTS_NATS_TLS_ENABLED
+          value: "false"
+        - name: EVENTS_NATS_TLS_CERT_FILE
+          value: ""
+        - name: EVENTS_NATS_TLS_KEY_FILE
+          value: ""
+        - name: EVENTS_NATS_TLS_CA_FILE
+          value: ""
         resources:
           requests:
             cpu: 100m
