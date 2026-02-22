@@ -301,21 +301,25 @@ tasks:
     deps:
       - dev:build
       - dev:load
+      - dev:build-ui
+      - dev:load-ui
     cmds:
       - |
         set -e
-        echo "Redeploying Activity server (dev)..."
+        echo "Redeploying Activity server and UI (dev)..."
 
         # Restart all activity deployments to pick up new image
         task test-infra:kubectl -- rollout restart -n activity-system deployment/activity-apiserver || echo "⚠️  Deployment not found, run 'task dev:deploy' first"
         task test-infra:kubectl -- rollout restart -n activity-system deployment/activity-processor || echo "⚠️  activity-processor deployment not found"
         task test-infra:kubectl -- rollout restart -n activity-system deployment/activity-controller-manager || echo "⚠️  activity-controller-manager deployment not found"
+        task test-infra:kubectl -- rollout restart -n activity-system deployment/activity-ui || echo "⚠️  activity-ui deployment not found"
 
         # Wait for rollouts to complete
         echo "Waiting for rollouts to complete..."
         task test-infra:kubectl -- rollout status -n activity-system deployment/activity-apiserver --timeout=120s || true
         task test-infra:kubectl -- rollout status -n activity-system deployment/activity-processor --timeout=120s || true
         task test-infra:kubectl -- rollout status -n activity-system deployment/activity-controller-manager --timeout=120s || true
+        task test-infra:kubectl -- rollout status -n activity-system deployment/activity-ui --timeout=120s || true
 
         echo "✅ Redeployment complete!"
         echo "Check logs with: task test-infra:kubectl -- logs -l app=activity-apiserver -n activity-system -f"
@@ -532,6 +536,16 @@ tasks:
         echo "✅ Redeployment complete!"
         echo "Check logs with: task test-infra:kubectl -- logs -l app=activity-apiserver -n activity-system -f"
     silent: true
+
+  # ============================================================
+  # Telepresence for remote debugging
+  # ============================================================
+  # Telepresence tasks are now provided by test-infra:
+  #   task test-infra:telepresence:install   - Install CLI
+  #   task test-infra:telepresence:connect   - Connect to cluster
+  #   task test-infra:telepresence:intercept - Intercept service (SERVICE=name NAMESPACE=ns PORT=port)
+  #   task test-infra:telepresence:status    - Show status
+  #   task test-infra:telepresence:quit      - Disconnect
 
   # OpenAPI code generation
   generate:openapi:
