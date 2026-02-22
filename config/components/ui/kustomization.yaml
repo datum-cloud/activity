@@ -1,10 +1,13 @@
 apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
 
-# Core Activity UI deployment
-# For Envoy Gateway routing, also include the ui-gateway component.
+# Activity UI deployment with Envoy Gateway routing
+# Includes the UI deployment, service, RBAC, and gateway routing resources.
 
 resources:
   - deployment.yaml
   - service.yaml
   - rbac.yaml
+  - httproute.yaml
+  - backend-tls-policy.yaml
+  - backendtrafficpolicy.yaml
