@@ -50,7 +50,7 @@ export function AddFilterDropdown({
   const isFilterActive = (filterId: string) => activeFilterIds.includes(filterId);
 
   // Get button label
-  const buttonLabel = hasActiveFilters ? '+ Filters' : '+ Add Filters';
+  const buttonLabel = hasActiveFilters ? 'Filters' : 'Add Filters';
 
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
