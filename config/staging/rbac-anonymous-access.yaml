@@ -19,6 +19,7 @@ rules:
 - apiGroups: ["activity.miloapis.com"]
   resources: ["auditlogqueries", "auditlogfacetsqueries", "activitylogqueries"]
   verbs: ["create"]
+
 # Allow anonymous users to query audit logs
 - apiGroups: ["activity.miloapis.com"]
   resources:
