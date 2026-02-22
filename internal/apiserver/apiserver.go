@@ -160,6 +160,29 @@ func (c completedConfig) New() (*ActivityServer, error) {
 	eventsBackend := storage.NewClickHouseEventsBackend(clickhouseStorage.Conn(), storage.ClickHouseEventsConfig{
 		Database: clickhouseStorage.Config().Database,
 	})
+
+	// Create NATS publisher for events if configured
+	// When configured, events will be published to NATS instead of written directly to ClickHouse
+	// Vector will consume from NATS and write to ClickHouse
+	if c.ExtraConfig.EventsNATSConfig.URL != "" {
+		eventsPublisher, err := storage.NewEventsPublisher(storage.EventsPublisherConfig{
+			URL:           c.ExtraConfig.EventsNATSConfig.URL,
+			StreamName:    c.ExtraConfig.EventsNATSConfig.StreamName,
+			SubjectPrefix: c.ExtraConfig.EventsNATSConfig.SubjectPrefix,
+			TLSEnabled:    c.ExtraConfig.EventsNATSConfig.TLSEnabled,
+			TLSCertFile:   c.ExtraConfig.EventsNATSConfig.TLSCertFile,
+			TLSKeyFile:    c.ExtraConfig.EventsNATSConfig.TLSKeyFile,
+			TLSCAFile:     c.ExtraConfig.EventsNATSConfig.TLSCAFile,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create events NATS publisher: %w", err)
+		}
+		if eventsPublisher != nil {
+			eventsBackend.SetPublisher(eventsPublisher)
+			klog.Info("Events will be published to NATS for processing by Vector")
+		}
+	}
+
 	if s.eventsWatcher != nil {
 		v1alpha1Storage["events"] = events.NewEventsRESTWithWatcher(eventsBackend, s.eventsWatcher)
 	} else {

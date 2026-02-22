@@ -25,9 +25,10 @@ import (
 
 // ClickHouseEventsBackend implements the EventsBackend interface using ClickHouse.
 type ClickHouseEventsBackend struct {
-	conn     driver.Conn
-	config   ClickHouseEventsConfig
-	natsConn NATSConnection // Optional NATS connection for watch support
+	conn      driver.Conn
+	config    ClickHouseEventsConfig
+	natsConn  NATSConnection   // Optional NATS connection for watch support
+	publisher *EventsPublisher // Optional NATS publisher for event ingestion
 }
 
 // NATSConnection defines the interface for NATS operations needed by the events backend.
@@ -59,6 +60,13 @@ func NewClickHouseEventsBackend(conn driver.Conn, config ClickHouseEventsConfig)
 		conn:   conn,
 		config: config,
 	}
+}
+
+// SetPublisher sets the NATS publisher for publishing events to the data pipeline.
+// When a publisher is set, Create/Update operations will publish to NATS instead of
+// writing directly to ClickHouse. Vector will consume from NATS and write to ClickHouse.
+func (b *ClickHouseEventsBackend) SetPublisher(publisher *EventsPublisher) {
+	b.publisher = publisher
 }
 
 // Create stores a new event in ClickHouse.
@@ -101,6 +109,32 @@ func (b *ClickHouseEventsBackend) Create(ctx context.Context, event *corev1.Even
 		event.Annotations["platform.miloapis.com/scope.name"] = scope.Name
 	}
 
+	// If NATS publisher is configured, publish to NATS instead of writing to ClickHouse
+	// Vector will consume from NATS and write to ClickHouse
+	if b.publisher != nil {
+		if err := b.publisher.Publish(ctx, event); err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, "failed to publish event to NATS")
+			return nil, fmt.Errorf("failed to publish event to NATS: %w", err)
+		}
+
+		// Set ResourceVersion to a temporary value
+		// The actual ResourceVersion will be set by Vector when it writes to ClickHouse
+		insertTime := time.Now()
+		event.ResourceVersion = strconv.FormatInt(insertTime.UnixNano(), 10)
+
+		span.SetStatus(codes.Ok, "event published to NATS")
+		klog.V(4).InfoS("Published event to NATS",
+			"namespace", event.Namespace,
+			"name", event.Name,
+			"uid", event.UID,
+			"resourceVersion", event.ResourceVersion,
+		)
+
+		return event, nil
+	}
+
+	// Fallback: Write directly to ClickHouse if no publisher configured
 	// Serialize event to JSON
 	eventJSON, err := json.Marshal(event)
 	if err != nil {
@@ -381,6 +415,33 @@ func (b *ClickHouseEventsBackend) Update(ctx context.Context, event *corev1.Even
 		event.Annotations["platform.miloapis.com/scope.name"] = scope.Name
 	}
 
+	// If NATS publisher is configured, publish to NATS instead of writing to ClickHouse
+	// Vector will consume from NATS and write to ClickHouse
+	if b.publisher != nil {
+		if err := b.publisher.Publish(ctx, event); err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, "failed to publish event update to NATS")
+			return nil, fmt.Errorf("failed to publish event update to NATS: %w", err)
+		}
+
+		// Set ResourceVersion to a temporary value
+		// The actual ResourceVersion will be set by Vector when it writes to ClickHouse
+		insertTime := time.Now()
+		event.ResourceVersion = strconv.FormatInt(insertTime.UnixNano(), 10)
+
+		span.SetStatus(codes.Ok, "event update published to NATS")
+		klog.V(4).InfoS("Published event update to NATS",
+			"namespace", event.Namespace,
+			"name", event.Name,
+			"uid", event.UID,
+			"count", event.Count,
+			"resourceVersion", event.ResourceVersion,
+		)
+
+		return event, nil
+	}
+
+	// Fallback: Write directly to ClickHouse if no publisher configured
 	// Serialize event to JSON
 	eventJSON, err := json.Marshal(event)
 	if err != nil {
