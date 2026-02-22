@@ -7,5 +7,6 @@ resources:
   - activityfacetqueries.yaml
   - auditlogqueries.yaml
   - auditlogfacetsqueries.yaml
+  - events.yaml
   - eventqueries.yaml
   - eventfacetqueries.yaml

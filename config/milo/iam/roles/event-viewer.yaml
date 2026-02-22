@@ -6,6 +6,9 @@ metadata:
 spec:
   launchStage: Beta
   includedPermissions:
+    # Event feed - list and watch for real-time streaming
+    - activity.miloapis.com/events.list
+    - activity.miloapis.com/events.watch
     # Event queries - search cluster events
     - activity.miloapis.com/eventqueries.create
     - activity.miloapis.com/eventfacetqueries.create

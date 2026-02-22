@@ -1,0 +1,20 @@
+apiVersion: iam.miloapis.com/v1alpha1
+kind: ProtectedResource
+metadata:
+  name: activity.miloapis.com-events
+spec:
+  serviceRef:
+    name: "activity.miloapis.com"
+  kind: Event
+  plural: events
+  singular: event
+  permissions:
+    - list
+    - watch
+  parentResources:
+    - apiGroup: resourcemanager.miloapis.com
+      kind: Organization
+    - apiGroup: resourcemanager.miloapis.com
+      kind: Project
+    - apiGroup: iam.miloapis.com
+      kind: User
