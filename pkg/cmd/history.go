@@ -18,6 +18,7 @@ import (
 
 	activityv1alpha1 "go.miloapis.com/activity/pkg/apis/activity/v1alpha1"
 	clientset "go.miloapis.com/activity/pkg/client/clientset/versioned"
+	"go.miloapis.com/activity/pkg/cmd/common"
 )
 
 // HistoryOptions contains the options for viewing resource history
@@ -25,12 +26,13 @@ type HistoryOptions struct {
 	Namespace     string
 	Resource      string
 	Name          string
-	StartTime     string
-	EndTime       string
-	Limit         int32
 	ShowDiff      bool
 	ContinueAfter string
 	AllPages      bool
+
+	// Common flags
+	TimeRange  common.TimeRangeFlags
+	Pagination common.PaginationFlags
 
 	PrintFlags *genericclioptions.PrintFlags
 	genericclioptions.IOStreams
@@ -43,9 +45,13 @@ func NewHistoryOptions(f util.Factory, ioStreams genericclioptions.IOStreams) *H
 		IOStreams:  ioStreams,
 		Factory:    f,
 		PrintFlags: genericclioptions.NewPrintFlags(""),
-		Limit:      100,
-		StartTime:  "now-30d",
-		EndTime:    "now",
+		TimeRange: common.TimeRangeFlags{
+			StartTime: "now-30d",
+			EndTime:   "now",
+		},
+		Pagination: common.PaginationFlags{
+			Limit: 100,
+		},
 	}
 }
 
@@ -105,12 +111,9 @@ Output Modes:
 	}
 
 	// Add flags
-	cmd.Flags().StringVar(&o.StartTime, "start-time", o.StartTime, "Start time for the query (default: now-30d)")
-	cmd.Flags().StringVar(&o.EndTime, "end-time", o.EndTime, "End time for the query (default: now)")
-	cmd.Flags().Int32Var(&o.Limit, "limit", o.Limit, "Maximum number of results per page (1-1000)")
+	common.AddTimeRangeFlags(cmd, &o.TimeRange, "now-30d")
+	common.AddPaginationFlags(cmd, &o.Pagination, 100)
 	cmd.Flags().BoolVar(&o.ShowDiff, "diff", false, "Show diff between consecutive resource versions")
-	cmd.Flags().StringVar(&o.ContinueAfter, "continue-after", "", "Pagination cursor from previous query")
-	cmd.Flags().BoolVar(&o.AllPages, "all-pages", false, "Fetch all pages of results")
 
 	// Add printer flags
 	o.PrintFlags.AddFlags(cmd)
@@ -163,17 +166,11 @@ func (o *HistoryOptions) Validate() error {
 	if o.Name == "" {
 		return fmt.Errorf("resource name is required")
 	}
-	if o.StartTime == "" {
-		return fmt.Errorf("--start-time is required")
+	if err := o.TimeRange.Validate(); err != nil {
+		return err
 	}
-	if o.EndTime == "" {
-		return fmt.Errorf("--end-time is required")
-	}
-	if o.Limit < 1 || o.Limit > 1000 {
-		return fmt.Errorf("--limit must be between 1 and 1000")
-	}
-	if o.AllPages && o.ContinueAfter != "" {
-		return fmt.Errorf("--all-pages and --continue-after are mutually exclusive")
+	if err := o.Pagination.Validate(); err != nil {
+		return err
 	}
 
 	return nil
@@ -193,7 +190,7 @@ func (o *HistoryOptions) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to create activity client: %w", err)
 	}
 
-	if o.AllPages {
+	if o.Pagination.AllPages {
 		return o.runAllPages(ctx, client)
 	}
 
@@ -209,11 +206,11 @@ func (o *HistoryOptions) runSinglePage(ctx context.Context, client *clientset.Cl
 			GenerateName: "history-",
 		},
 		Spec: activityv1alpha1.AuditLogQuerySpec{
-			StartTime: o.StartTime,
-			EndTime:   o.EndTime,
+			StartTime: o.TimeRange.StartTime,
+			EndTime:   o.TimeRange.EndTime,
 			Filter:    filter,
-			Limit:     o.Limit,
-			Continue:  o.ContinueAfter,
+			Limit:     o.Pagination.Limit,
+			Continue:  o.Pagination.ContinueAfter,
 		},
 	}
 
@@ -243,10 +240,10 @@ func (o *HistoryOptions) runAllPages(ctx context.Context, client *clientset.Clie
 				GenerateName: "history-",
 			},
 			Spec: activityv1alpha1.AuditLogQuerySpec{
-				StartTime: o.StartTime,
-				EndTime:   o.EndTime,
+				StartTime: o.TimeRange.StartTime,
+				EndTime:   o.TimeRange.EndTime,
 				Filter:    filter,
-				Limit:     o.Limit,
+				Limit:     o.Pagination.Limit,
 				Continue:  continueAfter,
 			},
 		}
@@ -290,14 +287,14 @@ func (o *HistoryOptions) runAllPages(ctx context.Context, client *clientset.Clie
 // buildFilter creates a CEL filter for the specified resource
 func (o *HistoryOptions) buildFilter() string {
 	filters := []string{
-		fmt.Sprintf("objectRef.resource == '%s'", o.Resource),
-		fmt.Sprintf("objectRef.name == '%s'", o.Name),
+		fmt.Sprintf("objectRef.resource == '%s'", common.EscapeCELString(o.Resource)),
+		fmt.Sprintf("objectRef.name == '%s'", common.EscapeCELString(o.Name)),
 		// Only include verbs that modify the resource
 		"verb in ['create', 'update', 'patch', 'delete']",
 	}
 
 	if o.Namespace != "" {
-		filters = append(filters, fmt.Sprintf("objectRef.namespace == '%s'", o.Namespace))
+		filters = append(filters, fmt.Sprintf("objectRef.namespace == '%s'", common.EscapeCELString(o.Namespace)))
 	}
 
 	return strings.Join(filters, " && ")
@@ -332,10 +329,7 @@ func (o *HistoryOptions) printResults(result *activityv1alpha1.AuditLogQuery) er
 // printTable prints events as a formatted table
 func (o *HistoryOptions) printTable(events []auditv1.Event, continueToken string) error {
 	table := o.eventsToTable(events)
-	tablePrinter := printers.NewTablePrinter(printers.PrintOptions{
-		WithNamespace: false,
-		Wide:          true,
-	})
+	tablePrinter := common.CreateTablePrinter(false)
 
 	if err := tablePrinter.PrintObj(table, o.Out); err != nil {
 		return err
@@ -355,10 +349,7 @@ func (o *HistoryOptions) printTable(events []auditv1.Event, continueToken string
 // printTableAllEvents prints all events as a table (for --all-pages)
 func (o *HistoryOptions) printTableAllEvents(events []auditv1.Event) error {
 	table := o.eventsToTable(events)
-	tablePrinter := printers.NewTablePrinter(printers.PrintOptions{
-		WithNamespace: false,
-		Wide:          true,
-	})
+	tablePrinter := common.CreateTablePrinter(false)
 
 	if err := tablePrinter.PrintObj(table, o.Out); err != nil {
 		return err
@@ -379,7 +370,7 @@ func (o *HistoryOptions) printDiff(events []auditv1.Event) error {
 	var prevObject map[string]interface{}
 
 	for i, event := range events {
-		timestamp := event.StageTimestamp.Time.Format("2006-01-02 15:04:05")
+		timestamp := event.StageTimestamp.Format("2006-01-02 15:04:05")
 		username := event.User.Username
 		verb := event.Verb
 
@@ -592,9 +583,13 @@ func (o *HistoryOptions) printObjectPretty(obj map[string]interface{}, useColor 
 	if useColor {
 		// Simple JSON syntax highlighting
 		highlighted := o.highlightJSON(string(objJSON))
-		fmt.Fprintln(o.Out, highlighted)
+		if _, err := fmt.Fprintln(o.Out, highlighted); err != nil {
+			return fmt.Errorf("failed to print highlighted object: %w", err)
+		}
 	} else {
-		fmt.Fprintln(o.Out, string(objJSON))
+		if _, err := fmt.Fprintln(o.Out, string(objJSON)); err != nil {
+			return fmt.Errorf("failed to print object: %w", err)
+		}
 	}
 	return nil
 }
@@ -672,11 +667,13 @@ func (o *HistoryOptions) printObjectDiff(prev, curr map[string]interface{}) erro
 	}
 
 	if diffText == "" {
-		fmt.Fprintf(o.Out, "(no changes detected)\n")
+		_, _ = fmt.Fprintf(o.Out, "(no changes detected)\n")
 	} else {
 		// Colorize the diff output if terminal supports it
 		colorizedDiff := o.colorizeDiff(diffText)
-		fmt.Fprint(o.Out, colorizedDiff)
+		if _, err := fmt.Fprint(o.Out, colorizedDiff); err != nil {
+			return fmt.Errorf("failed to print diff: %w", err)
+		}
 	}
 
 	return nil
@@ -752,16 +749,6 @@ func (o *HistoryOptions) supportsColor() bool {
 	return term.IsTerminal(int(os.Stdout.Fd()))
 }
 
-// printObject prints a JSON object with indentation
-func (o *HistoryOptions) printObject(obj map[string]interface{}) error {
-	objJSON, err := json.MarshalIndent(obj, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal object: %w", err)
-	}
-	fmt.Fprintln(o.Out, string(objJSON))
-	return nil
-}
-
 // printEvents prints audit events using the configured printer
 func (o *HistoryOptions) printEvents(events []auditv1.Event, printer printers.ResourcePrinter) error {
 	eventList := &auditv1.EventList{
@@ -795,7 +782,7 @@ func (o *HistoryOptions) eventsToTable(events []auditv1.Event) *metav1.Table {
 func (o *HistoryOptions) eventsToRows(events []auditv1.Event) []metav1.TableRow {
 	rows := make([]metav1.TableRow, 0, len(events))
 	for i := range events {
-		timestamp := events[i].StageTimestamp.Time.Format("2006-01-02 15:04:05")
+		timestamp := events[i].StageTimestamp.Format("2006-01-02 15:04:05")
 		verb := events[i].Verb
 		username := events[i].User.Username
 

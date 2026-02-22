@@ -46,8 +46,11 @@ proposal](https://github.com/datum-cloud/enhancements/issues/469).
 
 ## Documentation
 
+- [CLI User Guide](docs/cli-user-guide.md) - Complete guide to using the Activity CLI
+- [Migration Guide](docs/migration-guide.md) - Upgrading from previous versions
 - [Architecture Overview](docs/architecture/README.md) - System design and components
 - [API Reference](docs/api.md) - API specifications
+- [CHANGELOG](CHANGELOG.md) - Version history and release notes
 
 ## Who is this for?
 

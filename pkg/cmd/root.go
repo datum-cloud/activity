@@ -6,6 +6,8 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/kubectl/pkg/cmd/util"
+
+	"go.miloapis.com/activity/pkg/cmd/policy"
 )
 
 // ActivityCommandOptions contains options for creating the activity command
@@ -61,12 +63,36 @@ func NewActivityCommand(opts ActivityCommandOptions) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "activity",
-		Short: "Query control plane audit logs",
-		Long: `The activity plugin provides commands to query and analyze audit logs
-stored in your control plane's activity API server.
+		Short: "Query audit logs, events, and activity feeds",
+		Long: `The activity plugin provides commands to query and analyze audit logs, events,
+and human-readable activity summaries from your control plane.
 
-Use this tool to investigate incidents, track resource changes, generate compliance
-reports, or analyze user activity.`,
+Use this tool to investigate incidents, track resource changes, monitor live
+activity, generate compliance reports, or develop ActivityPolicy rules.
+
+Available Commands:
+  audit    - Query audit logs from the control plane
+  events   - Query Kubernetes events with extended retention
+  feed     - Query human-readable activity summaries
+  history  - View resource change history with diffs
+  policy   - Policy management commands (preview, etc.)
+
+Examples:
+  # Recent audit activity
+  kubectl activity audit --start-time "now-7d"
+
+  # Warning events in the last week
+  kubectl activity events --type Warning --start-time "now-7d"
+
+  # Human-initiated changes
+  kubectl activity feed --change-source human
+
+  # Resource change history with diffs
+  kubectl activity history deployments my-app -n default --diff
+
+  # Test a policy before deploying
+  kubectl activity policy preview -f my-policy.yaml --input samples.yaml
+`,
 		SilenceUsage: true,
 	}
 
@@ -77,8 +103,11 @@ reports, or analyze user activity.`,
 	}
 
 	// Add subcommands
-	cmd.AddCommand(NewQueryCommand(f, ioStreams))
+	cmd.AddCommand(NewAuditCommand(f, ioStreams))
+	cmd.AddCommand(NewEventsCommand(f, ioStreams))
+	cmd.AddCommand(NewFeedCommand(f, ioStreams))
 	cmd.AddCommand(NewHistoryCommand(f, ioStreams))
+	cmd.AddCommand(policy.NewPolicyCommand(f, ioStreams))
 
 	return cmd
 }
