@@ -31,6 +31,7 @@ When working on this codebase, automatically use specialized agents based on the
 - After making code changes, consider using `code-reviewer` to validate
 - For UI changes, run `npm run build` and `npm run test:e2e` to verify
 - **Always test infrastructure changes in a test environment before opening a PR** - Deploy to the test-infra KIND cluster (`task test-infra:cluster-up`) and verify resources work correctly before pushing changes to staging/production repos
+- **Use Telepresence for debugging staging issues** - When investigating bugs that only reproduce in staging, intercept the service and run it locally with `task test-infra:telepresence:intercept SERVICE=<name>`. See "Remote Debugging with Telepresence" section.
 
 ### Agent Context Requirements
 
@@ -190,6 +191,41 @@ task migrations:new NAME=description     # Create new migration file
 task migrations:generate                 # Generate ConfigMap from migrations
 task migrations:cluster:verify           # Verify schema in cluster
 ```
+
+### Remote Debugging with Telepresence
+
+When debugging issues in staging, use Telepresence to intercept a service and run it locally with full access to cluster resources (NATS, ClickHouse, etcd, milo).
+
+```bash
+# Install Telepresence CLI (one-time)
+task test-infra:telepresence:install
+
+# Connect to staging cluster
+KUBECONFIG=~/.kube/gke-staging task test-infra:telepresence:connect
+
+# Intercept a service to run locally
+task test-infra:telepresence:intercept SERVICE=activity-apiserver NAMESPACE=activity-system PORT=6443
+
+# Load environment variables from intercepted service
+source /tmp/telepresence-activity-apiserver.env
+
+# Run the service locally with debugger
+go run ./cmd/activity apiserver --secure-port=6443
+
+# When done, release the intercept
+telepresence leave activity-apiserver
+telepresence quit
+```
+
+**Available services to intercept:**
+- `activity-apiserver` (port 6443) - API server handling queries
+- `activity-processor` (port 8080) - Event processing pipeline
+- `activity-controller-manager` (port 8080) - ActivityPolicy controller
+
+**When to use Telepresence:**
+- Debugging issues that only reproduce in staging with real data
+- Testing changes against production-like NATS streams and ClickHouse data
+- Investigating connectivity or configuration issues
 
 ## Multi-Tenancy Model
 
