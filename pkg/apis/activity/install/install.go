@@ -3,6 +3,7 @@ package install
 import (
 	corev1 "k8s.io/api/core/v1"
 	eventsv1 "k8s.io/api/events/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -33,4 +34,8 @@ func Install(scheme *runtime.Scheme) {
 		&eventsv1.Event{},
 		&eventsv1.EventList{},
 	)
+
+	// Add meta types (WatchEvent, etc.) to the events.k8s.io/v1 group
+	// Required for watch operations to work
+	metav1.AddToGroupVersion(scheme, eventsV1GroupVersion)
 }
