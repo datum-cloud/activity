@@ -13,7 +13,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
-	corev1 "k8s.io/api/core/v1"
 	eventsv1 "k8s.io/api/events/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -117,11 +116,8 @@ func (b *ClickHouseEventsBackend) Create(ctx context.Context, event *eventsv1.Ev
 
 	// If NATS publisher is configured, publish to NATS instead of writing to ClickHouse
 	// Vector will consume from NATS and write to ClickHouse
-	// Note: Publisher expects corev1.Event, so we need to convert temporarily for publishing
 	if b.publisher != nil {
-		// Convert to corev1.Event for NATS publishing (Vector expects this format)
-		coreEvent := convertEventsV1ToCore(event)
-		if err := b.publisher.Publish(ctx, coreEvent); err != nil {
+		if err := b.publisher.Publish(ctx, event); err != nil {
 			span.RecordError(err)
 			span.SetStatus(codes.Error, "failed to publish event to NATS")
 			return nil, fmt.Errorf("failed to publish event to NATS: %w", err)
@@ -224,19 +220,11 @@ func (b *ClickHouseEventsBackend) Get(ctx context.Context, namespace, name strin
 		return nil, fmt.Errorf("failed to get event: %w", err)
 	}
 
-	// Try to unmarshal as eventsv1.Event first (canonical format)
 	var event eventsv1.Event
 	if err := json.Unmarshal([]byte(eventJSON), &event); err != nil {
-		// Fallback: try as corev1.Event and convert
-		var coreEvent corev1.Event
-		if err := json.Unmarshal([]byte(eventJSON), &coreEvent); err != nil {
-			span.RecordError(err)
-			span.SetStatus(codes.Error, "unmarshal failed")
-			return nil, fmt.Errorf("failed to unmarshal event: %w", err)
-		}
-		// Convert to eventsv1
-		converted := convertCoreToEventsV1(&coreEvent)
-		event = *converted
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "unmarshal failed")
+		return nil, fmt.Errorf("failed to unmarshal event: %w", err)
 	}
 
 	// Set ResourceVersion from insertion timestamp
@@ -343,18 +331,10 @@ func (b *ClickHouseEventsBackend) List(ctx context.Context, namespace string, op
 			return nil, fmt.Errorf("failed to scan event: %w", err)
 		}
 
-		// Try to unmarshal as eventsv1.Event first (canonical format)
 		var event eventsv1.Event
 		if err := json.Unmarshal([]byte(eventJSON), &event); err != nil {
-			// Fallback: try as corev1.Event and convert
-			var coreEvent corev1.Event
-			if err := json.Unmarshal([]byte(eventJSON), &coreEvent); err != nil {
-				klog.ErrorS(err, "Failed to unmarshal event, skipping", "json", eventJSON[:min(len(eventJSON), 200)])
-				continue
-			}
-			// Convert to eventsv1
-			converted := convertCoreToEventsV1(&coreEvent)
-			event = *converted
+			klog.ErrorS(err, "Failed to unmarshal event, skipping", "json", eventJSON[:min(len(eventJSON), 200)])
+			continue
 		}
 
 		event.ResourceVersion = strconv.FormatInt(insertedAt.UnixNano(), 10)
@@ -451,11 +431,8 @@ func (b *ClickHouseEventsBackend) Update(ctx context.Context, event *eventsv1.Ev
 
 	// If NATS publisher is configured, publish to NATS instead of writing to ClickHouse
 	// Vector will consume from NATS and write to ClickHouse
-	// Note: Publisher expects corev1.Event, so we need to convert temporarily for publishing
 	if b.publisher != nil {
-		// Convert to corev1.Event for NATS publishing (Vector expects this format)
-		coreEvent := convertEventsV1ToCore(event)
-		if err := b.publisher.Publish(ctx, coreEvent); err != nil {
+		if err := b.publisher.Publish(ctx, event); err != nil {
 			span.RecordError(err)
 			span.SetStatus(codes.Error, "failed to publish event update to NATS")
 			return nil, fmt.Errorf("failed to publish event update to NATS: %w", err)
@@ -583,125 +560,6 @@ func (b *ClickHouseEventsBackend) Delete(ctx context.Context, namespace, name st
 // real-time event streaming via NATS JetStream subscriptions.
 func (b *ClickHouseEventsBackend) Watch(ctx context.Context, namespace string, opts metav1.ListOptions, scope ScopeContext) (watch.Interface, error) {
 	return nil, errors.NewMethodNotSupported(eventsv1.Resource("events"), "watch")
-}
-
-// convertCoreToEventsV1 converts a core/v1 Event to an events.k8s.io/v1 Event.
-func convertCoreToEventsV1(coreEvent *corev1.Event) *eventsv1.Event {
-	if coreEvent == nil {
-		return nil
-	}
-
-	v1Event := &eventsv1.Event{
-		ObjectMeta: coreEvent.ObjectMeta,
-		Regarding: corev1.ObjectReference{
-			Kind:            coreEvent.InvolvedObject.Kind,
-			Namespace:       coreEvent.InvolvedObject.Namespace,
-			Name:            coreEvent.InvolvedObject.Name,
-			UID:             coreEvent.InvolvedObject.UID,
-			APIVersion:      coreEvent.InvolvedObject.APIVersion,
-			ResourceVersion: coreEvent.InvolvedObject.ResourceVersion,
-			FieldPath:       coreEvent.InvolvedObject.FieldPath,
-		},
-		Reason:              coreEvent.Reason,
-		Note:                coreEvent.Message,
-		Type:                coreEvent.Type,
-		DeprecatedCount:     coreEvent.Count,
-		Action:              "Event",
-		ReportingController: coreEvent.Source.Component,
-		ReportingInstance:   coreEvent.Source.Host,
-	}
-
-	// Handle timestamps
-	if !coreEvent.FirstTimestamp.Time.IsZero() {
-		v1Event.EventTime = metav1.NewMicroTime(coreEvent.FirstTimestamp.Time)
-		v1Event.DeprecatedFirstTimestamp = coreEvent.FirstTimestamp
-	}
-	if !coreEvent.LastTimestamp.Time.IsZero() {
-		v1Event.DeprecatedLastTimestamp = coreEvent.LastTimestamp
-		if coreEvent.Count > 1 {
-			v1Event.Series = &eventsv1.EventSeries{
-				Count:            coreEvent.Count,
-				LastObservedTime: metav1.NewMicroTime(coreEvent.LastTimestamp.Time),
-			}
-		}
-	}
-
-	// Handle related object
-	if coreEvent.Related != nil {
-		v1Event.Related = &corev1.ObjectReference{
-			Kind:            coreEvent.Related.Kind,
-			Namespace:       coreEvent.Related.Namespace,
-			Name:            coreEvent.Related.Name,
-			UID:             coreEvent.Related.UID,
-			APIVersion:      coreEvent.Related.APIVersion,
-			ResourceVersion: coreEvent.Related.ResourceVersion,
-			FieldPath:       coreEvent.Related.FieldPath,
-		}
-	}
-
-	return v1Event
-}
-
-// convertEventsV1ToCore converts an events.k8s.io/v1 Event to a core/v1 Event.
-func convertEventsV1ToCore(v1Event *eventsv1.Event) *corev1.Event {
-	if v1Event == nil {
-		return nil
-	}
-
-	coreEvent := &corev1.Event{
-		ObjectMeta: v1Event.ObjectMeta,
-		InvolvedObject: corev1.ObjectReference{
-			Kind:            v1Event.Regarding.Kind,
-			Namespace:       v1Event.Regarding.Namespace,
-			Name:            v1Event.Regarding.Name,
-			UID:             v1Event.Regarding.UID,
-			APIVersion:      v1Event.Regarding.APIVersion,
-			ResourceVersion: v1Event.Regarding.ResourceVersion,
-			FieldPath:       v1Event.Regarding.FieldPath,
-		},
-		Reason:  v1Event.Reason,
-		Message: v1Event.Note,
-		Type:    v1Event.Type,
-		Count:   v1Event.DeprecatedCount,
-	}
-
-	// Handle source
-	if v1Event.ReportingController != "" {
-		coreEvent.Source.Component = v1Event.ReportingController
-	}
-	if v1Event.ReportingInstance != "" {
-		coreEvent.Source.Host = v1Event.ReportingInstance
-	}
-
-	// Handle timestamps
-	if v1Event.EventTime.Time.IsZero() {
-		// Use deprecated fields if new ones are not set
-		coreEvent.FirstTimestamp = v1Event.DeprecatedFirstTimestamp
-		coreEvent.LastTimestamp = v1Event.DeprecatedLastTimestamp
-	} else {
-		// Convert MicroTime to Time
-		coreEvent.FirstTimestamp = metav1.NewTime(v1Event.EventTime.Time)
-		coreEvent.LastTimestamp = metav1.NewTime(v1Event.EventTime.Time)
-		if v1Event.Series != nil {
-			coreEvent.LastTimestamp = metav1.NewTime(v1Event.Series.LastObservedTime.Time)
-			coreEvent.Count = v1Event.Series.Count
-		}
-	}
-
-	// Handle related object
-	if v1Event.Related != nil {
-		coreEvent.Related = &corev1.ObjectReference{
-			Kind:            v1Event.Related.Kind,
-			Namespace:       v1Event.Related.Namespace,
-			Name:            v1Event.Related.Name,
-			UID:             v1Event.Related.UID,
-			APIVersion:      v1Event.Related.APIVersion,
-			ResourceVersion: v1Event.Related.ResourceVersion,
-			FieldPath:       v1Event.Related.FieldPath,
-		}
-	}
-
-	return coreEvent
 }
 
 // buildScopeConditions creates SQL conditions for scope filtering.

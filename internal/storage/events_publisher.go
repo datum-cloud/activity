@@ -9,7 +9,7 @@ import (
 	"os"
 
 	"github.com/nats-io/nats.go"
-	corev1 "k8s.io/api/core/v1"
+	eventsv1 "k8s.io/api/events/v1"
 	"k8s.io/klog/v2"
 )
 
@@ -134,7 +134,7 @@ func NewEventsPublisher(config EventsPublisherConfig) (*EventsPublisher, error) 
 // Publish publishes an event to NATS JetStream.
 // Subject format: events.k8s.{namespace}
 // Message ID is derived from event UID and ResourceVersion for deduplication.
-func (p *EventsPublisher) Publish(ctx context.Context, event *corev1.Event) error {
+func (p *EventsPublisher) Publish(ctx context.Context, event *eventsv1.Event) error {
 	if p == nil || p.js == nil {
 		// Publisher not configured - this is okay, events will be written directly to ClickHouse
 		return nil
