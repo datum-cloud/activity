@@ -58,13 +58,8 @@ spec:
       - name: migrations
         configMap:
           name: clickhouse-migrations
-          items:
-          - key: 001_initial_schema.sql
-            path: 001_initial_schema.sql
-          - key: 002_activities_table.sql
-            path: 002_activities_table.sql
-          - key: 003_k8s_events_table.sql
-            path: 003_k8s_events_table.sql
+          # Mount all SQL files from ConfigMap - no explicit items list needed
+          # New migrations added to the ConfigMap will be automatically included
       # Scripts volume - same ConfigMap, separate mount
       - name: scripts
         configMap:
