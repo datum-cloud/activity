@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
-	corev1 "k8s.io/api/core/v1"
+	eventsv1 "k8s.io/api/events/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
@@ -20,23 +20,23 @@ import (
 	eventwatch "go.miloapis.com/activity/internal/watch"
 )
 
-// EventsREST implements the REST interface for Kubernetes Events.
-// Unlike AuditLogQuery (which is an ephemeral resource), Events support full CRUD operations.
-type EventsREST struct {
+// EventsV1REST implements the REST interface for events.k8s.io/v1 Events.
+// It adapts the newer eventsv1.Event type to work with the existing corev1.Event backend.
+type EventsV1REST struct {
 	backend EventsBackend
 	watcher *eventwatch.EventsWatcher
 }
 
-// NewEventsREST returns a REST storage object for Events.
-func NewEventsREST(backend EventsBackend) *EventsREST {
-	return &EventsREST{
+// NewEventsV1REST returns a REST storage object for events.k8s.io/v1 Events.
+func NewEventsV1REST(backend EventsBackend) *EventsV1REST {
+	return &EventsV1REST{
 		backend: backend,
 	}
 }
 
-// NewEventsRESTWithWatcher returns a REST storage object for Events with watch support.
-func NewEventsRESTWithWatcher(backend EventsBackend, watcher *eventwatch.EventsWatcher) *EventsREST {
-	return &EventsREST{
+// NewEventsV1RESTWithWatcher returns a REST storage object for events.k8s.io/v1 Events with watch support.
+func NewEventsV1RESTWithWatcher(backend EventsBackend, watcher *eventwatch.EventsWatcher) *EventsV1REST {
+	return &EventsV1REST{
 		backend: backend,
 		watcher: watcher,
 	}
@@ -44,47 +44,47 @@ func NewEventsRESTWithWatcher(backend EventsBackend, watcher *eventwatch.EventsW
 
 // Compile-time interface verification
 var (
-	_ rest.Scoper               = &EventsREST{}
-	_ rest.Creater              = &EventsREST{}
-	_ rest.Getter               = &EventsREST{}
-	_ rest.Lister               = &EventsREST{}
-	_ rest.Updater              = &EventsREST{}
-	_ rest.GracefulDeleter      = &EventsREST{}
-	_ rest.Watcher              = &EventsREST{}
-	_ rest.Storage              = &EventsREST{}
-	_ rest.SingularNameProvider = &EventsREST{}
+	_ rest.Scoper               = &EventsV1REST{}
+	_ rest.Creater              = &EventsV1REST{}
+	_ rest.Getter               = &EventsV1REST{}
+	_ rest.Lister               = &EventsV1REST{}
+	_ rest.Updater              = &EventsV1REST{}
+	_ rest.GracefulDeleter      = &EventsV1REST{}
+	_ rest.Watcher              = &EventsV1REST{}
+	_ rest.Storage              = &EventsV1REST{}
+	_ rest.SingularNameProvider = &EventsV1REST{}
 )
 
-// New returns an empty Event object.
-func (r *EventsREST) New() runtime.Object {
-	return &corev1.Event{}
+// New returns an empty eventsv1.Event object.
+func (r *EventsV1REST) New() runtime.Object {
+	return &eventsv1.Event{}
 }
 
 // Destroy cleans up resources.
-func (r *EventsREST) Destroy() {
+func (r *EventsV1REST) Destroy() {
 	// Nothing to destroy
 }
 
 // NamespaceScoped returns true - Events are namespaced resources.
-func (r *EventsREST) NamespaceScoped() bool {
+func (r *EventsV1REST) NamespaceScoped() bool {
 	return true
 }
 
 // GetSingularName returns the singular name of the resource.
-func (r *EventsREST) GetSingularName() string {
+func (r *EventsV1REST) GetSingularName() string {
 	return "event"
 }
 
-// NewList returns an empty EventList.
-func (r *EventsREST) NewList() runtime.Object {
-	return &corev1.EventList{}
+// NewList returns an empty eventsv1.EventList.
+func (r *EventsV1REST) NewList() runtime.Object {
+	return &eventsv1.EventList{}
 }
 
 // Create stores a new event.
-func (r *EventsREST) Create(ctx context.Context, obj runtime.Object, createValidation rest.ValidateObjectFunc, options *metav1.CreateOptions) (runtime.Object, error) {
-	event, ok := obj.(*corev1.Event)
+func (r *EventsV1REST) Create(ctx context.Context, obj runtime.Object, createValidation rest.ValidateObjectFunc, options *metav1.CreateOptions) (runtime.Object, error) {
+	event, ok := obj.(*eventsv1.Event)
 	if !ok {
-		return nil, fmt.Errorf("not an Event: %#v", obj)
+		return nil, fmt.Errorf("not an events.k8s.io/v1 Event: %#v", obj)
 	}
 
 	// Get namespace from context
@@ -101,7 +101,7 @@ func (r *EventsREST) Create(ctx context.Context, obj runtime.Object, createValid
 
 	scope := ExtractScopeFromUser(reqUser)
 
-	klog.V(4).InfoS("Creating event",
+	klog.V(4).InfoS("Creating events.k8s.io/v1 event",
 		"namespace", namespace,
 		"name", event.Name,
 		"scopeType", scope.Type,
@@ -122,27 +122,24 @@ func (r *EventsREST) Create(ctx context.Context, obj runtime.Object, createValid
 		}
 	}
 
-	// Convert corev1.Event to eventsv1.Event for backend storage
-	v1Event := ConvertCoreV1ToEventsV1(event)
-
-	result, err := r.backend.Create(ctx, v1Event, storage.ScopeContext{
+	// Backend now uses eventsv1.Event natively - direct passthrough
+	result, err := r.backend.Create(ctx, event, storage.ScopeContext{
 		Type: scope.Type,
 		Name: scope.Name,
 	})
 	if err != nil {
-		klog.ErrorS(err, "Failed to create event",
+		klog.ErrorS(err, "Failed to create events.k8s.io/v1 event",
 			"namespace", namespace,
 			"name", event.Name,
 		)
 		return nil, r.convertToStatusError(err)
 	}
 
-	// Convert back to corev1.Event for response
-	return ConvertEventsV1ToCoreV1(result), nil
+	return result, nil
 }
 
 // Get retrieves an event by name.
-func (r *EventsREST) Get(ctx context.Context, name string, options *metav1.GetOptions) (runtime.Object, error) {
+func (r *EventsV1REST) Get(ctx context.Context, name string, options *metav1.GetOptions) (runtime.Object, error) {
 	namespace, ok := request.NamespaceFrom(ctx)
 	if !ok || namespace == "" {
 		return nil, errors.NewBadRequest("namespace is required")
@@ -155,6 +152,7 @@ func (r *EventsREST) Get(ctx context.Context, name string, options *metav1.GetOp
 
 	scope := ExtractScopeFromUser(reqUser)
 
+	// Backend now uses eventsv1.Event natively - direct passthrough
 	result, err := r.backend.Get(ctx, namespace, name, storage.ScopeContext{
 		Type: scope.Type,
 		Name: scope.Name,
@@ -163,12 +161,11 @@ func (r *EventsREST) Get(ctx context.Context, name string, options *metav1.GetOp
 		return nil, r.convertToStatusError(err)
 	}
 
-	// Convert eventsv1.Event to corev1.Event for response
-	return ConvertEventsV1ToCoreV1(result), nil
+	return result, nil
 }
 
 // List retrieves events matching the given options.
-func (r *EventsREST) List(ctx context.Context, options *metainternalversion.ListOptions) (runtime.Object, error) {
+func (r *EventsV1REST) List(ctx context.Context, options *metainternalversion.ListOptions) (runtime.Object, error) {
 	namespace, _ := request.NamespaceFrom(ctx)
 
 	reqUser, ok := request.UserFrom(ctx)
@@ -193,13 +190,14 @@ func (r *EventsREST) List(ctx context.Context, options *metainternalversion.List
 		listOpts.ResourceVersion = options.ResourceVersion
 	}
 
-	klog.V(4).InfoS("Listing events",
+	klog.V(4).InfoS("Listing events.k8s.io/v1 events",
 		"namespace", namespace,
 		"fieldSelector", listOpts.FieldSelector,
 		"scopeType", scope.Type,
 		"scopeName", scope.Name,
 	)
 
+	// Backend now uses eventsv1.Event natively - direct passthrough
 	result, err := r.backend.List(ctx, namespace, listOpts, storage.ScopeContext{
 		Type: scope.Type,
 		Name: scope.Name,
@@ -208,12 +206,11 @@ func (r *EventsREST) List(ctx context.Context, options *metainternalversion.List
 		return nil, r.convertToStatusError(err)
 	}
 
-	// Convert eventsv1.EventList to corev1.EventList for response
-	return ConvertEventsV1EventListToCoreV1(result), nil
+	return result, nil
 }
 
 // Update modifies an existing event.
-func (r *EventsREST) Update(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
+func (r *EventsV1REST) Update(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
 	namespace, ok := request.NamespaceFrom(ctx)
 	if !ok || namespace == "" {
 		return nil, false, errors.NewBadRequest("namespace is required")
@@ -230,8 +227,8 @@ func (r *EventsREST) Update(ctx context.Context, name string, objInfo rest.Updat
 		Name: scope.Name,
 	}
 
-	// Get existing event
-	existingV1, err := r.backend.Get(ctx, namespace, name, scopeCtx)
+	// Get existing event (backend now uses eventsv1.Event natively)
+	existing, err := r.backend.Get(ctx, namespace, name, scopeCtx)
 	if err != nil {
 		if errors.IsNotFound(err) && forceAllowCreate {
 			// Create new event
@@ -240,9 +237,9 @@ func (r *EventsREST) Update(ctx context.Context, name string, objInfo rest.Updat
 				return nil, false, err
 			}
 
-			event, ok := updated.(*corev1.Event)
+			event, ok := updated.(*eventsv1.Event)
 			if !ok {
-				return nil, false, fmt.Errorf("not an Event: %#v", updated)
+				return nil, false, fmt.Errorf("not an events.k8s.io/v1 Event: %#v", updated)
 			}
 
 			event.Namespace = namespace
@@ -254,20 +251,15 @@ func (r *EventsREST) Update(ctx context.Context, name string, objInfo rest.Updat
 				}
 			}
 
-			// Convert to eventsv1 for backend
-			v1Event := ConvertCoreV1ToEventsV1(event)
-			result, err := r.backend.Create(ctx, v1Event, scopeCtx)
+			result, err := r.backend.Create(ctx, event, scopeCtx)
 			if err != nil {
 				return nil, false, r.convertToStatusError(err)
 			}
 
-			return ConvertEventsV1ToCoreV1(result), true, nil
+			return result, true, nil
 		}
 		return nil, false, r.convertToStatusError(err)
 	}
-
-	// Convert existing to corev1 for UpdatedObject
-	existing := ConvertEventsV1ToCoreV1(existingV1)
 
 	// Get updated object
 	updated, err := objInfo.UpdatedObject(ctx, existing)
@@ -275,9 +267,9 @@ func (r *EventsREST) Update(ctx context.Context, name string, objInfo rest.Updat
 		return nil, false, err
 	}
 
-	event, ok := updated.(*corev1.Event)
+	event, ok := updated.(*eventsv1.Event)
 	if !ok {
-		return nil, false, fmt.Errorf("not an Event: %#v", updated)
+		return nil, false, fmt.Errorf("not an events.k8s.io/v1 Event: %#v", updated)
 	}
 
 	// Validate update
@@ -287,18 +279,16 @@ func (r *EventsREST) Update(ctx context.Context, name string, objInfo rest.Updat
 		}
 	}
 
-	// Convert to eventsv1 for backend
-	v1Event := ConvertCoreV1ToEventsV1(event)
-	result, err := r.backend.Update(ctx, v1Event, scopeCtx)
+	result, err := r.backend.Update(ctx, event, scopeCtx)
 	if err != nil {
 		return nil, false, r.convertToStatusError(err)
 	}
 
-	return ConvertEventsV1ToCoreV1(result), false, nil
+	return result, false, nil
 }
 
 // Delete removes an event.
-func (r *EventsREST) Delete(ctx context.Context, name string, deleteValidation rest.ValidateObjectFunc, options *metav1.DeleteOptions) (runtime.Object, bool, error) {
+func (r *EventsV1REST) Delete(ctx context.Context, name string, deleteValidation rest.ValidateObjectFunc, options *metav1.DeleteOptions) (runtime.Object, bool, error) {
 	namespace, ok := request.NamespaceFrom(ctx)
 	if !ok || namespace == "" {
 		return nil, false, errors.NewBadRequest("namespace is required")
@@ -315,8 +305,8 @@ func (r *EventsREST) Delete(ctx context.Context, name string, deleteValidation r
 		Name: scope.Name,
 	}
 
-	// Get the event first for validation and return value
-	existingV1, err := r.backend.Get(ctx, namespace, name, scopeCtx)
+	// Get the event first for validation and return value (backend now uses eventsv1.Event natively)
+	existing, err := r.backend.Get(ctx, namespace, name, scopeCtx)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Already deleted
@@ -324,9 +314,6 @@ func (r *EventsREST) Delete(ctx context.Context, name string, deleteValidation r
 		}
 		return nil, false, r.convertToStatusError(err)
 	}
-
-	// Convert to corev1 for validation
-	existing := ConvertEventsV1ToCoreV1(existingV1)
 
 	// Run validation if provided
 	if deleteValidation != nil {
@@ -343,7 +330,7 @@ func (r *EventsREST) Delete(ctx context.Context, name string, deleteValidation r
 }
 
 // Watch returns a watch.Interface that streams event changes.
-func (r *EventsREST) Watch(ctx context.Context, options *metainternalversion.ListOptions) (watch.Interface, error) {
+func (r *EventsV1REST) Watch(ctx context.Context, options *metainternalversion.ListOptions) (watch.Interface, error) {
 	if r.watcher == nil {
 		return nil, errors.NewServiceUnavailable("Watch API is not available. NATS is not configured.")
 	}
@@ -374,16 +361,17 @@ func (r *EventsREST) Watch(ctx context.Context, options *metainternalversion.Lis
 
 	// Parse field selectors for watch filtering
 	if options.FieldSelector != nil && !options.FieldSelector.Empty() {
-		parseFieldSelectorForWatch(options.FieldSelector, &filter)
+		parseFieldSelectorForWatchV1(options.FieldSelector, &filter)
 	}
 
-	klog.V(4).InfoS("Starting events watch",
+	klog.V(4).InfoS("Starting events.k8s.io/v1 watch",
 		"namespace", namespace,
 		"scopeType", scope.Type,
 		"scopeName", scope.Name,
 		"filter", filter,
 	)
 
+	// Backend now uses eventsv1.Event natively - direct passthrough
 	return r.watcher.Watch(ctx, storage.ScopeContext{
 		Type: scope.Type,
 		Name: scope.Name,
@@ -391,12 +379,12 @@ func (r *EventsREST) Watch(ctx context.Context, options *metainternalversion.Lis
 }
 
 // ConvertToTable converts to table format.
-func (r *EventsREST) ConvertToTable(ctx context.Context, object runtime.Object, tableOptions runtime.Object) (*metav1.Table, error) {
-	return rest.NewDefaultTableConvertor(corev1.Resource("events")).ConvertToTable(ctx, object, tableOptions)
+func (r *EventsV1REST) ConvertToTable(ctx context.Context, object runtime.Object, tableOptions runtime.Object) (*metav1.Table, error) {
+	return rest.NewDefaultTableConvertor(eventsv1.Resource("events")).ConvertToTable(ctx, object, tableOptions)
 }
 
 // convertToStatusError converts internal errors to Kubernetes API errors.
-func (r *EventsREST) convertToStatusError(err error) error {
+func (r *EventsV1REST) convertToStatusError(err error) error {
 	// If already a status error, return as-is
 	if errors.IsNotFound(err) || errors.IsBadRequest(err) || errors.IsInternalError(err) {
 		return err
@@ -406,31 +394,49 @@ func (r *EventsREST) convertToStatusError(err error) error {
 	return errors.NewServiceUnavailable("Failed to access events storage. Please try again later.")
 }
 
-// parseFieldSelectorForWatch extracts watch filter parameters from standard field selectors.
-func parseFieldSelectorForWatch(selector fields.Selector, filter *eventwatch.EventsWatchFilter) {
+// parseFieldSelectorForWatchV1 extracts watch filter parameters from standard field selectors.
+// Note: For events.k8s.io/v1, field names use "regarding" instead of "involvedObject"
+func parseFieldSelectorForWatchV1(selector fields.Selector, filter *eventwatch.EventsWatchFilter) {
 	if selector == nil || selector.Empty() {
 		return
 	}
 
-	if value, found := selector.RequiresExactMatch("involvedObject.kind"); found {
+	// Check both regarding (v1) and involvedObject (corev1) field names for compatibility
+	if value, found := selector.RequiresExactMatch("regarding.kind"); found {
+		filter.InvolvedObjectKind = value
+	} else if value, found := selector.RequiresExactMatch("involvedObject.kind"); found {
 		filter.InvolvedObjectKind = value
 	}
-	if value, found := selector.RequiresExactMatch("involvedObject.namespace"); found {
+
+	if value, found := selector.RequiresExactMatch("regarding.namespace"); found {
+		filter.InvolvedObjectNamespace = value
+	} else if value, found := selector.RequiresExactMatch("involvedObject.namespace"); found {
 		filter.InvolvedObjectNamespace = value
 	}
-	if value, found := selector.RequiresExactMatch("involvedObject.name"); found {
+
+	if value, found := selector.RequiresExactMatch("regarding.name"); found {
+		filter.InvolvedObjectName = value
+	} else if value, found := selector.RequiresExactMatch("involvedObject.name"); found {
 		filter.InvolvedObjectName = value
 	}
-	if value, found := selector.RequiresExactMatch("involvedObject.uid"); found {
+
+	if value, found := selector.RequiresExactMatch("regarding.uid"); found {
+		filter.InvolvedObjectUID = value
+	} else if value, found := selector.RequiresExactMatch("involvedObject.uid"); found {
 		filter.InvolvedObjectUID = value
 	}
+
 	if value, found := selector.RequiresExactMatch("reason"); found {
 		filter.Reason = value
 	}
 	if value, found := selector.RequiresExactMatch("type"); found {
 		filter.Type = value
 	}
-	if value, found := selector.RequiresExactMatch("source"); found {
+
+	// Check both reportingController (v1) and source (corev1) for compatibility
+	if value, found := selector.RequiresExactMatch("reportingController"); found {
+		filter.Source = value
+	} else if value, found := selector.RequiresExactMatch("source"); found {
 		filter.Source = value
 	}
 }

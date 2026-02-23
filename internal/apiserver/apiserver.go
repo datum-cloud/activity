@@ -204,9 +204,78 @@ func (c completedConfig) New() (*ActivityServer, error) {
 		return nil, err
 	}
 
+	// Install legacy core/v1 API group for Kubernetes Events
+	// This enables proxying Events from Milo without GVK transformation
+	// Serves Events at: /api/v1/namespaces/{namespace}/events
+	if err := s.installLegacyCoreAPIGroup(eventsBackend); err != nil {
+		return nil, fmt.Errorf("failed to install legacy core API group: %w", err)
+	}
+
+	// Install events.k8s.io API group for newer Events API
+	// This enables serving Events under the newer events.k8s.io/v1 API group
+	// Serves Events at: /apis/events.k8s.io/v1/namespaces/{namespace}/events
+	if err := s.installEventsAPIGroup(eventsBackend); err != nil {
+		return nil, fmt.Errorf("failed to install events.k8s.io API group: %w", err)
+	}
+
 	klog.Info("Activity server initialized successfully")
 
 	return s, nil
+}
+
+// installLegacyCoreAPIGroup installs the legacy core/v1 API group for Events.
+// This allows serving Events under /api/v1/namespaces/{ns}/events (in addition to activity.miloapis.com).
+func (s *ActivityServer) installLegacyCoreAPIGroup(eventsBackend *storage.ClickHouseEventsBackend) error {
+	// Create API group info for core/v1 (legacy API)
+	// The core API group has an empty string for the group name
+	coreAPIGroupInfo := genericapiserver.NewDefaultAPIGroupInfo("", Scheme, metav1.ParameterCodec, Codecs)
+
+	// Create storage map for v1 resources
+	v1Storage := map[string]rest.Storage{}
+
+	// Reuse the same events storage backend - it will serve Events under both API groups
+	if s.eventsWatcher != nil {
+		v1Storage["events"] = events.NewEventsRESTWithWatcher(eventsBackend, s.eventsWatcher)
+	} else {
+		v1Storage["events"] = events.NewEventsREST(eventsBackend)
+	}
+
+	coreAPIGroupInfo.VersionedResourcesStorageMap["v1"] = v1Storage
+
+	// Install legacy API group (uses InstallLegacyAPIGroup for core API)
+	if err := s.GenericAPIServer.InstallLegacyAPIGroup("", &coreAPIGroupInfo); err != nil {
+		return err
+	}
+
+	klog.Info("Installed legacy core/v1 API group for Events")
+	return nil
+}
+
+// installEventsAPIGroup installs the events.k8s.io API group for the newer Events API.
+// This allows serving Events under /apis/events.k8s.io/v1/namespaces/{ns}/events.
+func (s *ActivityServer) installEventsAPIGroup(eventsBackend *storage.ClickHouseEventsBackend) error {
+	// Create API group info for events.k8s.io
+	eventsAPIGroupInfo := genericapiserver.NewDefaultAPIGroupInfo("events.k8s.io", Scheme, metav1.ParameterCodec, Codecs)
+
+	// Create storage map for v1 resources
+	v1Storage := map[string]rest.Storage{}
+
+	// Use the eventsv1 storage adapter which converts between eventsv1.Event and corev1.Event
+	if s.eventsWatcher != nil {
+		v1Storage["events"] = events.NewEventsV1RESTWithWatcher(eventsBackend, s.eventsWatcher)
+	} else {
+		v1Storage["events"] = events.NewEventsV1REST(eventsBackend)
+	}
+
+	eventsAPIGroupInfo.VersionedResourcesStorageMap["v1"] = v1Storage
+
+	// Install the API group (use InstallAPIGroup for named API groups)
+	if err := s.GenericAPIServer.InstallAPIGroup(&eventsAPIGroupInfo); err != nil {
+		return err
+	}
+
+	klog.Info("Installed events.k8s.io/v1 API group for Events")
+	return nil
 }
 
 // Run starts the server and ensures storage cleanup on shutdown.
