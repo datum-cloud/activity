@@ -3,7 +3,6 @@ package v1alpha1
 import (
 	"fmt"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -42,30 +41,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&EventQuery{},
 		&EventQueryList{},
 		&PolicyPreview{},
-		// Kubernetes Events (core/v1.Event) - stored in ClickHouse for multi-tenant access
-		&corev1.Event{},
-		&corev1.EventList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
-
-	// Register field label conversions for Events
-	// This enables field selectors like type=Warning, reason=FailedMount, etc.
-	// We need to register the conversion for both:
-	// 1. core/v1 Event (for internal serialization)
-	// 2. activity.miloapis.com/v1alpha1 Event (for API server field selector validation)
-	coreV1GVK := schema.GroupVersion{Group: "", Version: "v1"}.WithKind("Event")
-	if err := scheme.AddFieldLabelConversionFunc(coreV1GVK,
-		EventFieldLabelConversionFunc); err != nil {
-		return err
-	}
-
-	// Register for activity API group - this is the GVK used when serving Events
-	// through the activity.miloapis.com/v1alpha1 API
-	activityEventGVK := SchemeGroupVersion.WithKind("Event")
-	if err := scheme.AddFieldLabelConversionFunc(activityEventGVK,
-		EventFieldLabelConversionFunc); err != nil {
-		return err
-	}
 
 	// Register field label conversions for Activity
 	// This enables field selectors like spec.changeSource=human, spec.resource.kind=HTTPProxy, etc.

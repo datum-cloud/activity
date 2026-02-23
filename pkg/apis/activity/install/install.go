@@ -38,4 +38,15 @@ func Install(scheme *runtime.Scheme) {
 	// Add meta types (WatchEvent, etc.) to the events.k8s.io/v1 group
 	// Required for watch operations to work
 	metav1.AddToGroupVersion(scheme, eventsV1GroupVersion)
+
+	// Register field label conversions for Events
+	// This enables field selectors like type=Warning, reason=FailedMount, etc.
+	utilruntime.Must(scheme.AddFieldLabelConversionFunc(
+		coreV1GroupVersion.WithKind("Event"),
+		v1alpha1.EventFieldLabelConversionFunc,
+	))
+	utilruntime.Must(scheme.AddFieldLabelConversionFunc(
+		eventsV1GroupVersion.WithKind("Event"),
+		v1alpha1.EventFieldLabelConversionFunc,
+	))
 }
