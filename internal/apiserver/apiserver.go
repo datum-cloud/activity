@@ -243,7 +243,8 @@ func (s *ActivityServer) installLegacyCoreAPIGroup(eventsBackend *storage.ClickH
 	coreAPIGroupInfo.VersionedResourcesStorageMap["v1"] = v1Storage
 
 	// Install legacy API group (uses InstallLegacyAPIGroup for core API)
-	if err := s.GenericAPIServer.InstallLegacyAPIGroup("", &coreAPIGroupInfo); err != nil {
+	// The prefix must be "/api" for the legacy core API group
+	if err := s.GenericAPIServer.InstallLegacyAPIGroup("/api", &coreAPIGroupInfo); err != nil {
 		return err
 	}
 
