@@ -1,0 +1,14 @@
+apiVersion: iam.miloapis.com/v1alpha1
+kind: Role
+metadata:
+  name: activity.miloapis.com-viewer
+  namespace: milo-system
+spec:
+  launchStage: Beta
+  inheritedRoles:
+    - name: activity.miloapis.com-activity-viewer
+      namespace: milo-system
+    - name: activity.miloapis.com-event-viewer
+      namespace: milo-system
+    - name: activity.miloapis.com-audit-log-querier
+      namespace: milo-system

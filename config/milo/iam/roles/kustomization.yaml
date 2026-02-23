@@ -5,3 +5,4 @@ resources:
   - audit-log-querier.yaml
   - activity-viewer.yaml
   - event-viewer.yaml
+  - viewer.yaml
