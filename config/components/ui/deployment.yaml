@@ -42,6 +42,11 @@ spec:
             # Use the control plane CA for TLS verification (matches apiserver's serving cert)
             - name: ACTIVITY_API_CA_FILE
               value: "/etc/activity-apiserver-ca/ca.crt"
+            # Client certificate for mTLS authentication to activity-apiserver
+            - name: ACTIVITY_API_CERT_FILE
+              value: "/etc/activity-client-cert/tls.crt"
+            - name: ACTIVITY_API_KEY_FILE
+              value: "/etc/activity-client-cert/tls.key"
           ports:
             - containerPort: 3000
               name: http
@@ -71,9 +76,25 @@ spec:
             - name: activity-apiserver-ca
               mountPath: /etc/activity-apiserver-ca
               readOnly: true
+            - name: activity-client-cert
+              mountPath: /etc/activity-client-cert
+              readOnly: true
       volumes:
         - name: tmp
           emptyDir: {}
         - name: activity-apiserver-ca
           configMap:
             name: datum-control-plane-trust-bundle
+        - name: activity-client-cert
+          csi:
+            driver: csi.cert-manager.io
+            readOnly: true
+            volumeAttributes:
+              csi.cert-manager.io/issuer-kind: ClusterIssuer
+              csi.cert-manager.io/issuer-name: datum-control-plane
+              csi.cert-manager.io/common-name: activity-ui
+              csi.cert-manager.io/organizations: "system:masters"
+              csi.cert-manager.io/key-usages: "client auth"
+              csi.cert-manager.io/duration: "8760h"
+              csi.cert-manager.io/renew-before: "720h"
+              csi.cert-manager.io/fs-group: "1000"

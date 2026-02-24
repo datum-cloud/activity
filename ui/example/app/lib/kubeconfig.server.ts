@@ -33,6 +33,9 @@ export function getKubeConfig(): KubeConfig {
     console.log("✅ Using API server from environment:", envApiServerUrl);
 
     let caCert: Buffer | undefined;
+    let clientCert: Buffer | undefined;
+    let clientKey: Buffer | undefined;
+
     const caFile = process.env.ACTIVITY_API_CA_FILE;
     if (caFile) {
       try {
@@ -43,10 +46,23 @@ export function getKubeConfig(): KubeConfig {
       }
     }
 
+    // Load client certificate for mTLS authentication
+    const certFile = process.env.ACTIVITY_API_CERT_FILE;
+    const keyFile = process.env.ACTIVITY_API_KEY_FILE;
+    if (certFile && keyFile) {
+      try {
+        clientCert = readFileSync(certFile);
+        clientKey = readFileSync(keyFile);
+        console.log("✅ Loaded client certificate from:", certFile);
+      } catch (e) {
+        console.warn("⚠️  Could not read client certificate:", e);
+      }
+    }
+
     cachedConfig = {
       apiServerUrl: envApiServerUrl,
-      clientCert: undefined,
-      clientKey: undefined,
+      clientCert,
+      clientKey,
       caCert,
     };
     return cachedConfig;
