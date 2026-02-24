@@ -16,8 +16,16 @@ rules:
     resources: ["activities", "activitypolicies", "events", "facets", "previews", "policypreviews", "activityfacetqueries"]
     verbs: ["get", "list", "watch", "create", "update", "delete"]
   - apiGroups: ["activity.miloapis.com"]
-    resources: ["auditlogqueries", "auditlogfacetsqueries", "activitylogqueries"]
+    resources: ["auditlogqueries", "auditlogfacetsqueries", "activitylogqueries", "eventqueries", "eventfacetqueries"]
     verbs: ["create"]
+  # Access to events.k8s.io API (served by activity-apiserver)
+  - apiGroups: ["events.k8s.io"]
+    resources: ["events"]
+    verbs: ["get", "list", "watch"]
+  # Access to core/v1 events API (served by activity-apiserver)
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["get", "list", "watch"]
 ---
 # Bind the ClusterRole to the UI ServiceAccount
 apiVersion: rbac.authorization.k8s.io/v1
