@@ -39,9 +39,9 @@ spec:
             # URL to the activity-apiserver for proxying API requests
             - name: ACTIVITY_API_SERVER_URL
               value: "https://activity-apiserver.activity-system.svc:443"
-            # Use the service account CA for TLS verification
+            # Use the control plane CA for TLS verification (matches apiserver's serving cert)
             - name: ACTIVITY_API_CA_FILE
-              value: "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+              value: "/etc/activity-apiserver-ca/ca.crt"
           ports:
             - containerPort: 3000
               name: http
@@ -68,6 +68,12 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+            - name: activity-apiserver-ca
+              mountPath: /etc/activity-apiserver-ca
+              readOnly: true
       volumes:
         - name: tmp
           emptyDir: {}
+        - name: activity-apiserver-ca
+          configMap:
+            name: datum-control-plane-trust-bundle
