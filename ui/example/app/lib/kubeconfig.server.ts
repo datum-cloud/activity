@@ -12,14 +12,47 @@ interface KubeConfig {
 let cachedConfig: KubeConfig | null = null;
 
 /**
- * Reads kubeconfig from .test-infra/kubeconfig and extracts API server URL and certificates.
+ * Reads API server configuration from environment variables or kubeconfig.
  * This is a server-only utility (the .server.ts suffix ensures it's never bundled for the client).
+ *
+ * Environment variables (take precedence):
+ * - ACTIVITY_API_SERVER_URL: URL to the activity-apiserver (e.g., https://activity-apiserver.activity-system.svc:443)
+ * - ACTIVITY_API_CA_FILE: Path to CA certificate file for TLS verification
+ * - ACTIVITY_API_SKIP_TLS_VERIFY: Set to "true" to skip TLS verification (not recommended for production)
+ *
+ * Fallback: Reads from kubeconfig at .test-infra/kubeconfig (for local development)
  */
 export function getKubeConfig(): KubeConfig {
   if (cachedConfig) {
     return cachedConfig;
   }
 
+  // Check for environment variable configuration first (production mode)
+  const envApiServerUrl = process.env.ACTIVITY_API_SERVER_URL;
+  if (envApiServerUrl) {
+    console.log("✅ Using API server from environment:", envApiServerUrl);
+
+    let caCert: Buffer | undefined;
+    const caFile = process.env.ACTIVITY_API_CA_FILE;
+    if (caFile) {
+      try {
+        caCert = readFileSync(caFile);
+        console.log("✅ Loaded CA certificate from:", caFile);
+      } catch (e) {
+        console.warn("⚠️  Could not read CA certificate:", e);
+      }
+    }
+
+    cachedConfig = {
+      apiServerUrl: envApiServerUrl,
+      clientCert: undefined,
+      clientKey: undefined,
+      caCert,
+    };
+    return cachedConfig;
+  }
+
+  // Fallback to kubeconfig (local development)
   let apiServerUrl = "https://127.0.0.1:6443";
   let clientCert: Buffer | undefined;
   let clientKey: Buffer | undefined;
@@ -57,7 +90,7 @@ export function getKubeConfig(): KubeConfig {
     console.log("✅ Loaded kubeconfig from:", kubeconfigPath);
     console.log("✅ Using Kubernetes API server:", apiServerUrl);
   } catch (e) {
-    console.warn("⚠️  Could not read kubeconfig:", e);
+    console.warn("⚠️  Could not read kubeconfig, using default:", apiServerUrl);
   }
 
   cachedConfig = { apiServerUrl, clientCert, clientKey, caCert };

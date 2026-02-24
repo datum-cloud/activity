@@ -35,6 +35,13 @@ spec:
             capabilities:
               drop:
                 - ALL
+          env:
+            # URL to the activity-apiserver for proxying API requests
+            - name: ACTIVITY_API_SERVER_URL
+              value: "https://activity-apiserver.activity-system.svc:443"
+            # Use the service account CA for TLS verification
+            - name: ACTIVITY_API_CA_FILE
+              value: "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
           ports:
             - containerPort: 3000
               name: http
