@@ -13,7 +13,12 @@ rules:
     - activityqueries
     - activityfacetqueries
   verbs: ["get", "list", "create"]
-
+- apiGroups: ["activity.miloapis.com"]
+  resources: ["activities", "activitypolicies", "events", "facets", "previews", "policypreviews", "activityfacetqueries"]
+  verbs: ["get", "list", "watch", "create", "update", "delete"]
+- apiGroups: ["activity.miloapis.com"]
+  resources: ["auditlogqueries", "auditlogfacetsqueries", "activitylogqueries"]
+  verbs: ["create"]
 # Allow anonymous users to query audit logs
 - apiGroups: ["activity.miloapis.com"]
   resources:
@@ -21,12 +26,24 @@ rules:
     - auditlogfacetsqueries
   verbs: ["get", "list", "create"]
 
-# Allow anonymous users to query events
+# Allow anonymous users to query events via activity API
 - apiGroups: ["activity.miloapis.com"]
   resources:
     - eventqueries
     - eventfacetqueries
   verbs: ["get", "list", "create"]
+
+# Allow anonymous users to access events.k8s.io API (served by activity-apiserver)
+- apiGroups: ["events.k8s.io"]
+  resources:
+    - events
+  verbs: ["get", "list", "watch"]
+
+# Allow anonymous users to access core/v1 events API (served by activity-apiserver)
+- apiGroups: [""]
+  resources:
+    - events
+  verbs: ["get", "list", "watch"]
 
 # Allow anonymous users to preview activity policies (read-only)
 - apiGroups: ["activity.miloapis.com"]
