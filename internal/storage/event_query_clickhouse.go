@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
-	corev1 "k8s.io/api/core/v1"
+	eventsv1 "k8s.io/api/events/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
 
@@ -39,7 +39,7 @@ type EventQueryBackend interface {
 
 // EventQueryResult contains events and pagination state from an EventQuery.
 type EventQueryResult struct {
-	Events   []corev1.Event
+	Events   []eventsv1.Event
 	Continue string
 }
 
@@ -97,7 +97,7 @@ func (b *ClickHouseEventQueryBackend) QueryEvents(ctx context.Context, spec v1al
 
 	limit := resolveEventQueryLimit(spec.Limit)
 
-	var events []corev1.Event
+	var events []eventsv1.Event
 	for rows.Next() {
 		var eventJSON string
 		if err := rows.Scan(&eventJSON); err != nil {
@@ -105,7 +105,7 @@ func (b *ClickHouseEventQueryBackend) QueryEvents(ctx context.Context, spec v1al
 			return nil, fmt.Errorf("unable to retrieve events. Try again or contact support if the problem persists")
 		}
 
-		var event corev1.Event
+		var event eventsv1.Event
 		if err := json.Unmarshal([]byte(eventJSON), &event); err != nil {
 			klog.ErrorS(err, "Failed to unmarshal event in EventQuery, skipping")
 			continue
@@ -281,7 +281,7 @@ func hashEventQueryParams(spec v1alpha1.EventQuerySpec) string {
 
 // encodeEventQueryCursor creates a base64-encoded pagination token.
 // The offset is computed from the position of the last event returned.
-func encodeEventQueryCursor(lastEvent corev1.Event, spec v1alpha1.EventQuerySpec) string {
+func encodeEventQueryCursor(lastEvent eventsv1.Event, spec v1alpha1.EventQuerySpec) string {
 	// Determine the current page's starting offset from the Continue token, if any
 	currentOffset := int32(0)
 	if spec.Continue != "" {

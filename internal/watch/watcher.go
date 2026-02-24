@@ -235,7 +235,8 @@ func (w *NATSWatcher) Watch(ctx context.Context, scope storage.ScopeContext, fil
 	// Add consumer to stream
 	_, err := w.js.AddConsumer(w.streamName, consumerConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create JetStream consumer: %w", err)
+		klog.ErrorS(err, "Failed to create NATS consumer for watch", "stream", w.streamName, "consumer", consumerName)
+		return nil, fmt.Errorf("watch service temporarily unavailable, please try again later")
 	}
 
 	// Subscribe to the consumer's delivery subject
@@ -243,7 +244,8 @@ func (w *NATSWatcher) Watch(ctx context.Context, scope storage.ScopeContext, fil
 	if err != nil {
 		// Clean up consumer on failure
 		w.js.DeleteConsumer(w.streamName, consumerName)
-		return nil, fmt.Errorf("failed to subscribe to consumer inbox: %w", err)
+		klog.ErrorS(err, "Failed to subscribe to NATS consumer for watch", "consumer", consumerName)
+		return nil, fmt.Errorf("watch service temporarily unavailable, please try again later")
 	}
 
 	watchCtx, cancel := context.WithCancel(ctx)

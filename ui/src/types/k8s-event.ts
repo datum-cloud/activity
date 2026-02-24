@@ -12,7 +12,7 @@ import type { FacetSpec, FacetResult } from './activity';
 export type K8sEventType = 'Normal' | 'Warning';
 
 /**
- * Object reference for the involved object
+ * Object reference for the regarding/related object
  */
 export interface ObjectReference {
   apiVersion?: string;
@@ -25,46 +25,62 @@ export interface ObjectReference {
 }
 
 /**
- * Event source information
+ * Event series information (for aggregated events)
  */
-export interface EventSource {
-  component?: string;
-  host?: string;
+export interface EventSeries {
+  /** Number of occurrences in this series */
+  count?: number;
+  /** Time of the last occurrence observed */
+  lastObservedTime?: string;
 }
 
 /**
- * Kubernetes Event (core/v1.Event)
+ * Kubernetes Event (events.k8s.io/v1)
+ * This is the newer events API that replaces core/v1.Event
  */
 export interface K8sEvent {
-  apiVersion: 'v1';
+  apiVersion: 'events.k8s.io/v1';
   kind: 'Event';
   metadata: ObjectMeta;
-  /** Object this event is about */
-  involvedObject: ObjectReference;
+  /** Object this event is about (was involvedObject in core/v1) */
+  regarding: ObjectReference;
+  /** Optional secondary object for more complex actions */
+  related?: ObjectReference;
   /** Short, machine-understandable string that gives the reason for the event */
   reason?: string;
-  /** Human-readable description of the event */
-  message?: string;
+  /** Human-readable description of the event (was message in core/v1) */
+  note?: string;
   /** Type of this event (Normal, Warning) */
   type?: K8sEventType;
-  /** Component reporting this event */
-  source?: EventSource;
-  /** Number of times this event has occurred */
-  count?: number;
-  /** Time when this event was first recorded */
-  firstTimestamp?: string;
-  /** Time when this event was last recorded */
-  lastTimestamp?: string;
-  /** Time when this event was first observed */
+  /** Time when this Event was first observed (replaces firstTimestamp) */
   eventTime?: string;
   /** What action was taken/failed regarding the object */
   action?: string;
-  /** Optional secondary object for more complex actions */
-  related?: ObjectReference;
-  /** Name of the controller that emitted this event */
-  reportingComponent?: string;
-  /** ID of the controller instance */
+  /** Name of the controller that emitted this event (was source.component in core/v1) */
+  reportingController?: string;
+  /** ID of the controller instance (was source.host in core/v1) */
   reportingInstance?: string;
+  /** Data about the Event series this event represents (was count/firstTimestamp/lastTimestamp) */
+  series?: EventSeries;
+
+  // Deprecated fields from core/v1.Event (for backward compatibility during migration)
+  /** @deprecated Use regarding instead */
+  involvedObject?: ObjectReference;
+  /** @deprecated Use note instead */
+  message?: string;
+  /** @deprecated Use reportingController instead */
+  source?: {
+    component?: string;
+    host?: string;
+  };
+  /** @deprecated Use series.count instead */
+  count?: number;
+  /** @deprecated Use eventTime instead */
+  firstTimestamp?: string;
+  /** @deprecated Use series.lastObservedTime instead */
+  lastTimestamp?: string;
+  /** @deprecated Use reportingController instead */
+  reportingComponent?: string;
 }
 
 /**
@@ -144,32 +160,32 @@ export interface EventFilterField {
 
 /**
  * Available filter fields for Kubernetes Events
- * These map to field selectors supported by the API
+ * These map to field selectors supported by the API (events.k8s.io/v1)
  */
 export const EVENT_FILTER_FIELDS: EventFilterField[] = [
   {
-    name: 'involvedObject.kind',
+    name: 'regarding.kind',
     type: 'string',
-    description: 'Kind of the involved object',
+    description: 'Kind of the object this event is about',
     examples: [
-      'involvedObject.kind=Pod',
-      'involvedObject.kind=Deployment',
+      'regarding.kind=Pod',
+      'regarding.kind=Deployment',
     ],
   },
   {
-    name: 'involvedObject.name',
+    name: 'regarding.name',
     type: 'string',
-    description: 'Name of the involved object',
+    description: 'Name of the object this event is about',
     examples: [
-      'involvedObject.name=my-pod',
+      'regarding.name=my-pod',
     ],
   },
   {
-    name: 'involvedObject.namespace',
+    name: 'regarding.namespace',
     type: 'string',
-    description: 'Namespace of the involved object',
+    description: 'Namespace of the object this event is about',
     examples: [
-      'involvedObject.namespace=default',
+      'regarding.namespace=default',
     ],
   },
   {
@@ -194,12 +210,12 @@ export const EVENT_FILTER_FIELDS: EventFilterField[] = [
     ],
   },
   {
-    name: 'source.component',
+    name: 'reportingController',
     type: 'string',
-    description: 'Source component that generated the event',
+    description: 'Controller that generated the event',
     examples: [
-      'source.component=kubelet',
-      'source.component=default-scheduler',
+      'reportingController=kubelet',
+      'reportingController=k8s.io/kube-scheduler',
     ],
   },
   {
@@ -214,14 +230,14 @@ export const EVENT_FILTER_FIELDS: EventFilterField[] = [
 
 /**
  * Event facet fields available for querying
- * These are the fields supported by EventFacetQuery
+ * These are the fields supported by EventFacetQuery (events.k8s.io/v1)
  */
 export const EVENT_FACET_FIELDS = [
-  'involvedObject.kind',
-  'involvedObject.namespace',
+  'regarding.kind',
+  'regarding.namespace',
   'reason',
   'type',
-  'source.component',
+  'reportingController',
   'namespace',
 ] as const;
 

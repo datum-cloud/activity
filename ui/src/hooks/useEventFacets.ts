@@ -65,18 +65,18 @@ export function useEventFacets(
           end: timeRange.end,
         },
         facets: [
-          { field: 'involvedObject.kind', limit: 50 },
+          { field: 'regarding.kind', limit: 50 },
           { field: 'reason', limit: 50 },
           { field: 'type', limit: 5 },
-          { field: 'source.component', limit: 50 },
-          { field: 'involvedObject.namespace', limit: 50 },
+          { field: 'reportingController', limit: 50 },
+          { field: 'regarding.namespace', limit: 50 },
         ],
       });
 
       const facets = result.status?.facets || [];
 
-      // Extract involved object kinds
-      const kindFacet = facets.find((f) => f.field === 'involvedObject.kind');
+      // Extract regarding object kinds (using eventsv1 field name)
+      const kindFacet = facets.find((f) => f.field === 'regarding.kind');
       setInvolvedKinds(kindFacet?.values || []);
 
       // Extract reasons
@@ -87,12 +87,12 @@ export function useEventFacets(
       const typeFacet = facets.find((f) => f.field === 'type');
       setEventTypes(typeFacet?.values || []);
 
-      // Extract source components
-      const componentFacet = facets.find((f) => f.field === 'source.component');
+      // Extract reporting controllers (using eventsv1 field name)
+      const componentFacet = facets.find((f) => f.field === 'reportingController');
       setSourceComponents(componentFacet?.values || []);
 
-      // Extract namespaces
-      const namespaceFacet = facets.find((f) => f.field === 'involvedObject.namespace');
+      // Extract namespaces (using eventsv1 field name)
+      const namespaceFacet = facets.find((f) => f.field === 'regarding.namespace');
       setNamespaces(namespaceFacet?.values || []);
 
       lastFetchedRef.current = cacheKey;

@@ -50,16 +50,16 @@ const EVENT_CEL_HELP = {
   variables: [
     { name: 'event.type', description: 'Event type: "Normal" or "Warning"' },
     { name: 'event.reason', description: 'Short reason (e.g., "Created", "Ready", "Failed")' },
-    { name: 'event.message', description: 'Human-readable message' },
-    { name: 'event.involvedObject.name', description: 'Name of the involved resource' },
-    { name: 'event.involvedObject.namespace', description: 'Namespace of the involved resource' },
-    { name: 'event.source.component', description: 'Component that generated the event' },
+    { name: 'event.note', description: 'Human-readable description of the event' },
+    { name: 'event.regarding.name', description: 'Name of the regarding resource' },
+    { name: 'event.regarding.namespace', description: 'Namespace of the regarding resource' },
+    { name: 'event.reportingController', description: 'Controller that emitted the event' },
   ],
   examples: [
     'event.reason == "Ready"',
     'event.type == "Warning"',
     'event.reason in ["Created", "Updated", "Deleted"]',
-    'event.message.contains("failed")',
+    'event.note.contains("failed")',
   ],
 };
 
@@ -79,7 +79,7 @@ const SUMMARY_HELP = {
     '{{ actor.name }} created {{ kindLabel }} {{ resource.name }}',
     '{{ actor.name }} updated the status of {{ kindLabel }} {{ resource.name }}',
     '{{ kindLabel }} {{ resource.name }} is now ready',
-    '{{ kindLabel }} {{ resource.name }} failed: {{ event.message }}',
+    '{{ kindLabel }} {{ resource.name }} failed: {{ event.note }}',
   ],
 };
 

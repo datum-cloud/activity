@@ -231,7 +231,7 @@ export type {
   K8sEventListParams,
   K8sEventType,
   ObjectReference as K8sObjectReference,
-  EventSource,
+  EventSeries,
   EventFacetQuery,
   EventFacetQuerySpec,
   EventFacetQueryStatus,

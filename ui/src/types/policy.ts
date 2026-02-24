@@ -118,15 +118,27 @@ export type PolicyPreviewInputType = 'audit' | 'event';
 /**
  * Kubernetes Event for policy preview
  * Simplified version focused on fields used in policy matching
+ * Supports both eventsv1 (new) and corev1 (deprecated) field names
  */
 export interface KubernetesEvent {
   /** Event type: "Normal" or "Warning" */
   type?: string;
   /** Short reason for the event (e.g., "Created", "Ready", "Failed") */
   reason?: string;
-  /** Human-readable description */
+  /** Human-readable description (eventsv1 field name) */
+  note?: string;
+  /** @deprecated Use note instead (corev1 field name) */
   message?: string;
-  /** Object this event is about */
+  /** Object this event is about (eventsv1 field name) */
+  regarding?: {
+    apiVersion?: string;
+    kind?: string;
+    name?: string;
+    namespace?: string;
+    uid?: string;
+    resourceVersion?: string;
+  };
+  /** @deprecated Use regarding instead (corev1 field name) */
   involvedObject?: {
     apiVersion?: string;
     kind?: string;
@@ -135,16 +147,27 @@ export interface KubernetesEvent {
     uid?: string;
     resourceVersion?: string;
   };
-  /** Event source information */
+  /** Controller that emitted this event (eventsv1 field name) */
+  reportingController?: string;
+  /** ID of the controller instance (eventsv1 field name) */
+  reportingInstance?: string;
+  /** @deprecated Use reportingController instead (corev1 field name) */
   source?: {
     component?: string;
     host?: string;
   };
-  /** First time the event occurred */
+  /** Time when this event was first observed (eventsv1 field name) */
+  eventTime?: string;
+  /** Event series data (eventsv1 field name) */
+  series?: {
+    count?: number;
+    lastObservedTime?: string;
+  };
+  /** @deprecated Use eventTime instead (corev1 field name) */
   firstTimestamp?: string;
-  /** Last time the event occurred */
+  /** @deprecated Use series.lastObservedTime instead (corev1 field name) */
   lastTimestamp?: string;
-  /** Number of times this event occurred */
+  /** @deprecated Use series.count instead (corev1 field name) */
   count?: number;
   /** Metadata about the event */
   metadata?: ObjectMeta;

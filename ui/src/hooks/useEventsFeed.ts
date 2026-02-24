@@ -105,40 +105,40 @@ function buildFieldSelector(filters: EventsFeedFilters): string | undefined {
     selectors.push(`type=${filters.eventType}`);
   }
 
-  // Involved object API group filter (multi-select)
+  // Regarding object API group filter (multi-select) - using eventsv1 field name
   if (filters.involvedApiGroups && filters.involvedApiGroups.length > 0) {
     if (filters.involvedApiGroups.length === 1) {
-      selectors.push(`involvedObject.apiVersion=${filters.involvedApiGroups[0]}`);
+      selectors.push(`regarding.apiVersion=${filters.involvedApiGroups[0]}`);
     } else {
       // Kubernetes field selectors don't support OR, so we'll handle this client-side
       // Just use the first one for server-side filtering
-      selectors.push(`involvedObject.apiVersion=${filters.involvedApiGroups[0]}`);
+      selectors.push(`regarding.apiVersion=${filters.involvedApiGroups[0]}`);
     }
   }
 
-  // Involved object kind filter (multi-select)
+  // Regarding object kind filter (multi-select) - using eventsv1 field name
   if (filters.involvedKinds && filters.involvedKinds.length > 0) {
     if (filters.involvedKinds.length === 1) {
-      selectors.push(`involvedObject.kind=${filters.involvedKinds[0]}`);
+      selectors.push(`regarding.kind=${filters.involvedKinds[0]}`);
     } else {
       // Kubernetes field selectors don't support OR, so we'll handle this client-side
       // Just use the first one for server-side filtering
-      selectors.push(`involvedObject.kind=${filters.involvedKinds[0]}`);
+      selectors.push(`regarding.kind=${filters.involvedKinds[0]}`);
     }
   }
 
-  // Involved object name filter
+  // Regarding object name filter - using eventsv1 field name
   if (filters.involvedName) {
-    selectors.push(`involvedObject.name=${filters.involvedName}`);
+    selectors.push(`regarding.name=${filters.involvedName}`);
   }
 
-  // Namespace filter (multi-select)
+  // Namespace filter (multi-select) - using eventsv1 field name
   if (filters.namespaces && filters.namespaces.length > 0) {
     if (filters.namespaces.length === 1) {
-      selectors.push(`involvedObject.namespace=${filters.namespaces[0]}`);
+      selectors.push(`regarding.namespace=${filters.namespaces[0]}`);
     } else {
       // Use first namespace for server-side filter
-      selectors.push(`involvedObject.namespace=${filters.namespaces[0]}`);
+      selectors.push(`regarding.namespace=${filters.namespaces[0]}`);
     }
   }
 
@@ -152,13 +152,13 @@ function buildFieldSelector(filters: EventsFeedFilters): string | undefined {
     }
   }
 
-  // Source component filter (multi-select)
+  // Reporting controller filter (multi-select) - using eventsv1 field name
   if (filters.sourceComponents && filters.sourceComponents.length > 0) {
     if (filters.sourceComponents.length === 1) {
-      selectors.push(`source.component=${filters.sourceComponents[0]}`);
+      selectors.push(`reportingController=${filters.sourceComponents[0]}`);
     } else {
       // Use first component for server-side filter
-      selectors.push(`source.component=${filters.sourceComponents[0]}`);
+      selectors.push(`reportingController=${filters.sourceComponents[0]}`);
     }
   }
 
@@ -169,23 +169,26 @@ function buildFieldSelector(filters: EventsFeedFilters): string | undefined {
  * Client-side filtering for multi-value filters that can't be expressed in field selectors
  */
 function matchesClientFilters(event: K8sEvent, filters: EventsFeedFilters): boolean {
+  // Get regarding object (handles both new and deprecated field names)
+  const regarding = event.regarding || event.involvedObject;
+
   // Check involved API groups (multi-select)
   if (filters.involvedApiGroups && filters.involvedApiGroups.length > 1) {
-    if (!filters.involvedApiGroups.includes(event.involvedObject.apiVersion || '')) {
+    if (!filters.involvedApiGroups.includes(regarding?.apiVersion || '')) {
       return false;
     }
   }
 
   // Check involved kinds (multi-select)
   if (filters.involvedKinds && filters.involvedKinds.length > 1) {
-    if (!filters.involvedKinds.includes(event.involvedObject.kind || '')) {
+    if (!filters.involvedKinds.includes(regarding?.kind || '')) {
       return false;
     }
   }
 
   // Check namespaces (multi-select)
   if (filters.namespaces && filters.namespaces.length > 1) {
-    if (!filters.namespaces.includes(event.involvedObject.namespace || '')) {
+    if (!filters.namespaces.includes(regarding?.namespace || '')) {
       return false;
     }
   }
@@ -197,9 +200,10 @@ function matchesClientFilters(event: K8sEvent, filters: EventsFeedFilters): bool
     }
   }
 
-  // Check source components (multi-select)
+  // Check source components (multi-select) - check both new and deprecated field names
   if (filters.sourceComponents && filters.sourceComponents.length > 1) {
-    if (!filters.sourceComponents.includes(event.source?.component || '')) {
+    const reportingController = event.reportingController || event.source?.component;
+    if (!filters.sourceComponents.includes(reportingController || '')) {
       return false;
     }
   }

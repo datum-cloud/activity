@@ -183,11 +183,12 @@ func (c completedConfig) New() (*ActivityServer, error) {
 		}
 	}
 
-	if s.eventsWatcher != nil {
-		v1alpha1Storage["events"] = events.NewEventsRESTWithWatcher(eventsBackend, s.eventsWatcher)
-	} else {
-		v1alpha1Storage["events"] = events.NewEventsREST(eventsBackend)
-	}
+	// Note: Events are NOT exposed under activity.miloapis.com/v1alpha1.
+	// They are served via the standard Kubernetes API paths:
+	// - /api/v1/namespaces/{ns}/events (core/v1)
+	// - /apis/events.k8s.io/v1/namespaces/{ns}/events (events.k8s.io/v1)
+	// This avoids OpenAPI GVK conflicts since corev1.Event has its OpenAPIModelName()
+	// returning io.k8s.api.core.v1.Event with GVK [/v1, Kind=Event].
 
 	// EventFacetQuery for faceted search on Kubernetes Events
 	v1alpha1Storage["eventfacetqueries"] = eventfacet.NewEventFacetQueryStorage(eventsBackend)

@@ -113,26 +113,26 @@ function createEmptyAuditEvent(): Event {
 }
 
 /**
- * Create an empty Kubernetes event for preview
+ * Create an empty Kubernetes event for preview (using eventsv1 field names)
  */
 function createEmptyKubernetesEvent(): KubernetesEvent {
   return {
     type: 'Normal',
     reason: 'Created',
-    message: 'Example resource was created successfully',
-    involvedObject: {
+    note: 'Example resource was created successfully',
+    regarding: {
       apiVersion: 'example.com/v1',
       kind: 'Example',
       name: 'my-example',
       namespace: 'default',
       uid: 'resource-456',
     },
-    source: {
-      component: 'example-controller',
+    reportingController: 'example-controller',
+    eventTime: new Date().toISOString(),
+    series: {
+      count: 1,
+      lastObservedTime: new Date().toISOString(),
     },
-    firstTimestamp: new Date().toISOString(),
-    lastTimestamp: new Date().toISOString(),
-    count: 1,
     metadata: {
       name: 'my-example.123abc',
       namespace: 'default',

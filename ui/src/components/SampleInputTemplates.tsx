@@ -200,20 +200,20 @@ const EVENT_TEMPLATES: SampleInputTemplate[] = [
       event: {
         type: 'Normal',
         reason: 'Created',
-        message: 'Successfully created resource',
-        involvedObject: {
+        note: 'Successfully created resource',
+        regarding: {
           apiVersion: 'example.com/v1',
           kind: 'Example',
           name: 'my-resource',
           namespace: 'default',
           uid: 'res-456-789',
         },
-        source: {
-          component: 'example-controller',
+        reportingController: 'example-controller',
+        eventTime: new Date().toISOString(),
+        series: {
+          count: 1,
+          lastObservedTime: new Date().toISOString(),
         },
-        firstTimestamp: new Date().toISOString(),
-        lastTimestamp: new Date().toISOString(),
-        count: 1,
         metadata: {
           name: 'my-resource.abc123',
           namespace: 'default',
@@ -230,20 +230,20 @@ const EVENT_TEMPLATES: SampleInputTemplate[] = [
       event: {
         type: 'Normal',
         reason: 'Ready',
-        message: 'Resource is now ready to accept traffic',
-        involvedObject: {
+        note: 'Resource is now ready to accept traffic',
+        regarding: {
           apiVersion: 'example.com/v1',
           kind: 'Example',
           name: 'my-resource',
           namespace: 'default',
           uid: 'res-456-789',
         },
-        source: {
-          component: 'example-controller',
+        reportingController: 'example-controller',
+        eventTime: new Date().toISOString(),
+        series: {
+          count: 1,
+          lastObservedTime: new Date().toISOString(),
         },
-        firstTimestamp: new Date().toISOString(),
-        lastTimestamp: new Date().toISOString(),
-        count: 1,
         metadata: {
           name: 'my-resource.def456',
           namespace: 'default',
@@ -260,20 +260,20 @@ const EVENT_TEMPLATES: SampleInputTemplate[] = [
       event: {
         type: 'Warning',
         reason: 'Failed',
-        message: 'Failed to reconcile resource: timeout waiting for backend',
-        involvedObject: {
+        note: 'Failed to reconcile resource: timeout waiting for backend',
+        regarding: {
           apiVersion: 'example.com/v1',
           kind: 'Example',
           name: 'my-resource',
           namespace: 'default',
           uid: 'res-456-789',
         },
-        source: {
-          component: 'example-controller',
+        reportingController: 'example-controller',
+        eventTime: new Date().toISOString(),
+        series: {
+          count: 3,
+          lastObservedTime: new Date().toISOString(),
         },
-        firstTimestamp: new Date().toISOString(),
-        lastTimestamp: new Date().toISOString(),
-        count: 3,
         metadata: {
           name: 'my-resource.ghi789',
           namespace: 'default',
@@ -290,20 +290,20 @@ const EVENT_TEMPLATES: SampleInputTemplate[] = [
       event: {
         type: 'Normal',
         reason: 'Progressing',
-        message: 'Resource is being configured',
-        involvedObject: {
+        note: 'Resource is being configured',
+        regarding: {
           apiVersion: 'example.com/v1',
           kind: 'Example',
           name: 'my-resource',
           namespace: 'default',
           uid: 'res-456-789',
         },
-        source: {
-          component: 'example-controller',
+        reportingController: 'example-controller',
+        eventTime: new Date().toISOString(),
+        series: {
+          count: 1,
+          lastObservedTime: new Date().toISOString(),
         },
-        firstTimestamp: new Date().toISOString(),
-        lastTimestamp: new Date().toISOString(),
-        count: 1,
         metadata: {
           name: 'my-resource.jkl012',
           namespace: 'default',

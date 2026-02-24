@@ -1987,13 +1987,13 @@ func schema_pkg_apis_activity_v1alpha1_EventQueryStatus(ref common.ReferenceCall
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "Results contains matching Kubernetes Events, sorted newest-first.\n\nEach event follows the standard corev1.Event format with fields like:\n  involvedObject.{kind,name,namespace}, reason, message, type,\n  firstTimestamp, lastTimestamp, count, source.component\n\nEmpty results? Try broadening your field selector or time range.",
+							Description: "Results contains matching Kubernetes Events, sorted newest-first.\n\nEach event follows the standard eventsv1.Event format with fields like:\n  regarding.{kind,name,namespace}, reason, note, type,\n  eventTime, series.count, reportingController\n\nEmpty results? Try broadening your field selector or time range.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(corev1.Event{}.OpenAPIModelName()),
+										Ref:     ref(eventsv1.Event{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -2024,7 +2024,7 @@ func schema_pkg_apis_activity_v1alpha1_EventQueryStatus(ref common.ReferenceCall
 			},
 		},
 		Dependencies: []string{
-			corev1.Event{}.OpenAPIModelName()},
+			eventsv1.Event{}.OpenAPIModelName()},
 	}
 }
 

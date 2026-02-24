@@ -6,7 +6,7 @@
 package v1alpha1
 
 import (
-	corev1 "k8s.io/api/core/v1"
+	eventsv1 "k8s.io/api/events/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	auditv1 "k8s.io/apiserver/pkg/apis/audit/v1"
@@ -777,7 +777,7 @@ func (in *EventQueryStatus) DeepCopyInto(out *EventQueryStatus) {
 	*out = *in
 	if in.Results != nil {
 		in, out := &in.Results, &out.Results
-		*out = make([]corev1.Event, len(*in))
+		*out = make([]eventsv1.Event, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}

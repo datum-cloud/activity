@@ -25,6 +25,41 @@ export interface EventFeedItemProps {
 }
 
 /**
+ * Get the regarding object (handling both new and deprecated field names)
+ */
+function getRegarding(event: K8sEvent) {
+  return event.regarding || event.involvedObject || {};
+}
+
+/**
+ * Get the event note/message (handling both new and deprecated field names)
+ */
+function getNote(event: K8sEvent): string | undefined {
+  return event.note || event.message;
+}
+
+/**
+ * Get the reporting controller (handling both new and deprecated field names)
+ */
+function getReportingController(event: K8sEvent): string | undefined {
+  return event.reportingController || event.source?.component;
+}
+
+/**
+ * Get the event count (handling both new and deprecated field names)
+ */
+function getCount(event: K8sEvent): number | undefined {
+  return event.series?.count || event.count;
+}
+
+/**
+ * Get the best timestamp to display (handling both new and deprecated field names)
+ */
+function getTimestamp(event: K8sEvent): string | undefined {
+  return event.eventTime || event.series?.lastObservedTime || event.lastTimestamp || event.firstTimestamp;
+}
+
+/**
  * Format timestamp for display
  */
 function formatTimestamp(timestamp?: string): string {
@@ -88,7 +123,13 @@ export function EventFeedItem({
 }: EventFeedItemProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
-  const { type, reason, message, involvedObject, count, lastTimestamp, firstTimestamp, eventTime } = event;
+  // Use helper functions to handle both new and deprecated field names
+  const regarding = getRegarding(event);
+  const note = getNote(event);
+  const count = getCount(event);
+  const timestamp = getTimestamp(event);
+  const reportingController = getReportingController(event);
+  const { type, reason } = event;
 
   const handleClick = () => {
     onEventClick?.(event);
@@ -99,7 +140,6 @@ export function EventFeedItem({
     setIsExpanded(!isExpanded);
   };
 
-  const timestamp = lastTimestamp || firstTimestamp || eventTime;
   const isWarning = type === 'Warning';
 
   return (
@@ -125,20 +165,20 @@ export function EventFeedItem({
         <div className="flex-1 min-w-0">
           {/* Single row layout: Object + Message + Metadata */}
           <div className="flex items-start gap-2 mb-1">
-            {/* Involved Object - inline with type badge */}
+            {/* Regarding Object - inline with type badge */}
             <div className="flex items-center gap-1.5 shrink-0">
               <Badge variant={getEventTypeBadgeVariant(type)} className="text-xs h-5">
                 {type || 'Normal'}
               </Badge>
               <span className="text-xs font-medium text-foreground whitespace-nowrap">
-                {involvedObject.kind || 'Unknown'}/{involvedObject.name || 'Unknown'}
+                {regarding.kind || 'Unknown'}/{regarding.name || 'Unknown'}
               </span>
             </div>
 
-            {/* Message - takes remaining space */}
-            {message && (
-              <p className="text-xs text-muted-foreground leading-snug m-0 flex-1 min-w-0 truncate" title={message}>
-                {message}
+            {/* Note - takes remaining space */}
+            {note && (
+              <p className="text-xs text-muted-foreground leading-snug m-0 flex-1 min-w-0 truncate" title={note}>
+                {note}
               </p>
             )}
 
@@ -164,18 +204,18 @@ export function EventFeedItem({
                   x{count}
                 </Badge>
               )}
-              {involvedObject.namespace && (
+              {regarding.namespace && (
                 <Badge variant="outline" className="text-xs h-4 py-0">
-                  {involvedObject.namespace}
+                  {regarding.namespace}
                 </Badge>
               )}
-              {event.source?.component && (
+              {reportingController && (
                 <span className="inline-flex items-center gap-1 text-muted-foreground">
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
-                  {event.source.component}
+                  {reportingController}
                 </span>
               )}
             </div>
