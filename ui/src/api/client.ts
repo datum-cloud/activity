@@ -24,6 +24,8 @@ import type {
   K8sEventListParams,
   EventFacetQuery,
   EventFacetQuerySpec,
+  EventQuery,
+  EventQuerySpec,
 } from '../types/k8s-event';
 
 /**
@@ -709,6 +711,33 @@ export class ActivityApiClient {
 
     const response = await this.fetch(
       '/apis/activity.miloapis.com/v1alpha1/eventfacetqueries',
+      {
+        method: 'POST',
+        body: JSON.stringify(query),
+      }
+    );
+
+    return response.json();
+  }
+
+  /**
+   * Create an EventQuery to search historical events from ClickHouse.
+   * Unlike the live events API (limited to 24 hours), EventQuery supports up to 60 days of history.
+   *
+   * Returns EventRecord objects with event data nested under the `.event` field.
+   *
+   * @param spec - Query specification with time range and filters
+   * @returns EventQuery with results in status.results as EventRecord[]
+   */
+  async createEventQuery(spec: EventQuerySpec): Promise<EventQuery> {
+    const query: EventQuery = {
+      apiVersion: 'activity.miloapis.com/v1alpha1',
+      kind: 'EventQuery',
+      spec,
+    };
+
+    const response = await this.fetch(
+      '/apis/activity.miloapis.com/v1alpha1/eventqueries',
       {
         method: 'POST',
         body: JSON.stringify(query),

@@ -84,6 +84,19 @@ export interface K8sEvent {
 }
 
 /**
+ * EventRecord represents a Kubernetes Event returned in EventQuery results.
+ * This is a wrapper type that embeds the events.k8s.io/v1 Event to avoid
+ * OpenAPI GVK conflicts while preserving full event data.
+ */
+export interface EventRecord {
+  apiVersion: 'activity.miloapis.com/v1alpha1';
+  kind: 'EventRecord';
+  metadata: ObjectMeta;
+  /** Event contains the full Kubernetes Event data in events.k8s.io/v1 format */
+  event: K8sEvent;
+}
+
+/**
  * Kubernetes Event list response with pagination
  */
 export interface K8sEventList {
@@ -242,3 +255,68 @@ export const EVENT_FACET_FIELDS = [
 ] as const;
 
 export type EventFacetField = typeof EVENT_FACET_FIELDS[number];
+
+/**
+ * Extract K8sEvent from EventRecord or pass through if already a K8sEvent.
+ * Use this helper when you need to handle both EventRecord (from EventQuery)
+ * and K8sEvent (from live events API).
+ */
+export function extractEvent(eventOrRecord: K8sEvent | EventRecord): K8sEvent {
+  // Check if this is an EventRecord by looking for the nested 'event' field
+  if ('event' in eventOrRecord && eventOrRecord.kind === 'EventRecord') {
+    return (eventOrRecord as EventRecord).event;
+  }
+  // Already a K8sEvent
+  return eventOrRecord as K8sEvent;
+}
+
+/**
+ * Check if an object is an EventRecord (vs a plain K8sEvent)
+ */
+export function isEventRecord(obj: K8sEvent | EventRecord): obj is EventRecord {
+  return obj.kind === 'EventRecord' && 'event' in obj;
+}
+
+/**
+ * EventQuery request spec for querying historical events from ClickHouse
+ */
+export interface EventQuerySpec {
+  /** Start of time range (RFC3339 or relative like "now-7d") */
+  startTime: string;
+  /** End of time range (RFC3339 or relative, default: now) */
+  endTime: string;
+  /** Namespace to filter events (optional) */
+  namespace?: string;
+  /** Field selector for filtering (standard Kubernetes syntax) */
+  fieldSelector?: string;
+  /** Maximum results per page (default: 100, max: 1000) */
+  limit?: number;
+  /** Pagination cursor */
+  continue?: string;
+}
+
+/**
+ * EventQuery status with results
+ */
+export interface EventQueryStatus {
+  /** Matching events as EventRecord objects */
+  results: EventRecord[];
+  /** Pagination cursor for next page */
+  continue?: string;
+  /** Actual start time used (RFC3339) */
+  effectiveStartTime?: string;
+  /** Actual end time used (RFC3339) */
+  effectiveEndTime?: string;
+}
+
+/**
+ * EventQuery resource for querying historical events
+ * Unlike the live events API (limited to 24h), EventQuery supports up to 60 days of history
+ */
+export interface EventQuery {
+  apiVersion: 'activity.miloapis.com/v1alpha1';
+  kind: 'EventQuery';
+  metadata?: ObjectMeta;
+  spec: EventQuerySpec;
+  status?: EventQueryStatus;
+}

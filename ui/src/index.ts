@@ -232,6 +232,10 @@ export type {
   K8sEventType,
   ObjectReference as K8sObjectReference,
   EventSeries,
+  EventRecord,
+  EventQuery,
+  EventQuerySpec,
+  EventQueryStatus,
   EventFacetQuery,
   EventFacetQuerySpec,
   EventFacetQueryStatus,
@@ -239,7 +243,7 @@ export type {
   EventFacetField,
 } from './types/k8s-event';
 
-export { EVENT_FILTER_FIELDS, EVENT_FACET_FIELDS } from './types/k8s-event';
+export { EVENT_FILTER_FIELDS, EVENT_FACET_FIELDS, extractEvent, isEventRecord } from './types/k8s-event';
 
 // Types - Policy Authoring (new)
 export type {
