@@ -173,32 +173,32 @@ export interface EventFilterField {
 
 /**
  * Available filter fields for Kubernetes Events
- * These map to field selectors supported by the API (events.k8s.io/v1)
+ * These map to field selectors supported by the API (core/v1 Event)
  */
 export const EVENT_FILTER_FIELDS: EventFilterField[] = [
   {
-    name: 'regarding.kind',
+    name: 'involvedObject.kind',
     type: 'string',
     description: 'Kind of the object this event is about',
     examples: [
-      'regarding.kind=Pod',
-      'regarding.kind=Deployment',
+      'involvedObject.kind=Pod',
+      'involvedObject.kind=Deployment',
     ],
   },
   {
-    name: 'regarding.name',
+    name: 'involvedObject.name',
     type: 'string',
     description: 'Name of the object this event is about',
     examples: [
-      'regarding.name=my-pod',
+      'involvedObject.name=my-pod',
     ],
   },
   {
-    name: 'regarding.namespace',
+    name: 'involvedObject.namespace',
     type: 'string',
     description: 'Namespace of the object this event is about',
     examples: [
-      'regarding.namespace=default',
+      'involvedObject.namespace=default',
     ],
   },
   {
@@ -223,35 +223,35 @@ export const EVENT_FILTER_FIELDS: EventFilterField[] = [
     ],
   },
   {
-    name: 'reportingController',
+    name: 'source.component',
     type: 'string',
-    description: 'Controller that generated the event',
+    description: 'Component that generated the event',
     examples: [
-      'reportingController=kubelet',
-      'reportingController=k8s.io/kube-scheduler',
+      'source.component=kubelet',
+      'source.component=kube-scheduler',
     ],
   },
   {
-    name: 'namespace',
+    name: 'metadata.namespace',
     type: 'string',
     description: 'Namespace of the event',
     examples: [
-      'namespace=kube-system',
+      'metadata.namespace=kube-system',
     ],
   },
 ];
 
 /**
  * Event facet fields available for querying
- * These are the fields supported by EventFacetQuery (events.k8s.io/v1)
+ * These are the fields supported by EventFacetQuery (core/v1 Event)
  */
 export const EVENT_FACET_FIELDS = [
-  'regarding.kind',
-  'regarding.namespace',
+  'involvedObject.kind',
+  'involvedObject.namespace',
   'reason',
   'type',
-  'reportingController',
-  'namespace',
+  'source.component',
+  'metadata.namespace',
 ] as const;
 
 export type EventFacetField = typeof EVENT_FACET_FIELDS[number];
