@@ -39,7 +39,7 @@ type EventQueryBackend interface {
 
 // EventQueryResult contains events and pagination state from an EventQuery.
 type EventQueryResult struct {
-	Events   []eventsv1.Event
+	Events   []v1alpha1.EventRecord
 	Continue string
 }
 
@@ -97,7 +97,7 @@ func (b *ClickHouseEventQueryBackend) QueryEvents(ctx context.Context, spec v1al
 
 	limit := resolveEventQueryLimit(spec.Limit)
 
-	var events []eventsv1.Event
+	var events []v1alpha1.EventRecord
 	for rows.Next() {
 		var eventJSON string
 		if err := rows.Scan(&eventJSON); err != nil {
@@ -111,7 +111,8 @@ func (b *ClickHouseEventQueryBackend) QueryEvents(ctx context.Context, spec v1al
 			continue
 		}
 
-		events = append(events, event)
+		// Convert eventsv1.Event to v1alpha1.EventRecord
+		events = append(events, convertEventsV1ToEventRecord(&event))
 	}
 
 	if err := rows.Err(); err != nil {
@@ -281,7 +282,7 @@ func hashEventQueryParams(spec v1alpha1.EventQuerySpec) string {
 
 // encodeEventQueryCursor creates a base64-encoded pagination token.
 // The offset is computed from the position of the last event returned.
-func encodeEventQueryCursor(lastEvent eventsv1.Event, spec v1alpha1.EventQuerySpec) string {
+func encodeEventQueryCursor(lastEvent v1alpha1.EventRecord, spec v1alpha1.EventQuerySpec) string {
 	// Determine the current page's starting offset from the Continue token, if any
 	currentOffset := int32(0)
 	if spec.Continue != "" {
@@ -347,4 +348,15 @@ func ValidateEventQueryCursor(cursor string, spec v1alpha1.EventQuerySpec) error
 // Exported for use by the REST handler.
 func GetEventQueryNotFoundError(name string) error {
 	return errors.NewNotFound(v1alpha1.Resource("eventqueries"), name)
+}
+
+// convertEventsV1ToEventRecord wraps an eventsv1.Event in an EventRecord.
+// This provides a wrapper type registered under activity.miloapis.com/v1alpha1
+// to avoid OpenAPI GVK conflicts while preserving full event data.
+func convertEventsV1ToEventRecord(event *eventsv1.Event) v1alpha1.EventRecord {
+	return v1alpha1.EventRecord{
+		TypeMeta:   event.TypeMeta,
+		ObjectMeta: event.ObjectMeta,
+		Event:      *event,
+	}
 }

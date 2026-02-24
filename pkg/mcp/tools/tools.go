@@ -1382,8 +1382,10 @@ func (p *ToolProvider) handleQueryEvents(ctx context.Context, req *mcp.CallToolR
 	}
 
 	// Format results for readability
+	// EventRecord wraps eventsv1.Event, so access event data via record.Event
 	events := make([]map[string]any, 0, len(result.Status.Results))
-	for _, event := range result.Status.Results {
+	for _, record := range result.Status.Results {
+		event := record.Event
 		eventMap := map[string]any{
 			"name":      event.Name,
 			"namespace": event.Namespace,

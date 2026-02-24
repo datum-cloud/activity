@@ -55,6 +55,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventQueryList":            schema_pkg_apis_activity_v1alpha1_EventQueryList(ref),
 		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventQuerySpec":            schema_pkg_apis_activity_v1alpha1_EventQuerySpec(ref),
 		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventQueryStatus":          schema_pkg_apis_activity_v1alpha1_EventQueryStatus(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventRecord":               schema_pkg_apis_activity_v1alpha1_EventRecord(ref),
 		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetResult":               schema_pkg_apis_activity_v1alpha1_FacetResult(ref),
 		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetSpec":                 schema_pkg_apis_activity_v1alpha1_FacetSpec(ref),
 		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetTimeRange":            schema_pkg_apis_activity_v1alpha1_FacetTimeRange(ref),
@@ -1987,13 +1988,13 @@ func schema_pkg_apis_activity_v1alpha1_EventQueryStatus(ref common.ReferenceCall
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "Results contains matching Kubernetes Events, sorted newest-first.\n\nEach event follows the standard eventsv1.Event format with fields like:\n  regarding.{kind,name,namespace}, reason, note, type,\n  eventTime, series.count, reportingController\n\nEmpty results? Try broadening your field selector or time range.",
+							Description: "Results contains matching Kubernetes Events, sorted newest-first.\n\nEach event follows the eventsv1.Event format with fields like:\n  regarding.{kind,name,namespace}, reason, note, type,\n  eventTime, series.count, reportingController\n\nEmpty results? Try broadening your field selector or time range.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(eventsv1.Event{}.OpenAPIModelName()),
+										Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventRecord"),
 									},
 								},
 							},
@@ -2024,7 +2025,50 @@ func schema_pkg_apis_activity_v1alpha1_EventQueryStatus(ref common.ReferenceCall
 			},
 		},
 		Dependencies: []string{
-			eventsv1.Event{}.OpenAPIModelName()},
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventRecord"},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_EventRecord(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "EventRecord represents a Kubernetes Event returned in EventQuery results. This is a wrapper type registered under activity.miloapis.com/v1alpha1 that embeds the events.k8s.io/v1 Event to avoid OpenAPI GVK conflicts while preserving full event data.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ObjectMeta{}.OpenAPIModelName()),
+						},
+					},
+					"event": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Event contains the full Kubernetes Event data in events.k8s.io/v1 format. This includes fields like eventTime, regarding, note, type, reason, reportingController, reportingInstance, series, and action.",
+							Default:     map[string]interface{}{},
+							Ref:         ref(eventsv1.Event{}.OpenAPIModelName()),
+						},
+					},
+				},
+				Required: []string{"event"},
+			},
+		},
+		Dependencies: []string{
+			eventsv1.Event{}.OpenAPIModelName(), metav1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 

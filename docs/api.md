@@ -20,6 +20,7 @@ Package v1alpha1 contains API Schema definitions for the activity v1alpha1 API g
 
 
 
+
 #### Activity
 
 
@@ -616,10 +617,30 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `results` _[Event](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#event-v1-events) array_ | Results contains matching Kubernetes Events, sorted newest-first.<br /><br />Each event follows the standard eventsv1.Event format with fields like:<br />  regarding.\{kind,name,namespace\}, reason, note, type,<br />  eventTime, series.count, reportingController<br /><br />Empty results? Try broadening your field selector or time range. |  |  |
+| `results` _[EventRecord](#eventrecord) array_ | Results contains matching Kubernetes Events, sorted newest-first.<br /><br />Each event follows the eventsv1.Event format with fields like:<br />  regarding.\{kind,name,namespace\}, reason, note, type,<br />  eventTime, series.count, reportingController<br /><br />Empty results? Try broadening your field selector or time range. |  |  |
 | `continue` _string_ | Continue is the pagination cursor.<br />Non-empty means more results are available - copy this to spec.continue for the next page.<br />Empty means you have all results. |  |  |
 | `effectiveStartTime` _string_ | EffectiveStartTime is the actual start time used for this query (RFC3339 format).<br /><br />When you use relative times like "now-7d", this shows the exact timestamp that was<br />calculated. Useful for understanding exactly what time range was queried, especially<br />for auditing, debugging, or recreating queries with absolute timestamps.<br /><br />Example: If you query with startTime="now-7d" at 2025-12-17T12:00:00Z,<br />this will be "2025-12-10T12:00:00Z". |  |  |
 | `effectiveEndTime` _string_ | EffectiveEndTime is the actual end time used for this query (RFC3339 format).<br /><br />When you use relative times like "now", this shows the exact timestamp that was<br />calculated. Useful for understanding exactly what time range was queried.<br /><br />Example: If you query with endTime="now" at 2025-12-17T12:00:00Z,<br />this will be "2025-12-17T12:00:00Z". |  |  |
+
+
+#### EventRecord
+
+
+
+EventRecord represents a Kubernetes Event returned in EventQuery results.
+This is a wrapper type registered under activity.miloapis.com/v1alpha1 that
+embeds the events.k8s.io/v1 Event to avoid OpenAPI GVK conflicts while
+preserving full event data.
+
+
+
+_Appears in:_
+- [EventQueryStatus](#eventquerystatus)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `event` _[Event](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#event-v1-events)_ | Event contains the full Kubernetes Event data in events.k8s.io/v1 format.<br />This includes fields like eventTime, regarding, note, type, reason,<br />reportingController, reportingInstance, series, and action. |  |  |
 
 
 #### FacetResult

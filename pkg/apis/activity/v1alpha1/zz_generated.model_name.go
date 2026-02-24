@@ -61,6 +61,11 @@ func (in EventFacetQuery) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in EventRecord) OpenAPIModelName() string {
+	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventRecord"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in PolicyPreview) OpenAPIModelName() string {
 	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreview"
 }
