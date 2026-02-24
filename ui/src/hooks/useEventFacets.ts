@@ -59,24 +59,26 @@ export function useEventFacets(
     setError(null);
 
     try {
+      // EventFacetQuery supports these fields: involvedObject.kind, involvedObject.namespace,
+      // namespace, reason, source.component, type
       const result = await client.queryEventFacets({
         timeRange: {
           start: timeRange.start,
           end: timeRange.end,
         },
         facets: [
-          { field: 'regarding.kind', limit: 50 },
+          { field: 'involvedObject.kind', limit: 50 },
           { field: 'reason', limit: 50 },
           { field: 'type', limit: 5 },
-          { field: 'reportingController', limit: 50 },
-          { field: 'regarding.namespace', limit: 50 },
+          { field: 'source.component', limit: 50 },
+          { field: 'involvedObject.namespace', limit: 50 },
         ],
       });
 
       const facets = result.status?.facets || [];
 
-      // Extract regarding object kinds (using eventsv1 field name)
-      const kindFacet = facets.find((f) => f.field === 'regarding.kind');
+      // Extract involved object kinds
+      const kindFacet = facets.find((f) => f.field === 'involvedObject.kind');
       setInvolvedKinds(kindFacet?.values || []);
 
       // Extract reasons
@@ -87,12 +89,12 @@ export function useEventFacets(
       const typeFacet = facets.find((f) => f.field === 'type');
       setEventTypes(typeFacet?.values || []);
 
-      // Extract reporting controllers (using eventsv1 field name)
-      const componentFacet = facets.find((f) => f.field === 'reportingController');
+      // Extract source components
+      const componentFacet = facets.find((f) => f.field === 'source.component');
       setSourceComponents(componentFacet?.values || []);
 
-      // Extract namespaces (using eventsv1 field name)
-      const namespaceFacet = facets.find((f) => f.field === 'regarding.namespace');
+      // Extract namespaces from involved objects
+      const namespaceFacet = facets.find((f) => f.field === 'involvedObject.namespace');
       setNamespaces(namespaceFacet?.values || []);
 
       lastFetchedRef.current = cacheKey;

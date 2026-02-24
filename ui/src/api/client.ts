@@ -688,10 +688,11 @@ export class ActivityApiClient {
 
     const queryString = searchParams.toString();
 
-    // Support namespace-scoped or cluster-wide listing via Activity API
+    // Use the standard Kubernetes events.k8s.io/v1 API for real-time events
+    // For historical queries (up to 60 days), use createEventQuery() instead
     const basePath = params?.namespace
-      ? `/apis/activity.miloapis.com/v1alpha1/namespaces/${params.namespace}/events`
-      : '/apis/activity.miloapis.com/v1alpha1/events';
+      ? `/apis/events.k8s.io/v1/namespaces/${params.namespace}/events`
+      : '/apis/events.k8s.io/v1/events';
 
     const path = `${basePath}${queryString ? `?${queryString}` : ''}`;
 
@@ -780,10 +781,11 @@ export class ActivityApiClient {
 
     const queryString = searchParams.toString();
 
-    // Support namespace-scoped or cluster-wide watching via Activity API
+    // Use the standard Kubernetes events.k8s.io/v1 API for real-time watch
+    // For historical queries (up to 60 days), use createEventQuery() instead
     const basePath = params?.namespace
-      ? `/apis/activity.miloapis.com/v1alpha1/namespaces/${params.namespace}/events`
-      : '/apis/activity.miloapis.com/v1alpha1/events';
+      ? `/apis/events.k8s.io/v1/namespaces/${params.namespace}/events`
+      : '/apis/events.k8s.io/v1/events';
 
     const path = `${basePath}?${queryString}`;
     const url = `${this.config.baseUrl}${path}`;
