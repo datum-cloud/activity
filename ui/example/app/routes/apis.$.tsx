@@ -41,13 +41,20 @@ async function proxyRequest(request: Request): Promise<Response> {
       path: targetUrl.pathname + targetUrl.search,
       method: request.method,
       headers,
-      // Add client certificates for mTLS
-      ...(isHttps && config.clientCert && config.clientKey
+      // TLS configuration
+      ...(isHttps
         ? {
-            cert: config.clientCert,
-            key: config.clientKey,
-            ca: config.caCert,
-            rejectUnauthorized: false,
+            // Use CA cert for server verification if available
+            ...(config.caCert ? { ca: config.caCert } : {}),
+            // Add client certificates for mTLS if available
+            ...(config.clientCert && config.clientKey
+              ? {
+                  cert: config.clientCert,
+                  key: config.clientKey,
+                }
+              : {}),
+            // Only reject unauthorized if we have a CA to verify against
+            rejectUnauthorized: !!config.caCert,
           }
         : {}),
     };
