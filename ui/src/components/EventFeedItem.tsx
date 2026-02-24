@@ -54,9 +54,16 @@ function getCount(event: K8sEvent): number | undefined {
 
 /**
  * Get the best timestamp to display (handling both new and deprecated field names)
+ * For recurring events (series), prefer lastObservedTime as it reflects the most recent occurrence.
+ * For single events, use eventTime.
  */
 function getTimestamp(event: K8sEvent): string | undefined {
-  return event.eventTime || event.series?.lastObservedTime || event.lastTimestamp || event.firstTimestamp;
+  // For series events, lastObservedTime is the most recent occurrence
+  if (event.series?.lastObservedTime) {
+    return event.series.lastObservedTime;
+  }
+  // For single events, use eventTime (eventsv1) or fall back to legacy fields
+  return event.eventTime || event.lastTimestamp || event.firstTimestamp;
 }
 
 /**

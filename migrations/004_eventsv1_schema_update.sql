@@ -35,10 +35,15 @@ ALTER TABLE audit.k8s_events
     ADD COLUMN IF NOT EXISTS series_count Int32 MATERIALIZED
         coalesce(JSONExtractInt(event_json, 'series', 'count'), 0);
 
--- Series last observed time (for repeated events)
+-- Series last observed time (for repeated events, defaults to eventTime for singleton events)
 ALTER TABLE audit.k8s_events
     ADD COLUMN IF NOT EXISTS series_last_observed DateTime64(6) MATERIALIZED
-        parseDateTime64BestEffortOrNull(JSONExtractString(event_json, 'series', 'lastObservedTime'));
+        coalesce(
+            parseDateTime64BestEffortOrNull(JSONExtractString(event_json, 'series', 'lastObservedTime')),
+            parseDateTime64BestEffortOrNull(JSONExtractString(event_json, 'eventTime')),
+            parseDateTime64BestEffortOrNull(JSONExtractString(event_json, 'deprecatedLastTimestamp')),
+            parseDateTime64BestEffortOrNull(JSONExtractString(event_json, 'metadata', 'creationTimestamp'))
+        );
 
 -- Is this a singleton event (no series) or part of a series?
 ALTER TABLE audit.k8s_events
@@ -68,10 +73,14 @@ ALTER TABLE audit.k8s_events
 -- eventTime is required and uses MicroTime (microsecond precision)
 -- series.lastObservedTime is for repeated events
 
--- Event time (required in v1, microsecond precision)
+-- Event time (required in v1, microsecond precision, with fallbacks for compatibility)
 ALTER TABLE audit.k8s_events
     ADD COLUMN IF NOT EXISTS event_time DateTime64(6) MATERIALIZED
-        parseDateTime64BestEffortOrNull(JSONExtractString(event_json, 'eventTime'));
+        coalesce(
+            parseDateTime64BestEffortOrNull(JSONExtractString(event_json, 'eventTime')),
+            parseDateTime64BestEffortOrNull(JSONExtractString(event_json, 'deprecatedFirstTimestamp')),
+            parseDateTime64BestEffortOrNull(JSONExtractString(event_json, 'metadata', 'creationTimestamp'))
+        );
 
 -- Update first_timestamp to use eventTime as primary source
 ALTER TABLE audit.k8s_events
