@@ -160,6 +160,34 @@ var (
 			Buckets:   []float64{.001, .005, .01, .025, .05, .1, .25, .5, 1},
 		},
 	)
+
+	// Kubernetes event processing metrics
+	k8sEventsReceived = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "activity_processor",
+			Name:      "k8s_events_received_total",
+			Help:      "Total number of Kubernetes events received from NATS",
+		},
+		[]string{"api_group", "kind"},
+	)
+
+	k8sEventsSkipped = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "activity_processor",
+			Name:      "k8s_events_skipped_total",
+			Help:      "Total number of Kubernetes events skipped",
+		},
+		[]string{"reason"}, // "no_involved_object", "no_matching_policy"
+	)
+
+	k8sEventsErrored = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "activity_processor",
+			Name:      "k8s_events_errored_total",
+			Help:      "Total number of Kubernetes events that encountered errors",
+		},
+		[]string{"error_type"}, // "unmarshal", "publish", "evaluate"
+	)
 )
 
 func init() {
@@ -180,6 +208,10 @@ func init() {
 		natsErrorsTotal,
 		natsMessagesPublished,
 		natsPublishLatency,
+		// Kubernetes event metrics
+		k8sEventsReceived,
+		k8sEventsSkipped,
+		k8sEventsErrored,
 	)
 }
 
@@ -189,6 +221,10 @@ type Config struct {
 	NATSURL        string
 	NATSStreamName string // Source stream for audit events (e.g., "AUDIT_EVENTS")
 	ConsumerName   string // Durable consumer name
+
+	// Event stream configuration
+	NATSEventStream   string // Source stream for Kubernetes events (e.g., "EVENTS")
+	NATSEventConsumer string // Durable consumer name for event processor
 
 	// Output NATS stream for generated activities
 	OutputStreamName    string // Stream for publishing activities (e.g., "ACTIVITIES")
@@ -216,6 +252,8 @@ func DefaultConfig() Config {
 		NATSURL:             "nats://localhost:4222",
 		NATSStreamName:      "AUDIT_EVENTS",
 		ConsumerName:        "activity-processor@activity.miloapis.com",
+		NATSEventStream:     "EVENTS",
+		NATSEventConsumer:   "activity-event-processor",
 		OutputStreamName:    "ACTIVITIES",
 		OutputSubjectPrefix: "activities",
 		Workers:             4,
@@ -243,6 +281,9 @@ type Processor struct {
 
 	// policyCache holds pre-compiled policies indexed by apiGroup/resource.
 	policyCache *PolicyCache
+
+	// eventProcessor processes Kubernetes events from the EVENTS stream.
+	eventProcessor *processor.EventProcessor
 
 	wg     sync.WaitGroup
 	ctx    context.Context
@@ -404,12 +445,45 @@ func (p *Processor) Start(ctx context.Context) error {
 		"workers", p.config.Workers,
 	)
 
+	// Start audit event workers
 	workerErrors := make(chan error, p.config.Workers)
 	for i := 0; i < p.config.Workers; i++ {
 		p.wg.Add(1)
 		go p.worker(ctx, i, workerErrors)
 	}
 	go p.monitorWorkers(ctx, workerErrors)
+
+	// Check that event stream consumer exists
+	_, err = js.ConsumerInfo(p.config.NATSEventStream, p.config.NATSEventConsumer)
+	if err != nil {
+		klog.V(1).InfoS("Event consumer not found, event processing will be disabled",
+			"stream", p.config.NATSEventStream,
+			"consumer", p.config.NATSEventConsumer,
+			"error", err,
+		)
+	} else {
+		// Start event processor
+		p.eventProcessor = processor.NewEventProcessor(
+			p.js,
+			p.config.NATSEventStream,
+			p.config.NATSEventConsumer,
+			p.config.OutputSubjectPrefix,
+			p.policyCache, // PolicyCache implements EventPolicyLookup
+			p.config.Workers,
+			p.config.BatchSize,
+		)
+		p.wg.Add(1)
+		go func() {
+			defer p.wg.Done()
+			if err := p.eventProcessor.Run(ctx); err != nil {
+				klog.ErrorS(err, "Event processor failed")
+			}
+		}()
+		klog.InfoS("Event processor started",
+			"stream", p.config.NATSEventStream,
+			"consumer", p.config.NATSEventConsumer,
+		)
+	}
 
 	// Mark as ready and healthy now that everything is initialized
 	p.setReady(true)

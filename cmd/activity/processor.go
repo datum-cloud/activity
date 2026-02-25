@@ -164,6 +164,8 @@ func RunProcessor(options *ProcessorOptions) error {
 		NATSURL:             options.NATSURL,
 		NATSStreamName:      options.NATSStreamName,
 		ConsumerName:        options.ConsumerName,
+		NATSEventStream:     options.NATSEventStream,
+		NATSEventConsumer:   options.NATSEventConsumer,
 		OutputStreamName:    options.OutputStreamName,
 		OutputSubjectPrefix: options.OutputSubjectPrefix,
 		NATSTLSEnabled:      options.NATSTLSEnabled,
