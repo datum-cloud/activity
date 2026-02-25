@@ -16,8 +16,53 @@ func (in ActivityList) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ActivitySpec) OpenAPIModelName() string {
+	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivitySpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ActivityActor) OpenAPIModelName() string {
+	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityActor"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ActivityChange) OpenAPIModelName() string {
+	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityChange"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ActivityLink) OpenAPIModelName() string {
+	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityLink"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ActivityOrigin) OpenAPIModelName() string {
+	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityOrigin"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ActivityResource) OpenAPIModelName() string {
+	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityResource"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ActivityTenant) OpenAPIModelName() string {
+	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityTenant"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ActivityFacetQuery) OpenAPIModelName() string {
 	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityFacetQuery"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ActivityFacetQuerySpec) OpenAPIModelName() string {
+	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityFacetQuerySpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ActivityFacetQueryStatus) OpenAPIModelName() string {
+	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityFacetQueryStatus"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
@@ -31,8 +76,38 @@ func (in ActivityPolicyList) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ActivityPolicySpec) OpenAPIModelName() string {
+	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicySpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ActivityPolicyStatus) OpenAPIModelName() string {
+	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicyStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ActivityPolicyResource) OpenAPIModelName() string {
+	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicyResource"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ActivityPolicyRule) OpenAPIModelName() string {
+	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicyRule"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ActivityQuery) OpenAPIModelName() string {
 	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityQuery"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ActivityQuerySpec) OpenAPIModelName() string {
+	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityQuerySpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ActivityQueryStatus) OpenAPIModelName() string {
+	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityQueryStatus"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
@@ -41,8 +116,28 @@ func (in AuditLogQuery) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in AuditLogQuerySpec) OpenAPIModelName() string {
+	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.AuditLogQuerySpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in AuditLogQueryStatus) OpenAPIModelName() string {
+	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.AuditLogQueryStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in AuditLogFacetsQuery) OpenAPIModelName() string {
 	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.AuditLogFacetsQuery"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in AuditLogFacetsQuerySpec) OpenAPIModelName() string {
+	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.AuditLogFacetsQuerySpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in AuditLogFacetsQueryStatus) OpenAPIModelName() string {
+	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.AuditLogFacetsQueryStatus"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
@@ -56,8 +151,28 @@ func (in EventQueryList) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in EventQuerySpec) OpenAPIModelName() string {
+	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventQuerySpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in EventQueryStatus) OpenAPIModelName() string {
+	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventQueryStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in EventFacetQuery) OpenAPIModelName() string {
 	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventFacetQuery"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in EventFacetQuerySpec) OpenAPIModelName() string {
+	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventFacetQuerySpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in EventFacetQueryStatus) OpenAPIModelName() string {
+	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventFacetQueryStatus"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
@@ -68,4 +183,44 @@ func (in EventRecord) OpenAPIModelName() string {
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in PolicyPreview) OpenAPIModelName() string {
 	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreview"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in PolicyPreviewSpec) OpenAPIModelName() string {
+	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreviewSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in PolicyPreviewStatus) OpenAPIModelName() string {
+	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreviewStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in PolicyPreviewInput) OpenAPIModelName() string {
+	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreviewInput"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in PolicyPreviewInputResult) OpenAPIModelName() string {
+	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreviewInputResult"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in FacetSpec) OpenAPIModelName() string {
+	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in FacetResult) OpenAPIModelName() string {
+	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetResult"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in FacetValue) OpenAPIModelName() string {
+	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetValue"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in FacetTimeRange) OpenAPIModelName() string {
+	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetTimeRange"
 }
