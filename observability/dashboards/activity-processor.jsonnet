@@ -103,7 +103,7 @@ local allPanels =
   // ============================================================================
   + [
     row.new('Event Processing')
-    + row.withGridPos({ x: 0, y: 5, w: 24, h: 1 }),
+    + row.withGridPos(5),
   ]
 
   + util.grid.makeGrid([
@@ -198,7 +198,7 @@ local allPanels =
   // ============================================================================
   + [
     row.new('NATS Health')
-    + row.withGridPos({ x: 0, y: 14, w: 24, h: 1 }),
+    + row.withGridPos(14),
   ]
 
   + util.grid.makeGrid([
@@ -354,7 +354,7 @@ local allPanels =
   // ============================================================================
   + [
     row.new('Worker Health')
-    + row.withGridPos({ x: 0, y: 28, w: 24, h: 1 }),
+    + row.withGridPos(28),
   ]
 
   + util.grid.makeGrid([
