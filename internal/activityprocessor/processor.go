@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
+	"go.miloapis.com/activity/internal/cel"
 	"go.miloapis.com/activity/internal/controller"
 	"go.miloapis.com/activity/internal/processor"
 	"go.miloapis.com/activity/pkg/apis/activity/v1alpha1"
@@ -780,8 +781,6 @@ func (p *Processor) processMessage(msg *nats.Msg) error {
 
 // evaluateCompiledAuditRules evaluates audit rules using pre-compiled CEL programs.
 func (p *Processor) evaluateCompiledAuditRules(policy *CompiledPolicy, auditMap map[string]any, audit *auditv1.Event) (*v1alpha1.Activity, int, error) {
-	vars := BuildAuditVars(auditMap)
-
 	for i := range policy.AuditRules {
 		rule := &policy.AuditRules[i]
 		if !rule.Valid {
@@ -794,7 +793,9 @@ func (p *Processor) evaluateCompiledAuditRules(policy *CompiledPolicy, auditMap 
 		}
 
 		if matched {
-			summary, err := rule.EvaluateSummary(vars)
+			// Use the cel package's EvaluateAuditSummaryMap which properly collects links
+			// from link() function calls in the summary template.
+			summary, links, err := cel.EvaluateAuditSummaryMap(rule.Summary, auditMap)
 			if err != nil {
 				return nil, -1, fmt.Errorf("rule %d summary: %w", i, err)
 			}
@@ -804,7 +805,7 @@ func (p *Processor) evaluateCompiledAuditRules(policy *CompiledPolicy, auditMap 
 				APIGroup: policy.APIGroup,
 				Kind:     policy.Kind,
 			}
-			activity := builder.BuildFromAudit(audit, summary, nil)
+			activity := builder.BuildFromAudit(audit, summary, links)
 
 			return activity, i, nil
 		}
