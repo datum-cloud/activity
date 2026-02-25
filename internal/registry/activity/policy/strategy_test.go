@@ -4,7 +4,9 @@ import (
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/conversion"
 
+	"go.miloapis.com/activity/pkg/apis/activity"
 	"go.miloapis.com/activity/pkg/apis/activity/v1alpha1"
 )
 
@@ -238,7 +240,13 @@ func TestValidateActivityPolicy(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			errs := ValidateActivityPolicy(tt.policy)
+			// Convert v1alpha1 to internal type
+			internalPolicy := &activity.ActivityPolicy{}
+			if err := v1alpha1.Convert_v1alpha1_ActivityPolicy_To_activity_ActivityPolicy(tt.policy, internalPolicy, conversion.Scope(nil)); err != nil {
+				t.Fatalf("failed to convert policy: %v", err)
+			}
+
+			errs := ValidateActivityPolicy(internalPolicy)
 
 			if len(errs) != tt.wantErrs {
 				t.Errorf("expected %d errors, got %d: %v", tt.wantErrs, len(errs), errs)
