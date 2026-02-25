@@ -52,17 +52,17 @@ type ProcessorOptions struct {
 // NewProcessorOptions creates options with default values.
 func NewProcessorOptions() *ProcessorOptions {
 	return &ProcessorOptions{
-		NATSURL:             "nats://localhost:4222",
-		NATSStreamName:      "AUDIT_EVENTS",
-		ConsumerName:        "activity-processor@activity.miloapis.com",
-		NATSEventStream:     "EVENTS",
-		NATSEventConsumer:   "activity-event-processor",
-		OutputStreamName:    "ACTIVITIES",
-		OutputSubjectPrefix: "activities",
-		Workers:             4,
-		BatchSize:           100,
-		AckWait:             30 * time.Second,
-		HealthProbeAddr:     ":8081",
+		NATSURL:              "nats://localhost:4222",
+		NATSStreamName:       "AUDIT_EVENTS",
+		ConsumerName:         "activity-processor@activity.miloapis.com",
+		NATSEventStream:      "EVENTS",
+		NATSEventConsumer:    "activity-event-processor",
+		OutputStreamName:     "ACTIVITIES",
+		OutputSubjectPrefix:  "activities",
+		Workers:              4,
+		BatchSize:            100,
+		AckWait:         30 * time.Second,
+		HealthProbeAddr: ":8081",
 	}
 }
 
@@ -161,22 +161,22 @@ func RunProcessor(options *ProcessorOptions) error {
 
 	// Create processor
 	processorConfig := activityprocessor.Config{
-		NATSURL:             options.NATSURL,
-		NATSStreamName:      options.NATSStreamName,
-		ConsumerName:        options.ConsumerName,
-		NATSEventStream:     options.NATSEventStream,
-		NATSEventConsumer:   options.NATSEventConsumer,
-		OutputStreamName:    options.OutputStreamName,
-		OutputSubjectPrefix: options.OutputSubjectPrefix,
-		NATSTLSEnabled:      options.NATSTLSEnabled,
-		NATSTLSCertFile:     options.NATSTLSCertFile,
-		NATSTLSKeyFile:      options.NATSTLSKeyFile,
-		NATSTLSCAFile:       options.NATSTLSCAFile,
-		Workers:             options.Workers,
-		BatchSize:           options.BatchSize,
-		AckWait:             options.AckWait,
-		MaxDeliver:          5,
-		HealthProbeAddr:     options.HealthProbeAddr,
+		NATSURL:              options.NATSURL,
+		NATSStreamName:       options.NATSStreamName,
+		ConsumerName:         options.ConsumerName,
+		NATSEventStream:      options.NATSEventStream,
+		NATSEventConsumer:    options.NATSEventConsumer,
+		OutputStreamName:     options.OutputStreamName,
+		OutputSubjectPrefix:  options.OutputSubjectPrefix,
+		NATSTLSEnabled:       options.NATSTLSEnabled,
+		NATSTLSCertFile:      options.NATSTLSCertFile,
+		NATSTLSKeyFile:       options.NATSTLSKeyFile,
+		NATSTLSCAFile:        options.NATSTLSCAFile,
+		Workers:              options.Workers,
+		BatchSize:            options.BatchSize,
+		AckWait:              options.AckWait,
+		MaxDeliver:      5,
+		HealthProbeAddr: options.HealthProbeAddr,
 	}
 
 	proc, err := activityprocessor.New(processorConfig, restConfig)

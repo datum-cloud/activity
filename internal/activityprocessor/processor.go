@@ -15,15 +15,21 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	auditv1 "k8s.io/apiserver/pkg/apis/audit/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	toolscache "k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
@@ -244,6 +250,7 @@ type Config struct {
 
 	// Health probe configuration
 	HealthProbeAddr string // Address for health probe server (e.g., ":8081")
+
 }
 
 // DefaultConfig returns configuration with default values.
@@ -257,10 +264,10 @@ func DefaultConfig() Config {
 		OutputStreamName:    "ACTIVITIES",
 		OutputSubjectPrefix: "activities",
 		Workers:             4,
-		BatchSize:           100,
-		AckWait:             30 * time.Second,
-		MaxDeliver:          5,
-		HealthProbeAddr:     ":8081",
+		BatchSize:            100,
+		AckWait:              30 * time.Second,
+		MaxDeliver:           5,
+		HealthProbeAddr:      ":8081",
 	}
 }
 
@@ -284,6 +291,9 @@ type Processor struct {
 
 	// eventProcessor processes Kubernetes events from the EVENTS stream.
 	eventProcessor *processor.EventProcessor
+
+	// eventEmitter emits Kubernetes Warning events for evaluation failures.
+	eventEmitter *EventEmitter
 
 	wg     sync.WaitGroup
 	ctx    context.Context
@@ -359,6 +369,30 @@ func (p *Processor) Start(ctx context.Context) error {
 	}
 
 	klog.InfoS("ActivityPolicy cache synced")
+
+	// Create controller-runtime client for event emission
+	k8sClient, err := client.New(p.restConfig, client.Options{
+		Scheme: controller.Scheme,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create kubernetes client: %w", err)
+	}
+
+	// Create Kubernetes clientset for event broadcaster
+	clientset, err := kubernetes.NewForConfig(p.restConfig)
+	if err != nil {
+		return fmt.Errorf("failed to create kubernetes clientset: %w", err)
+	}
+
+	// Create event broadcaster and recorder for emitting Kubernetes events
+	eventBroadcaster := record.NewBroadcaster()
+	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{
+		Interface: clientset.CoreV1().Events(""),
+	})
+	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "activity-processor"})
+
+	// Create event emitter for health reporting
+	p.eventEmitter = NewEventEmitter(k8sClient, recorder)
 
 	// Build NATS connection options
 	natsOpts := []nats.Option{
@@ -805,10 +839,18 @@ func (p *Processor) processMessage(msg *nats.Msg) error {
 		// Evaluate audit rules using pre-compiled programs
 		activity, ruleIndex, err := p.evaluateCompiledAuditRules(policy, auditMap, &audit)
 		if err != nil {
+			// Serialize audit event for debugging
+			eventJSON, _ := json.Marshal(auditMap)
+
 			klog.ErrorS(err, "Failed to evaluate policy",
 				"policy", policy.Name,
 				"auditID", audit.AuditID,
+				"eventJSON", truncateString(string(eventJSON), 4096),
 			)
+
+			// Emit Kubernetes Warning event
+			p.eventEmitter.EmitEvaluationError(p.ctx, policy.Name, ruleIndex, err)
+
 			eventsErrored.WithLabelValues("evaluate").Inc()
 			eventsEvaluated.WithLabelValues(
 				policy.Name,
