@@ -191,11 +191,12 @@
          "collapsed": false,
          "gridPos": {
             "h": 1,
-            "w": 24,
-            "x": 0,
+            "w": 0,
+            "x": 24,
             "y": 5
          },
          "id": 5,
+         "panels": [ ],
          "title": "Event Processing",
          "type": "row"
       },
@@ -243,8 +244,16 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(rate(activity_processor_events_received_total[5m])) by (event_type)",
-               "legendFormat": "{{event_type}}"
+               "expr": "sum(rate(activity_processor_events_received_total[5m]))",
+               "legendFormat": "Audit Events"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(activity_processor_k8s_events_received_total[5m]))",
+               "legendFormat": "Cluster Events"
             }
          ],
          "title": "Events by Type",
@@ -408,11 +417,12 @@
          "collapsed": false,
          "gridPos": {
             "h": 1,
-            "w": 24,
-            "x": 0,
-            "y": 14
+            "w": 0,
+            "x": 24,
+            "y": 22
          },
          "id": 10,
+         "panels": [ ],
          "title": "NATS Health",
          "type": "row"
       },
@@ -421,7 +431,7 @@
             "type": "prometheus",
             "uid": "$datasource"
          },
-         "description": "Current NATS connection status (1=connected, 0=disconnected)",
+         "description": "Current NATS connection status (shows Disconnected if any instance is disconnected)",
          "fieldConfig": {
             "defaults": {
                "mappings": [
@@ -445,7 +455,7 @@
             "h": 5,
             "w": 6,
             "x": 0,
-            "y": 15
+            "y": 23
          },
          "id": 11,
          "options": {
@@ -464,7 +474,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "activity_processor_nats_connection_status",
+               "expr": "min(activity_processor_nats_connection_status)",
                "instant": true,
                "legendFormat": "Connected"
             }
@@ -477,7 +487,7 @@
             "type": "prometheus",
             "uid": "$datasource"
          },
-         "description": "Total number of NATS disconnection events",
+         "description": "Total number of NATS disconnection events across all instances",
          "fieldConfig": {
             "defaults": {
                "thresholds": {
@@ -503,7 +513,7 @@
             "h": 5,
             "w": 6,
             "x": 6,
-            "y": 15
+            "y": 23
          },
          "id": 12,
          "options": {
@@ -522,7 +532,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "activity_processor_nats_disconnects_total",
+               "expr": "sum(activity_processor_nats_disconnects_total)",
                "legendFormat": "Disconnects"
             }
          ],
@@ -561,7 +571,7 @@
             "h": 5,
             "w": 6,
             "x": 12,
-            "y": 15
+            "y": 23
          },
          "id": 13,
          "options": {
@@ -580,7 +590,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "histogram_quantile(0.99, rate(activity_processor_nats_publish_latency_seconds_bucket[5m]))",
+               "expr": "histogram_quantile(0.99, sum(rate(activity_processor_nats_publish_latency_seconds_bucket[5m])) by (le))",
                "legendFormat": "p99"
             }
          ],
@@ -603,7 +613,7 @@
             "h": 5,
             "w": 6,
             "x": 18,
-            "y": 15
+            "y": 23
          },
          "id": 14,
          "options": {
@@ -634,7 +644,7 @@
             "type": "prometheus",
             "uid": "$datasource"
          },
-         "description": "NATS connection events over time",
+         "description": "NATS connection events over time (aggregated across all instances)",
          "fieldConfig": {
             "defaults": {
                "custom": {
@@ -651,7 +661,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 20
+            "y": 31
          },
          "id": 15,
          "options": {
@@ -672,7 +682,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "rate(activity_processor_nats_disconnects_total[5m])",
+               "expr": "sum(rate(activity_processor_nats_disconnects_total[5m]))",
                "legendFormat": "Disconnects"
             },
             {
@@ -680,7 +690,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "rate(activity_processor_nats_reconnects_total[5m])",
+               "expr": "sum(rate(activity_processor_nats_reconnects_total[5m]))",
                "legendFormat": "Reconnects"
             },
             {
@@ -688,7 +698,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "rate(activity_processor_nats_errors_total[5m])",
+               "expr": "sum(rate(activity_processor_nats_errors_total[5m]))",
                "legendFormat": "Errors"
             }
          ],
@@ -714,7 +724,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 20
+            "y": 31
          },
          "id": 16,
          "options": {
@@ -736,7 +746,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "histogram_quantile(0.99, rate(activity_processor_nats_publish_latency_seconds_bucket[5m]))",
+               "expr": "histogram_quantile(0.99, sum(rate(activity_processor_nats_publish_latency_seconds_bucket[5m])) by (le))",
                "legendFormat": "p99"
             },
             {
@@ -744,7 +754,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "histogram_quantile(0.95, rate(activity_processor_nats_publish_latency_seconds_bucket[5m]))",
+               "expr": "histogram_quantile(0.95, sum(rate(activity_processor_nats_publish_latency_seconds_bucket[5m])) by (le))",
                "legendFormat": "p95"
             },
             {
@@ -752,7 +762,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "histogram_quantile(0.50, rate(activity_processor_nats_publish_latency_seconds_bucket[5m]))",
+               "expr": "histogram_quantile(0.50, sum(rate(activity_processor_nats_publish_latency_seconds_bucket[5m])) by (le))",
                "legendFormat": "p50"
             }
          ],
@@ -763,11 +773,12 @@
          "collapsed": false,
          "gridPos": {
             "h": 1,
-            "w": 24,
-            "x": 0,
-            "y": 28
+            "w": 0,
+            "x": 24,
+            "y": 39
          },
          "id": 17,
+         "panels": [ ],
          "title": "Worker Health",
          "type": "row"
       },
@@ -791,7 +802,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 29
+            "y": 40
          },
          "id": 18,
          "options": {
@@ -837,7 +848,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 29
+            "y": 40
          },
          "id": 19,
          "options": {
