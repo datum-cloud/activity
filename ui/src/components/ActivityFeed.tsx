@@ -99,6 +99,8 @@ export function ActivityFeed({
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
+  // Store the latest loadMore function in a ref to avoid observer re-subscription
+  const loadMoreRef = useRef(loadMore);
 
   // Track whether policies exist in the system
   const [hasPolicies, setHasPolicies] = useState<boolean | null>(null);
@@ -125,6 +127,11 @@ export function ActivityFeed({
     refresh();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Update the ref whenever loadMore changes
+  useEffect(() => {
+    loadMoreRef.current = loadMore;
+  }, [loadMore]);
+
   // Infinite scroll using Intersection Observer
   useEffect(() => {
     if (!infiniteScroll || !loadMoreTriggerRef.current) return;
@@ -133,7 +140,8 @@ export function ActivityFeed({
       (entries) => {
         const entry = entries[0];
         if (entry.isIntersecting && hasMore && !isLoading) {
-          loadMore();
+          // Call through the ref to always use the latest function
+          loadMoreRef.current();
         }
       },
       {
@@ -148,7 +156,7 @@ export function ActivityFeed({
     return () => {
       observer.disconnect();
     };
-  }, [infiniteScroll, hasMore, isLoading, loadMore, loadMoreThreshold]);
+  }, [infiniteScroll, hasMore, isLoading, loadMoreThreshold]);
 
   // Handle filter changes - refresh is automatic via the hook
   const handleFiltersChange = useCallback(

@@ -395,7 +395,28 @@ export function useEventsFeed({
       // Apply client-side filtering
       const filteredEvents = result.items.filter(event => matchesClientFilters(event, filters));
 
-      setEvents((prev) => [...prev, ...filteredEvents]);
+      // Deduplicate before appending - use uid as primary key, fallback to name
+      setEvents((prev) => {
+        const existingUids = new Set(prev.map(e => e.metadata?.uid).filter(Boolean));
+        const existingNames = new Set(prev.map(e => e.metadata?.name).filter(Boolean));
+
+        const newEvents = filteredEvents.filter(event => {
+          const uid = event.metadata?.uid;
+          const name = event.metadata?.name;
+
+          // Use uid if available (most reliable), otherwise fall back to name
+          if (uid) {
+            return !existingUids.has(uid);
+          }
+          if (name) {
+            return !existingNames.has(name);
+          }
+          // If no uid or name, allow it through (shouldn't happen in practice)
+          return true;
+        });
+
+        return [...prev, ...newEvents];
+      });
       setContinueCursor(result.metadata?.continue);
     } catch (err) {
       setError(err instanceof Error ? err : new Error(String(err)));

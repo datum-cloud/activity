@@ -59,10 +59,11 @@ export function useAuditLogQuery({
   );
 
   const loadMore = useCallback(async () => {
-    if (!query?.status?.continueAfter || !currentSpec) {
+    if (!query?.status?.continueAfter || !currentSpec || isLoading) {
       console.log('[useAuditLogQuery] loadMore skipped:', {
         hasContinueAfter: !!query?.status?.continueAfter,
         hasCurrentSpec: !!currentSpec,
+        isLoading,
       });
       return;
     }
@@ -88,13 +89,27 @@ export function useAuditLogQuery({
       });
 
       setQuery(result);
-      setEvents((prev) => [...prev, ...(result.status?.results || [])]);
+      // Deduplicate before appending - use auditID as the unique key
+      setEvents((prev) => {
+        const existingAuditIds = new Set(prev.map(e => e.auditID).filter(Boolean));
+
+        const newEvents = (result.status?.results || []).filter(event => {
+          const auditID = event.auditID;
+          if (auditID) {
+            return !existingAuditIds.has(auditID);
+          }
+          // If no auditID, allow it through (shouldn't happen in practice)
+          return true;
+        });
+
+        return [...prev, ...newEvents];
+      });
     } catch (err) {
       setError(err instanceof Error ? err : new Error(String(err)));
     } finally {
       setIsLoading(false);
     }
-  }, [client, query, currentSpec, events.length]);
+  }, [client, query, currentSpec, isLoading, events.length]);
 
   const reset = useCallback(() => {
     setQuery(null);

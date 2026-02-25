@@ -44,6 +44,8 @@ export function AuditLogQueryComponent({
 
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  // Store the latest loadMore function in a ref to avoid observer re-subscription
+  const loadMoreRef = useRef(loadMore);
   const filterDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasInitialLoadRef = useRef(false);
 
@@ -132,6 +134,11 @@ export function AuditLogQueryComponent({
     refresh();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Update the ref whenever loadMore changes
+  useEffect(() => {
+    loadMoreRef.current = loadMore;
+  }, [loadMore]);
+
   // Infinite scroll using Intersection Observer
   useEffect(() => {
     if (!loadMoreTriggerRef.current) return;
@@ -140,7 +147,8 @@ export function AuditLogQueryComponent({
       (entries) => {
         const entry = entries[0];
         if (entry.isIntersecting && hasMore && !isLoading) {
-          loadMore();
+          // Call through the ref to always use the latest function
+          loadMoreRef.current();
         }
       },
       {
@@ -155,7 +163,7 @@ export function AuditLogQueryComponent({
     return () => {
       observer.disconnect();
     };
-  }, [hasMore, isLoading, loadMore]);
+  }, [hasMore, isLoading]);
 
   // Cleanup on unmount
   useEffect(() => {
