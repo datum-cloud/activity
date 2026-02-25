@@ -1,9 +1,12 @@
 import { format } from 'date-fns';
-import type { Activity } from '../types/activity';
+import type { Activity, TenantLinkResolver } from '../types/activity';
+import { TenantBadge } from './TenantBadge';
 
 export interface ActivityExpandedDetailsProps {
   /** The activity to display details for */
   activity: Activity;
+  /** Optional resolver function to make tenant badges clickable */
+  tenantLinkResolver?: TenantLinkResolver;
 }
 
 /**
@@ -25,13 +28,14 @@ function formatTimestampFull(timestamp?: string): string {
  * Section order (most to least relevant for investigation):
  * 1. Changes - what changed (most actionable)
  * 2. Timestamp - when it happened
- * 3. Actor - who made the change
- * 4. Resource - what resource was affected
- * 5. Origin - correlation to audit logs
+ * 3. Tenant - scope of the activity
+ * 4. Actor - who made the change
+ * 5. Resource - what resource was affected
+ * 6. Origin - correlation to audit logs
  */
-export function ActivityExpandedDetails({ activity }: ActivityExpandedDetailsProps) {
+export function ActivityExpandedDetails({ activity, tenantLinkResolver }: ActivityExpandedDetailsProps) {
   const { spec, metadata } = activity;
-  const { actor, resource, origin, changes } = spec;
+  const { actor, resource, origin, changes, tenant } = spec;
   const timestamp = metadata?.creationTimestamp;
 
   return (
@@ -75,6 +79,16 @@ export function ActivityExpandedDetails({ activity }: ActivityExpandedDetailsPro
           {formatTimestampFull(timestamp)}
         </p>
       </div>
+
+      {/* Tenant Information */}
+      {tenant && (
+        <div>
+          <h4 className="m-0 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+            Tenant
+          </h4>
+          <TenantBadge tenant={tenant} tenantLinkResolver={tenantLinkResolver} />
+        </div>
+      )}
 
       {/* Actor Information */}
       <div>

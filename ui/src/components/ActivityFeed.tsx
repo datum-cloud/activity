@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
-import type { Activity, ResourceRef, ResourceLinkResolver } from '../types/activity';
+import type { Activity, ResourceRef, ResourceLinkResolver, TenantLinkResolver } from '../types/activity';
 import type {
   ActivityFeedFilters as FilterState,
   TimeRange,
@@ -26,6 +26,8 @@ export interface ActivityFeedProps {
   onResourceClick?: (resource: ResourceRef) => void;
   /** Function that resolves resource references to URLs */
   resourceLinkResolver?: ResourceLinkResolver;
+  /** Function that resolves tenant references to URLs */
+  tenantLinkResolver?: TenantLinkResolver;
   /** Handler called when an activity is clicked */
   onActivityClick?: (activity: Activity) => void;
   /** Whether to show in compact mode (for resource detail tabs) */
@@ -57,6 +59,7 @@ export function ActivityFeed({
   pageSize = 30,
   onResourceClick,
   resourceLinkResolver,
+  tenantLinkResolver,
   onActivityClick,
   compact = false,
   resourceUid,
@@ -321,6 +324,7 @@ export function ActivityFeed({
             activity={activity}
             onResourceClick={onResourceClick}
             resourceLinkResolver={resourceLinkResolver}
+            tenantLinkResolver={tenantLinkResolver}
             onActorClick={handleActorClick}
             onActivityClick={onActivityClick}
             compact={compact}

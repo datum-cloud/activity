@@ -28,6 +28,8 @@ export { ResourceHistoryView } from './components/ResourceHistoryView';
 export type { ResourceHistoryViewProps, ResourceFilter } from './components/ResourceHistoryView';
 export { ActivityExpandedDetails } from './components/ActivityExpandedDetails';
 export type { ActivityExpandedDetailsProps } from './components/ActivityExpandedDetails';
+export { TenantBadge } from './components/TenantBadge';
+export type { TenantBadgeProps } from './components/TenantBadge';
 
 // Components - Events Feed (new)
 export { EventsFeed } from './components/EventsFeed';
@@ -220,6 +222,7 @@ export type {
   WatchEventType,
   WatchErrorStatus,
   ResourceLinkResolver,
+  TenantLinkResolver,
 } from './types/activity';
 
 export { ACTIVITY_FILTER_FIELDS, defaultResourceLinkResolver } from './types/activity';

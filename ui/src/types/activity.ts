@@ -369,6 +369,12 @@ export function defaultResourceLinkResolver(resource: ResourceRef): string {
   return `/resource-history?${params.toString()}`;
 }
 
+/**
+ * Function that resolves a Tenant to a navigation URL
+ * Returns a URL string to navigate to when the tenant link is clicked, or undefined to not render as a link
+ */
+export type TenantLinkResolver = (tenant: Tenant) => string | undefined;
+
 export const ACTIVITY_FILTER_FIELDS: ActivityFilterField[] = [
   {
     name: 'spec.changeSource',

@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { format, formatDistanceToNow } from 'date-fns';
-import type { Activity, ResourceLinkResolver } from '../types/activity';
+import type { Activity, ResourceLinkResolver, TenantLinkResolver } from '../types/activity';
 import { ActivityFeedSummary, ResourceLinkClickHandler } from './ActivityFeedSummary';
 import { ActivityExpandedDetails } from './ActivityExpandedDetails';
+import { TenantBadge } from './TenantBadge';
 import { cn } from '../lib/utils';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
@@ -14,6 +15,8 @@ export interface ActivityFeedItemProps {
   onResourceClick?: ResourceLinkClickHandler;
   /** Function that resolves resource references to URLs */
   resourceLinkResolver?: ResourceLinkResolver;
+  /** Function that resolves tenant references to URLs */
+  tenantLinkResolver?: TenantLinkResolver;
   /** Handler called when the actor name or avatar is clicked */
   onActorClick?: (actorName: string) => void;
   /** Handler called when the item is clicked */
@@ -137,6 +140,7 @@ export function ActivityFeedItem({
   activity,
   onResourceClick,
   resourceLinkResolver,
+  tenantLinkResolver,
   onActorClick,
   onActivityClick,
   isSelected = false,
@@ -151,7 +155,7 @@ export function ActivityFeedItem({
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
   const { spec, metadata } = activity;
-  const { actor, summary, changeSource, links } = spec;
+  const { actor, summary, changeSource, links, tenant } = spec;
 
   const handleClick = () => {
     onActivityClick?.(activity);
@@ -277,6 +281,9 @@ export function ActivityFeedItem({
             ) : (
               <span className="text-xs">by {actor.name}</span>
             )}
+            {tenant && (
+              <TenantBadge tenant={tenant} tenantLinkResolver={tenantLinkResolver} size="compact" />
+            )}
             <Button
               variant="ghost"
               size="sm"
@@ -289,7 +296,7 @@ export function ActivityFeedItem({
           </div>
 
           {/* Expanded Details */}
-          {isExpanded && <ActivityExpandedDetails activity={activity} />}
+          {isExpanded && <ActivityExpandedDetails activity={activity} tenantLinkResolver={tenantLinkResolver} />}
         </div>
       </div>
     );
@@ -379,6 +386,9 @@ export function ActivityFeedItem({
             ) : (
               <span className="text-xs">by {actor.name}</span>
             )}
+            {tenant && (
+              <TenantBadge tenant={tenant} tenantLinkResolver={tenantLinkResolver} size="compact" />
+            )}
             <Button
               variant="ghost"
               size="sm"
@@ -393,7 +403,7 @@ export function ActivityFeedItem({
       </div>
 
       {/* Expanded Details */}
-      {isExpanded && <ActivityExpandedDetails activity={activity} />}
+      {isExpanded && <ActivityExpandedDetails activity={activity} tenantLinkResolver={tenantLinkResolver} />}
     </Card>
   );
 }

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import type { Event } from '../types';
+import type { Tenant, TenantLinkResolver, TenantType } from '../types/activity';
+import { TenantBadge } from './TenantBadge';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
@@ -9,6 +11,32 @@ export interface AuditEventViewerProps {
   events: Event[];
   className?: string;
   onEventSelect?: (event: Event) => void;
+  /** Optional resolver function to make tenant badges clickable */
+  tenantLinkResolver?: TenantLinkResolver;
+}
+
+/**
+ * Extract tenant information from audit event annotations if present
+ * Expected annotations: tenant.type and tenant.name
+ */
+function extractTenantFromAnnotations(event: Event): Tenant | undefined {
+  const annotations = event.annotations;
+  if (!annotations) return undefined;
+
+  const tenantType = annotations['tenant.type'];
+  const tenantName = annotations['tenant.name'];
+
+  if (tenantType && tenantName) {
+    const validTypes: TenantType[] = ['global', 'organization', 'project', 'user'];
+    if (validTypes.includes(tenantType as TenantType)) {
+      return {
+        type: tenantType as Tenant['type'],
+        name: tenantName,
+      };
+    }
+  }
+
+  return undefined;
 }
 
 /**
@@ -18,6 +46,7 @@ export function AuditEventViewer({
   events,
   className = '',
   onEventSelect,
+  tenantLinkResolver,
 }: AuditEventViewerProps) {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
@@ -80,6 +109,7 @@ export function AuditEventViewer({
         {events.map((event) => {
           const auditId = event.auditID || '';
           const isExpanded = expandedEvents.has(auditId);
+          const tenant = extractTenantFromAnnotations(event);
 
           return (
             <Card
@@ -106,6 +136,9 @@ export function AuditEventViewer({
                   )}
                   {event.objectRef?.name && (
                     <span className="text-foreground/80 text-sm">{event.objectRef.name}</span>
+                  )}
+                  {tenant && (
+                    <TenantBadge tenant={tenant} tenantLinkResolver={tenantLinkResolver} size="compact" />
                   )}
                 </div>
                 <div className="flex gap-4 items-center">
@@ -154,6 +187,13 @@ export function AuditEventViewer({
                       )}
                     </dl>
                   </div>
+
+                  {tenant && (
+                    <div className="mb-4">
+                      <h4 className="mt-0 mb-2 text-base text-foreground/80">Tenant</h4>
+                      <TenantBadge tenant={tenant} tenantLinkResolver={tenantLinkResolver} />
+                    </div>
+                  )}
 
                   {event.user && (
                     <div className="mb-4">
