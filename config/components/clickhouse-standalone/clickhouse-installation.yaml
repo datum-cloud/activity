@@ -49,6 +49,16 @@ spec:
                 </default>
             </users>
         </clickhouse>
+      # HTTP timeout configuration to prevent connection drops during batch writes
+      config.d/http.xml: |-
+        <clickhouse>
+            <http_server_default_response><![CDATA[<html><body>Activity ClickHouse</body></html>]]></http_server_default_response>
+            <keep_alive_timeout>300</keep_alive_timeout>
+            <receive_timeout>300</receive_timeout>
+            <send_timeout>300</send_timeout>
+            <http_receive_timeout>300</http_receive_timeout>
+            <http_send_timeout>300</http_send_timeout>
+        </clickhouse>
       # Storage configuration compatible with migrations (hot_cold policy)
       # Uses local disk for both hot and cold (no S3 in dev)
       # This allows the same migrations to work in dev and production

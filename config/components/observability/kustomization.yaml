@@ -12,5 +12,8 @@ resources:
   # Recording rules (generated from Jsonnet mixin)
   - alerts/generated/activity-recordings.yaml
 
+  # PrometheusRule resources for component-specific alerts
+  - prometheusrules/clickhouse-alerts.yaml
+
   # Grafana dashboards
   - dashboards/

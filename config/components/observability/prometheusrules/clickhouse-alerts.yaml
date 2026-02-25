@@ -1,0 +1,175 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: clickhouse-alerts
+  labels:
+    team: platform
+    component: clickhouse
+spec:
+  groups:
+    - name: clickhouse.health
+      interval: 30s
+      rules:
+        # Data integrity alerts
+        - alert: ClickHouseReplicatedPartChecksFailed
+          expr: |
+            chi_clickhouse_metric_ReplicatedPartChecksFailed > 0
+          for: 5m
+          labels:
+            severity: warning
+            team: platform
+            component: clickhouse
+          annotations:
+            summary: "ClickHouse part checks failing on {{ $labels.hostname }}"
+            description: |
+              ClickHouse instance {{ $labels.hostname }} has {{ $value }} replicated part check failures.
+              This may indicate corrupted data parts or schema migration issues.
+              Check logs for details: kubectl logs -n {{ $labels.namespace }} {{ $labels.pod_name }}
+            runbook_url: "https://runbooks.datum.net/clickhouse/part-checks-failed"
+
+        # Merge executor saturation - critical for write performance
+        - alert: ClickHouseMergeExecutorSaturation
+          expr: |
+            (
+              chi_clickhouse_metric_BackgroundMergesAndMutationsPoolTask
+              /
+              chi_clickhouse_metric_BackgroundMergesAndMutationsPoolSize
+            ) > 0.9
+          for: 10m
+          labels:
+            severity: critical
+            team: platform
+            component: clickhouse
+          annotations:
+            summary: "ClickHouse merge executor saturated on {{ $labels.hostname }}"
+            description: |
+              ClickHouse instance {{ $labels.hostname }} has merge executor at {{ $value | humanizePercentage }} capacity for 10 minutes.
+              This will cause write performance degradation and increased part count.
+              Current tasks: {{ printf "chi_clickhouse_metric_BackgroundMergesAndMutationsPoolTask{hostname='%s'}" $labels.hostname | query | first | value }}
+              Pool size: {{ printf "chi_clickhouse_metric_BackgroundMergesAndMutationsPoolSize{hostname='%s'}" $labels.hostname | query | first | value }}
+            runbook_url: "https://runbooks.datum.net/clickhouse/merge-saturation"
+
+        # Insert failure rate
+        - alert: ClickHouseFailedInserts
+          expr: |
+            rate(chi_clickhouse_event_FailedInsertQuery[5m]) > 0.1
+          for: 5m
+          labels:
+            severity: warning
+            team: platform
+            component: clickhouse
+          annotations:
+            summary: "High ClickHouse insert failure rate on {{ $labels.hostname }}"
+            description: |
+              ClickHouse instance {{ $labels.hostname }} is experiencing {{ $value | humanize }} failed inserts/sec.
+              This may indicate schema issues, resource exhaustion, or network problems.
+              Check processor logs for insert errors.
+            runbook_url: "https://runbooks.datum.net/clickhouse/failed-inserts"
+
+        # General query failure rate
+        - alert: ClickHouseFailedQueries
+          expr: |
+            rate(chi_clickhouse_event_FailedQuery[5m]) > 0.5
+          for: 5m
+          labels:
+            severity: warning
+            team: platform
+            component: clickhouse
+          annotations:
+            summary: "High ClickHouse query failure rate on {{ $labels.hostname }}"
+            description: |
+              ClickHouse instance {{ $labels.hostname }} is experiencing {{ $value | humanize }} failed queries/sec.
+              This may indicate schema issues, memory pressure, or malformed queries.
+              Check apiserver and processor logs for query errors.
+            runbook_url: "https://runbooks.datum.net/clickhouse/failed-queries"
+
+        # ZooKeeper connectivity issues (can indicate cluster problems)
+        - alert: ClickHouseZooKeeperExceptions
+          expr: |
+            rate(chi_clickhouse_event_ZooKeeperHardwareExceptions[5m]) > 0
+          for: 10m
+          labels:
+            severity: info
+            team: platform
+            component: clickhouse
+          annotations:
+            summary: "ClickHouse ZooKeeper exceptions on {{ $labels.hostname }}"
+            description: |
+              ClickHouse instance {{ $labels.hostname }} is experiencing {{ $value | humanize }} ZooKeeper exceptions/sec.
+              This may indicate network issues or ZooKeeper cluster problems.
+              While transient exceptions are normal, sustained rate may affect replication.
+            runbook_url: "https://runbooks.datum.net/clickhouse/zookeeper-exceptions"
+
+        # Replication lag - critical for data consistency
+        - alert: ClickHouseReplicationLagHigh
+          expr: |
+            chi_clickhouse_metric_ReplicasMaxAbsoluteDelay > 300
+          for: 5m
+          labels:
+            severity: critical
+            team: platform
+            component: clickhouse
+          annotations:
+            summary: "High ClickHouse replication lag on {{ $labels.hostname }}"
+            description: |
+              ClickHouse instance {{ $labels.hostname }} has replication lag of {{ $value | humanizeDuration }}.
+              Replicas are not caught up with the leader, which may affect read consistency.
+              This could indicate network issues, resource saturation, or schema conflicts.
+              Check replication queue: SELECT * FROM system.replication_queue FORMAT Vertical
+            runbook_url: "https://runbooks.datum.net/clickhouse/replication-lag"
+
+        # Too many parts - can indicate merge issues
+        - alert: ClickHouseTooManyParts
+          expr: |
+            chi_clickhouse_metric_MaxPartCountForPartition > 300
+          for: 10m
+          labels:
+            severity: warning
+            team: platform
+            component: clickhouse
+          annotations:
+            summary: "ClickHouse has too many parts on {{ $labels.hostname }}"
+            description: |
+              ClickHouse instance {{ $labels.hostname }} has {{ $value }} parts in a partition.
+              This indicates merges are not keeping up with inserts.
+              May cause "Too many parts" errors and require manual OPTIMIZE TABLE.
+              Check merge executor saturation and background pool settings.
+            runbook_url: "https://runbooks.datum.net/clickhouse/too-many-parts"
+
+    - name: clickhouse.replication
+      interval: 30s
+      rules:
+        # Replication queue size
+        - alert: ClickHouseReplicationQueueLarge
+          expr: |
+            chi_clickhouse_metric_ReplicatedFetchQueue > 100
+          for: 15m
+          labels:
+            severity: warning
+            team: platform
+            component: clickhouse
+          annotations:
+            summary: "Large ClickHouse replication queue on {{ $labels.hostname }}"
+            description: |
+              ClickHouse instance {{ $labels.hostname }} has {{ $value }} items in replication fetch queue.
+              This indicates the replica is falling behind and may take time to catch up.
+              Monitor ReplicasMaxAbsoluteDelay metric for actual lag.
+            runbook_url: "https://runbooks.datum.net/clickhouse/replication-queue"
+
+        # Detached parts - indicates manual intervention needed
+        - alert: ClickHouseDetachedParts
+          expr: |
+            chi_clickhouse_metric_NumberOfDetachedParts > 0
+          for: 30m
+          labels:
+            severity: warning
+            team: platform
+            component: clickhouse
+          annotations:
+            summary: "ClickHouse has detached parts on {{ $labels.hostname }}"
+            description: |
+              ClickHouse instance {{ $labels.hostname }} has {{ $value }} detached parts.
+              Detached parts are not included in queries and may indicate corruption or migration issues.
+              Investigate: SELECT * FROM system.detached_parts
+              These may need to be manually attached or dropped.
+            runbook_url: "https://runbooks.datum.net/clickhouse/detached-parts"
