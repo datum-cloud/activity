@@ -109,3 +109,130 @@ spec:
             summary: "Audit event backlog is critical"
             description: "{{ $value }} audit events pending. Risk of data loss if retention exceeded."
             impact: "Large delay in audit event availability - potential data loss"
+
+        # Event Exporter Availability
+        - alert: EventExporterDown
+          expr: up{job="k8s-event-exporter"} == 0
+          for: 5m
+          labels:
+            severity: warning
+            component: k8s-event-exporter
+          annotations:
+            summary: "Kubernetes event exporter is unavailable"
+            description: "Event exporter has been down for more than 5 minutes. Kubernetes events are not being published to NATS."
+            impact: "Cluster events not being captured - event timeline will have gaps"
+
+        # Event Exporter Publish Errors
+        - alert: EventExporterPublishErrors
+          expr: rate(event_exporter_publish_errors_total{job="k8s-event-exporter"}[5m]) > 0.1
+          for: 10m
+          labels:
+            severity: warning
+            component: k8s-event-exporter
+          annotations:
+            summary: "Event exporter experiencing publish errors"
+            description: "{{ $value }} publish errors/sec for 10+ minutes. Events may not reach NATS."
+            impact: "Some cluster events missing from timeline"
+
+    # =========================================================================
+    # Activity Processor Health - Translation Engine
+    # =========================================================================
+    - name: activity-processor
+      interval: 30s
+      rules:
+        # Processor Availability
+        - alert: ActivityProcessorDown
+          expr: up{job="activity-processor"} == 0
+          for: 5m
+          labels:
+            severity: critical
+            component: activity-processor
+          annotations:
+            summary: "Activity processor is unavailable"
+            description: "Activity processor has been down for more than 5 minutes. No new activities are being generated."
+            impact: "Complete activity generation outage - audit events not translated to activities"
+
+        # NATS Connection Health
+        - alert: ActivityProcessorNATSDisconnected
+          expr: activity_processor_nats_connection_status == 0
+          for: 2m
+          labels:
+            severity: critical
+            component: activity-processor
+          annotations:
+            summary: "Activity processor disconnected from NATS"
+            description: "Processor has lost NATS connection. Cannot receive events."
+            impact: "Activity generation stopped - events not being processed"
+
+        # Activity Generation Stalled
+        - alert: ActivityGenerationStalled
+          expr: |
+            rate(activity_processor_activities_generated_total[5m]) == 0
+            AND
+            rate(activity_processor_events_received_total[5m]) > 0
+          for: 10m
+          labels:
+            severity: critical
+            component: activity-processor
+          annotations:
+            summary: "Activity generation has stalled"
+            description: "Processor receiving events but not generating activities for 10+ minutes."
+            impact: "Activity timeline not updating - users see stale data"
+
+        # Error Rate Threshold
+        - alert: ActivityProcessorHighErrorRate
+          expr: |
+            sum(rate(activity_processor_events_errored_total[5m]))
+            /
+            sum(rate(activity_processor_events_received_total[5m]))
+            > 0.05
+          for: 10m
+          labels:
+            severity: warning
+            component: activity-processor
+          annotations:
+            summary: "High error rate in activity processor"
+            description: "{{ $value | humanizePercentage }} of events failing to process (target: <5%)"
+            impact: "Some activities missing from timeline - potential data gaps"
+
+        # Policy Cache Health
+        - alert: ActivityProcessorNoPolicies
+          expr: activity_processor_active_policies == 0
+          for: 15m
+          labels:
+            severity: warning
+            component: activity-processor
+          annotations:
+            summary: "Activity processor has no active policies"
+            description: "Policy cache is empty. Events will not be translated to activities."
+            impact: "No activities being generated - timeline will be empty"
+
+    # =========================================================================
+    # Activity Controller Manager - Policy Lifecycle
+    # =========================================================================
+    - name: activity-controller
+      interval: 30s
+      rules:
+        # Policy Validation Failures
+        - alert: ActivityPolicyValidationFailing
+          expr: sum(rate(activity_controller_policy_validation_errors_total[10m])) > 0.1
+          for: 15m
+          labels:
+            severity: warning
+            component: activity-controller-manager
+          annotations:
+            summary: "ActivityPolicy validation failures occurring"
+            description: "{{ $value }} policy validation errors/sec. Policies may be misconfigured."
+            impact: "Some policies may not be active - activity generation could be incomplete"
+
+        # Policy Readiness
+        - alert: ActivityPolicyNotReady
+          expr: count by (policy) (activity_controller_policy_ready == 0) > 0
+          for: 30m
+          labels:
+            severity: warning
+            component: activity-controller-manager
+          annotations:
+            summary: "ActivityPolicies not ready"
+            description: "{{ $value }} ActivityPolicy resources not ready for 30+ minutes."
+            impact: "Affected policies not being used by processor - activity generation incomplete"

@@ -67,6 +67,10 @@ spec:
           capabilities:
             drop:
             - ALL
+        ports:
+        - containerPort: 8081
+          name: health
+          protocol: TCP
         command:
         - /activity
         - processor
@@ -121,9 +125,47 @@ spec:
           limits:
             cpu: 500m
             memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: health
+            scheme: HTTP
+          initialDelaySeconds: 15
+          periodSeconds: 20
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: health
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
         volumeMounts:
         - name: tmp
           mountPath: /tmp
       volumes:
       - name: tmp
         emptyDir: {}
+---
+# Service for metrics scraping by Prometheus
+apiVersion: v1
+kind: Service
+metadata:
+  name: activity-processor
+  namespace: activity-system
+  labels:
+    app: activity-processor
+    app.kubernetes.io/name: activity-processor
+    app.kubernetes.io/component: processor
+spec:
+  ports:
+  - name: health
+    port: 8081
+    protocol: TCP
+    targetPort: health
+  selector:
+    app: activity-processor
+  type: ClusterIP

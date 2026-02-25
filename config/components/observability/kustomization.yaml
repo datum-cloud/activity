@@ -4,10 +4,12 @@ kind: Component
 resources:
   # ServiceMonitors for metrics collection
   - servicemonitors/activity-apiserver-servicemonitor.yaml
+  - servicemonitors/activity-processor-servicemonitor.yaml
+  - servicemonitors/k8s-event-exporter-servicemonitor.yaml
 
-  # Alert rules and recording rules (generated from Jsonnet mixin)
-  # Generate with: task observability:build-mixin
-  - alerts/generated/activity-alerts.yaml
+  # Alert rules (complete manual file with all component alerts)
+  - alerts/activity-alerts.yaml
+  # Recording rules (generated from Jsonnet mixin)
   - alerts/generated/activity-recordings.yaml
 
   # Grafana dashboards

@@ -20,6 +20,15 @@ configMapGenerator:
         grafana_dashboard: "1"
       disableNameSuffixHash: true
 
+  - name: activity-processor-dashboard
+    files:
+      - generated/activity-processor.json
+    options:
+      labels:
+        grafana_dashboard: "1"
+      disableNameSuffixHash: true
+
 resources:
   - audit-pipeline-grafanadashboard.yaml
   - activity-apiserver-grafanadashboard.yaml
+  - activity-processor-grafanadashboard.yaml

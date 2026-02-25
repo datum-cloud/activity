@@ -13,6 +13,7 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	auditv1 "k8s.io/apiserver/pkg/apis/audit/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -924,6 +925,9 @@ func (p *Processor) startHealthServer() {
 			"policies-ready": p.policiesReadyChecker(),
 		},
 	}))
+
+	// Metrics endpoint for Prometheus scraping
+	mux.Handle("/metrics", promhttp.HandlerFor(metrics.Registry, promhttp.HandlerOpts{}))
 
 	p.healthServer = &http.Server{
 		Addr:    p.config.HealthProbeAddr,

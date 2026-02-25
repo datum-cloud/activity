@@ -39,6 +39,12 @@
     // Activity API server
     apiserver: 'activity-apiserver',
 
+    // Activity processor (event pipeline)
+    processor: 'activity-processor',
+
+    // Activity controller manager
+    controllerManager: 'activity-controller-manager',
+
     // ClickHouse database
     clickhouse: 'clickhouse-activity-clickhouse',
 
