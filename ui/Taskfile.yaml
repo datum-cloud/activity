@@ -5,7 +5,7 @@ tasks:
     desc: Install UI component library dependencies
     dir: '{{.USER_WORKING_DIR}}/ui'
     cmds:
-      - npm install
+      - pnpm install
 
   build:
     desc: Build UI component library
@@ -13,7 +13,7 @@ tasks:
     deps:
       - install
     cmds:
-      - npm run build
+      - pnpm run build
 
   dev:
     desc: Build UI components in watch mode
@@ -21,7 +21,7 @@ tasks:
     deps:
       - install
     cmds:
-      - npm run dev
+      - pnpm run dev
 
   lint:
     desc: Lint UI component library
@@ -29,7 +29,7 @@ tasks:
     deps:
       - install
     cmds:
-      - npm run lint
+      - pnpm run lint
 
   type-check:
     desc: Type check UI component library
@@ -37,7 +37,7 @@ tasks:
     deps:
       - install
     cmds:
-      - npm run type-check
+      - pnpm run type-check
 
   clean:
     desc: Clean UI build artifacts
@@ -53,7 +53,7 @@ tasks:
     deps:
       - build
     cmds:
-      - npm install
+      - pnpm install
 
   example:dev:
     desc: Start example app in development mode
@@ -63,7 +63,7 @@ tasks:
     deps:
       - example:install
     cmds:
-      - npm run dev
+      - pnpm run dev
 
   example:build:
     desc: Build example app for production
@@ -71,7 +71,7 @@ tasks:
     deps:
       - example:install
     cmds:
-      - npm run build
+      - pnpm run build
 
   example:preview:
     desc: Preview production build of example app
@@ -79,7 +79,7 @@ tasks:
     deps:
       - example:build
     cmds:
-      - npm run preview
+      - pnpm run preview
 
   # Combined tasks
   test:

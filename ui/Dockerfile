@@ -1,32 +1,35 @@
 # Build stage
 FROM node:20-alpine AS builder
 
+# Enable corepack for pnpm
+RUN corepack enable && corepack prepare pnpm@10.29.3 --activate
+
 WORKDIR /app
 
-# Copy package files for the library
-COPY package*.json ./
+# Copy workspace and lock files first for better caching
+COPY pnpm-workspace.yaml ./
+COPY pnpm-lock.yaml ./
+COPY package.json ./
+
+# Copy library config files
 COPY tsconfig.json ./
 COPY rollup.config.mjs ./
 
 # Copy source files for the library
 COPY src/ ./src/
 
-# Install dependencies and build the library
-RUN npm ci && npm run build
-
-# Copy example app package files
-COPY example/package*.json ./example/
-
-# Copy example app source and config
+# Copy example app files
+COPY example/package.json ./example/
 COPY example/app/ ./example/app/
 COPY example/tsconfig.json ./example/
 COPY example/vite.config.ts ./example/
 COPY example/postcss.config.js ./example/
 COPY example/tailwind.config.js ./example/
 
-# Install example dependencies and build
-WORKDIR /app/example
-RUN npm ci && npm run build
+# Install dependencies and build
+RUN pnpm install --frozen-lockfile && \
+    pnpm --filter @miloapis/activity-ui build && \
+    pnpm --filter activity-ui-example build
 
 # Runtime stage - Node.js for Remix server
 FROM node:20-alpine AS runtime
@@ -35,7 +38,7 @@ WORKDIR /app
 
 # Copy built server and client assets
 COPY --from=builder /app/example/build ./build
-COPY --from=builder /app/example/package*.json ./
+COPY --from=builder /app/example/package.json ./
 COPY --from=builder /app/example/node_modules ./node_modules
 
 # Expose port 3000
@@ -49,4 +52,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget -q --spider http://localhost:3000/health || exit 1
 
 # Start the Remix server
-CMD ["npm", "run", "start"]
+CMD ["node", "node_modules/.bin/remix-serve", "./build/server/index.js"]

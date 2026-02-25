@@ -1,0 +1,71 @@
+name: Publish UI Dev Build to NPM
+
+on:
+  push:
+    branches:
+      - "**"
+      - "!main"
+    paths:
+      - "ui/**"
+      - "!ui/example/**"
+  pull_request:
+    paths:
+      - "ui/**"
+      - "!ui/example/**"
+
+jobs:
+  publish-dev:
+    name: Publish dev build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # needed for npm trusted publishing (OIDC)
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: ui/pnpm-lock.yaml
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        working-directory: ui
+        run: pnpm install --frozen-lockfile
+
+      - name: Build package
+        run: pnpm --filter @miloapis/activity-ui build
+
+      - name: Set dev version
+        working-directory: ui
+        run: |
+          # Get current version from package.json
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          # Create dev version with short SHA
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          DEV_VERSION="${CURRENT_VERSION}-dev.${SHORT_SHA}"
+          # Update package.json with dev version (no git commit)
+          npm version "${DEV_VERSION}" --no-git-tag-version
+          echo "Publishing version: ${DEV_VERSION}"
+
+      - name: Publish to npm (dev tag)
+        working-directory: ui
+        run: pnpm publish --no-git-checks --access public --tag dev --provenance
+
+      - name: Summary
+        run: |
+          DEV_VERSION=$(node -p "require('./ui/package.json').version")
+          {
+            echo "### Published dev build"
+            echo ""
+            echo "Version: \`${DEV_VERSION}\`"
+            echo "Install: \`npm install @miloapis/activity-ui@dev\`"
+            echo "Or: \`npm install @miloapis/activity-ui@${DEV_VERSION}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
