@@ -16,7 +16,7 @@ var SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: "v1alpha
 
 var (
 	// SchemeBuilder is the scheme builder for this API group
-	SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
+	SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes, RegisterConversions)
 	// AddToScheme adds the types in this group-version to the given scheme
 	AddToScheme = SchemeBuilder.AddToScheme
 )

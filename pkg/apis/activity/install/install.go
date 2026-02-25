@@ -8,11 +8,15 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 
+	"go.miloapis.com/activity/pkg/apis/activity"
 	"go.miloapis.com/activity/pkg/apis/activity/v1alpha1"
 )
 
 // Install registers the API group and adds types to a scheme
 func Install(scheme *runtime.Scheme) {
+	// Register internal version first
+	utilruntime.Must(activity.AddToScheme(scheme))
+	// Register external version with conversions
 	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 	utilruntime.Must(scheme.SetVersionPriority(v1alpha1.SchemeGroupVersion))
 
