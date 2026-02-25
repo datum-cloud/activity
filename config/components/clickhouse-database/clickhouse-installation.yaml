@@ -78,14 +78,23 @@ spec:
             </users>
         </clickhouse>
       # HTTP timeout configuration to prevent connection drops during batch writes
+      # Note: receive_timeout and send_timeout are user-level settings
       config.d/http.xml: |-
         <clickhouse>
             <http_server_default_response><![CDATA[<html><body>Activity ClickHouse</body></html>]]></http_server_default_response>
             <keep_alive_timeout>300</keep_alive_timeout>
-            <receive_timeout>300</receive_timeout>
-            <send_timeout>300</send_timeout>
             <http_receive_timeout>300</http_receive_timeout>
             <http_send_timeout>300</http_send_timeout>
+        </clickhouse>
+      # User-level timeout settings for batch writes
+      users.d/timeouts.xml: |-
+        <clickhouse>
+            <profiles>
+                <default>
+                    <receive_timeout>300</receive_timeout>
+                    <send_timeout>300</send_timeout>
+                </default>
+            </profiles>
         </clickhouse>
       # Storage configuration for hot/cold tiering with S3
       # Hot storage: local disk for recent data (fast queries)
