@@ -169,7 +169,7 @@ spec:
           expr: |
             rate(activity_processor_activities_generated_total[5m]) == 0
             AND
-            rate(activity_processor_events_received_total[5m]) > 0
+            rate(activity_processor_audit_events_received_total[5m]) > 0
           for: 10m
           labels:
             severity: critical
@@ -182,9 +182,9 @@ spec:
         # Error Rate Threshold
         - alert: ActivityProcessorHighErrorRate
           expr: |
-            sum(rate(activity_processor_events_errored_total[5m]))
+            sum(rate(activity_processor_audit_events_errored_total[5m]))
             /
-            sum(rate(activity_processor_events_received_total[5m]))
+            sum(rate(activity_processor_audit_events_received_total[5m]))
             > 0.05
           for: 10m
           labels:

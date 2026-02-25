@@ -40,7 +40,7 @@ local allPanels = util.grid.wrapPanels([
   + stat.queryOptions.withTargets([
     prometheus.new(
       datasource,
-      'sum(rate(activity_processor_events_received_total[5m]))'
+      'sum(rate(activity_processor_audit_events_received_total[5m]))'
     )
     + prometheus.withLegendFormat('Events/s'),
   ])
@@ -78,7 +78,7 @@ local allPanels = util.grid.wrapPanels([
   + stat.queryOptions.withTargets([
     prometheus.new(
       datasource,
-      'sum(rate(activity_processor_events_errored_total[5m])) / sum(rate(activity_processor_events_received_total[5m])) * 100'
+      'sum(rate(activity_processor_audit_events_errored_total[5m])) / sum(rate(activity_processor_audit_events_received_total[5m])) * 100'
     )
     + prometheus.withLegendFormat('Error %'),
   ])
@@ -131,7 +131,7 @@ local allPanels = util.grid.wrapPanels([
   + timeSeries.queryOptions.withTargets([
     prometheus.new(
       datasource,
-      'sum(rate(activity_processor_events_received_total[5m]))'
+      'sum(rate(activity_processor_audit_events_received_total[5m]))'
     )
     + prometheus.withLegendFormat('Audit Events'),
     prometheus.new(
@@ -158,7 +158,7 @@ local allPanels = util.grid.wrapPanels([
   + timeSeries.queryOptions.withTargets([
     prometheus.new(
       datasource,
-      'sum(rate(activity_processor_events_evaluated_total[5m]))'
+      'sum(rate(activity_processor_audit_events_evaluated_total[5m]))'
     )
     + prometheus.withLegendFormat('Evaluated'),
     prometheus.new(
@@ -185,7 +185,7 @@ local allPanels = util.grid.wrapPanels([
   + timeSeries.queryOptions.withTargets([
     prometheus.new(
       datasource,
-      'sum(rate(activity_processor_events_skipped_total[5m])) by (reason)'
+      'sum(rate(activity_processor_audit_events_skipped_total[5m])) by (reason)'
     )
     + prometheus.withLegendFormat('{{reason}}'),
   ])
@@ -206,7 +206,7 @@ local allPanels = util.grid.wrapPanels([
   + timeSeries.queryOptions.withTargets([
     prometheus.new(
       datasource,
-      'histogram_quantile(0.99, sum(rate(activity_processor_event_processing_duration_seconds_bucket[5m])) by (policy_name, le))'
+      'histogram_quantile(0.99, sum(rate(activity_processor_audit_event_processing_duration_seconds_bucket[5m])) by (policy_name, le))'
     )
     + prometheus.withLegendFormat('{{policy_name}}'),
   ])
@@ -397,11 +397,11 @@ local allPanels = util.grid.wrapPanels([
   + timeSeries.queryOptions.withTargets([
     prometheus.new(
       datasource,
-      'activity_processor_active_workers'
+      'sum(activity_processor_active_workers)'
     )
-    + prometheus.withLegendFormat('Workers'),
+    + prometheus.withLegendFormat('Total Workers'),
   ])
-  + timeSeries.panelOptions.withDescription('Number of active worker goroutines processing events')
+  + timeSeries.panelOptions.withDescription('Total number of active worker goroutines across all processor instances')
   + timeSeries.gridPos.withW(timeSeriesHalfWidth)
   + timeSeries.gridPos.withH(timeSeriesHeight),
 
@@ -419,7 +419,7 @@ local allPanels = util.grid.wrapPanels([
   + timeSeries.queryOptions.withTargets([
     prometheus.new(
       datasource,
-      'sum(rate(activity_processor_events_errored_total[5m])) by (error_type)'
+      'sum(rate(activity_processor_audit_events_errored_total[5m])) by (error_type)'
     )
     + prometheus.withLegendFormat('{{error_type}}'),
   ])

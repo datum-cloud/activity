@@ -38,7 +38,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(rate(activity_processor_events_received_total[5m]))",
+               "expr": "sum(rate(activity_processor_audit_events_received_total[5m]))",
                "legendFormat": "Events/s"
             }
          ],
@@ -138,7 +138,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(rate(activity_processor_events_errored_total[5m])) / sum(rate(activity_processor_events_received_total[5m])) * 100",
+               "expr": "sum(rate(activity_processor_audit_events_errored_total[5m])) / sum(rate(activity_processor_audit_events_received_total[5m])) * 100",
                "legendFormat": "Error %"
             }
          ],
@@ -244,7 +244,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(rate(activity_processor_events_received_total[5m]))",
+               "expr": "sum(rate(activity_processor_audit_events_received_total[5m]))",
                "legendFormat": "Audit Events"
             },
             {
@@ -300,7 +300,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(rate(activity_processor_events_evaluated_total[5m]))",
+               "expr": "sum(rate(activity_processor_audit_events_evaluated_total[5m]))",
                "legendFormat": "Evaluated"
             },
             {
@@ -358,7 +358,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(rate(activity_processor_events_skipped_total[5m])) by (reason)",
+               "expr": "sum(rate(activity_processor_audit_events_skipped_total[5m])) by (reason)",
                "legendFormat": "{{reason}}"
             }
          ],
@@ -406,7 +406,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "histogram_quantile(0.99, sum(rate(activity_processor_event_processing_duration_seconds_bucket[5m])) by (policy_name, le))",
+               "expr": "histogram_quantile(0.99, sum(rate(activity_processor_audit_event_processing_duration_seconds_bucket[5m])) by (policy_name, le))",
                "legendFormat": "{{policy_name}}"
             }
          ],
@@ -787,7 +787,7 @@
             "type": "prometheus",
             "uid": "$datasource"
          },
-         "description": "Number of active worker goroutines processing events",
+         "description": "Total number of active worker goroutines across all processor instances",
          "fieldConfig": {
             "defaults": {
                "custom": {
@@ -819,8 +819,8 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "activity_processor_active_workers",
-               "legendFormat": "Workers"
+               "expr": "sum(activity_processor_active_workers)",
+               "legendFormat": "Total Workers"
             }
          ],
          "title": "Active Workers",
@@ -869,7 +869,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(rate(activity_processor_events_errored_total[5m])) by (error_type)",
+               "expr": "sum(rate(activity_processor_audit_events_errored_total[5m])) by (error_type)",
                "legendFormat": "{{error_type}}"
             }
          ],

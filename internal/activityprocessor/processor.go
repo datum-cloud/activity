@@ -21,7 +21,6 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
@@ -40,37 +39,37 @@ import (
 )
 
 var (
-	eventsReceived = prometheus.NewCounterVec(
+	auditEventsReceived = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "activity_processor",
-			Name:      "events_received_total",
+			Name:      "audit_events_received_total",
 			Help:      "Total number of audit events received from NATS",
 		},
 		[]string{"api_group", "resource"},
 	)
 
-	eventsEvaluated = prometheus.NewCounterVec(
+	auditEventsEvaluated = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "activity_processor",
-			Name:      "events_evaluated_total",
+			Name:      "audit_events_evaluated_total",
 			Help:      "Total number of audit events evaluated against policies",
 		},
 		[]string{"policy", "api_group", "kind", "matched"},
 	)
 
-	eventsSkipped = prometheus.NewCounterVec(
+	auditEventsSkipped = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "activity_processor",
-			Name:      "events_skipped_total",
+			Name:      "audit_events_skipped_total",
 			Help:      "Total number of audit events skipped",
 		},
 		[]string{"reason"}, // "no_object_ref", "no_matching_policy"
 	)
 
-	eventsErrored = prometheus.NewCounterVec(
+	auditEventsErrored = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "activity_processor",
-			Name:      "events_errored_total",
+			Name:      "audit_events_errored_total",
 			Help:      "Total number of audit events that encountered errors",
 		},
 		[]string{"error_type"}, // "unmarshal", "publish", "evaluate"
@@ -85,10 +84,10 @@ var (
 		[]string{"policy", "api_group", "kind"},
 	)
 
-	eventProcessingDuration = prometheus.NewHistogramVec(
+	auditEventProcessingDuration = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: "activity_processor",
-			Name:      "event_processing_duration_seconds",
+			Name:      "audit_event_processing_duration_seconds",
 			Help:      "Time spent processing audit events per policy",
 			Buckets:   prometheus.DefBuckets,
 		},
@@ -199,12 +198,12 @@ var (
 func init() {
 	// Use controller-runtime's registry so metrics are exposed alongside controller metrics.
 	metrics.Registry.MustRegister(
-		eventsReceived,
-		eventsEvaluated,
-		eventsSkipped,
-		eventsErrored,
+		auditEventsReceived,
+		auditEventsEvaluated,
+		auditEventsSkipped,
+		auditEventsErrored,
 		activitiesGenerated,
-		eventProcessingDuration,
+		auditEventProcessingDuration,
 		policyCount,
 		workerCount,
 		// NATS metrics
@@ -389,7 +388,7 @@ func (p *Processor) Start(ctx context.Context) error {
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{
 		Interface: clientset.CoreV1().Events(""),
 	})
-	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "activity-processor"})
+	recorder := eventBroadcaster.NewRecorder(controller.Scheme, corev1.EventSource{Component: "activity-processor"})
 
 	// Create event emitter for health reporting
 	p.eventEmitter = NewEventEmitter(k8sClient, recorder)
@@ -803,12 +802,12 @@ func (p *Processor) worker(ctx context.Context, id int, errors chan<- error) {
 func (p *Processor) processMessage(msg *nats.Msg) error {
 	var audit auditv1.Event
 	if err := json.Unmarshal(msg.Data, &audit); err != nil {
-		eventsErrored.WithLabelValues("unmarshal").Inc()
+		auditEventsErrored.WithLabelValues("unmarshal").Inc()
 		return fmt.Errorf("failed to unmarshal audit event: %w", err)
 	}
 
 	if audit.ObjectRef == nil {
-		eventsSkipped.WithLabelValues("no_object_ref").Inc()
+		auditEventsSkipped.WithLabelValues("no_object_ref").Inc()
 		return nil
 	}
 
@@ -816,19 +815,19 @@ func (p *Processor) processMessage(msg *nats.Msg) error {
 	if apiGroup == "" {
 		apiGroup = "core"
 	}
-	eventsReceived.WithLabelValues(apiGroup, audit.ObjectRef.Resource).Inc()
+	auditEventsReceived.WithLabelValues(apiGroup, audit.ObjectRef.Resource).Inc()
 
 	// Get compiled policies for this resource
 	policies := p.policyCache.Get(audit.ObjectRef.APIGroup, audit.ObjectRef.Resource)
 	if len(policies) == 0 {
-		eventsSkipped.WithLabelValues("no_matching_policy").Inc()
+		auditEventsSkipped.WithLabelValues("no_matching_policy").Inc()
 		return nil
 	}
 
 	// Convert audit event to map for CEL evaluation
 	auditMap, err := auditToMap(&audit)
 	if err != nil {
-		eventsErrored.WithLabelValues("unmarshal").Inc()
+		auditEventsErrored.WithLabelValues("unmarshal").Inc()
 		return fmt.Errorf("failed to convert audit to map: %w", err)
 	}
 
@@ -851,19 +850,19 @@ func (p *Processor) processMessage(msg *nats.Msg) error {
 			// Emit Kubernetes Warning event
 			p.eventEmitter.EmitEvaluationError(p.ctx, policy.Name, ruleIndex, err)
 
-			eventsErrored.WithLabelValues("evaluate").Inc()
-			eventsEvaluated.WithLabelValues(
+			auditEventsErrored.WithLabelValues("evaluate").Inc()
+			auditEventsEvaluated.WithLabelValues(
 				policy.Name,
 				policy.APIGroup,
 				policy.Kind,
 				"error",
 			).Inc()
-			eventProcessingDuration.WithLabelValues(policy.Name).Observe(time.Since(policyStart).Seconds())
+			auditEventProcessingDuration.WithLabelValues(policy.Name).Observe(time.Since(policyStart).Seconds())
 			continue
 		}
 
 		ruleMatched := activity != nil
-		eventsEvaluated.WithLabelValues(
+		auditEventsEvaluated.WithLabelValues(
 			policy.Name,
 			policy.APIGroup,
 			policy.Kind,
@@ -871,13 +870,13 @@ func (p *Processor) processMessage(msg *nats.Msg) error {
 		).Inc()
 
 		if !ruleMatched {
-			eventProcessingDuration.WithLabelValues(policy.Name).Observe(time.Since(policyStart).Seconds())
+			auditEventProcessingDuration.WithLabelValues(policy.Name).Observe(time.Since(policyStart).Seconds())
 			continue
 		}
 
 		if err := p.publishActivity(activity, policy); err != nil {
-			eventsErrored.WithLabelValues("publish").Inc()
-			eventProcessingDuration.WithLabelValues(policy.Name).Observe(time.Since(policyStart).Seconds())
+			auditEventsErrored.WithLabelValues("publish").Inc()
+			auditEventProcessingDuration.WithLabelValues(policy.Name).Observe(time.Since(policyStart).Seconds())
 			return fmt.Errorf("failed to publish activity: %w", err)
 		}
 
@@ -888,7 +887,7 @@ func (p *Processor) processMessage(msg *nats.Msg) error {
 			"auditID", audit.AuditID,
 		)
 
-		eventProcessingDuration.WithLabelValues(policy.Name).Observe(time.Since(policyStart).Seconds())
+		auditEventProcessingDuration.WithLabelValues(policy.Name).Observe(time.Since(policyStart).Seconds())
 		return nil
 	}
 
