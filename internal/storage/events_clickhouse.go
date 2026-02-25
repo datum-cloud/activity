@@ -280,13 +280,15 @@ func (b *ClickHouseEventsBackend) List(ctx context.Context, namespace string, op
 		args = append(args, fieldArgs...)
 	}
 
-	// ResourceVersion filter for continuation
-	if opts.ResourceVersion != "" && opts.ResourceVersion != "0" {
-		rv, err := strconv.ParseInt(opts.ResourceVersion, 10, 64)
+	// Continue token for pagination
+	// The continue token is the ResourceVersion (inserted_at in nanoseconds) of the last item from the previous page
+	if opts.Continue != "" {
+		rv, err := strconv.ParseInt(opts.Continue, 10, 64)
 		if err == nil {
-			// For list, get events newer than the resource version
+			// For pagination, get events with inserted_at less than the continue token
+			// We order by inserted_at DESC for consistent pagination
 			rvTime := time.Unix(0, rv)
-			conditions = append(conditions, "inserted_at > ?")
+			conditions = append(conditions, "inserted_at < ?")
 			args = append(args, rvTime)
 		}
 	}
@@ -303,8 +305,10 @@ func (b *ClickHouseEventsBackend) List(ctx context.Context, namespace string, op
 		limit = opts.Limit
 	}
 
+	// Order by inserted_at DESC for consistent pagination with continue token
+	// inserted_at is the ResourceVersion, so this maintains chronological order
 	query := fmt.Sprintf(
-		"SELECT event_json, inserted_at FROM %s.%s %s ORDER BY last_timestamp DESC, namespace, name LIMIT %d",
+		"SELECT event_json, inserted_at FROM %s.%s %s ORDER BY inserted_at DESC LIMIT %d",
 		b.config.Database, "k8s_events", whereClause, limit+1)
 
 	klog.V(4).InfoS("Executing events list query",
