@@ -4,7 +4,9 @@ set -o nounset
 set -o pipefail
 
 SCRIPT_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
-MODULE_NAME="go.miloapis.com/activity"
+# Use dot-based naming to avoid JSON pointer escaping issues in OpenAPI v3
+# This follows the Kubernetes convention (e.g., io.k8s.api.core.v1 instead of k8s.io/api/core/v1)
+MODEL_PACKAGE="com.miloapis.activity.v1alpha1"
 OPENAPI_FILE="${SCRIPT_ROOT}/pkg/generated/openapi/zz_generated.openapi.go"
 OUTPUT_FILE="${SCRIPT_ROOT}/pkg/apis/activity/v1alpha1/zz_generated.model_name.go"
 
@@ -46,7 +48,7 @@ while IFS= read -r TYPE_NAME; do
     cat >> "${OUTPUT_FILE}" <<EOF
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ${TYPE_NAME}) OpenAPIModelName() string {
-	return "${MODULE_NAME}/pkg/apis/activity/v1alpha1.${TYPE_NAME}"
+	return "${MODEL_PACKAGE}.${TYPE_NAME}"
 }
 
 EOF

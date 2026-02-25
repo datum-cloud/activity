@@ -7,221 +7,221 @@ package v1alpha1
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in Activity) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.Activity"
+	return "com.miloapis.activity.v1alpha1.Activity"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ActivityActor) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityActor"
+	return "com.miloapis.activity.v1alpha1.ActivityActor"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ActivityChange) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityChange"
+	return "com.miloapis.activity.v1alpha1.ActivityChange"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ActivityFacetQuery) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityFacetQuery"
+	return "com.miloapis.activity.v1alpha1.ActivityFacetQuery"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ActivityFacetQuerySpec) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityFacetQuerySpec"
+	return "com.miloapis.activity.v1alpha1.ActivityFacetQuerySpec"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ActivityFacetQueryStatus) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityFacetQueryStatus"
+	return "com.miloapis.activity.v1alpha1.ActivityFacetQueryStatus"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ActivityLink) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityLink"
+	return "com.miloapis.activity.v1alpha1.ActivityLink"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ActivityList) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityList"
+	return "com.miloapis.activity.v1alpha1.ActivityList"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ActivityOrigin) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityOrigin"
+	return "com.miloapis.activity.v1alpha1.ActivityOrigin"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ActivityPolicy) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicy"
+	return "com.miloapis.activity.v1alpha1.ActivityPolicy"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ActivityPolicyList) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicyList"
+	return "com.miloapis.activity.v1alpha1.ActivityPolicyList"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ActivityPolicyResource) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicyResource"
+	return "com.miloapis.activity.v1alpha1.ActivityPolicyResource"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ActivityPolicyRule) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicyRule"
+	return "com.miloapis.activity.v1alpha1.ActivityPolicyRule"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ActivityPolicySpec) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicySpec"
+	return "com.miloapis.activity.v1alpha1.ActivityPolicySpec"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ActivityPolicyStatus) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicyStatus"
+	return "com.miloapis.activity.v1alpha1.ActivityPolicyStatus"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ActivityQuery) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityQuery"
+	return "com.miloapis.activity.v1alpha1.ActivityQuery"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ActivityQuerySpec) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityQuerySpec"
+	return "com.miloapis.activity.v1alpha1.ActivityQuerySpec"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ActivityQueryStatus) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityQueryStatus"
+	return "com.miloapis.activity.v1alpha1.ActivityQueryStatus"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ActivityResource) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityResource"
+	return "com.miloapis.activity.v1alpha1.ActivityResource"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ActivitySpec) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivitySpec"
+	return "com.miloapis.activity.v1alpha1.ActivitySpec"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ActivityTenant) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityTenant"
+	return "com.miloapis.activity.v1alpha1.ActivityTenant"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in AuditLogFacetsQuery) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.AuditLogFacetsQuery"
+	return "com.miloapis.activity.v1alpha1.AuditLogFacetsQuery"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in AuditLogFacetsQuerySpec) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.AuditLogFacetsQuerySpec"
+	return "com.miloapis.activity.v1alpha1.AuditLogFacetsQuerySpec"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in AuditLogFacetsQueryStatus) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.AuditLogFacetsQueryStatus"
+	return "com.miloapis.activity.v1alpha1.AuditLogFacetsQueryStatus"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in AuditLogQuery) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.AuditLogQuery"
+	return "com.miloapis.activity.v1alpha1.AuditLogQuery"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in AuditLogQuerySpec) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.AuditLogQuerySpec"
+	return "com.miloapis.activity.v1alpha1.AuditLogQuerySpec"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in AuditLogQueryStatus) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.AuditLogQueryStatus"
+	return "com.miloapis.activity.v1alpha1.AuditLogQueryStatus"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in EventFacetQuery) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventFacetQuery"
+	return "com.miloapis.activity.v1alpha1.EventFacetQuery"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in EventFacetQuerySpec) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventFacetQuerySpec"
+	return "com.miloapis.activity.v1alpha1.EventFacetQuerySpec"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in EventFacetQueryStatus) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventFacetQueryStatus"
+	return "com.miloapis.activity.v1alpha1.EventFacetQueryStatus"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in EventQuery) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventQuery"
+	return "com.miloapis.activity.v1alpha1.EventQuery"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in EventQueryList) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventQueryList"
+	return "com.miloapis.activity.v1alpha1.EventQueryList"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in EventQuerySpec) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventQuerySpec"
+	return "com.miloapis.activity.v1alpha1.EventQuerySpec"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in EventQueryStatus) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventQueryStatus"
+	return "com.miloapis.activity.v1alpha1.EventQueryStatus"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in EventRecord) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventRecord"
+	return "com.miloapis.activity.v1alpha1.EventRecord"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in FacetResult) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetResult"
+	return "com.miloapis.activity.v1alpha1.FacetResult"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in FacetSpec) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetSpec"
+	return "com.miloapis.activity.v1alpha1.FacetSpec"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in FacetTimeRange) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetTimeRange"
+	return "com.miloapis.activity.v1alpha1.FacetTimeRange"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in FacetValue) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetValue"
+	return "com.miloapis.activity.v1alpha1.FacetValue"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in PolicyPreview) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreview"
+	return "com.miloapis.activity.v1alpha1.PolicyPreview"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in PolicyPreviewInput) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreviewInput"
+	return "com.miloapis.activity.v1alpha1.PolicyPreviewInput"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in PolicyPreviewInputResult) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreviewInputResult"
+	return "com.miloapis.activity.v1alpha1.PolicyPreviewInputResult"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in PolicyPreviewSpec) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreviewSpec"
+	return "com.miloapis.activity.v1alpha1.PolicyPreviewSpec"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in PolicyPreviewStatus) OpenAPIModelName() string {
-	return "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreviewStatus"
+	return "com.miloapis.activity.v1alpha1.PolicyPreviewStatus"
 }
 
