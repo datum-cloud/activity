@@ -212,7 +212,7 @@ export function PolicyList({
               <div key={group.apiGroup} className="border border-input rounded-lg overflow-hidden">
                 <button
                   type="button"
-                  className="w-full flex items-center gap-3 px-4 py-3 bg-muted border-none cursor-pointer text-left text-[0.9375rem] font-medium text-foreground transition-colors duration-200 hover:bg-accent"
+                  className="w-full flex items-center gap-3 px-4 py-3 bg-muted border-none cursor-pointer text-left text-xs font-medium text-foreground transition-colors duration-200 hover:bg-accent"
                   onClick={() => toggleGroup(group.apiGroup)}
                 >
                   <span
