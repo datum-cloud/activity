@@ -229,13 +229,15 @@
           },
 
           // Events pipeline ClickHouse insert latency
+          // Note: chi_clickhouse_event_* metrics are cluster-wide (no table labels)
+          // so this shows overall ClickHouse insert latency, not per-table
           // Uses clamp_min to avoid divide-by-zero when there are no insert queries
           {
             record: 'activity:clickhouse_events_insert_latency',
             expr: |||
-              sum(rate(chi_clickhouse_event_InsertQueryTimeMicroseconds{chi="activity-clickhouse",database="audit",table="k8s_events"}[5m]))
+              sum(rate(chi_clickhouse_event_InsertQueryTimeMicroseconds{chi="activity-clickhouse"}[5m]))
               /
-              clamp_min(sum(rate(chi_clickhouse_event_InsertQuery{chi="activity-clickhouse",database="audit",table="k8s_events"}[5m])), 0.001)
+              clamp_min(sum(rate(chi_clickhouse_event_InsertQuery{chi="activity-clickhouse"}[5m])), 0.001)
               / 1000000
             |||,
           },

@@ -58,21 +58,26 @@ local queries = {
   // will contain the same data.
   clickhouseInsertedRows: 'avg(rate(chi_clickhouse_table_parts_rows{chi="activity-clickhouse", database="audit", table="audit_logs", active="1"}[5m]))',
   clickhouseMergedRows: 'avg(rate(chi_clickhouse_event_MergedRows{chi="activity-clickhouse"}[5m]))',
-  clickhouseActiveInserts: 'sum(chi_clickhouse_metric_InsertQuery{chi="activity-clickhouse"})',
-  clickhouseActiveQueries: 'sum(chi_clickhouse_metric_Query{chi="activity-clickhouse"})',
-  clickhouseActiveMerges: 'sum(chi_clickhouse_metric_Merge{chi="activity-clickhouse"})',
+  // Note: chi_clickhouse_metric_Query shows all active queries (no insert-specific gauge exists)
+  clickhouseActiveInserts: 'sum(chi_clickhouse_metric_Query{chi="activity-clickhouse"}) or vector(0)',
+  clickhouseActiveQueries: 'sum(chi_clickhouse_metric_Query{chi="activity-clickhouse"}) or vector(0)',
+  clickhouseActiveMerges: 'sum(chi_clickhouse_metric_Merge{chi="activity-clickhouse"}) or vector(0)',
   clickhouseTableParts: 'avg(chi_clickhouse_table_parts{chi="activity-clickhouse",database="audit",table="audit_logs"})',
   clickhouseInsertLatency: 'sum(rate(chi_clickhouse_event_InsertQueryTimeMicroseconds{chi="activity-clickhouse"}[5m])) / clamp_min(sum(rate(chi_clickhouse_event_InsertQuery{chi="activity-clickhouse"}[5m])), 0.001) / 1000000',
 
-  // Activity API metrics (using recording rules for performance)
-  activityQueryLatencyP50: 'activity:query_duration:p50',
-  activityQueryLatencyP95: 'activity:query_duration:p95',
-  activityQueryLatencyP99: 'activity:query_duration:p99',
-  activityQuerySuccess: 'sum(rate(activity_clickhouse_query_total{status="success"}[5m]))',
-  activityQueryErrors: 'sum(rate(activity_clickhouse_query_errors_total[5m])) or vector(0)',
-  activityQueryErrorsByType: 'activity:clickhouse_error_rate:5m',
-  activityCelFilterErrors: 'sum(rate(activity_cel_filter_errors_total[5m])) by (error_type) or vector(0)',
-  activityQueriesByScope: 'sum(rate(activity_auditlog_queries_by_scope_total[5m])) by (scope_type)',
+  // Activity API metrics
+  // Note: Using apiserver request duration (recording rules exist for these)
+  activityQueryLatencyP50: 'activity:apiserver_request_duration:p50',
+  activityQueryLatencyP95: 'activity:apiserver_request_duration:p95',
+  activityQueryLatencyP99: 'activity:apiserver_request_duration:p99',
+  // Note: activity_clickhouse_query_total not yet instrumented - using request rate as proxy
+  activityQuerySuccess: 'sum(rate(apiserver_request_total{job="activity-apiserver",code=~"2.."}[5m])) or vector(0)',
+  activityQueryErrors: 'sum(rate(apiserver_request_total{job="activity-apiserver",code=~"5.."}[5m])) or vector(0)',
+  activityQueryErrorsByType: 'sum(rate(apiserver_request_total{job="activity-apiserver",code=~"[45].."}[5m])) by (code) or vector(0)',
+  // Note: activity_cel_filter_errors_total not instrumented - CEL parse duration exists but not errors
+  activityCelFilterErrors: 'vector(0)',
+  // Note: activity_auditlog_queries_by_scope_total not yet instrumented
+  activityQueriesByScope: 'sum(rate(apiserver_request_total{job="activity-apiserver",resource=~"auditlogqueries|activityqueries|eventqueries"}[5m])) by (resource) or vector(0)',
 
   // Combined metrics
   pipelineErrorRate: '(sum(rate(vector_component_errors_total{namespace="activity-system"}[5m])) or vector(0)) + (sum(rate(activity_clickhouse_query_errors_total[5m])) or vector(0))',

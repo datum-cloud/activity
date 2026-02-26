@@ -42,9 +42,11 @@ local queries = {
 
   // Error rates
   auditPipelineErrors: 'sum(rate(vector_component_errors_total{namespace="activity-system"}[5m])) or vector(0)',
-  eventsPipelineErrors: '(sum(rate(event_exporter_publish_errors_total[5m])) + sum(rate(vector_component_errors_total{component_id="clickhouse_k8s_events"}[5m]))) or vector(0)',
-  processorErrors: 'sum(rate(activity_processor_audit_events_errored_total[5m])) or vector(0)',
-  queryErrors: 'sum(rate(activity_clickhouse_query_errors_total[5m])) or vector(0)',
+  eventsPipelineErrors: '(sum(rate(event_exporter_publish_errors_total[5m])) or vector(0)) + (sum(rate(vector_component_errors_total{component_id="clickhouse_k8s_events"}[5m])) or vector(0))',
+  // Using NATS errors + skipped events as proxy for processor errors
+  processorErrors: '(sum(rate(activity_processor_nats_errors_total[5m])) or vector(0)) + (sum(rate(activity_processor_events_skipped_total[5m])) or vector(0))',
+  // Using apiserver 5xx errors as proxy for query errors
+  queryErrors: 'sum(rate(apiserver_request_total{job="activity-apiserver",code=~"5.."}[5m])) or vector(0)',
 
   // Latency metrics
   auditPipelineLatency: 'histogram_quantile(0.95, sum(rate(activity_pipeline_end_to_end_latency_seconds_bucket{stage="nats_to_aggregator"}[5m])) by (le))',

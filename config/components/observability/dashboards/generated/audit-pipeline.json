@@ -972,7 +972,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(chi_clickhouse_metric_InsertQuery{chi=\"activity-clickhouse\"})",
+               "expr": "sum(chi_clickhouse_metric_Query{chi=\"activity-clickhouse\"}) or vector(0)",
                "legendFormat": "Active Insert Queries"
             }
          ],
@@ -1036,7 +1036,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(chi_clickhouse_metric_InsertQuery{chi=\"activity-clickhouse\"})",
+               "expr": "sum(chi_clickhouse_metric_Query{chi=\"activity-clickhouse\"}) or vector(0)",
                "legendFormat": "Inserts"
             },
             {
@@ -1044,7 +1044,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(chi_clickhouse_metric_Query{chi=\"activity-clickhouse\"})",
+               "expr": "sum(chi_clickhouse_metric_Query{chi=\"activity-clickhouse\"}) or vector(0)",
                "legendFormat": "Queries"
             },
             {
@@ -1052,7 +1052,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(chi_clickhouse_metric_Merge{chi=\"activity-clickhouse\"})",
+               "expr": "sum(chi_clickhouse_metric_Merge{chi=\"activity-clickhouse\"}) or vector(0)",
                "legendFormat": "Merges"
             }
          ],
@@ -1236,7 +1236,7 @@
                         "type": "prometheus",
                         "uid": "$datasource"
                      },
-                     "expr": "activity:clickhouse_error_rate:5m",
+                     "expr": "sum(rate(apiserver_request_total{job=\"activity-apiserver\",code=~\"[45]..\"}[5m])) by (code) or vector(0)",
                      "legendFormat": "Activity: {{error_type}}"
                   },
                   {
@@ -1244,7 +1244,7 @@
                         "type": "prometheus",
                         "uid": "$datasource"
                      },
-                     "expr": "sum(rate(activity_cel_filter_errors_total[5m])) by (error_type) or vector(0)",
+                     "expr": "vector(0)",
                      "legendFormat": "CEL: {{error_type}}"
                   }
                ],
@@ -1364,7 +1364,7 @@
                         "type": "prometheus",
                         "uid": "$datasource"
                      },
-                     "expr": "activity:query_duration:p50",
+                     "expr": "activity:apiserver_request_duration:p50",
                      "legendFormat": "p50"
                   },
                   {
@@ -1372,7 +1372,7 @@
                         "type": "prometheus",
                         "uid": "$datasource"
                      },
-                     "expr": "activity:query_duration:p95",
+                     "expr": "activity:apiserver_request_duration:p95",
                      "legendFormat": "p95"
                   },
                   {
@@ -1380,7 +1380,7 @@
                         "type": "prometheus",
                         "uid": "$datasource"
                      },
-                     "expr": "activity:query_duration:p99",
+                     "expr": "activity:apiserver_request_duration:p99",
                      "legendFormat": "p99"
                   }
                ],
@@ -1428,7 +1428,7 @@
                         "type": "prometheus",
                         "uid": "$datasource"
                      },
-                     "expr": "sum(rate(activity_clickhouse_query_total{status=\"success\"}[5m]))",
+                     "expr": "sum(rate(apiserver_request_total{job=\"activity-apiserver\",code=~\"2..\"}[5m])) or vector(0)",
                      "legendFormat": "Successful Queries"
                   },
                   {
@@ -1436,7 +1436,7 @@
                         "type": "prometheus",
                         "uid": "$datasource"
                      },
-                     "expr": "sum(rate(activity_clickhouse_query_errors_total[5m])) or vector(0)",
+                     "expr": "sum(rate(apiserver_request_total{job=\"activity-apiserver\",code=~\"5..\"}[5m])) or vector(0)",
                      "legendFormat": "Failed Queries"
                   }
                ],
@@ -1487,7 +1487,7 @@
                         "type": "prometheus",
                         "uid": "$datasource"
                      },
-                     "expr": "sum(rate(activity_auditlog_queries_by_scope_total[5m])) by (scope_type)",
+                     "expr": "sum(rate(apiserver_request_total{job=\"activity-apiserver\",resource=~\"auditlogqueries|activityqueries|eventqueries\"}[5m])) by (resource) or vector(0)",
                      "legendFormat": "{{scope_type}}"
                   }
                ],
