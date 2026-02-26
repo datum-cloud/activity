@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
 
+	"go.miloapis.com/activity/internal/metrics"
 	"go.miloapis.com/activity/internal/timeutil"
 	"go.miloapis.com/activity/pkg/apis/activity/v1alpha1"
 )
@@ -86,10 +87,23 @@ func (b *ClickHouseEventQueryBackend) QueryEvents(ctx context.Context, spec v1al
 
 	rows, err := b.conn.Query(ctx, query, args...)
 	if err != nil {
+		// Classify error type
+		errorType := "unknown"
+		errStr := err.Error()
+		if strings.Contains(errStr, "connection") {
+			errorType = "connection"
+		} else if strings.Contains(errStr, "timeout") {
+			errorType = "timeout"
+		} else if strings.Contains(errStr, "syntax") {
+			errorType = "syntax"
+		}
+		metrics.ClickHouseQueryErrors.WithLabelValues(errorType).Inc()
+
 		klog.ErrorS(err, "EventQuery ClickHouse query failed",
 			"fieldSelector", spec.FieldSelector,
 			"namespace", spec.Namespace,
 			"limit", spec.Limit,
+			"errorType", errorType,
 		)
 		return nil, fmt.Errorf("unable to retrieve events. Try again or contact support if the problem persists")
 	}
@@ -101,6 +115,7 @@ func (b *ClickHouseEventQueryBackend) QueryEvents(ctx context.Context, spec v1al
 	for rows.Next() {
 		var eventJSON string
 		if err := rows.Scan(&eventJSON); err != nil {
+			metrics.ClickHouseQueryErrors.WithLabelValues("scan").Inc()
 			klog.ErrorS(err, "Failed to scan EventQuery row")
 			return nil, fmt.Errorf("unable to retrieve events. Try again or contact support if the problem persists")
 		}
@@ -116,6 +131,7 @@ func (b *ClickHouseEventQueryBackend) QueryEvents(ctx context.Context, spec v1al
 	}
 
 	if err := rows.Err(); err != nil {
+		metrics.ClickHouseQueryErrors.WithLabelValues("iteration").Inc()
 		klog.ErrorS(err, "Error iterating EventQuery rows")
 		return nil, fmt.Errorf("unable to retrieve events. Try again or contact support if the problem persists")
 	}

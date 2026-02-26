@@ -23,8 +23,8 @@ local refresh = config.dashboards.refresh;
 local queries = {
   // System health indicators (derived)
   auditPipelineStatus: '(min(up{job="vector",namespace="activity-system"}) and min(activity:vector_throughput:5m > 0)) or vector(0)',
-  eventsPipelineStatus: '(min(event_exporter_nats_connection_status) and min(event_exporter_informer_synced)) or vector(0)',
-  activityGenerationStatus: '(min(up{job="activity-processor"}) and min(activity_processor_nats_connection_status)) or vector(0)',
+  eventsPipelineStatus: '(min(event_exporter_nats_connection_status{job="k8s-event-exporter"}) and min(event_exporter_informer_synced{job="k8s-event-exporter"})) or vector(0)',
+  activityGenerationStatus: '(min(up{job="activity-processor"}) and min(activity_processor_nats_connection_status{job="activity-processor"})) or vector(0)',
   storageHealth: 'min(up{job=~"clickhouse-activity-clickhouse|nats-system/nats"})',
 
   // Throughput metrics
@@ -41,10 +41,10 @@ local queries = {
   },
 
   // Error rates
-  auditPipelineErrors: 'sum(rate(vector_component_errors_total{namespace="activity-system",pod=~"vector-aggregator.*"}[5m]))',
-  eventsPipelineErrors: 'sum(rate(event_exporter_publish_errors_total[5m])) + sum(rate(vector_component_errors_total{component_id="clickhouse_k8s_events"}[5m]))',
-  processorErrors: 'sum(rate(activity_processor_audit_events_errored_total[5m]))',
-  queryErrors: 'sum(rate(activity_clickhouse_query_errors_total[5m]))',
+  auditPipelineErrors: 'sum(rate(vector_component_errors_total{namespace="activity-system"}[5m])) or vector(0)',
+  eventsPipelineErrors: '(sum(rate(event_exporter_publish_errors_total[5m])) + sum(rate(vector_component_errors_total{component_id="clickhouse_k8s_events"}[5m]))) or vector(0)',
+  processorErrors: 'sum(rate(activity_processor_audit_events_errored_total[5m])) or vector(0)',
+  queryErrors: 'sum(rate(activity_clickhouse_query_errors_total[5m])) or vector(0)',
 
   // Latency metrics
   auditPipelineLatency: 'histogram_quantile(0.95, sum(rate(activity_pipeline_end_to_end_latency_seconds_bucket{stage="nats_to_aggregator"}[5m])) by (le))',

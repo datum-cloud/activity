@@ -179,7 +179,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "nats_consumer_num_pending{consumer_name=\"clickhouse-ingest-events\"}",
+               "expr": "sum(nats_consumer_num_pending{consumer_name=\"clickhouse-ingest-events\"})",
                "legendFormat": "Pending"
             }
          ],
@@ -236,7 +236,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(rate(event_exporter_publish_errors_total[5m])) + sum(rate(vector_component_errors_total{component_id=\"clickhouse_k8s_events\"}[5m]))",
+               "expr": "(sum(rate(event_exporter_publish_errors_total[5m])) or vector(0)) + (sum(rate(vector_component_errors_total{component_id=\"clickhouse_k8s_events\"}[5m])) or vector(0))",
                "legendFormat": "Errors/sec"
             }
          ],
@@ -308,7 +308,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "min(event_exporter_nats_connection_status)",
+               "expr": "min(event_exporter_nats_connection_status{job=\"k8s-event-exporter\"})",
                "legendFormat": "Status"
             }
          ],
@@ -380,7 +380,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "min(event_exporter_informer_synced)",
+               "expr": "min(event_exporter_informer_synced{job=\"k8s-event-exporter\"})",
                "legendFormat": "Status"
             }
          ],
@@ -825,7 +825,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "nats_consumer_num_pending{consumer_name=\"clickhouse-ingest-events\"}",
+               "expr": "sum(nats_consumer_num_pending{consumer_name=\"clickhouse-ingest-events\"})",
                "legendFormat": "Pending Messages"
             }
          ],
@@ -874,7 +874,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "vector_buffer_events{component_id=\"clickhouse_k8s_events\"}",
+               "expr": "sum(vector_buffer_events{component_id=\"clickhouse_k8s_events\"})",
                "legendFormat": "Buffered Events"
             }
          ],
@@ -971,7 +971,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(rate(event_exporter_publish_errors_total[5m]))",
+               "expr": "sum(rate(event_exporter_publish_errors_total[5m])) or vector(0)",
                "legendFormat": "Publish Errors"
             }
          ],
@@ -1033,7 +1033,7 @@
                         "type": "prometheus",
                         "uid": "$datasource"
                      },
-                     "expr": "sum(rate(event_exporter_publish_errors_total[5m]))",
+                     "expr": "sum(rate(event_exporter_publish_errors_total[5m])) or vector(0)",
                      "legendFormat": "Exporter Errors"
                   },
                   {
@@ -1041,7 +1041,7 @@
                         "type": "prometheus",
                         "uid": "$datasource"
                      },
-                     "expr": "sum(rate(vector_component_errors_total{component_id=\"clickhouse_k8s_events\"}[5m]))",
+                     "expr": "sum(rate(vector_component_errors_total{component_id=\"clickhouse_k8s_events\"}[5m])) or vector(0)",
                      "legendFormat": "Vector Errors"
                   }
                ],
@@ -1090,7 +1090,7 @@
                         "type": "prometheus",
                         "uid": "$datasource"
                      },
-                     "expr": "sum(rate(vector_component_errors_total{component_id=~\".*events.*\"}[5m])) by (component_id)",
+                     "expr": "sum(rate(vector_component_errors_total{component_id=~\".*events.*\"}[5m])) by (component_id) or vector(0)",
                      "legendFormat": "{{component_id}}"
                   }
                ],
@@ -1116,7 +1116,7 @@
             "label": "Prometheus Datasource",
             "name": "datasource",
             "query": "prometheus",
-            "regex": "Service Metrics",
+            "regex": "",
             "type": "datasource"
          }
       ]

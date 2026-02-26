@@ -11,6 +11,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/klog/v2"
 
+	"go.miloapis.com/activity/internal/metrics"
 	"go.miloapis.com/activity/internal/timeutil"
 )
 
@@ -116,6 +117,18 @@ func (b *ClickHouseEventsBackend) queryEventFacet(ctx context.Context, facet Fac
 
 	rows, err := b.conn.Query(ctx, query, args...)
 	if err != nil {
+		// Classify error type
+		errorType := "unknown"
+		errStr := err.Error()
+		if strings.Contains(errStr, "connection") {
+			errorType = "connection"
+		} else if strings.Contains(errStr, "timeout") {
+			errorType = "timeout"
+		} else if strings.Contains(errStr, "syntax") {
+			errorType = "syntax"
+		}
+		metrics.ClickHouseQueryErrors.WithLabelValues(errorType).Inc()
+		klog.ErrorS(err, "Event facet query failed", "field", facet.Field, "errorType", errorType)
 		return nil, fmt.Errorf("failed to execute event facet query: %w", err)
 	}
 	defer rows.Close()
@@ -129,6 +142,8 @@ func (b *ClickHouseEventsBackend) queryEventFacet(ctx context.Context, facet Fac
 		var value string
 		var count uint64
 		if err := rows.Scan(&value, &count); err != nil {
+			metrics.ClickHouseQueryErrors.WithLabelValues("scan").Inc()
+			klog.ErrorS(err, "Failed to scan event facet row", "field", facet.Field)
 			return nil, fmt.Errorf("failed to scan event facet row: %w", err)
 		}
 		result.Values = append(result.Values, FacetValueResult{
@@ -138,6 +153,8 @@ func (b *ClickHouseEventsBackend) queryEventFacet(ctx context.Context, facet Fac
 	}
 
 	if err := rows.Err(); err != nil {
+		metrics.ClickHouseQueryErrors.WithLabelValues("iteration").Inc()
+		klog.ErrorS(err, "Error iterating event facet rows", "field", facet.Field)
 		return nil, fmt.Errorf("error iterating event facet rows: %w", err)
 	}
 

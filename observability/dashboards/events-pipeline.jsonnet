@@ -27,25 +27,25 @@ local queries = {
   publishLatencyP99: 'histogram_quantile(0.99, sum(rate(event_exporter_publish_latency_seconds_bucket[5m])) by (le))',
   publishLatencyP95: 'histogram_quantile(0.95, sum(rate(event_exporter_publish_latency_seconds_bucket[5m])) by (le))',
   publishLatencyP50: 'histogram_quantile(0.50, sum(rate(event_exporter_publish_latency_seconds_bucket[5m])) by (le))',
-  publishErrors: 'sum(rate(event_exporter_publish_errors_total[5m]))',
-  exporterConnectionStatus: 'min(event_exporter_nats_connection_status)',
-  informerSyncStatus: 'min(event_exporter_informer_synced)',
+  publishErrors: 'sum(rate(event_exporter_publish_errors_total[5m])) or vector(0)',
+  exporterConnectionStatus: 'min(event_exporter_nats_connection_status{job="k8s-event-exporter"})',
+  informerSyncStatus: 'min(event_exporter_informer_synced{job="k8s-event-exporter"})',
 
   // Vector metrics (events consumer)
   vectorNatsEventsReceived: 'sum(rate(vector_component_received_events_total{component_id="nats_events_consumer"}[5m]))',
   vectorClickhouseEventsSent: 'sum(rate(vector_component_sent_events_total{component_id="clickhouse_k8s_events"}[5m]))',
-  vectorEventsErrors: 'sum(rate(vector_component_errors_total{component_id="clickhouse_k8s_events"}[5m]))',
-  vectorBufferDepth: 'vector_buffer_events{component_id="clickhouse_k8s_events"}',
+  vectorEventsErrors: 'sum(rate(vector_component_errors_total{component_id="clickhouse_k8s_events"}[5m])) or vector(0)',
+  vectorBufferDepth: 'sum(vector_buffer_events{component_id="clickhouse_k8s_events"})',
 
   // NATS metrics (events stream)
-  natsQueuePending: 'nats_consumer_num_pending{consumer_name="clickhouse-ingest-events"}',
+  natsQueuePending: 'sum(nats_consumer_num_pending{consumer_name="clickhouse-ingest-events"})',
 
   // ClickHouse metrics (k8s_events table) - using recording rules
   clickhouseEventsWriteRate: 'activity:clickhouse_events_insert_rate:5m',
   clickhouseEventsInsertLatency: 'activity:clickhouse_events_insert_latency',
 
   // Combined metrics
-  pipelineErrorRate: 'sum(rate(event_exporter_publish_errors_total[5m])) + sum(rate(vector_component_errors_total{component_id="clickhouse_k8s_events"}[5m]))',
+  pipelineErrorRate: '(sum(rate(event_exporter_publish_errors_total[5m])) or vector(0)) + (sum(rate(vector_component_errors_total{component_id="clickhouse_k8s_events"}[5m])) or vector(0))',
 };
 
 // Build all panels
@@ -445,7 +445,7 @@ local allPanels =
         + timeSeries.datasource.withType('prometheus')
         + timeSeries.datasource.withUid('$datasource')
         + timeSeries.queryOptions.withTargets([
-          prometheus.new('$datasource', 'sum(rate(vector_component_errors_total{component_id=~".*events.*"}[5m])) by (component_id)')
+          prometheus.new('$datasource', 'sum(rate(vector_component_errors_total{component_id=~".*events.*"}[5m])) by (component_id) or vector(0)')
           + prometheus.withLegendFormat('{{component_id}}'),
         ]),
       ], panelWidth=12, panelHeight=8, startY=31)

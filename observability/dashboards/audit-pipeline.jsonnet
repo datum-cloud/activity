@@ -23,22 +23,23 @@ local refresh = config.dashboards.refresh;
 local queries = {
   // API Server metrics
   apiserverEventsGenerated: 'sum(rate(apiserver_audit_event_total{job=~".*apiserver.*"}[5m]))',
-  apiserverErrors: 'sum(rate(apiserver_audit_error_total{job=~".*apiserver.*"}[5m])) by (plugin)',
+  apiserverErrors: 'sum(rate(apiserver_audit_error_total{job=~".*apiserver.*"}[5m])) by (plugin) or vector(0)',
   apiserverRequestsRejected: 'sum(apiserver_audit_requests_rejected_total{job=~".*apiserver.*"})',
   apiserverAuditLevels: 'sum(rate(apiserver_audit_level_total{job=~".*apiserver.*"}[5m])) by (level)',
 
   // Vector Sidecar (ingress from API servers)
-  vectorSidecarWebhookParsed: 'sum(rate(vector_component_sent_events_total{component_id="parse_webhook_batch",namespace="activity-system",pod=~"vector-sidecar.*"}[5m]))',
-  vectorSidecarNatsSent: 'sum(rate(vector_component_sent_events_total{component_id="nats_jetstream",pod=~"vector-sidecar.*"}[5m]))',
-  vectorSidecarErrors: 'sum(rate(vector_component_errors_total{namespace="activity-system",pod=~"vector-sidecar.*"}[5m])) by (component_id)',
+  // Note: In dev/test environments, events come from file source (apiserver_audit_logs)
+  // In production, they come from webhook source. Use nats_jetstream to capture both.
+  vectorSidecarNatsSent: 'sum(rate(vector_component_sent_events_total{component_id="nats_jetstream",namespace="activity-system",pod=~"vector-sidecar.*"}[5m]))',
+  vectorSidecarErrors: 'sum(rate(vector_component_errors_total{namespace="activity-system",pod=~"vector-sidecar.*"}[5m])) by (component_id) or vector(0)',
 
   // Vector Aggregator (NATS consumer to ClickHouse) - using recording rules
   vectorAggregatorNatsReceived: 'activity:vector_throughput:5m',
   vectorAggregatorClickhouseSent: 'activity:vector_writes:5m',
-  vectorAggregatorErrors: 'sum(rate(vector_component_errors_total{namespace="activity-system",pod=~"vector-aggregator.*"}[5m])) by (component_id)',
+  vectorAggregatorErrors: 'sum(rate(vector_component_errors_total{namespace="activity-system",pod=~"vector-aggregator.*"}[5m])) by (component_id) or vector(0)',
   vectorAggregatorBufferDepth: 'sum(vector_buffer_events{component_id="clickhouse",namespace="activity-system"})',
-  vectorAggregatorClickhouseHttpErrors: 'sum(rate(vector_http_client_errors_total{component_id="clickhouse",namespace="activity-system"}[5m]))',
-  vectorAggregatorClickhouseComponentErrors: 'sum(rate(vector_component_errors_total{component_id="clickhouse",namespace="activity-system"}[5m]))',
+  vectorAggregatorClickhouseHttpErrors: 'sum(rate(vector_http_client_errors_total{component_id="clickhouse",namespace="activity-system"}[5m])) or vector(0)',
+  vectorAggregatorClickhouseComponentErrors: 'sum(rate(vector_component_errors_total{component_id="clickhouse",namespace="activity-system"}[5m])) or vector(0)',
 
   // End-to-end latency metrics (custom metric from Vector transform)
   // This measures true end-to-end latency: K8s API event generation → Vector aggregator processing
@@ -47,8 +48,8 @@ local queries = {
   endToEndLatencyP50: 'histogram_quantile(0.50, sum(rate(activity_pipeline_end_to_end_latency_seconds_bucket{stage="nats_to_aggregator"}[5m])) by (le))',
 
   // NATS metrics - using recording rules where available
-  natsQueuePending: 'activity:nats_consumer_lag',
-  natsQueueAckPending: 'nats_consumer_num_ack_pending{consumer_name="clickhouse-ingest"}',
+  natsQueuePending: 'sum(activity:nats_consumer_lag)',
+  natsQueueAckPending: 'sum(nats_consumer_num_ack_pending{consumer_name="clickhouse-ingest"})',
 
   // ClickHouse metrics
   //
@@ -60,22 +61,25 @@ local queries = {
   clickhouseActiveQueries: 'sum(chi_clickhouse_metric_Query{chi="activity-clickhouse"})',
   clickhouseActiveMerges: 'sum(chi_clickhouse_metric_Merge{chi="activity-clickhouse"})',
   clickhouseTableParts: 'avg(chi_clickhouse_table_parts{chi="activity-clickhouse",database="audit",table="events"})',
-  clickhouseInsertLatency: 'sum(rate(chi_clickhouse_event_InsertQueryTimeMicroseconds{chi="activity-clickhouse"}[5m]) / rate(chi_clickhouse_event_InsertQuery{chi="activity-clickhouse"}[5m]) / 1000000)',
+  clickhouseInsertLatency: 'sum(rate(chi_clickhouse_event_InsertQueryTimeMicroseconds{chi="activity-clickhouse"}[5m])) / clamp_min(sum(rate(chi_clickhouse_event_InsertQuery{chi="activity-clickhouse"}[5m])), 0.001) / 1000000',
 
   // Activity API metrics (using recording rules for performance)
   activityQueryLatencyP50: 'activity:query_duration:p50',
   activityQueryLatencyP95: 'activity:query_duration:p95',
   activityQueryLatencyP99: 'activity:query_duration:p99',
   activityQuerySuccess: 'sum(rate(activity_clickhouse_query_total{status="success"}[5m]))',
-  activityQueryErrors: 'sum(rate(activity_clickhouse_query_errors_total[5m]))',
+  activityQueryErrors: 'sum(rate(activity_clickhouse_query_errors_total[5m])) or vector(0)',
   activityQueryErrorsByType: 'activity:clickhouse_error_rate:5m',
-  activityCelFilterErrors: 'sum(rate(activity_cel_filter_errors_total[5m])) by (error_type)',
-  activityQueriesByScope: 'rate(activity_auditlog_queries_by_scope_total[5m])',
+  activityCelFilterErrors: 'sum(rate(activity_cel_filter_errors_total[5m])) by (error_type) or vector(0)',
+  activityQueriesByScope: 'sum(rate(activity_auditlog_queries_by_scope_total[5m])) by (scope_type)',
 
   // Combined metrics
-  pipelineErrorRate: 'sum(rate(vector_component_errors_total{namespace="activity-system"}[5m])) + sum(rate(activity_clickhouse_query_errors_total[5m]))',
-  pipelineIngressRate: 'sum(rate(vector_component_sent_events_total{component_id="parse_webhook_batch",namespace="activity-system",pod=~"vector-sidecar.*"}[5m]))',
-  componentHealth: 'min(up{job=~"vector|nats-system/nats|clickhouse-activity-clickhouse|activity-apiserver",namespace=~"activity-system|nats-system"})',
+  pipelineErrorRate: '(sum(rate(vector_component_errors_total{namespace="activity-system"}[5m])) or vector(0)) + (sum(rate(activity_clickhouse_query_errors_total[5m])) or vector(0))',
+  pipelineIngressRate: 'sum(rate(vector_component_sent_events_total{component_id="nats_jetstream",namespace="activity-system",pod=~"vector-sidecar.*"}[5m]))',
+  // Component health: Check monitored Activity services (apiserver, processor, k8s-event-exporter)
+  // Note: Vector and NATS don't have ServiceMonitors configured, so we check their health
+  // via functional metrics (event throughput) instead of 'up' metrics
+  componentHealth: 'min(up{namespace="activity-system",pod=~"activity-.*|k8s-event-exporter-.*"})',
 };
 
 // Build all panels
@@ -184,7 +188,7 @@ local allPanels =
     ]),
 
     stat.new('Component Health')
-    + stat.panelOptions.withDescription('All pipeline components UP')
+    + stat.panelOptions.withDescription('Activity components UP (apiserver, processor, event-exporter). Vector/NATS health monitored via functional metrics.')
     + stat.options.withTextMode('value_and_name')
     + stat.options.withColorMode('background')
     + stat.options.reduceOptions.withCalcs(['lastNotNull'])
@@ -248,8 +252,8 @@ local allPanels =
     + timeSeries.queryOptions.withTargets([
       prometheus.new('$datasource', queries.apiserverEventsGenerated)
       + prometheus.withLegendFormat('API Server Generated'),
-      prometheus.new('$datasource', queries.vectorSidecarWebhookParsed)
-      + prometheus.withLegendFormat('Vector Ingested'),
+      prometheus.new('$datasource', queries.vectorSidecarNatsSent)
+      + prometheus.withLegendFormat('Vector Sidecar → NATS'),
     ]),
 
     timeSeries.new('Audit Backend Errors')
@@ -313,16 +317,14 @@ local allPanels =
     + timeSeries.datasource.withType('prometheus')
     + timeSeries.datasource.withUid('$datasource')
     + timeSeries.queryOptions.withTargets([
-      prometheus.new('$datasource', queries.vectorSidecarWebhookParsed)
-      + prometheus.withLegendFormat('1. Webhook Ingress'),
       prometheus.new('$datasource', queries.vectorSidecarNatsSent)
-      + prometheus.withLegendFormat('2. Published to NATS'),
+      + prometheus.withLegendFormat('1. Sidecar → NATS'),
       prometheus.new('$datasource', queries.vectorAggregatorNatsReceived)
-      + prometheus.withLegendFormat('3. Consumed from NATS'),
+      + prometheus.withLegendFormat('2. Aggregator ← NATS'),
       prometheus.new('$datasource', queries.vectorAggregatorClickhouseSent)
-      + prometheus.withLegendFormat('4. Sent to ClickHouse'),
+      + prometheus.withLegendFormat('3. Aggregator → ClickHouse'),
       prometheus.new('$datasource', queries.clickhouseInsertedRows)
-      + prometheus.withLegendFormat('5. ClickHouse Writes'),
+      + prometheus.withLegendFormat('4. ClickHouse Inserts'),
     ]),
 
     timeSeries.new('Ingress vs Egress Comparison')
@@ -338,10 +340,10 @@ local allPanels =
     + timeSeries.datasource.withType('prometheus')
     + timeSeries.datasource.withUid('$datasource')
     + timeSeries.queryOptions.withTargets([
-      prometheus.new('$datasource', queries.vectorSidecarWebhookParsed)
-      + prometheus.withLegendFormat('Ingress (API Servers)'),
+      prometheus.new('$datasource', queries.vectorSidecarNatsSent)
+      + prometheus.withLegendFormat('Ingress (Sidecar → NATS)'),
       prometheus.new('$datasource', queries.clickhouseInsertedRows)
-      + prometheus.withLegendFormat('Egress (ClickHouse)'),
+      + prometheus.withLegendFormat('Egress (ClickHouse Writes)'),
     ]),
   ], panelWidth=12, panelHeight=8, startY=14)
 

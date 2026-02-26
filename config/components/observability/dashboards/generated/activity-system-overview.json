@@ -152,7 +152,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "(min(event_exporter_nats_connection_status) and min(event_exporter_informer_synced)) or vector(0)",
+               "expr": "(min(event_exporter_nats_connection_status{job=\"k8s-event-exporter\"}) and min(event_exporter_informer_synced{job=\"k8s-event-exporter\"})) or vector(0)",
                "legendFormat": "Status"
             }
          ],
@@ -224,7 +224,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "(min(up{job=\"activity-processor\"}) and min(activity_processor_nats_connection_status)) or vector(0)",
+               "expr": "(min(up{job=\"activity-processor\"}) and min(activity_processor_nats_connection_status{job=\"activity-processor\"})) or vector(0)",
                "legendFormat": "Status"
             }
          ],
@@ -636,7 +636,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(rate(vector_component_errors_total{namespace=\"activity-system\",pod=~\"vector-aggregator.*\"}[5m]))",
+               "expr": "sum(rate(vector_component_errors_total{namespace=\"activity-system\"}[5m])) or vector(0)",
                "legendFormat": "Audit Pipeline"
             },
             {
@@ -644,7 +644,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(rate(event_exporter_publish_errors_total[5m])) + sum(rate(vector_component_errors_total{component_id=\"clickhouse_k8s_events\"}[5m]))",
+               "expr": "(sum(rate(event_exporter_publish_errors_total[5m])) + sum(rate(vector_component_errors_total{component_id=\"clickhouse_k8s_events\"}[5m]))) or vector(0)",
                "legendFormat": "Events Pipeline"
             },
             {
@@ -652,7 +652,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(rate(activity_processor_audit_events_errored_total[5m]))",
+               "expr": "sum(rate(activity_processor_audit_events_errored_total[5m])) or vector(0)",
                "legendFormat": "Processor"
             },
             {
@@ -660,7 +660,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(rate(activity_clickhouse_query_errors_total[5m]))",
+               "expr": "sum(rate(activity_clickhouse_query_errors_total[5m])) or vector(0)",
                "legendFormat": "Query API"
             }
          ],
@@ -772,7 +772,7 @@
             "label": "Prometheus Datasource",
             "name": "datasource",
             "query": "prometheus",
-            "regex": "Service Metrics",
+            "regex": "",
             "type": "datasource"
          }
       ]

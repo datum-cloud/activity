@@ -134,19 +134,19 @@
           // Pipeline Throughput Recordings
           // =========================================================================
 
-          // Vector throughput rate (events/sec from NATS consumer)
+          // Vector throughput rate (events/sec from NATS audit consumer)
           {
             record: 'activity:vector_throughput:5m',
             expr: |||
-              sum(rate(vector_component_received_events_total{component_id="nats_consumer",namespace="activity-system"}[5m]))
+              sum(rate(vector_component_received_events_total{component_id="nats_audit_consumer",namespace="activity-system"}[5m]))
             |||,
           },
 
-          // Vector to ClickHouse write rate
+          // Vector to ClickHouse write rate (audit events)
           {
             record: 'activity:vector_writes:5m',
             expr: |||
-              sum(rate(vector_component_sent_events_total{component_id="clickhouse",namespace="activity-system"}[5m]))
+              sum(rate(vector_component_sent_events_total{component_id="clickhouse_audit_events",namespace="activity-system"}[5m]))
             |||,
           },
 
@@ -154,9 +154,9 @@
           {
             record: 'activity:pipeline_lag:5m',
             expr: |||
-              sum(rate(vector_component_received_events_total{component_id="nats_consumer",namespace="activity-system"}[5m]))
+              sum(rate(vector_component_received_events_total{component_id="nats_audit_consumer",namespace="activity-system"}[5m]))
               -
-              sum(rate(vector_component_sent_events_total{component_id="clickhouse",namespace="activity-system"}[5m]))
+              sum(rate(vector_component_sent_events_total{component_id="clickhouse_audit_events",namespace="activity-system"}[5m]))
             |||,
           },
 
