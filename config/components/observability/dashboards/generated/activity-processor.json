@@ -38,7 +38,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(rate(activity_processor_audit_events_received_total[5m]))",
+               "expr": "sum(rate(activity_processor_events_received_total[5m]))",
                "legendFormat": "Events/s"
             }
          ],
@@ -138,7 +138,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(rate(activity_processor_audit_events_errored_total[5m])) / sum(rate(activity_processor_audit_events_received_total[5m])) * 100",
+               "expr": "(sum(rate(activity_processor_events_errored_total[5m])) or vector(0)) / (sum(rate(activity_processor_events_received_total[5m])) or vector(1)) * 100",
                "legendFormat": "Error %"
             }
          ],
@@ -205,7 +205,7 @@
             "type": "prometheus",
             "uid": "$datasource"
          },
-         "description": "Event processing rate by event type (audit logs vs cluster events)",
+         "description": "Event processing rate by Kubernetes API group",
          "fieldConfig": {
             "defaults": {
                "custom": {
@@ -244,19 +244,11 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(rate(activity_processor_audit_events_received_total[5m]))",
-               "legendFormat": "Audit Events"
-            },
-            {
-               "datasource": {
-                  "type": "prometheus",
-                  "uid": "$datasource"
-               },
-               "expr": "sum(rate(activity_processor_k8s_events_received_total[5m]))",
-               "legendFormat": "Cluster Events"
+               "expr": "sum(rate(activity_processor_events_received_total[5m])) by (api_group)",
+               "legendFormat": "{{api_group}}"
             }
          ],
-         "title": "Events by Type",
+         "title": "Events by API Group",
          "type": "timeseries"
       },
       {
@@ -300,7 +292,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(rate(activity_processor_audit_events_evaluated_total[5m]))",
+               "expr": "sum(rate(activity_processor_events_evaluated_total[5m]))",
                "legendFormat": "Evaluated"
             },
             {
@@ -358,7 +350,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(rate(activity_processor_audit_events_skipped_total[5m])) by (reason)",
+               "expr": "sum(rate(activity_processor_events_skipped_total[5m])) by (reason)",
                "legendFormat": "{{reason}}"
             }
          ],
@@ -406,8 +398,8 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "histogram_quantile(0.99, sum(rate(activity_processor_audit_event_processing_duration_seconds_bucket[5m])) by (policy_name, le))",
-               "legendFormat": "{{policy_name}}"
+               "expr": "histogram_quantile(0.99, sum(rate(activity_processor_event_processing_duration_seconds_bucket[5m])) by (policy, le))",
+               "legendFormat": "{{policy}}"
             }
          ],
          "title": "Processing Duration p99 by Policy",
@@ -474,7 +466,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "min(activity_processor_nats_connection_status)",
+               "expr": "min(activity_processor_nats_connection_status{job=\"activity-processor\"})",
                "instant": true,
                "legendFormat": "Connected"
             }
@@ -869,7 +861,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(rate(activity_processor_audit_events_errored_total[5m])) by (error_type)",
+               "expr": "sum(rate(activity_processor_events_errored_total[5m])) by (error_type) or vector(0)",
                "legendFormat": "{{error_type}}"
             }
          ],

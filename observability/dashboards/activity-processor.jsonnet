@@ -40,7 +40,8 @@ local allPanels = util.grid.wrapPanels([
   + stat.queryOptions.withTargets([
     prometheus.new(
       datasource,
-      'sum(rate(activity_processor_audit_events_received_total[5m]))'
+      // Note: Using events_received_total (the actual metric name in running code)
+      'sum(rate(activity_processor_events_received_total[5m]))'
     )
     + prometheus.withLegendFormat('Events/s'),
   ])
@@ -78,7 +79,8 @@ local allPanels = util.grid.wrapPanels([
   + stat.queryOptions.withTargets([
     prometheus.new(
       datasource,
-      'sum(rate(activity_processor_audit_events_errored_total[5m])) / sum(rate(activity_processor_audit_events_received_total[5m])) * 100'
+      // Note: Using events_errored_total (actual metric name). Falls back to 0 if no errors occurred.
+      '(sum(rate(activity_processor_events_errored_total[5m])) or vector(0)) / (sum(rate(activity_processor_events_received_total[5m])) or vector(1)) * 100'
     )
     + prometheus.withLegendFormat('Error %'),
   ])
@@ -116,7 +118,7 @@ local allPanels = util.grid.wrapPanels([
   row.new('Event Processing')
   + row.withCollapsed(false),
 
-  timeSeries.new('Events by Type')
+  timeSeries.new('Events by API Group')
   + timeSeries.options.legend.withDisplayMode('table')
   + timeSeries.options.legend.withPlacement('bottom')
   + timeSeries.options.legend.withShowLegend(true)
@@ -131,16 +133,12 @@ local allPanels = util.grid.wrapPanels([
   + timeSeries.queryOptions.withTargets([
     prometheus.new(
       datasource,
-      'sum(rate(activity_processor_audit_events_received_total[5m]))'
+      // Note: Using events_received_total with api_group label (actual metric structure)
+      'sum(rate(activity_processor_events_received_total[5m])) by (api_group)'
     )
-    + prometheus.withLegendFormat('Audit Events'),
-    prometheus.new(
-      datasource,
-      'sum(rate(activity_processor_k8s_events_received_total[5m]))'
-    )
-    + prometheus.withLegendFormat('Cluster Events'),
+    + prometheus.withLegendFormat('{{api_group}}'),
   ])
-  + timeSeries.panelOptions.withDescription('Event processing rate by event type (audit logs vs cluster events)')
+  + timeSeries.panelOptions.withDescription('Event processing rate by Kubernetes API group')
   + timeSeries.gridPos.withW(timeSeriesHalfWidth)
   + timeSeries.gridPos.withH(timeSeriesHeight),
 
@@ -158,7 +156,8 @@ local allPanels = util.grid.wrapPanels([
   + timeSeries.queryOptions.withTargets([
     prometheus.new(
       datasource,
-      'sum(rate(activity_processor_audit_events_evaluated_total[5m]))'
+      // Note: Using events_evaluated_total (actual metric name)
+      'sum(rate(activity_processor_events_evaluated_total[5m]))'
     )
     + prometheus.withLegendFormat('Evaluated'),
     prometheus.new(
@@ -185,7 +184,8 @@ local allPanels = util.grid.wrapPanels([
   + timeSeries.queryOptions.withTargets([
     prometheus.new(
       datasource,
-      'sum(rate(activity_processor_audit_events_skipped_total[5m])) by (reason)'
+      // Note: Using events_skipped_total (actual metric name)
+      'sum(rate(activity_processor_events_skipped_total[5m])) by (reason)'
     )
     + prometheus.withLegendFormat('{{reason}}'),
   ])
@@ -206,9 +206,10 @@ local allPanels = util.grid.wrapPanels([
   + timeSeries.queryOptions.withTargets([
     prometheus.new(
       datasource,
-      'histogram_quantile(0.99, sum(rate(activity_processor_audit_event_processing_duration_seconds_bucket[5m])) by (policy_name, le))'
+      // Note: Using event_processing_duration_seconds (actual metric name) with 'policy' label (not policy_name)
+      'histogram_quantile(0.99, sum(rate(activity_processor_event_processing_duration_seconds_bucket[5m])) by (policy, le))'
     )
-    + prometheus.withLegendFormat('{{policy_name}}'),
+    + prometheus.withLegendFormat('{{policy}}'),
   ])
   + timeSeries.panelOptions.withDescription('99th percentile processing duration per policy')
   + timeSeries.gridPos.withW(timeSeriesHalfWidth)
@@ -230,7 +231,8 @@ local allPanels = util.grid.wrapPanels([
     prometheus.new(
       datasource,
       // Use min() so panel shows Disconnected if ANY instance is disconnected
-      'min(activity_processor_nats_connection_status)'
+      // Filter by job to exclude k8s-event-exporter which also exports this metric
+      'min(activity_processor_nats_connection_status{job="activity-processor"})'
     )
     + prometheus.withInstant(true)
     + prometheus.withLegendFormat('Connected'),
@@ -419,7 +421,8 @@ local allPanels = util.grid.wrapPanels([
   + timeSeries.queryOptions.withTargets([
     prometheus.new(
       datasource,
-      'sum(rate(activity_processor_audit_events_errored_total[5m])) by (error_type)'
+      // Note: Using events_errored_total (actual metric name). May show no data if no errors occurred.
+      'sum(rate(activity_processor_events_errored_total[5m])) by (error_type) or vector(0)'
     )
     + prometheus.withLegendFormat('{{error_type}}'),
   ])
