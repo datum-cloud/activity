@@ -4,7 +4,9 @@ metadata:
   name: activity.miloapis.com-events
 spec:
   serviceRef:
-    name: "activity.miloapis.com"
+    # The activity service exposes events through the k8s events API for
+    # compatibility.
+    name: "events.k8s.io"
   kind: Event
   plural: events
   singular: event
