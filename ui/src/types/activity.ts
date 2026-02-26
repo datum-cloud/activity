@@ -74,6 +74,8 @@ export interface ActivityLink {
 export interface Tenant {
   type: TenantType;
   name: string;
+  /** Unique identifier - required for user-scoped tenants where routes use ID instead of name */
+  id?: string;
 }
 
 /**
