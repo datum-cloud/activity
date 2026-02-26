@@ -207,6 +207,46 @@
               by (pod)
             |||,
           },
+
+          // =========================================================================
+          // Events Pipeline Recordings
+          // =========================================================================
+
+          // Events pipeline throughput (Vector events component)
+          {
+            record: 'activity:vector_writes_events:5m',
+            expr: |||
+              sum(rate(vector_component_sent_events_total{component_id="clickhouse_k8s_events",namespace="activity-system"}[5m]))
+            |||,
+          },
+
+          // Events pipeline insert rate to ClickHouse
+          {
+            record: 'activity:clickhouse_events_insert_rate:5m',
+            expr: |||
+              avg(rate(chi_clickhouse_table_parts_rows{chi="activity-clickhouse", database="audit", table="k8s_events", active="1"}[5m]))
+            |||,
+          },
+
+          // Events pipeline ClickHouse insert latency
+          // Uses clamp_min to avoid divide-by-zero when there are no insert queries
+          {
+            record: 'activity:clickhouse_events_insert_latency',
+            expr: |||
+              sum(rate(chi_clickhouse_event_InsertQueryTimeMicroseconds{chi="activity-clickhouse",database="audit",table="k8s_events"}[5m]))
+              /
+              clamp_min(sum(rate(chi_clickhouse_event_InsertQuery{chi="activity-clickhouse",database="audit",table="k8s_events"}[5m])), 0.001)
+              / 1000000
+            |||,
+          },
+
+          // Total event exporter throughput
+          {
+            record: 'activity:event_exporter_throughput:5m',
+            expr: |||
+              sum(rate(event_exporter_events_published_total[5m]))
+            |||,
+          },
         ],
       },
     ],

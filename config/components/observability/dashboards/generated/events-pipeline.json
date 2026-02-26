@@ -1,0 +1,1131 @@
+{
+   "description": "End-to-end monitoring of K8s events: k8s-event-exporter → NATS → Vector → ClickHouse. For audit log pipeline, see Audit Log Pipeline dashboard.",
+   "editable": true,
+   "graphTooltip": 1,
+   "panels": [
+      {
+         "collapsed": false,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 0
+         },
+         "id": 1,
+         "title": "Critical Health Indicators",
+         "type": "row"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Events/sec published by k8s-event-exporter to NATS",
+         "fieldConfig": {
+            "defaults": {
+               "thresholds": {
+                  "steps": [
+                     {
+                        "color": "red",
+                        "value": null
+                     },
+                     {
+                        "color": "yellow",
+                        "value": 0.10000000000000001
+                     },
+                     {
+                        "color": "green",
+                        "value": 1
+                     }
+                  ]
+               },
+               "unit": "ops"
+            }
+         },
+         "gridPos": {
+            "h": 4,
+            "w": 3,
+            "x": 0,
+            "y": 1
+         },
+         "id": 2,
+         "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "reduceOptions": {
+               "calcs": [
+                  "lastNotNull"
+               ]
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(event_exporter_events_published_total[5m]))",
+               "legendFormat": "Events/sec"
+            }
+         ],
+         "title": "Events Published Rate",
+         "type": "stat"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Events/sec written to ClickHouse k8s_events table",
+         "fieldConfig": {
+            "defaults": {
+               "thresholds": {
+                  "steps": [
+                     {
+                        "color": "red",
+                        "value": null
+                     },
+                     {
+                        "color": "yellow",
+                        "value": 0.10000000000000001
+                     },
+                     {
+                        "color": "green",
+                        "value": 1
+                     }
+                  ]
+               },
+               "unit": "ops"
+            }
+         },
+         "gridPos": {
+            "h": 4,
+            "w": 3,
+            "x": 3,
+            "y": 1
+         },
+         "id": 3,
+         "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "reduceOptions": {
+               "calcs": [
+                  "lastNotNull"
+               ]
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "activity:clickhouse_events_insert_rate:5m",
+               "legendFormat": "Events/sec"
+            }
+         ],
+         "title": "Events Written Rate",
+         "type": "stat"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Pending events in NATS queue (backpressure indicator)",
+         "fieldConfig": {
+            "defaults": {
+               "thresholds": {
+                  "steps": [
+                     {
+                        "color": "green",
+                        "value": null
+                     },
+                     {
+                        "color": "yellow",
+                        "value": 100
+                     },
+                     {
+                        "color": "red",
+                        "value": 1000
+                     }
+                  ]
+               },
+               "unit": "short"
+            }
+         },
+         "gridPos": {
+            "h": 4,
+            "w": 3,
+            "x": 6,
+            "y": 1
+         },
+         "id": 4,
+         "options": {
+            "colorMode": "background",
+            "graphMode": "area",
+            "reduceOptions": {
+               "calcs": [
+                  "lastNotNull"
+               ]
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "nats_consumer_num_pending{consumer_name=\"clickhouse-ingest-events\"}",
+               "legendFormat": "Pending"
+            }
+         ],
+         "title": "Queue Backlog",
+         "type": "stat"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Combined errors across event exporter and Vector",
+         "fieldConfig": {
+            "defaults": {
+               "thresholds": {
+                  "steps": [
+                     {
+                        "color": "green",
+                        "value": null
+                     },
+                     {
+                        "color": "yellow",
+                        "value": 0.10000000000000001
+                     },
+                     {
+                        "color": "red",
+                        "value": 1
+                     }
+                  ]
+               },
+               "unit": "ops"
+            }
+         },
+         "gridPos": {
+            "h": 4,
+            "w": 3,
+            "x": 9,
+            "y": 1
+         },
+         "id": 5,
+         "options": {
+            "colorMode": "background",
+            "graphMode": "area",
+            "reduceOptions": {
+               "calcs": [
+                  "lastNotNull"
+               ]
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(event_exporter_publish_errors_total[5m])) + sum(rate(vector_component_errors_total{component_id=\"clickhouse_k8s_events\"}[5m]))",
+               "legendFormat": "Errors/sec"
+            }
+         ],
+         "title": "Error Rate",
+         "type": "stat"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "NATS connection health for event exporter",
+         "fieldConfig": {
+            "defaults": {
+               "mappings": [
+                  {
+                     "options": {
+                        "0": {
+                           "color": "red",
+                           "text": "Disconnected"
+                        }
+                     },
+                     "type": "value"
+                  },
+                  {
+                     "options": {
+                        "1": {
+                           "color": "green",
+                           "text": "Connected"
+                        }
+                     },
+                     "type": "value"
+                  }
+               ],
+               "thresholds": {
+                  "steps": [
+                     {
+                        "color": "red",
+                        "value": null
+                     },
+                     {
+                        "color": "green",
+                        "value": 1
+                     }
+                  ]
+               }
+            }
+         },
+         "gridPos": {
+            "h": 4,
+            "w": 3,
+            "x": 12,
+            "y": 1
+         },
+         "id": 6,
+         "options": {
+            "colorMode": "background",
+            "reduceOptions": {
+               "calcs": [
+                  "lastNotNull"
+               ]
+            },
+            "textMode": "value_and_name"
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "min(event_exporter_nats_connection_status)",
+               "legendFormat": "Status"
+            }
+         ],
+         "title": "Exporter Connection Status",
+         "type": "stat"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "K8s informer cache sync status",
+         "fieldConfig": {
+            "defaults": {
+               "mappings": [
+                  {
+                     "options": {
+                        "0": {
+                           "color": "red",
+                           "text": "Not Synced"
+                        }
+                     },
+                     "type": "value"
+                  },
+                  {
+                     "options": {
+                        "1": {
+                           "color": "green",
+                           "text": "Synced"
+                        }
+                     },
+                     "type": "value"
+                  }
+               ],
+               "thresholds": {
+                  "steps": [
+                     {
+                        "color": "red",
+                        "value": null
+                     },
+                     {
+                        "color": "green",
+                        "value": 1
+                     }
+                  ]
+               }
+            }
+         },
+         "gridPos": {
+            "h": 4,
+            "w": 3,
+            "x": 15,
+            "y": 1
+         },
+         "id": 7,
+         "options": {
+            "colorMode": "background",
+            "reduceOptions": {
+               "calcs": [
+                  "lastNotNull"
+               ]
+            },
+            "textMode": "value_and_name"
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "min(event_exporter_informer_synced)",
+               "legendFormat": "Status"
+            }
+         ],
+         "title": "Informer Sync Status",
+         "type": "stat"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Average time to write events to k8s_events table",
+         "fieldConfig": {
+            "defaults": {
+               "thresholds": {
+                  "steps": [
+                     {
+                        "color": "green",
+                        "value": null
+                     },
+                     {
+                        "color": "yellow",
+                        "value": 0.10000000000000001
+                     },
+                     {
+                        "color": "orange",
+                        "value": 0.5
+                     },
+                     {
+                        "color": "red",
+                        "value": 1
+                     }
+                  ]
+               },
+               "unit": "s"
+            }
+         },
+         "gridPos": {
+            "h": 4,
+            "w": 3,
+            "x": 18,
+            "y": 1
+         },
+         "id": 8,
+         "options": {
+            "colorMode": "background",
+            "graphMode": "area",
+            "reduceOptions": {
+               "calcs": [
+                  "lastNotNull"
+               ]
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "activity:clickhouse_events_insert_latency",
+               "legendFormat": "Insert Latency"
+            }
+         ],
+         "title": "ClickHouse Insert Latency",
+         "type": "stat"
+      },
+      {
+         "collapsed": false,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 5
+         },
+         "id": 9,
+         "title": "Event Exporter",
+         "type": "row"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Top 10 namespaces generating events",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 30,
+                  "lineWidth": 1,
+                  "showPoints": "never",
+                  "stacking": {
+                     "mode": "normal"
+                  }
+               },
+               "unit": "ops"
+            }
+         },
+         "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 0,
+            "y": 6
+         },
+         "id": 10,
+         "options": {
+            "legend": {
+               "calcs": [
+                  "mean",
+                  "lastNotNull",
+                  "max"
+               ],
+               "displayMode": "table",
+               "placement": "bottom",
+               "showLegend": true
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "topk(10, sum(rate(event_exporter_events_published_total[5m])) by (namespace))",
+               "legendFormat": "{{namespace}}"
+            }
+         ],
+         "title": "Events by Namespace",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Common event reasons (Created, Scheduled, Pulling, etc.)",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 30,
+                  "lineWidth": 1,
+                  "showPoints": "never",
+                  "stacking": {
+                     "mode": "normal"
+                  }
+               },
+               "unit": "ops"
+            }
+         },
+         "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 8,
+            "y": 6
+         },
+         "id": 11,
+         "options": {
+            "legend": {
+               "calcs": [
+                  "mean",
+                  "lastNotNull",
+                  "max"
+               ],
+               "displayMode": "table",
+               "placement": "bottom",
+               "showLegend": true
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(event_exporter_events_published_total[5m])) by (reason)",
+               "legendFormat": "{{reason}}"
+            }
+         ],
+         "title": "Events by Reason",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Latency distribution for publishing events to NATS",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10,
+                  "lineWidth": 2,
+                  "showPoints": "never"
+               },
+               "unit": "s"
+            }
+         },
+         "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 16,
+            "y": 6
+         },
+         "id": 12,
+         "options": {
+            "legend": {
+               "calcs": [
+                  "mean",
+                  "lastNotNull",
+                  "max"
+               ],
+               "displayMode": "table",
+               "placement": "bottom",
+               "showLegend": true
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "histogram_quantile(0.99, sum(rate(event_exporter_publish_latency_seconds_bucket[5m])) by (le))",
+               "legendFormat": "p99"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "histogram_quantile(0.95, sum(rate(event_exporter_publish_latency_seconds_bucket[5m])) by (le))",
+               "legendFormat": "p95"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "histogram_quantile(0.50, sum(rate(event_exporter_publish_latency_seconds_bucket[5m])) by (le))",
+               "legendFormat": "p50"
+            }
+         ],
+         "title": "Publish Latency (p50/p95/p99)",
+         "type": "timeseries"
+      },
+      {
+         "collapsed": false,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 13
+         },
+         "id": 13,
+         "title": "Pipeline Flow",
+         "type": "row"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Events/sec at each pipeline stage - should be roughly equal in steady state",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10,
+                  "lineWidth": 2,
+                  "showPoints": "never"
+               },
+               "unit": "ops"
+            }
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 14
+         },
+         "id": 14,
+         "options": {
+            "legend": {
+               "calcs": [
+                  "mean",
+                  "lastNotNull",
+                  "max"
+               ],
+               "displayMode": "table",
+               "placement": "bottom",
+               "showLegend": true
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(event_exporter_events_published_total[5m]))",
+               "legendFormat": "1. Published to NATS"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(vector_component_received_events_total{component_id=\"nats_events_consumer\"}[5m]))",
+               "legendFormat": "2. Consumed from NATS"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(vector_component_sent_events_total{component_id=\"clickhouse_k8s_events\"}[5m]))",
+               "legendFormat": "3. Sent to ClickHouse"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "activity:clickhouse_events_insert_rate:5m",
+               "legendFormat": "4. ClickHouse Writes"
+            }
+         ],
+         "title": "Event Flow Through Stages",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Pipeline input vs output - gap indicates bottleneck or loss",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 0,
+                  "lineWidth": 2,
+                  "showPoints": "never"
+               },
+               "unit": "ops"
+            }
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 14
+         },
+         "id": 15,
+         "options": {
+            "legend": {
+               "calcs": [
+                  "mean",
+                  "lastNotNull",
+                  "max"
+               ],
+               "displayMode": "table",
+               "placement": "bottom",
+               "showLegend": true
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(event_exporter_events_published_total[5m]))",
+               "legendFormat": "Ingress (Exporter)"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "activity:clickhouse_events_insert_rate:5m",
+               "legendFormat": "Egress (ClickHouse)"
+            }
+         ],
+         "title": "Ingress vs Egress Comparison",
+         "type": "timeseries"
+      },
+      {
+         "collapsed": false,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 22
+         },
+         "id": 16,
+         "title": "Performance",
+         "type": "row"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Pending messages for events consumer - indicates backpressure",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 20,
+                  "lineWidth": 2,
+                  "showPoints": "never"
+               },
+               "unit": "short"
+            }
+         },
+         "gridPos": {
+            "h": 7,
+            "w": 6,
+            "x": 0,
+            "y": 23
+         },
+         "id": 17,
+         "options": {
+            "legend": {
+               "calcs": [
+                  "mean",
+                  "lastNotNull",
+                  "max"
+               ],
+               "displayMode": "table",
+               "placement": "bottom",
+               "showLegend": true
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "nats_consumer_num_pending{consumer_name=\"clickhouse-ingest-events\"}",
+               "legendFormat": "Pending Messages"
+            }
+         ],
+         "title": "NATS Consumer Lag",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Buffer depth indicates ClickHouse backpressure - high values mean slow writes",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10,
+                  "lineWidth": 2,
+                  "showPoints": "never"
+               },
+               "unit": "short"
+            }
+         },
+         "gridPos": {
+            "h": 7,
+            "w": 6,
+            "x": 6,
+            "y": 23
+         },
+         "id": 18,
+         "options": {
+            "legend": {
+               "calcs": [
+                  "mean",
+                  "lastNotNull",
+                  "max"
+               ],
+               "displayMode": "table",
+               "placement": "bottom",
+               "showLegend": true
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "vector_buffer_events{component_id=\"clickhouse_k8s_events\"}",
+               "legendFormat": "Buffered Events"
+            }
+         ],
+         "title": "Vector Buffer Depth",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Events insert rate and latency - write path health for k8s_events table",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10,
+                  "lineWidth": 2,
+                  "showPoints": "never"
+               },
+               "unit": "ops"
+            }
+         },
+         "gridPos": {
+            "h": 7,
+            "w": 6,
+            "x": 12,
+            "y": 23
+         },
+         "id": 19,
+         "options": {
+            "legend": {
+               "calcs": [
+                  "mean",
+                  "lastNotNull"
+               ],
+               "displayMode": "table",
+               "placement": "bottom",
+               "showLegend": true
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "activity:clickhouse_events_insert_rate:5m",
+               "legendFormat": "Events Inserted/sec"
+            }
+         ],
+         "title": "ClickHouse Insert Performance",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Event exporter errors publishing to NATS - should be ZERO in healthy state",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 30,
+                  "lineWidth": 2,
+                  "showPoints": "never"
+               },
+               "unit": "ops"
+            }
+         },
+         "gridPos": {
+            "h": 7,
+            "w": 6,
+            "x": 18,
+            "y": 23
+         },
+         "id": 20,
+         "options": {
+            "legend": {
+               "calcs": [
+                  "mean",
+                  "lastNotNull",
+                  "max"
+               ],
+               "displayMode": "table",
+               "placement": "bottom",
+               "showLegend": true
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(event_exporter_publish_errors_total[5m]))",
+               "legendFormat": "Publish Errors"
+            }
+         ],
+         "title": "Publish Errors Over Time",
+         "type": "timeseries"
+      },
+      {
+         "collapsed": true,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 30
+         },
+         "id": 21,
+         "panels": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "description": "Breakdown of errors: Exporter vs Vector",
+               "fieldConfig": {
+                  "defaults": {
+                     "custom": {
+                        "fillOpacity": 30,
+                        "lineWidth": 1,
+                        "showPoints": "never",
+                        "stacking": {
+                           "mode": "normal"
+                        }
+                     },
+                     "unit": "ops"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 12,
+                  "x": 0,
+                  "y": 31
+               },
+               "id": 22,
+               "options": {
+                  "legend": {
+                     "calcs": [
+                        "mean",
+                        "lastNotNull",
+                        "max"
+                     ],
+                     "displayMode": "table",
+                     "placement": "right",
+                     "showLegend": true
+                  }
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "sum(rate(event_exporter_publish_errors_total[5m]))",
+                     "legendFormat": "Exporter Errors"
+                  },
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "sum(rate(vector_component_errors_total{component_id=\"clickhouse_k8s_events\"}[5m]))",
+                     "legendFormat": "Vector Errors"
+                  }
+               ],
+               "title": "Errors by Component",
+               "type": "timeseries"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "description": "Detailed Vector pipeline errors for events stream",
+               "fieldConfig": {
+                  "defaults": {
+                     "custom": {
+                        "fillOpacity": 10,
+                        "lineWidth": 2,
+                        "showPoints": "never"
+                     },
+                     "unit": "ops"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 12,
+                  "x": 12,
+                  "y": 31
+               },
+               "id": 23,
+               "options": {
+                  "legend": {
+                     "calcs": [
+                        "mean",
+                        "lastNotNull",
+                        "max"
+                     ],
+                     "displayMode": "table",
+                     "placement": "bottom",
+                     "showLegend": true
+                  }
+               },
+               "pluginVersion": "v11.4.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "sum(rate(vector_component_errors_total{component_id=~\".*events.*\"}[5m])) by (component_id)",
+                     "legendFormat": "{{component_id}}"
+                  }
+               ],
+               "title": "Vector Component Errors",
+               "type": "timeseries"
+            }
+         ],
+         "title": "Error Breakdown",
+         "type": "row"
+      }
+   ],
+   "refresh": "30s",
+   "schemaVersion": 39,
+   "tags": [
+      "events",
+      "pipeline",
+      "activity",
+      "observability"
+   ],
+   "templating": {
+      "list": [
+         {
+            "label": "Prometheus Datasource",
+            "name": "datasource",
+            "query": "prometheus",
+            "regex": "Service Metrics",
+            "type": "datasource"
+         }
+      ]
+   },
+   "time": {
+      "from": "now-24h",
+      "to": "now"
+   },
+   "timezone": "utc",
+   "title": "Control Plane Events Pipeline",
+   "uid": "events-pipeline"
+}

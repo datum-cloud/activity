@@ -1,0 +1,787 @@
+{
+   "description": "Single-pane-of-glass health check for entire Activity system. Quick status of audit pipeline, events pipeline, activity processor, and storage.",
+   "editable": true,
+   "graphTooltip": 1,
+   "panels": [
+      {
+         "collapsed": false,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 0
+         },
+         "id": 1,
+         "title": "System Health",
+         "type": "row"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Audit log pipeline health (Vector up + receiving events)",
+         "fieldConfig": {
+            "defaults": {
+               "mappings": [
+                  {
+                     "options": {
+                        "0": {
+                           "color": "red",
+                           "text": "Degraded"
+                        }
+                     },
+                     "type": "value"
+                  },
+                  {
+                     "options": {
+                        "1": {
+                           "color": "green",
+                           "text": "Healthy"
+                        }
+                     },
+                     "type": "value"
+                  }
+               ],
+               "thresholds": {
+                  "steps": [
+                     {
+                        "color": "red",
+                        "value": null
+                     },
+                     {
+                        "color": "green",
+                        "value": 1
+                     }
+                  ]
+               }
+            }
+         },
+         "gridPos": {
+            "h": 6,
+            "w": 6,
+            "x": 0,
+            "y": 1
+         },
+         "id": 2,
+         "options": {
+            "colorMode": "background",
+            "reduceOptions": {
+               "calcs": [
+                  "lastNotNull"
+               ]
+            },
+            "textMode": "value_and_name"
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "(min(up{job=\"vector\",namespace=\"activity-system\"}) and min(activity:vector_throughput:5m > 0)) or vector(0)",
+               "legendFormat": "Status"
+            }
+         ],
+         "title": "Audit Pipeline Status",
+         "type": "stat"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "K8s events pipeline health (Exporter connected + synced)",
+         "fieldConfig": {
+            "defaults": {
+               "mappings": [
+                  {
+                     "options": {
+                        "0": {
+                           "color": "red",
+                           "text": "Degraded"
+                        }
+                     },
+                     "type": "value"
+                  },
+                  {
+                     "options": {
+                        "1": {
+                           "color": "green",
+                           "text": "Healthy"
+                        }
+                     },
+                     "type": "value"
+                  }
+               ],
+               "thresholds": {
+                  "steps": [
+                     {
+                        "color": "red",
+                        "value": null
+                     },
+                     {
+                        "color": "green",
+                        "value": 1
+                     }
+                  ]
+               }
+            }
+         },
+         "gridPos": {
+            "h": 6,
+            "w": 6,
+            "x": 6,
+            "y": 1
+         },
+         "id": 3,
+         "options": {
+            "colorMode": "background",
+            "reduceOptions": {
+               "calcs": [
+                  "lastNotNull"
+               ]
+            },
+            "textMode": "value_and_name"
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "(min(event_exporter_nats_connection_status) and min(event_exporter_informer_synced)) or vector(0)",
+               "legendFormat": "Status"
+            }
+         ],
+         "title": "Events Pipeline Status",
+         "type": "stat"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Activity processor health (Up + NATS connected)",
+         "fieldConfig": {
+            "defaults": {
+               "mappings": [
+                  {
+                     "options": {
+                        "0": {
+                           "color": "red",
+                           "text": "Degraded"
+                        }
+                     },
+                     "type": "value"
+                  },
+                  {
+                     "options": {
+                        "1": {
+                           "color": "green",
+                           "text": "Healthy"
+                        }
+                     },
+                     "type": "value"
+                  }
+               ],
+               "thresholds": {
+                  "steps": [
+                     {
+                        "color": "red",
+                        "value": null
+                     },
+                     {
+                        "color": "green",
+                        "value": 1
+                     }
+                  ]
+               }
+            }
+         },
+         "gridPos": {
+            "h": 6,
+            "w": 6,
+            "x": 12,
+            "y": 1
+         },
+         "id": 4,
+         "options": {
+            "colorMode": "background",
+            "reduceOptions": {
+               "calcs": [
+                  "lastNotNull"
+               ]
+            },
+            "textMode": "value_and_name"
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "(min(up{job=\"activity-processor\"}) and min(activity_processor_nats_connection_status)) or vector(0)",
+               "legendFormat": "Status"
+            }
+         ],
+         "title": "Activity Generation Status",
+         "type": "stat"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Storage backend components (ClickHouse + NATS)",
+         "fieldConfig": {
+            "defaults": {
+               "mappings": [
+                  {
+                     "options": {
+                        "0": {
+                           "color": "red",
+                           "text": "Down"
+                        }
+                     },
+                     "type": "value"
+                  },
+                  {
+                     "options": {
+                        "1": {
+                           "color": "green",
+                           "text": "All Up"
+                        }
+                     },
+                     "type": "value"
+                  }
+               ],
+               "thresholds": {
+                  "steps": [
+                     {
+                        "color": "red",
+                        "value": null
+                     },
+                     {
+                        "color": "green",
+                        "value": 1
+                     }
+                  ]
+               }
+            }
+         },
+         "gridPos": {
+            "h": 6,
+            "w": 6,
+            "x": 18,
+            "y": 1
+         },
+         "id": 5,
+         "options": {
+            "colorMode": "background",
+            "reduceOptions": {
+               "calcs": [
+                  "lastNotNull"
+               ]
+            },
+            "textMode": "value_and_name"
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "min(up{job=~\"clickhouse-activity-clickhouse|nats-system/nats\"})",
+               "legendFormat": "Status"
+            }
+         ],
+         "title": "Storage Health",
+         "type": "stat"
+      },
+      {
+         "collapsed": false,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 7
+         },
+         "id": 6,
+         "title": "Throughput Summary",
+         "type": "row"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Audit log processing rate",
+         "fieldConfig": {
+            "defaults": {
+               "thresholds": {
+                  "steps": [
+                     {
+                        "color": "blue",
+                        "value": null
+                     }
+                  ]
+               },
+               "unit": "ops"
+            }
+         },
+         "gridPos": {
+            "h": 5,
+            "w": 6,
+            "x": 0,
+            "y": 8
+         },
+         "id": 7,
+         "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "reduceOptions": {
+               "calcs": [
+                  "lastNotNull"
+               ]
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "activity:vector_throughput:5m",
+               "legendFormat": "Events/sec"
+            }
+         ],
+         "title": "Audit Events/sec",
+         "type": "stat"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Kubernetes event collection rate",
+         "fieldConfig": {
+            "defaults": {
+               "thresholds": {
+                  "steps": [
+                     {
+                        "color": "purple",
+                        "value": null
+                     }
+                  ]
+               },
+               "unit": "ops"
+            }
+         },
+         "gridPos": {
+            "h": 5,
+            "w": 6,
+            "x": 6,
+            "y": 8
+         },
+         "id": 8,
+         "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "reduceOptions": {
+               "calcs": [
+                  "lastNotNull"
+               ]
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(event_exporter_events_published_total[5m]))",
+               "legendFormat": "Events/sec"
+            }
+         ],
+         "title": "K8s Events/sec",
+         "type": "stat"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Activity generation rate from policies",
+         "fieldConfig": {
+            "defaults": {
+               "thresholds": {
+                  "steps": [
+                     {
+                        "color": "green",
+                        "value": null
+                     }
+                  ]
+               },
+               "unit": "ops"
+            }
+         },
+         "gridPos": {
+            "h": 5,
+            "w": 6,
+            "x": 12,
+            "y": 8
+         },
+         "id": 9,
+         "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "reduceOptions": {
+               "calcs": [
+                  "lastNotNull"
+               ]
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(activity_processor_activities_generated_total[5m]))",
+               "legendFormat": "Activities/sec"
+            }
+         ],
+         "title": "Activities Generated/sec",
+         "type": "stat"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Combined ClickHouse insert rate (all tables)",
+         "fieldConfig": {
+            "defaults": {
+               "thresholds": {
+                  "steps": [
+                     {
+                        "color": "orange",
+                        "value": null
+                     }
+                  ]
+               },
+               "unit": "ops"
+            }
+         },
+         "gridPos": {
+            "h": 5,
+            "w": 6,
+            "x": 18,
+            "y": 8
+         },
+         "id": 10,
+         "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "reduceOptions": {
+               "calcs": [
+                  "lastNotNull"
+               ]
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "activity:vector_writes:5m + activity:vector_writes_events:5m",
+               "legendFormat": "Writes/sec"
+            }
+         ],
+         "title": "Total Storage Rate",
+         "type": "stat"
+      },
+      {
+         "collapsed": false,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 13
+         },
+         "id": 11,
+         "title": "Key Metrics",
+         "type": "row"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Breakdown of all data streams: audit logs, K8s events, and activities",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 30,
+                  "lineWidth": 1,
+                  "showPoints": "never",
+                  "stacking": {
+                     "mode": "normal"
+                  }
+               },
+               "unit": "ops"
+            }
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 0,
+            "y": 14
+         },
+         "id": 12,
+         "options": {
+            "legend": {
+               "calcs": [
+                  "mean",
+                  "lastNotNull",
+                  "max"
+               ],
+               "displayMode": "table",
+               "placement": "bottom",
+               "showLegend": true
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "activity:vector_throughput:5m",
+               "legendFormat": "Audit Events"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(event_exporter_events_published_total[5m]))",
+               "legendFormat": "K8s Events"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(activity_processor_activities_generated_total[5m]))",
+               "legendFormat": "Activities"
+            }
+         ],
+         "title": "Combined Pipeline Throughput",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Errors from all Activity system components",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 30,
+                  "lineWidth": 1,
+                  "showPoints": "never",
+                  "stacking": {
+                     "mode": "normal"
+                  }
+               },
+               "unit": "ops"
+            }
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 8,
+            "y": 14
+         },
+         "id": 13,
+         "options": {
+            "legend": {
+               "calcs": [
+                  "mean",
+                  "lastNotNull",
+                  "max"
+               ],
+               "displayMode": "table",
+               "placement": "bottom",
+               "showLegend": true
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(vector_component_errors_total{namespace=\"activity-system\",pod=~\"vector-aggregator.*\"}[5m]))",
+               "legendFormat": "Audit Pipeline"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(event_exporter_publish_errors_total[5m])) + sum(rate(vector_component_errors_total{component_id=\"clickhouse_k8s_events\"}[5m]))",
+               "legendFormat": "Events Pipeline"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(activity_processor_audit_events_errored_total[5m]))",
+               "legendFormat": "Processor"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(activity_clickhouse_query_errors_total[5m]))",
+               "legendFormat": "Query API"
+            }
+         ],
+         "title": "Error Rates Across All Components",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Pipeline latency from event generation to storage",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10,
+                  "lineWidth": 2,
+                  "showPoints": "never"
+               },
+               "unit": "s"
+            }
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 16,
+            "y": 14
+         },
+         "id": 14,
+         "options": {
+            "legend": {
+               "calcs": [
+                  "mean",
+                  "lastNotNull",
+                  "max"
+               ],
+               "displayMode": "table",
+               "placement": "bottom",
+               "showLegend": true
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "histogram_quantile(0.95, sum(rate(activity_pipeline_end_to_end_latency_seconds_bucket{stage=\"nats_to_aggregator\"}[5m])) by (le))",
+               "legendFormat": "Audit Pipeline (p95)"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "histogram_quantile(0.95, sum(rate(event_exporter_publish_latency_seconds_bucket[5m])) by (le))",
+               "legendFormat": "Events Pipeline (p95)"
+            }
+         ],
+         "title": "End-to-End Latency (p95)",
+         "type": "timeseries"
+      },
+      {
+         "collapsed": false,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 22
+         },
+         "id": 15,
+         "title": "Quick Links",
+         "type": "row"
+      },
+      {
+         "datasource": {
+            "type": "datasource",
+            "uid": "-- Mixed --"
+         },
+         "description": "Quick access to detailed dashboards",
+         "gridPos": {
+            "h": 6,
+            "w": 24,
+            "x": 0,
+            "y": 23
+         },
+         "id": 16,
+         "options": {
+            "content": "## Detailed Dashboards\n\nClick to drill into specific components:\n\n- **[Audit Log Pipeline](/d/audit-pipeline)** - Detailed audit log pipeline monitoring\n- **[Events Pipeline](/d/events-pipeline)** - K8s events collection and processing\n- **[Activity Processor](/d/activity-processor)** - Activity generation and policy evaluation\n- **[Activity API Server](/d/activity-apiserver)** - Query API performance and usage\n\n---\n\n## Runbooks\n\n- [Activity System Troubleshooting](https://github.com/datum-cloud/activity-events-pipeline/tree/main/docs/operations)\n- [Pipeline Debugging Guide](https://github.com/datum-cloud/activity-events-pipeline/tree/main/docs/runbooks)\n",
+            "mode": "markdown"
+         },
+         "pluginVersion": "v11.4.0",
+         "title": "Dashboard Navigation",
+         "type": "text"
+      }
+   ],
+   "refresh": "30s",
+   "schemaVersion": 39,
+   "tags": [
+      "activity",
+      "overview",
+      "sre",
+      "observability"
+   ],
+   "templating": {
+      "list": [
+         {
+            "label": "Prometheus Datasource",
+            "name": "datasource",
+            "query": "prometheus",
+            "regex": "Service Metrics",
+            "type": "datasource"
+         }
+      ]
+   },
+   "time": {
+      "from": "now-24h",
+      "to": "now"
+   },
+   "timezone": "utc",
+   "title": "Activity System Overview",
+   "uid": "activity-system-overview"
+}
