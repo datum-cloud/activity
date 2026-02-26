@@ -239,6 +239,7 @@ export function ActivityFeedItem({
                 links={links}
                 onResourceClick={onResourceClick}
                 resourceLinkResolver={resourceLinkResolver}
+                resourceLinkContext={{ tenant }}
               />
             </div>
             <span
@@ -344,6 +345,7 @@ export function ActivityFeedItem({
                 links={links}
                 onResourceClick={onResourceClick}
                 resourceLinkResolver={resourceLinkResolver}
+                resourceLinkContext={{ tenant }}
               />
             </div>
             <span

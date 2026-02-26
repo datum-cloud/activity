@@ -25,7 +25,7 @@ export type OriginType = 'audit' | 'event';
 /**
  * Tenant scope levels
  */
-export type TenantType = 'global' | 'organization' | 'project' | 'user';
+export type TenantType = 'platform' | 'organization' | 'project' | 'user';
 
 /**
  * Resource reference for linking to resources in the portal
@@ -37,6 +37,15 @@ export interface ResourceRef {
   name: string;
   namespace?: string;
   uid?: string;
+}
+
+/**
+ * Context for resolving resource links
+ * Contains optional tenant information for multi-tenant portal navigation
+ */
+export interface ResourceLinkContext {
+  /** Current tenant context for scoped navigation */
+  tenant?: Tenant;
 }
 
 /**
@@ -350,13 +359,13 @@ export interface WatchErrorStatus {
  * Function that resolves a ResourceRef to a navigation URL
  * Returns a URL string to navigate to when the resource link is clicked
  */
-export type ResourceLinkResolver = (resource: ResourceRef) => string;
+export type ResourceLinkResolver = (resource: ResourceRef, context?: ResourceLinkContext) => string | undefined;
 
 /**
  * Default resource link resolver that navigates to resource history
  * Uses UID if available, otherwise falls back to apiGroup, kind, namespace, name
  */
-export function defaultResourceLinkResolver(resource: ResourceRef): string {
+export function defaultResourceLinkResolver(resource: ResourceRef, context: ResourceLinkContext = {}): string {
   const params = new URLSearchParams();
   if (resource.uid) {
     params.set('uid', resource.uid);
@@ -366,6 +375,13 @@ export function defaultResourceLinkResolver(resource: ResourceRef): string {
     if (resource.namespace) params.set('namespace', resource.namespace);
     if (resource.name) params.set('name', resource.name);
   }
+
+  // Include tenant context if available
+  if (context.tenant) {
+    params.set('tenantType', context.tenant.type);
+    params.set('tenantName', context.tenant.name);
+  }
+
   return `/resource-history?${params.toString()}`;
 }
 
@@ -374,6 +390,23 @@ export function defaultResourceLinkResolver(resource: ResourceRef): string {
  * Returns a URL string to navigate to when the tenant link is clicked, or undefined to not render as a link
  */
 export type TenantLinkResolver = (tenant: Tenant) => string | undefined;
+
+/**
+ * Effective time range after query resolution
+ * Contains the actual start and end times used by the query (ISO 8601 format)
+ */
+export interface EffectiveTimeRange {
+  /** Resolved start time in ISO 8601 format (e.g., "2026-02-19T10:00:00Z") */
+  startTime: string;
+  /** Resolved end time in ISO 8601 format (e.g., "2026-02-26T10:00:00Z") */
+  endTime: string;
+}
+
+/**
+ * Callback invoked when a query resolves its effective time range
+ * Used by parent components to display or sync the actual time range used
+ */
+export type EffectiveTimeRangeCallback = (timeRange: EffectiveTimeRange) => void;
 
 export const ACTIVITY_FILTER_FIELDS: ActivityFilterField[] = [
   {

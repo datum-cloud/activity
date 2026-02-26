@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
-import type { Activity, ResourceRef, ResourceLinkResolver, TenantLinkResolver } from '../types/activity';
+import type { Activity, ResourceRef, ResourceLinkResolver, TenantLinkResolver, EffectiveTimeRangeCallback } from '../types/activity';
 import type {
   ActivityFeedFilters as FilterState,
   TimeRange,
@@ -46,6 +46,8 @@ export interface ActivityFeedProps {
   onCreatePolicy?: () => void;
   /** Enable real-time streaming (default: false) */
   enableStreaming?: boolean;
+  /** Callback invoked when the effective time range is resolved */
+  onEffectiveTimeRangeChange?: EffectiveTimeRangeCallback;
 }
 
 /**
@@ -69,6 +71,7 @@ export function ActivityFeed({
   loadMoreThreshold = 200,
   onCreatePolicy,
   enableStreaming = false,
+  onEffectiveTimeRangeChange,
 }: ActivityFeedProps) {
   // Merge resourceUid into initial filters if provided
   const mergedInitialFilters: FilterState = {
@@ -98,6 +101,7 @@ export function ActivityFeed({
     pageSize,
     enableStreaming,
     autoStartStreaming: true,
+    onEffectiveTimeRangeChange,
   });
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);

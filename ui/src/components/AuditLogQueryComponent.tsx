@@ -5,6 +5,7 @@ import { AuditLogFeedItem } from './AuditLogFeedItem';
 import { useAuditLogQuery } from '../hooks/useAuditLogQuery';
 import type { AuditLogQuerySpec, Event } from '../types';
 import type { ActivityApiClient } from '../api/client';
+import type { EffectiveTimeRangeCallback } from '../types/activity';
 import { Card } from './ui/card';
 import { Alert, AlertDescription } from './ui/alert';
 import { Button } from './ui/button';
@@ -21,6 +22,8 @@ export interface AuditLogQueryComponentProps {
   onEventSelect?: (event: Event) => void;
   initialFilters?: AuditLogFilterState;
   initialTimeRange?: TimeRange;
+  /** Callback invoked when the effective time range is resolved */
+  onEffectiveTimeRangeChange?: EffectiveTimeRangeCallback;
 }
 
 /**
@@ -35,6 +38,7 @@ export function AuditLogQueryComponent({
     start: formatISO(subDays(new Date(), 1)),
     end: formatISO(new Date()),
   },
+  onEffectiveTimeRangeChange,
 }: AuditLogQueryComponentProps) {
   const [filters, setFilters] = useState<AuditLogFilterState>(initialFilters);
   const [timeRange, setTimeRange] = useState<TimeRange>(initialTimeRange);

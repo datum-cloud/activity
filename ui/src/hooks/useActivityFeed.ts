@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import type { Activity, ActivityListParams, ActivityQuerySpec, ChangeSource, WatchEvent } from '../types/activity';
+import type { Activity, ActivityListParams, ActivityQuerySpec, ChangeSource, WatchEvent, EffectiveTimeRange } from '../types/activity';
 import { ActivityApiClient } from '../api/client';
 
 // Debounce delay for filter changes (ms)
@@ -55,6 +55,8 @@ export interface UseActivityFeedOptions {
   enableStreaming?: boolean;
   /** Auto-start streaming when enabled (default: true) */
   autoStartStreaming?: boolean;
+  /** Callback invoked when the effective time range is resolved */
+  onEffectiveTimeRangeChange?: (timeRange: EffectiveTimeRange) => void;
 }
 
 /**
@@ -93,6 +95,8 @@ export interface UseActivityFeedResult {
   stopStreaming: () => void;
   /** Number of new activities received via streaming since last refresh */
   newActivitiesCount: number;
+  /** Effective time range after query resolution (undefined until first query completes) */
+  effectiveTimeRange?: EffectiveTimeRange;
 }
 
 /**
@@ -170,6 +174,7 @@ export function useActivityFeed({
   pageSize = 30,
   enableStreaming = false,
   autoStartStreaming = true,
+  onEffectiveTimeRangeChange,
 }: UseActivityFeedOptions): UseActivityFeedResult {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -179,6 +184,7 @@ export function useActivityFeed({
   const [timeRange, setTimeRange] = useState<TimeRange>(initialTimeRange);
   const [isStreaming, setIsStreaming] = useState(false);
   const [newActivitiesCount, setNewActivitiesCount] = useState(0);
+  const [effectiveTimeRange, setEffectiveTimeRange] = useState<EffectiveTimeRange | undefined>();
 
   // Track the latest resource version for watch resume
   const resourceVersionRef = useRef<string | undefined>();
@@ -410,6 +416,16 @@ export function useActivityFeed({
       setActivities(result.status?.results || []);
       setContinueCursor(result.status?.continue);
 
+      // Capture and notify about effective time range
+      if (result.status?.effectiveStartTime && result.status?.effectiveEndTime) {
+        const newEffectiveTimeRange: EffectiveTimeRange = {
+          startTime: result.status.effectiveStartTime,
+          endTime: result.status.effectiveEndTime,
+        };
+        setEffectiveTimeRange(newEffectiveTimeRange);
+        onEffectiveTimeRangeChange?.(newEffectiveTimeRange);
+      }
+
       // Note: ActivityQuery doesn't return resourceVersion, so we'll get it from the watch
       hasInitialLoadRef.current = true;
 
@@ -429,7 +445,7 @@ export function useActivityFeed({
     } finally {
       setIsLoading(false);
     }
-  }, [client, buildQuerySpec, enableStreaming]);
+  }, [client, buildQuerySpec, enableStreaming, onEffectiveTimeRangeChange]);
 
   // Load more activities (pagination) using ActivityQuery
   const loadMore = useCallback(async () => {
@@ -611,5 +627,6 @@ export function useActivityFeed({
     startStreaming,
     stopStreaming,
     newActivitiesCount,
+    effectiveTimeRange,
   };
 }

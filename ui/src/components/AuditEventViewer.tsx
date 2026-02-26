@@ -27,7 +27,7 @@ function extractTenantFromAnnotations(event: Event): Tenant | undefined {
   const tenantName = annotations['tenant.name'];
 
   if (tenantType && tenantName) {
-    const validTypes: TenantType[] = ['global', 'organization', 'project', 'user'];
+    const validTypes: TenantType[] = ['platform', 'organization', 'project', 'user'];
     if (validTypes.includes(tenantType as TenantType)) {
       return {
         type: tenantType as Tenant['type'],

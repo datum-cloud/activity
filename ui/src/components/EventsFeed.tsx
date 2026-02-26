@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import type { K8sEvent } from '../types/k8s-event';
+import type { EffectiveTimeRangeCallback } from '../types/activity';
 import type {
   EventsFeedFilters as FilterState,
   TimeRange,
@@ -38,6 +39,8 @@ export interface EventsFeedProps {
   loadMoreThreshold?: number;
   /** Enable real-time streaming (default: false) */
   enableStreaming?: boolean;
+  /** Callback invoked when the effective time range is resolved */
+  onEffectiveTimeRangeChange?: EffectiveTimeRangeCallback;
 }
 
 /**
@@ -57,6 +60,7 @@ export function EventsFeed({
   infiniteScroll = true,
   loadMoreThreshold = 200,
   enableStreaming = false,
+  onEffectiveTimeRangeChange,
 }: EventsFeedProps) {
   // Merge namespace into initial filters if provided
   const mergedInitialFilters: FilterState = {
