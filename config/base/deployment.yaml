@@ -99,7 +99,7 @@ spec:
         - name: AUTHORIZATION_KUBECONFIG
           value: ""
         - name: AUTHORIZATION_ALWAYS_ALLOW_PATHS
-          value: "/healthz,/readyz,/livez"
+          value: "/healthz,/readyz,/livez,/metrics"
         - name: REQUESTHEADER_CLIENT_CA_FILE
           value: ""
         - name: REQUESTHEADER_USERNAME_HEADERS
