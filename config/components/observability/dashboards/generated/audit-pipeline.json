@@ -916,7 +916,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(vector_buffer_events{component_id=\"clickhouse\",namespace=\"activity-system\"})",
+               "expr": "sum(vector_buffer_events{component_id=~\"clickhouse_.*\",namespace=\"activity-system\"})",
                "legendFormat": "Buffered Events"
             }
          ],
@@ -1293,7 +1293,7 @@
                         "type": "prometheus",
                         "uid": "$datasource"
                      },
-                     "expr": "sum(rate(vector_http_client_errors_total{component_id=\"clickhouse\",namespace=\"activity-system\"}[5m])) or vector(0)",
+                     "expr": "sum(rate(vector_http_client_errors_total{component_id=~\"clickhouse_.*\",namespace=\"activity-system\"}[5m])) or vector(0)",
                      "legendFormat": "HTTP Client Errors"
                   },
                   {
@@ -1301,7 +1301,7 @@
                         "type": "prometheus",
                         "uid": "$datasource"
                      },
-                     "expr": "sum(rate(vector_component_errors_total{component_id=\"clickhouse\",namespace=\"activity-system\"}[5m])) or vector(0)",
+                     "expr": "sum(rate(vector_component_errors_total{component_id=~\"clickhouse_.*\",namespace=\"activity-system\"}[5m])) or vector(0)",
                      "legendFormat": "Component Errors"
                   }
                ],
