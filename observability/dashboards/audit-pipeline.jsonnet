@@ -638,7 +638,7 @@ local allPanels =
 
 // Dashboard
 dashboard.new('Audit Log Pipeline')
-+ dashboard.withDescription('Concise, single-screen overview for rapid issue identification. End-to-end monitoring: K8s API → Vector → NATS → ClickHouse → Activity API')
++ dashboard.withDescription('Concise, single-screen overview for rapid issue identification. End-to-end monitoring: K8s API → Vector → NATS → ClickHouse → Activity API. For K8s Events pipeline, see Events Pipeline dashboard.')
 + dashboard.withTags(['audit', 'pipeline', 'activity', 'observability'])
 + dashboard.withUid('audit-pipeline')
 + dashboard.time.withFrom(config.dashboards.timeRange.from)

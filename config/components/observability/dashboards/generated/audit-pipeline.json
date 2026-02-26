@@ -1,5 +1,5 @@
 {
-   "description": "Concise, single-screen overview for rapid issue identification. End-to-end monitoring: K8s API → Vector → NATS → ClickHouse → Activity API",
+   "description": "Concise, single-screen overview for rapid issue identification. End-to-end monitoring: K8s API → Vector → NATS → ClickHouse → Activity API. For K8s Events pipeline, see Events Pipeline dashboard.",
    "editable": true,
    "graphTooltip": 1,
    "panels": [
