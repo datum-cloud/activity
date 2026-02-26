@@ -1,0 +1,18 @@
+apiVersion: iam.miloapis.com/v1alpha1
+kind: Role
+metadata:
+  name: activity.miloapis.com-policy-manager
+  namespace: milo-system
+spec:
+  launchStage: Beta
+  includedPermissions:
+    # ActivityPolicy management - full CRUD operations
+    - activity.miloapis.com/activitypolicies.list
+    - activity.miloapis.com/activitypolicies.get
+    - activity.miloapis.com/activitypolicies.create
+    - activity.miloapis.com/activitypolicies.update
+    - activity.miloapis.com/activitypolicies.patch
+    - activity.miloapis.com/activitypolicies.delete
+    - activity.miloapis.com/activitypolicies.watch
+    # PolicyPreview - for testing policies before applying
+    - activity.miloapis.com/policypreviews.create
