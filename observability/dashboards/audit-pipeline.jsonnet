@@ -56,12 +56,12 @@ local queries = {
   //
   // We use a replicated database so we need to factor in that multiple replicas
   // will contain the same data.
-  clickhouseInsertedRows: 'avg(rate(chi_clickhouse_table_parts_rows{chi="activity-clickhouse", database="audit", table="events", active="1"}[5m]))',
+  clickhouseInsertedRows: 'avg(rate(chi_clickhouse_table_parts_rows{chi="activity-clickhouse", database="audit", table="audit_logs", active="1"}[5m]))',
   clickhouseMergedRows: 'avg(rate(chi_clickhouse_event_MergedRows{chi="activity-clickhouse"}[5m]))',
   clickhouseActiveInserts: 'sum(chi_clickhouse_metric_InsertQuery{chi="activity-clickhouse"})',
   clickhouseActiveQueries: 'sum(chi_clickhouse_metric_Query{chi="activity-clickhouse"})',
   clickhouseActiveMerges: 'sum(chi_clickhouse_metric_Merge{chi="activity-clickhouse"})',
-  clickhouseTableParts: 'avg(chi_clickhouse_table_parts{chi="activity-clickhouse",database="audit",table="events"})',
+  clickhouseTableParts: 'avg(chi_clickhouse_table_parts{chi="activity-clickhouse",database="audit",table="audit_logs"})',
   clickhouseInsertLatency: 'sum(rate(chi_clickhouse_event_InsertQueryTimeMicroseconds{chi="activity-clickhouse"}[5m])) / clamp_min(sum(rate(chi_clickhouse_event_InsertQuery{chi="activity-clickhouse"}[5m])), 0.001) / 1000000',
 
   // Activity API metrics (using recording rules for performance)

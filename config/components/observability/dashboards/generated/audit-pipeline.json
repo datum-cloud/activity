@@ -676,7 +676,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "avg(rate(chi_clickhouse_table_parts_rows{chi=\"activity-clickhouse\", database=\"audit\", table=\"events\", active=\"1\"}[5m]))",
+               "expr": "avg(rate(chi_clickhouse_table_parts_rows{chi=\"activity-clickhouse\", database=\"audit\", table=\"audit_logs\", active=\"1\"}[5m]))",
                "legendFormat": "4. ClickHouse Inserts"
             }
          ],
@@ -733,7 +733,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "avg(rate(chi_clickhouse_table_parts_rows{chi=\"activity-clickhouse\", database=\"audit\", table=\"events\", active=\"1\"}[5m]))",
+               "expr": "avg(rate(chi_clickhouse_table_parts_rows{chi=\"activity-clickhouse\", database=\"audit\", table=\"audit_logs\", active=\"1\"}[5m]))",
                "legendFormat": "Egress (ClickHouse Writes)"
             }
          ],
@@ -964,7 +964,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "avg(rate(chi_clickhouse_table_parts_rows{chi=\"activity-clickhouse\", database=\"audit\", table=\"events\", active=\"1\"}[5m]))",
+               "expr": "avg(rate(chi_clickhouse_table_parts_rows{chi=\"activity-clickhouse\", database=\"audit\", table=\"audit_logs\", active=\"1\"}[5m]))",
                "legendFormat": "Rows Inserted/sec"
             },
             {
@@ -1101,7 +1101,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "avg(rate(chi_clickhouse_table_parts_rows{chi=\"activity-clickhouse\", database=\"audit\", table=\"events\", active=\"1\"}[5m]))",
+               "expr": "avg(rate(chi_clickhouse_table_parts_rows{chi=\"activity-clickhouse\", database=\"audit\", table=\"audit_logs\", active=\"1\"}[5m]))",
                "legendFormat": "Insert Rate"
             },
             {
@@ -1158,7 +1158,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "avg(chi_clickhouse_table_parts{chi=\"activity-clickhouse\",database=\"audit\",table=\"events\"})",
+               "expr": "avg(chi_clickhouse_table_parts{chi=\"activity-clickhouse\",database=\"audit\",table=\"audit_logs\"})",
                "legendFormat": "Total Parts"
             }
          ],
