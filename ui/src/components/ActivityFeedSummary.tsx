@@ -149,7 +149,7 @@ export function ActivityFeedSummary({
   const parsedContent = parseSummaryWithLinks(summary, links, onResourceClick, resourceLinkResolver, resourceLinkContext);
 
   return (
-    <span className={`text-[0.9375rem] text-foreground leading-normal break-words ${className}`}>
+    <span className={`text-xs text-foreground leading-normal break-words ${className}`}>
       {parsedContent}
     </span>
   );

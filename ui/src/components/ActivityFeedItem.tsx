@@ -233,7 +233,7 @@ export function ActivityFeedItem({
         >
           {/* Header: Summary + Timestamp */}
           <div className="flex justify-between items-start gap-4 mb-2">
-            <div className={cn('leading-relaxed', compact ? 'text-sm' : 'text-[0.9375rem]')}>
+            <div className={cn('leading-relaxed text-xs')}>
               <ActivityFeedSummary
                 summary={summary}
                 links={links}
@@ -339,7 +339,7 @@ export function ActivityFeedItem({
         <div className="flex-1 min-w-0">
           {/* Header: Summary + Timestamp */}
           <div className="flex justify-between items-start gap-4 mb-2">
-            <div className={cn('leading-relaxed', compact ? 'text-sm' : 'text-[0.9375rem]')}>
+            <div className={cn('leading-relaxed text-xs')}>
               <ActivityFeedSummary
                 summary={summary}
                 links={links}
