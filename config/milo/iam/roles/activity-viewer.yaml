@@ -3,6 +3,9 @@ kind: Role
 metadata:
   name: activity.miloapis.com-activity-viewer
   namespace: milo-system
+  labels:
+    app.kubernetes.io/name: activity-viewer
+    app.kubernetes.io/part-of: activity.miloapis.com
 spec:
   launchStage: Beta
   includedPermissions:

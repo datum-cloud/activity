@@ -3,6 +3,9 @@ kind: Role
 metadata:
   name: activity.miloapis.com-policy-manager
   namespace: milo-system
+  labels:
+    app.kubernetes.io/name: policy-manager
+    app.kubernetes.io/part-of: activity.miloapis.com
 spec:
   launchStage: Beta
   includedPermissions:
