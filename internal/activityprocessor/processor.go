@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -241,6 +242,11 @@ type Config struct {
 	NATSTLSKeyFile  string // Path to client private key file (for mTLS)
 	NATSTLSCAFile   string // Path to CA certificate file for server verification
 
+	// Dead-letter queue configuration
+	DLQEnabled       bool   // Enable dead-letter queue for failed events
+	DLQStreamName    string // NATS stream name for DLQ (e.g., "ACTIVITY_DEAD_LETTER")
+	DLQSubjectPrefix string // Subject prefix for DLQ messages (e.g., "activity.dlq")
+
 	// Processing configuration
 	Workers    int           // Number of concurrent workers
 	BatchSize  int           // Messages to fetch per batch
@@ -262,11 +268,14 @@ func DefaultConfig() Config {
 		NATSEventConsumer:   "activity-event-processor",
 		OutputStreamName:    "ACTIVITIES",
 		OutputSubjectPrefix: "activities",
+		DLQEnabled:          true,
+		DLQStreamName:       "ACTIVITY_DEAD_LETTER",
+		DLQSubjectPrefix:    "activity.dlq",
 		Workers:             4,
-		BatchSize:            100,
-		AckWait:              30 * time.Second,
-		MaxDeliver:           5,
-		HealthProbeAddr:      ":8081",
+		BatchSize:           100,
+		AckWait:             30 * time.Second,
+		MaxDeliver:          5,
+		HealthProbeAddr:     ":8081",
 	}
 }
 
@@ -293,6 +302,9 @@ type Processor struct {
 
 	// eventEmitter emits Kubernetes Warning events for evaluation failures.
 	eventEmitter *EventEmitter
+
+	// dlqPublisher publishes failed events to the dead-letter queue.
+	dlqPublisher processor.DLQPublisher
 
 	wg     sync.WaitGroup
 	ctx    context.Context
@@ -471,6 +483,31 @@ func (p *Processor) Start(ctx context.Context) error {
 			p.config.OutputStreamName, err)
 	}
 
+	// Initialize dead-letter queue publisher
+	dlqConfig := processor.DLQConfig{
+		Enabled:       p.config.DLQEnabled,
+		StreamName:    p.config.DLQStreamName,
+		SubjectPrefix: p.config.DLQSubjectPrefix,
+	}
+	if dlqConfig.Enabled {
+		// Verify DLQ stream exists
+		_, err = js.StreamInfo(dlqConfig.StreamName)
+		if err != nil {
+			klog.V(1).InfoS("DLQ stream not found, dead-letter queue will be disabled",
+				"stream", dlqConfig.StreamName,
+				"error", err,
+			)
+			dlqConfig.Enabled = false
+		}
+	}
+	p.dlqPublisher = processor.NewDLQPublisher(js, dlqConfig)
+	if dlqConfig.Enabled {
+		klog.InfoS("Dead-letter queue enabled",
+			"stream", dlqConfig.StreamName,
+			"subjectPrefix", dlqConfig.SubjectPrefix,
+		)
+	}
+
 	klog.InfoS("Activity processor starting",
 		"stream", p.config.NATSStreamName,
 		"consumer", p.config.ConsumerName,
@@ -504,6 +541,7 @@ func (p *Processor) Start(ctx context.Context) error {
 			p.policyCache, // PolicyCache implements EventPolicyLookup
 			p.config.Workers,
 			p.config.BatchSize,
+			p.dlqPublisher,
 		)
 		p.wg.Add(1)
 		go func() {
@@ -611,6 +649,40 @@ func (p *Processor) kindToResource(apiGroup, kind string) (string, error) {
 	}
 
 	return mapping.Resource.Resource, nil
+}
+
+// resourceToKind converts a plural resource name to its Kind using API discovery.
+// On cache miss, it resets the discovery cache and retries to handle newly registered CRDs.
+func (p *Processor) resourceToKind(apiGroup, resource string) (string, error) {
+	gvr := schema.GroupVersionResource{
+		Group:    apiGroup,
+		Resource: resource,
+	}
+
+	kinds, err := p.mapper.KindsFor(gvr)
+	if err != nil {
+		if meta.IsNoMatchError(err) {
+			// Cache miss - reset and retry to discover newly registered CRDs.
+			klog.V(2).InfoS("Kind mapping not found, resetting discovery cache",
+				"apiGroup", apiGroup,
+				"resource", resource,
+			)
+			p.mapper.Reset()
+
+			kinds, err = p.mapper.KindsFor(gvr)
+			if err != nil {
+				return "", fmt.Errorf("failed to find kind for %s/%s: %w", apiGroup, resource, err)
+			}
+		} else {
+			return "", fmt.Errorf("failed to find kind for %s/%s: %w", apiGroup, resource, err)
+		}
+	}
+
+	if len(kinds) == 0 {
+		return "", fmt.Errorf("no kind found for %s/%s", apiGroup, resource)
+	}
+
+	return kinds[0].Kind, nil
 }
 
 func (p *Processor) onPolicyAdd(obj any) {
@@ -800,11 +872,27 @@ func (p *Processor) worker(ctx context.Context, id int, errors chan<- error) {
 }
 
 func (p *Processor) processMessage(msg *nats.Msg) error {
+	// Keep raw payload for DLQ in case of failure
+	rawPayload := json.RawMessage(msg.Data)
+
 	var audit auditv1.Event
 	if err := json.Unmarshal(msg.Data, &audit); err != nil {
 		auditEventsErrored.WithLabelValues("unmarshal").Inc()
-		return fmt.Errorf("failed to unmarshal audit event: %w", err)
+		// Publish to DLQ - unmarshal errors are unrecoverable
+		// Tenant is nil since we couldn't unmarshal the event
+		if dlqErr := p.dlqPublisher.PublishAuditFailure(
+			p.ctx, rawPayload, "", -1, processor.ErrorTypeUnmarshal, err, nil, nil,
+		); dlqErr != nil {
+			klog.ErrorS(dlqErr, "Failed to publish to DLQ")
+			return fmt.Errorf("failed to unmarshal audit event: %w", err)
+		}
+		// Successfully published to DLQ, message can be ACKed
+		return nil
 	}
+
+	// Extract tenant info early for DLQ context
+	activityTenant := processor.ExtractTenant(audit.User)
+	dlqTenant := processor.NewDeadLetterTenantFromActivity(activityTenant.Type, activityTenant.Name)
 
 	if audit.ObjectRef == nil {
 		auditEventsSkipped.WithLabelValues("no_object_ref").Inc()
@@ -828,12 +916,44 @@ func (p *Processor) processMessage(msg *nats.Msg) error {
 	auditMap, err := auditToMap(&audit)
 	if err != nil {
 		auditEventsErrored.WithLabelValues("unmarshal").Inc()
-		return fmt.Errorf("failed to convert audit to map: %w", err)
+		// Publish to DLQ - auditToMap errors are unrecoverable
+		dlqResource := &processor.DeadLetterResource{
+			APIGroup:  audit.ObjectRef.APIGroup,
+			Kind:      "", // Can't resolve kind without the map
+			Name:      audit.ObjectRef.Name,
+			Namespace: audit.ObjectRef.Namespace,
+		}
+		// Try to resolve kind for better DLQ context
+		if kind, kindErr := p.resourceToKind(audit.ObjectRef.APIGroup, audit.ObjectRef.Resource); kindErr == nil {
+			dlqResource.Kind = kind
+		}
+		if dlqErr := p.dlqPublisher.PublishAuditFailure(
+			p.ctx, rawPayload, "", -1, processor.ErrorTypeUnmarshal, err, dlqResource, dlqTenant,
+		); dlqErr != nil {
+			klog.ErrorS(dlqErr, "Failed to publish to DLQ")
+			return fmt.Errorf("failed to convert audit to map: %w", err)
+		}
+		return nil
+	}
+
+	// Build resource info for DLQ context with proper kind resolution
+	dlqResource := &processor.DeadLetterResource{
+		APIGroup:  audit.ObjectRef.APIGroup,
+		Kind:      "", // Will be set from policy or resolved dynamically
+		Name:      audit.ObjectRef.Name,
+		Namespace: audit.ObjectRef.Namespace,
+	}
+	// Pre-resolve kind for DLQ context (best effort, will be overwritten by policy.Kind when available)
+	if kind, kindErr := p.resourceToKind(audit.ObjectRef.APIGroup, audit.ObjectRef.Resource); kindErr == nil {
+		dlqResource.Kind = kind
 	}
 
 	// First matching policy wins.
 	for _, policy := range policies {
 		policyStart := time.Now()
+
+		// Use policy's Kind for DLQ context (more accurate than resolved kind)
+		dlqResource.Kind = policy.Kind
 
 		// Evaluate audit rules using pre-compiled programs
 		activity, ruleIndex, err := p.evaluateCompiledAuditRules(policy, auditMap, &audit)
@@ -850,6 +970,37 @@ func (p *Processor) processMessage(msg *nats.Msg) error {
 			// Emit Kubernetes Warning event
 			p.eventEmitter.EmitEvaluationError(p.ctx, policy.Name, ruleIndex, err)
 
+			// Classify error type for DLQ using sentinel errors
+			errorType := processor.ErrorTypeCELMatch
+			if ruleIndex >= 0 {
+				// If we have a rule index, check if it's a kind resolution or summary error
+				if errors.Is(err, processor.ErrKindResolution) {
+					errorType = processor.ErrorTypeKindResolve
+				} else if errors.Is(err, processor.ErrActivityBuild) {
+					errorType = processor.ErrorTypeKindResolve // Activity build errors are typically kind resolution
+				} else {
+					errorType = processor.ErrorTypeCELSummary
+				}
+			}
+
+			// Publish to DLQ
+			if dlqErr := p.dlqPublisher.PublishAuditFailure(
+				p.ctx, rawPayload, policy.Name, ruleIndex, errorType, err, dlqResource, dlqTenant,
+			); dlqErr != nil {
+				klog.ErrorS(dlqErr, "Failed to publish to DLQ, NAKing message")
+				auditEventsErrored.WithLabelValues("evaluate").Inc()
+				auditEventsEvaluated.WithLabelValues(
+					policy.Name,
+					policy.APIGroup,
+					policy.Kind,
+					"error",
+				).Inc()
+				auditEventProcessingDuration.WithLabelValues(policy.Name).Observe(time.Since(policyStart).Seconds())
+				// Return error to NAK the message so it gets redelivered
+				return fmt.Errorf("failed to evaluate policy and publish to DLQ: %w", dlqErr)
+			}
+
+			// Successfully published to DLQ, continue to next policy (message will be ACKed)
 			auditEventsErrored.WithLabelValues("evaluate").Inc()
 			auditEventsEvaluated.WithLabelValues(
 				policy.Name,
@@ -904,7 +1055,7 @@ func (p *Processor) evaluateCompiledAuditRules(policy *CompiledPolicy, auditMap 
 
 		matched, err := rule.EvaluateAuditMatch(auditMap)
 		if err != nil {
-			return nil, -1, fmt.Errorf("rule %d match: %w", i, err)
+			return nil, i, fmt.Errorf("rule %d match: %w", i, err)
 		}
 
 		if matched {
@@ -912,7 +1063,7 @@ func (p *Processor) evaluateCompiledAuditRules(policy *CompiledPolicy, auditMap 
 			// from link() function calls in the summary template.
 			summary, links, err := cel.EvaluateAuditSummaryMap(rule.Summary, auditMap)
 			if err != nil {
-				return nil, -1, fmt.Errorf("rule %d summary: %w", i, err)
+				return nil, i, fmt.Errorf("rule %d summary: %w", i, err)
 			}
 
 			// Build activity using the processor package
@@ -920,7 +1071,10 @@ func (p *Processor) evaluateCompiledAuditRules(policy *CompiledPolicy, auditMap 
 				APIGroup: policy.APIGroup,
 				Kind:     policy.Kind,
 			}
-			activity := builder.BuildFromAudit(audit, summary, links)
+			activity, err := builder.BuildFromAudit(audit, summary, links, p.resourceToKind)
+			if err != nil {
+				return nil, i, fmt.Errorf("rule %d build: %w", i, err)
+			}
 
 			return activity, i, nil
 		}

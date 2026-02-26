@@ -206,7 +206,8 @@ func evaluateAuditInput(spec *v1alpha1.ActivityPolicySpec, input *v1alpha1.Polic
 		return nil, fmt.Errorf("audit input is nil")
 	}
 
-	return processor.EvaluateAuditRules(spec, input.Audit)
+	// Pass nil for KindResolver since preview doesn't need full kind resolution
+	return processor.EvaluateAuditRules(spec, input.Audit, nil)
 }
 
 // evaluateEventInput evaluates event rules against a Kubernetes event input using the shared processor.
@@ -220,5 +221,6 @@ func evaluateEventInput(spec *v1alpha1.ActivityPolicySpec, input *v1alpha1.Polic
 		return nil, fmt.Errorf("failed to unmarshal event: %w", err)
 	}
 
-	return processor.EvaluateEventRules(spec, eventMap)
+	// Pass nil for KindResolver since preview doesn't need full kind resolution
+	return processor.EvaluateEventRules(spec, eventMap, nil)
 }

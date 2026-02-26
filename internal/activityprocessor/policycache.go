@@ -1,6 +1,7 @@
 package activityprocessor
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -585,10 +586,12 @@ func (c *PolicyCache) MatchEvent(apiGroup, kind string, eventMap map[string]any)
 			// Evaluate match expression
 			matched, err := rule.EvaluateEventMatch(eventMap)
 			if err != nil {
+				eventJSON, _ := json.Marshal(eventMap)
 				klog.V(2).InfoS("Failed to evaluate event match",
 					"policy", policy.Name,
 					"ruleIndex", i,
 					"error", err,
+					"eventJSON", truncateString(string(eventJSON), 4096),
 				)
 				continue
 			}
@@ -597,7 +600,10 @@ func (c *PolicyCache) MatchEvent(apiGroup, kind string, eventMap map[string]any)
 				// Evaluate summary using internalcel.EvaluateEventSummary for proper link collection
 				summary, links, err := internalcel.EvaluateEventSummary(rule.Summary, eventMap)
 				if err != nil {
-					return nil, fmt.Errorf("failed to evaluate summary for policy %s rule %d: %w", policy.Name, i, err)
+					return nil, processor.NewPolicyEvaluationError(
+						policy.Name, i,
+						fmt.Errorf("failed to evaluate summary: %w", err),
+					)
 				}
 
 				return &processor.MatchedPolicy{

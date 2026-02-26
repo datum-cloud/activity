@@ -1,0 +1,76 @@
+# Dead-Letter Queue Stream for failed activity events.
+#
+# This stream captures events that failed processing due to CEL evaluation errors,
+# template rendering failures, or other issues. Events are preserved for debugging
+# while allowing processing to continue.
+#
+# CONSUMING FROM THE DLQ:
+#
+# 1. View recent dead-lettered events:
+#    nats stream view ACTIVITY_DEAD_LETTER --last 10
+#
+# 2. Create a temporary consumer to filter by event type:
+#    nats consumer add ACTIVITY_DEAD_LETTER temp --filter "activity.dlq.audit.>"
+#    nats consumer add ACTIVITY_DEAD_LETTER temp --filter "activity.dlq.k8s-event.>"
+#
+# 3. Filter by API group and kind:
+#    nats consumer add ACTIVITY_DEAD_LETTER temp --filter "activity.dlq.audit.apps.Deployment"
+#
+# 4. Replay events after fixing policy:
+#    - Extract originalPayload from DLQ message
+#    - Republish to AUDIT_EVENTS or EVENTS stream
+#    - Event will be reprocessed with fixed policy
+#
+# 5. Purge old messages:
+#    nats stream purge ACTIVITY_DEAD_LETTER --keep 0 --filter ">" --older 168h
+#
+---
+apiVersion: jetstream.nats.io/v1beta2
+kind: Stream
+metadata:
+  name: activity-dead-letter
+spec:
+  # Stream name in NATS
+  name: ACTIVITY_DEAD_LETTER
+
+  # Subjects to consume - wildcard for all DLQ events
+  # Format: activity.dlq.<event_type>.<api_group>.<kind>
+  subjects:
+    - activity.dlq.>
+
+  # Retention policy: limits-based (time + size)
+  retention: limits
+
+  # Storage: file-based for durability
+  storage: file
+
+  # Maximum age: 30 days (longer retention for debugging)
+  maxAge: 720h  # 30 days = 720 hours
+
+  # Maximum bytes: 1GB (sufficient for dev/test environments)
+  # Production should increase to 10GB for longer debugging cycles
+  maxBytes: 1073741824  # 1 * 1024 * 1024 * 1024
+
+  # Number of replicas for high availability
+  replicas: 1  # Increase to 3 for production HA
+
+  # Discard policy when limits are reached
+  discard: old
+
+  # Allow direct access for queries
+  allowDirect: true
+
+  # Deduplication window
+  duplicateWindow: 5m
+
+  # Maximum number of consumers
+  maxConsumers: 10
+
+  # Maximum message size (1MB - sufficient for audit events + metadata)
+  maxMsgSize: 1048576  # 1 * 1024 * 1024
+
+  # No message limit - rely on age and size limits
+  maxMsgs: -1
+
+  # Performance tuning
+  noAck: false  # Require acknowledgments for durability

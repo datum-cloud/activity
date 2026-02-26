@@ -1,64 +1,27 @@
 package processor
 
 import (
+	"errors"
+	"fmt"
 	"testing"
 
 	"go.miloapis.com/activity/internal/cel"
 	authnv1 "k8s.io/api/authentication/v1"
 )
 
-func TestResourceToKind(t *testing.T) {
-	tests := []struct {
-		resource string
-		want     string
-	}{
-		// Regular plurals
-		{"pods", "Pod"},
-		{"services", "Service"},
-		{"nodes", "Node"},
-		{"namespaces", "Namespace"},
-		{"secrets", "Secret"},
-		{"configmaps", "Configmap"},
-		{"deployments", "Deployment"},
-		{"replicasets", "Replicaset"},
-		{"daemonsets", "Daemonset"},
-		{"statefulsets", "Statefulset"},
-		{"jobs", "Job"},
-		{"cronjobs", "Cronjob"},
-
-		// Irregular plurals (from map)
-		{"endpoints", "Endpoints"},
-		{"endpointslices", "EndpointSlice"},
-		{"ingresses", "Ingress"},
-		{"networkpolicies", "NetworkPolicy"},
-		{"podsecuritypolicies", "PodSecurityPolicy"},
-		{"priorityclasses", "PriorityClass"},
-		{"storageclasses", "StorageClass"},
-		{"ingressclasses", "IngressClass"},
-		{"runtimeclasses", "RuntimeClass"},
-		{"csidrivers", "CSIDriver"},
-		{"csinodes", "CSINode"},
-		{"csistoragecapacities", "CSIStorageCapacity"},
-		{"volumeattachments", "VolumeAttachment"},
-		{"mutatingwebhookconfigurations", "MutatingWebhookConfiguration"},
-		{"validatingwebhookconfigurations", "ValidatingWebhookConfiguration"},
-
-		// Edge cases
-		{"", ""},
-		{"s", "S"}, // Single char "s" becomes "S" (not a real resource but handled)
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.resource, func(t *testing.T) {
-			got := resourceToKind(tt.resource)
-			if got != tt.want {
-				t.Errorf("resourceToKind(%q) = %q, want %q", tt.resource, got, tt.want)
-			}
-		})
-	}
-}
-
 func TestConvertLinks(t *testing.T) {
+	// Mock KindResolver for testing resource-to-kind conversion
+	mockResolver := func(apiGroup, resource string) (string, error) {
+		kinds := map[string]string{
+			"deployments": "Deployment",
+			"services":    "Service",
+			"pods":        "Pod",
+		}
+		if kind, ok := kinds[resource]; ok {
+			return kind, nil
+		}
+		return "", nil
+	}
 	tests := []struct {
 		name     string
 		celLinks []cel.Link
@@ -171,7 +134,10 @@ func TestConvertLinks(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := ConvertLinks(tt.celLinks)
+			got, err := ConvertLinks(tt.celLinks, mockResolver)
+			if err != nil {
+				t.Fatalf("ConvertLinks() returned error: %v", err)
+			}
 
 			if len(got) != tt.want {
 				t.Errorf("ConvertLinks() returned %d links, want %d", len(got), tt.want)
@@ -182,6 +148,101 @@ func TestConvertLinks(t *testing.T) {
 				if got[0].Resource.Kind != tt.wantKind {
 					t.Errorf("ConvertLinks() first link Kind = %q, want %q", got[0].Resource.Kind, tt.wantKind)
 				}
+			}
+		})
+	}
+}
+
+func TestConvertLinksErrorPaths(t *testing.T) {
+	tests := []struct {
+		name      string
+		celLinks  []cel.Link
+		resolver  KindResolver
+		wantErr   bool
+		wantErrIs error
+	}{
+		{
+			name: "resolver returns error",
+			celLinks: []cel.Link{
+				{
+					Marker: "unknown resource",
+					Resource: map[string]any{
+						"resource": "unknowns",
+						"apiGroup": "test.example.com",
+						"name":     "test-resource",
+					},
+				},
+			},
+			resolver: func(apiGroup, resource string) (string, error) {
+				return "", fmt.Errorf("unknown resource: %s", resource)
+			},
+			wantErr:   true,
+			wantErrIs: ErrKindResolution,
+		},
+		{
+			name: "resolver returns error for second link",
+			celLinks: []cel.Link{
+				{
+					Marker: "known resource",
+					Resource: map[string]any{
+						"kind": "Pod", // This has kind, so no resolution needed
+						"name": "my-pod",
+					},
+				},
+				{
+					Marker: "unknown resource",
+					Resource: map[string]any{
+						"resource": "unknowns",
+						"apiGroup": "test.example.com",
+						"name":     "test-resource",
+					},
+				},
+			},
+			resolver: func(apiGroup, resource string) (string, error) {
+				return "", fmt.Errorf("discovery failed: %s", resource)
+			},
+			wantErr:   true,
+			wantErrIs: ErrKindResolution,
+		},
+		{
+			name: "nil resolver with resource field returns no error",
+			celLinks: []cel.Link{
+				{
+					Marker: "no resolver",
+					Resource: map[string]any{
+						"resource": "deployments",
+						"apiGroup": "apps",
+						"name":     "my-deployment",
+					},
+				},
+			},
+			resolver: nil, // No resolver provided
+			wantErr:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ConvertLinks(tt.celLinks, tt.resolver)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("ConvertLinks() expected error, got nil")
+					return
+				}
+				if tt.wantErrIs != nil && !errors.Is(err, tt.wantErrIs) {
+					t.Errorf("ConvertLinks() error = %v, want error wrapping %v", err, tt.wantErrIs)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("ConvertLinks() unexpected error: %v", err)
+				return
+			}
+
+			if len(got) != len(tt.celLinks) {
+				t.Errorf("ConvertLinks() returned %d links, want %d", len(got), len(tt.celLinks))
 			}
 		})
 	}

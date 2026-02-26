@@ -1,11 +1,17 @@
 package processor
 
 import (
+	"fmt"
+
 	authnv1 "k8s.io/api/authentication/v1"
 
 	"go.miloapis.com/activity/internal/cel"
 	"go.miloapis.com/activity/pkg/apis/activity/v1alpha1"
 )
+
+// KindResolver resolves a plural resource name to its Kind using API discovery.
+// Returns error if resolution fails.
+type KindResolver func(apiGroup, resource string) (string, error)
 
 // GetNestedString extracts a string from a map, supporting nested access with multiple keys.
 func GetNestedString(m map[string]any, keys ...string) string {
@@ -72,20 +78,29 @@ func getExtraValue(extra map[string]authnv1.ExtraValue, key string) string {
 }
 
 // ConvertLinks converts CEL links to Activity links.
-func ConvertLinks(celLinks []cel.Link) []v1alpha1.ActivityLink {
+// If resolveKind is provided, it will be used to resolve plural resource names to Kind.
+// Returns error if kind resolution fails.
+func ConvertLinks(celLinks []cel.Link, resolveKind KindResolver) ([]v1alpha1.ActivityLink, error) {
 	if len(celLinks) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	links := make([]v1alpha1.ActivityLink, len(celLinks))
 	for i, l := range celLinks {
 		kind := getStringFromMap(l.Resource, "kind")
+		apiGroup := getStringFromMap(l.Resource, "apiGroup")
 
 		// Fallback 1: if kind is empty, try to get it from the "resource" field
 		// This handles Kubernetes audit objectRef which has "resource" (plural) instead of "kind"
 		if kind == "" {
 			if resource := getStringFromMap(l.Resource, "resource"); resource != "" {
-				kind = resourceToKind(resource)
+				if resolveKind != nil {
+					resolvedKind, err := resolveKind(apiGroup, resource)
+					if err != nil {
+						return nil, fmt.Errorf("%w: resource %q in apiGroup %q: %v", ErrKindResolution, resource, apiGroup, err)
+					}
+					kind = resolvedKind
+				}
 			}
 		}
 
@@ -98,7 +113,7 @@ func ConvertLinks(celLinks []cel.Link) []v1alpha1.ActivityLink {
 		links[i] = v1alpha1.ActivityLink{
 			Marker: l.Marker,
 			Resource: v1alpha1.ActivityResource{
-				APIGroup:  getStringFromMap(l.Resource, "apiGroup"),
+				APIGroup:  apiGroup,
 				Kind:      kind,
 				Name:      getStringFromMap(l.Resource, "name"),
 				Namespace: getStringFromMap(l.Resource, "namespace"),
@@ -106,7 +121,7 @@ func ConvertLinks(celLinks []cel.Link) []v1alpha1.ActivityLink {
 			},
 		}
 	}
-	return links
+	return links, nil
 }
 
 // getStringFromMap safely extracts a string from a map (for cel.Link.Resource).
@@ -115,58 +130,4 @@ func getStringFromMap(m map[string]any, key string) string {
 		return v
 	}
 	return ""
-}
-
-// resourceToKind converts a plural resource name to a singular Kind name.
-// This handles common Kubernetes resource naming patterns.
-// Examples: "pods" -> "Pod", "services" -> "Service", "deployments" -> "Deployment"
-func resourceToKind(resource string) string {
-	if resource == "" {
-		return ""
-	}
-
-	// Common irregular plurals in Kubernetes
-	irregulars := map[string]string{
-		"endpoints":               "Endpoints",
-		"endpointslices":          "EndpointSlice",
-		"ingresses":               "Ingress",
-		"networkpolicies":         "NetworkPolicy",
-		"podsecuritypolicies":     "PodSecurityPolicy",
-		"priorityclasses":         "PriorityClass",
-		"storageclasses":          "StorageClass",
-		"ingressclasses":          "IngressClass",
-		"runtimeclasses":          "RuntimeClass",
-		"csidrivers":              "CSIDriver",
-		"csinodes":                "CSINode",
-		"csistoragecapacities":    "CSIStorageCapacity",
-		"volumeattachments":       "VolumeAttachment",
-		"mutatingwebhookconfigurations":   "MutatingWebhookConfiguration",
-		"validatingwebhookconfigurations": "ValidatingWebhookConfiguration",
-	}
-
-	if kind, ok := irregulars[resource]; ok {
-		return kind
-	}
-
-	// Handle regular plurals: remove trailing "s" and capitalize first letter
-	singular := resource
-	if len(resource) > 1 && resource[len(resource)-1] == 's' {
-		// Check for "ies" -> "y" pattern (e.g., "policies" -> "policy")
-		if len(resource) > 3 && resource[len(resource)-3:] == "ies" {
-			singular = resource[:len(resource)-3] + "y"
-		} else if len(resource) > 2 && resource[len(resource)-2:] == "es" {
-			// Don't strip "es" from words ending in "ses" or "ches" etc.
-			// Just strip final "s"
-			singular = resource[:len(resource)-1]
-		} else {
-			singular = resource[:len(resource)-1]
-		}
-	}
-
-	// Capitalize first letter
-	if len(singular) > 0 {
-		return string(singular[0]-32) + singular[1:]
-	}
-
-	return singular
 }
