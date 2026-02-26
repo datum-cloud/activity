@@ -1,5 +1,5 @@
 {
-   "description": "End-to-end monitoring of K8s events: k8s-event-exporter → NATS → Vector → ClickHouse. For audit log pipeline, see Audit Log Pipeline dashboard.",
+   "description": "End-to-end monitoring of K8s events: [Activity API Server|k8s-event-exporter] → NATS → Vector → ClickHouse. Works with both production (apiserver) and dev (event-exporter) environments.",
    "editable": true,
    "graphTooltip": 1,
    "panels": [
@@ -20,7 +20,7 @@
             "type": "prometheus",
             "uid": "$datasource"
          },
-         "description": "Events/sec published by k8s-event-exporter to NATS",
+         "description": "Events/sec published to NATS (from apiserver or event-exporter)",
          "fieldConfig": {
             "defaults": {
                "thresholds": {
@@ -65,11 +65,11 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(rate(event_exporter_events_published_total[5m]))",
+               "expr": "sum(rate(event_exporter_events_published_total[5m])) or vector(0)",
                "legendFormat": "Events/sec"
             }
          ],
-         "title": "Events Published Rate",
+         "title": "Events Ingested",
          "type": "stat"
       },
       {
@@ -179,7 +179,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(nats_consumer_num_pending{consumer_name=\"clickhouse-ingest-events\"})",
+               "expr": "sum(nats_consumer_num_pending{consumer_name=\"clickhouse-ingest-events\"}) or vector(0)",
                "legendFormat": "Pending"
             }
          ],
@@ -236,7 +236,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "(sum(rate(event_exporter_publish_errors_total[5m])) or vector(0)) + (sum(rate(vector_component_errors_total{component_id=\"clickhouse_k8s_events\"}[5m])) or vector(0))",
+               "expr": "(sum(rate(event_exporter_publish_errors_total[5m])) or vector(0)) + (sum(rate(vector_component_errors_total{component_id=\"clickhouse_k8s_events\",namespace=\"activity-system\"}[5m])) or vector(0))",
                "legendFormat": "Errors/sec"
             }
          ],
@@ -248,7 +248,7 @@
             "type": "prometheus",
             "uid": "$datasource"
          },
-         "description": "NATS connection health for event exporter",
+         "description": "Health of event ingestion source (apiserver or event-exporter)",
          "fieldConfig": {
             "defaults": {
                "mappings": [
@@ -256,7 +256,7 @@
                      "options": {
                         "0": {
                            "color": "red",
-                           "text": "Disconnected"
+                           "text": "Unhealthy"
                         }
                      },
                      "type": "value"
@@ -265,7 +265,7 @@
                      "options": {
                         "1": {
                            "color": "green",
-                           "text": "Connected"
+                           "text": "Healthy"
                         }
                      },
                      "type": "value"
@@ -308,11 +308,11 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "min(event_exporter_nats_connection_status{job=\"k8s-event-exporter\"})",
+               "expr": "(min(event_exporter_nats_connection_status{job=\"k8s-event-exporter\"}) or min(up{job=\"activity-apiserver\"}))",
                "legendFormat": "Status"
             }
          ],
-         "title": "Exporter Connection Status",
+         "title": "Ingestion Source",
          "type": "stat"
       },
       {
@@ -320,41 +320,26 @@
             "type": "prometheus",
             "uid": "$datasource"
          },
-         "description": "K8s informer cache sync status",
+         "description": "Events buffered in Vector before ClickHouse write",
          "fieldConfig": {
             "defaults": {
-               "mappings": [
-                  {
-                     "options": {
-                        "0": {
-                           "color": "red",
-                           "text": "Not Synced"
-                        }
-                     },
-                     "type": "value"
-                  },
-                  {
-                     "options": {
-                        "1": {
-                           "color": "green",
-                           "text": "Synced"
-                        }
-                     },
-                     "type": "value"
-                  }
-               ],
                "thresholds": {
                   "steps": [
                      {
-                        "color": "red",
+                        "color": "green",
                         "value": null
                      },
                      {
-                        "color": "green",
-                        "value": 1
+                        "color": "yellow",
+                        "value": 100
+                     },
+                     {
+                        "color": "red",
+                        "value": 1000
                      }
                   ]
-               }
+               },
+               "unit": "short"
             }
          },
          "gridPos": {
@@ -366,12 +351,12 @@
          "id": 7,
          "options": {
             "colorMode": "background",
+            "graphMode": "area",
             "reduceOptions": {
                "calcs": [
                   "lastNotNull"
                ]
-            },
-            "textMode": "value_and_name"
+            }
          },
          "pluginVersion": "v11.4.0",
          "targets": [
@@ -380,11 +365,11 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "min(event_exporter_informer_synced{job=\"k8s-event-exporter\"})",
-               "legendFormat": "Status"
+               "expr": "sum(vector_buffer_events{component_id=\"clickhouse_k8s_events\",namespace=\"activity-system\"}) or vector(0)",
+               "legendFormat": "Buffered"
             }
          ],
-         "title": "Informer Sync Status",
+         "title": "Vector Buffer",
          "type": "stat"
       },
       {
@@ -457,7 +442,7 @@
             "y": 5
          },
          "id": 9,
-         "title": "Event Exporter",
+         "title": "Event Ingestion",
          "type": "row"
       },
       {
@@ -683,7 +668,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(rate(event_exporter_events_published_total[5m]))",
+               "expr": "sum(rate(event_exporter_events_published_total[5m])) or vector(0)",
                "legendFormat": "1. Published to NATS"
             },
             {
@@ -691,7 +676,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(rate(vector_component_received_events_total{component_id=\"nats_events_consumer\"}[5m]))",
+               "expr": "sum(rate(vector_component_received_events_total{component_id=\"nats_events_consumer\",namespace=\"activity-system\"}[5m]))",
                "legendFormat": "2. Consumed from NATS"
             },
             {
@@ -699,7 +684,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(rate(vector_component_sent_events_total{component_id=\"clickhouse_k8s_events\"}[5m]))",
+               "expr": "sum(rate(vector_component_sent_events_total{component_id=\"clickhouse_k8s_events\",namespace=\"activity-system\"}[5m]))",
                "legendFormat": "3. Sent to ClickHouse"
             },
             {
@@ -756,8 +741,8 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(rate(event_exporter_events_published_total[5m]))",
-               "legendFormat": "Ingress (Exporter)"
+               "expr": "sum(rate(event_exporter_events_published_total[5m])) or vector(0)",
+               "legendFormat": "Ingress (Published)"
             },
             {
                "datasource": {
@@ -825,7 +810,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(nats_consumer_num_pending{consumer_name=\"clickhouse-ingest-events\"})",
+               "expr": "sum(nats_consumer_num_pending{consumer_name=\"clickhouse-ingest-events\"}) or vector(0)",
                "legendFormat": "Pending Messages"
             }
          ],
@@ -874,7 +859,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(vector_buffer_events{component_id=\"clickhouse_k8s_events\"})",
+               "expr": "sum(vector_buffer_events{component_id=\"clickhouse_k8s_events\",namespace=\"activity-system\"}) or vector(0)",
                "legendFormat": "Buffered Events"
             }
          ],
@@ -934,7 +919,7 @@
             "type": "prometheus",
             "uid": "$datasource"
          },
-         "description": "Event exporter errors publishing to NATS - should be ZERO in healthy state",
+         "description": "Errors publishing events to NATS - should be ZERO in healthy state",
          "fieldConfig": {
             "defaults": {
                "custom": {
@@ -993,7 +978,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "description": "Breakdown of errors: Exporter vs Vector",
+               "description": "Breakdown of errors: Ingestion source vs Vector",
                "fieldConfig": {
                   "defaults": {
                      "custom": {
@@ -1034,14 +1019,14 @@
                         "uid": "$datasource"
                      },
                      "expr": "sum(rate(event_exporter_publish_errors_total[5m])) or vector(0)",
-                     "legendFormat": "Exporter Errors"
+                     "legendFormat": "Ingestion Errors"
                   },
                   {
                      "datasource": {
                         "type": "prometheus",
                         "uid": "$datasource"
                      },
-                     "expr": "sum(rate(vector_component_errors_total{component_id=\"clickhouse_k8s_events\"}[5m])) or vector(0)",
+                     "expr": "sum(rate(vector_component_errors_total{component_id=\"clickhouse_k8s_events\",namespace=\"activity-system\"}[5m])) or vector(0)",
                      "legendFormat": "Vector Errors"
                   }
                ],

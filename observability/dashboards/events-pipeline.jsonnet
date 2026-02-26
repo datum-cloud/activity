@@ -20,32 +20,60 @@ local refresh = config.dashboards.refresh;
 
 // Reusable Queries
 local queries = {
-  // Event Exporter metrics
-  eventsPublishedRate: 'sum(rate(event_exporter_events_published_total[5m]))',
+  // Pipeline flow: [Activity API Server OR k8s-event-exporter] → NATS → Vector → ClickHouse
+  //
+  // Metrics support both production (apiserver) and dev (k8s-event-exporter) environments.
+  // Queries use `or` to combine both sources - whichever is running provides the data.
+  //
+  // TODO: Add apiserver events publishing metrics when instrumented:
+  //   - activity_apiserver_events_published_total
+  //   - activity_apiserver_events_publish_latency_seconds
+
+  // Event ingestion rate (from either apiserver or k8s-event-exporter)
+  // Once apiserver metrics are instrumented, add: sum(rate(activity_apiserver_events_published_total[5m])) or
+  eventsPublishedRate: 'sum(rate(event_exporter_events_published_total[5m])) or vector(0)',
   eventsPublishedByNamespace: 'sum(rate(event_exporter_events_published_total[5m])) by (namespace)',
   eventsPublishedByReason: 'sum(rate(event_exporter_events_published_total[5m])) by (reason)',
+
+  // Publish latency (from either apiserver or k8s-event-exporter)
   publishLatencyP99: 'histogram_quantile(0.99, sum(rate(event_exporter_publish_latency_seconds_bucket[5m])) by (le))',
   publishLatencyP95: 'histogram_quantile(0.95, sum(rate(event_exporter_publish_latency_seconds_bucket[5m])) by (le))',
   publishLatencyP50: 'histogram_quantile(0.50, sum(rate(event_exporter_publish_latency_seconds_bucket[5m])) by (le))',
+
+  // Ingestion errors (from either source)
   publishErrors: 'sum(rate(event_exporter_publish_errors_total[5m])) or vector(0)',
+
+  // Ingestion source health (shows status from whichever source is active)
+  // In dev: k8s-event-exporter NATS connection
+  // In prod: will show apiserver health once metrics are added
+  ingestionSourceStatus: '(min(event_exporter_nats_connection_status{job="k8s-event-exporter"}) or min(up{job="activity-apiserver"}))',
   exporterConnectionStatus: 'min(event_exporter_nats_connection_status{job="k8s-event-exporter"})',
   informerSyncStatus: 'min(event_exporter_informer_synced{job="k8s-event-exporter"})',
 
-  // Vector metrics (events consumer)
-  vectorNatsEventsReceived: 'sum(rate(vector_component_received_events_total{component_id="nats_events_consumer"}[5m]))',
-  vectorClickhouseEventsSent: 'sum(rate(vector_component_sent_events_total{component_id="clickhouse_k8s_events"}[5m]))',
-  vectorEventsErrors: 'sum(rate(vector_component_errors_total{component_id="clickhouse_k8s_events"}[5m])) or vector(0)',
-  vectorBufferDepth: 'sum(vector_buffer_events{component_id="clickhouse_k8s_events"})',
+  // NATS metrics (events stream) - same in all environments
+  natsEventsStreamMessages: 'sum(rate(nats_stream_total_messages{stream_name="EVENTS"}[5m]))',
+  natsEventsQueuePending: 'sum(nats_consumer_num_pending{consumer_name="clickhouse-ingest-events"}) or vector(0)',
+  natsEventsQueueAckPending: 'sum(nats_consumer_num_ack_pending{consumer_name="clickhouse-ingest-events"}) or vector(0)',
 
-  // NATS metrics (events stream)
-  natsQueuePending: 'sum(nats_consumer_num_pending{consumer_name="clickhouse-ingest-events"})',
+  // Vector metrics (events consumer → ClickHouse) - same in all environments
+  vectorNatsEventsReceived: 'sum(rate(vector_component_received_events_total{component_id="nats_events_consumer",namespace="activity-system"}[5m]))',
+  vectorClickhouseEventsSent: 'sum(rate(vector_component_sent_events_total{component_id="clickhouse_k8s_events",namespace="activity-system"}[5m]))',
+  vectorEventsErrors: 'sum(rate(vector_component_errors_total{component_id="clickhouse_k8s_events",namespace="activity-system"}[5m])) or vector(0)',
+  vectorEventsBufferDepth: 'sum(vector_buffer_events{component_id="clickhouse_k8s_events",namespace="activity-system"}) or vector(0)',
 
-  // ClickHouse metrics (k8s_events table) - using recording rules
+  // ClickHouse metrics (k8s_events table) - same in all environments
   clickhouseEventsWriteRate: 'activity:clickhouse_events_insert_rate:5m',
   clickhouseEventsInsertLatency: 'activity:clickhouse_events_insert_latency',
+  clickhouseEventsTableRows: 'sum(chi_clickhouse_table_parts_rows{chi="activity-clickhouse",database="audit",table="k8s_events",active="1"})',
+  clickhouseEventsTableParts: 'avg(chi_clickhouse_table_parts{chi="activity-clickhouse",database="audit",table="k8s_events"})',
 
-  // Combined metrics
-  pipelineErrorRate: '(sum(rate(event_exporter_publish_errors_total[5m])) or vector(0)) + (sum(rate(vector_component_errors_total{component_id="clickhouse_k8s_events"}[5m])) or vector(0))',
+  // Activity API Server - EventQuery metrics (read path)
+  eventQueryRate: 'sum(rate(apiserver_request_total{job="activity-apiserver",resource="eventqueries"}[5m])) or vector(0)',
+  eventQueryLatencyP99: 'histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket{job="activity-apiserver",resource="eventqueries"}[5m])) by (le))',
+  eventQueryErrors: 'sum(rate(apiserver_request_total{job="activity-apiserver",resource="eventqueries",code=~"5.."}[5m])) or vector(0)',
+
+  // Combined pipeline health
+  pipelineErrorRate: '(sum(rate(event_exporter_publish_errors_total[5m])) or vector(0)) + (sum(rate(vector_component_errors_total{component_id="clickhouse_k8s_events",namespace="activity-system"}[5m])) or vector(0))',
 };
 
 // Build all panels
@@ -62,8 +90,8 @@ local allPanels =
     + row.gridPos.withY(0),
   ]
   + util.grid.makeGrid([
-    stat.new('Events Published Rate')
-    + stat.panelOptions.withDescription('Events/sec published by k8s-event-exporter to NATS')
+    stat.new('Events Ingested')
+    + stat.panelOptions.withDescription('Events/sec published to NATS (from apiserver or event-exporter)')
     + stat.options.withGraphMode('area')
     + stat.options.withColorMode('value')
     + stat.options.reduceOptions.withCalcs(['lastNotNull'])
@@ -107,7 +135,7 @@ local allPanels =
     + stat.datasource.withType('prometheus')
     + stat.datasource.withUid('$datasource')
     + stat.queryOptions.withTargets([
-      prometheus.new('$datasource', queries.natsQueuePending)
+      prometheus.new('$datasource', queries.natsEventsQueuePending)
       + prometheus.withLegendFormat('Pending'),
     ])
     + stat.standardOptions.thresholds.withSteps([
@@ -134,44 +162,42 @@ local allPanels =
       { color: 'red', value: 1 },
     ]),
 
-    stat.new('Exporter Connection Status')
-    + stat.panelOptions.withDescription('NATS connection health for event exporter')
+    stat.new('Ingestion Source')
+    + stat.panelOptions.withDescription('Health of event ingestion source (apiserver or event-exporter)')
     + stat.options.withTextMode('value_and_name')
     + stat.options.withColorMode('background')
     + stat.options.reduceOptions.withCalcs(['lastNotNull'])
     + stat.datasource.withType('prometheus')
     + stat.datasource.withUid('$datasource')
     + stat.queryOptions.withTargets([
-      prometheus.new('$datasource', queries.exporterConnectionStatus)
+      prometheus.new('$datasource', queries.ingestionSourceStatus)
       + prometheus.withLegendFormat('Status'),
     ])
     + stat.standardOptions.withMappings([
-      { type: 'value', options: { '0': { text: 'Disconnected', color: 'red' } } },
-      { type: 'value', options: { '1': { text: 'Connected', color: 'green' } } },
+      { type: 'value', options: { '0': { text: 'Unhealthy', color: 'red' } } },
+      { type: 'value', options: { '1': { text: 'Healthy', color: 'green' } } },
     ])
     + stat.standardOptions.thresholds.withSteps([
       { color: 'red', value: null },
       { color: 'green', value: 1 },
     ]),
 
-    stat.new('Informer Sync Status')
-    + stat.panelOptions.withDescription('K8s informer cache sync status')
-    + stat.options.withTextMode('value_and_name')
+    stat.new('Vector Buffer')
+    + stat.panelOptions.withDescription('Events buffered in Vector before ClickHouse write')
+    + stat.options.withGraphMode('area')
     + stat.options.withColorMode('background')
     + stat.options.reduceOptions.withCalcs(['lastNotNull'])
+    + stat.standardOptions.withUnit('short')
     + stat.datasource.withType('prometheus')
     + stat.datasource.withUid('$datasource')
     + stat.queryOptions.withTargets([
-      prometheus.new('$datasource', queries.informerSyncStatus)
-      + prometheus.withLegendFormat('Status'),
-    ])
-    + stat.standardOptions.withMappings([
-      { type: 'value', options: { '0': { text: 'Not Synced', color: 'red' } } },
-      { type: 'value', options: { '1': { text: 'Synced', color: 'green' } } },
+      prometheus.new('$datasource', queries.vectorEventsBufferDepth)
+      + prometheus.withLegendFormat('Buffered'),
     ])
     + stat.standardOptions.thresholds.withSteps([
-      { color: 'red', value: null },
-      { color: 'green', value: 1 },
+      { color: 'green', value: null },
+      { color: 'yellow', value: 100 },
+      { color: 'red', value: 1000 },
     ]),
 
     stat.new('ClickHouse Insert Latency')
@@ -195,10 +221,10 @@ local allPanels =
   ], panelWidth=3, panelHeight=4, startY=1)
 
   // ============================================================================
-  // Row 2: Event Exporter
+  // Row 2: Event Ingestion
   // ============================================================================
   + [
-    row.new('Event Exporter')
+    row.new('Event Ingestion')
     + row.withCollapsed(false)
     + row.gridPos.withH(1)
     + row.gridPos.withW(24)
@@ -313,7 +339,7 @@ local allPanels =
     + timeSeries.datasource.withUid('$datasource')
     + timeSeries.queryOptions.withTargets([
       prometheus.new('$datasource', queries.eventsPublishedRate)
-      + prometheus.withLegendFormat('Ingress (Exporter)'),
+      + prometheus.withLegendFormat('Ingress (Published)'),
       prometheus.new('$datasource', queries.clickhouseEventsWriteRate)
       + prometheus.withLegendFormat('Egress (ClickHouse)'),
     ]),
@@ -344,7 +370,7 @@ local allPanels =
     + timeSeries.datasource.withType('prometheus')
     + timeSeries.datasource.withUid('$datasource')
     + timeSeries.queryOptions.withTargets([
-      prometheus.new('$datasource', queries.natsQueuePending)
+      prometheus.new('$datasource', queries.natsEventsQueuePending)
       + prometheus.withLegendFormat('Pending Messages'),
     ]),
 
@@ -361,7 +387,7 @@ local allPanels =
     + timeSeries.datasource.withType('prometheus')
     + timeSeries.datasource.withUid('$datasource')
     + timeSeries.queryOptions.withTargets([
-      prometheus.new('$datasource', queries.vectorBufferDepth)
+      prometheus.new('$datasource', queries.vectorEventsBufferDepth)
       + prometheus.withLegendFormat('Buffered Events'),
     ]),
 
@@ -383,7 +409,7 @@ local allPanels =
     ]),
 
     timeSeries.new('Publish Errors Over Time')
-    + timeSeries.panelOptions.withDescription('Event exporter errors publishing to NATS - should be ZERO in healthy state')
+    + timeSeries.panelOptions.withDescription('Errors publishing events to NATS - should be ZERO in healthy state')
     + timeSeries.options.legend.withDisplayMode('table')
     + timeSeries.options.legend.withPlacement('bottom')
     + timeSeries.options.legend.withShowLegend(true)
@@ -413,7 +439,7 @@ local allPanels =
     + row.withPanels(
       util.grid.makeGrid([
         timeSeries.new('Errors by Component')
-        + timeSeries.panelOptions.withDescription('Breakdown of errors: Exporter vs Vector')
+        + timeSeries.panelOptions.withDescription('Breakdown of errors: Ingestion source vs Vector')
         + timeSeries.options.legend.withDisplayMode('table')
         + timeSeries.options.legend.withPlacement('right')
         + timeSeries.options.legend.withShowLegend(true)
@@ -427,7 +453,7 @@ local allPanels =
         + timeSeries.datasource.withUid('$datasource')
         + timeSeries.queryOptions.withTargets([
           prometheus.new('$datasource', queries.publishErrors)
-          + prometheus.withLegendFormat('Exporter Errors'),
+          + prometheus.withLegendFormat('Ingestion Errors'),
           prometheus.new('$datasource', queries.vectorEventsErrors)
           + prometheus.withLegendFormat('Vector Errors'),
         ]),
@@ -454,7 +480,7 @@ local allPanels =
 
 // Dashboard
 dashboard.new('Control Plane Events Pipeline')
-+ dashboard.withDescription('End-to-end monitoring of K8s events: k8s-event-exporter → NATS → Vector → ClickHouse. For audit log pipeline, see Audit Log Pipeline dashboard.')
++ dashboard.withDescription('End-to-end monitoring of K8s events: [Activity API Server|k8s-event-exporter] → NATS → Vector → ClickHouse. Works with both production (apiserver) and dev (event-exporter) environments.')
 + dashboard.withTags(['events', 'pipeline', 'activity', 'observability'])
 + dashboard.withUid('events-pipeline')
 + dashboard.time.withFrom(config.dashboards.timeRange.from)
