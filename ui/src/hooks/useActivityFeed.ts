@@ -411,9 +411,41 @@ export function useActivityFeed({
 
     try {
       const spec = buildQuerySpec();
+      console.log('[ActivityFeed] Query spec:', spec);
+
       const result = await client.createActivityQuery(spec);
 
-      setActivities(result.status?.results || []);
+      // Debug: Log API response structure in detail
+      console.log('[ActivityFeed] ========== RESPONSE DEBUG ==========');
+      console.log('[ActivityFeed] result:', result);
+      console.log('[ActivityFeed] typeof result:', typeof result);
+      console.log('[ActivityFeed] result is null?', result === null);
+      console.log('[ActivityFeed] result is undefined?', result === undefined);
+
+      if (result && typeof result === 'object') {
+        console.log('[ActivityFeed] Object.keys(result):', Object.keys(result));
+        console.log('[ActivityFeed] result.status:', result.status);
+        console.log('[ActivityFeed] typeof result.status:', typeof result.status);
+
+        if (result.status && typeof result.status === 'object') {
+          console.log('[ActivityFeed] Object.keys(result.status):', Object.keys(result.status));
+          console.log('[ActivityFeed] result.status.results:', result.status.results);
+          console.log('[ActivityFeed] Array.isArray(result.status.results):', Array.isArray(result.status.results));
+
+          if (result.status.results) {
+            console.log('[ActivityFeed] result.status.results.length:', result.status.results.length);
+            console.log('[ActivityFeed] First item:', result.status.results[0]);
+          }
+        }
+      }
+
+      // Log what we're about to set
+      const activitiesArray = result.status?.results || [];
+      console.log('[ActivityFeed] ===================================');
+      console.log('[ActivityFeed] Final activities array length:', activitiesArray.length);
+      console.log('[ActivityFeed] Will set activities state with:', activitiesArray);
+
+      setActivities(activitiesArray);
       setContinueCursor(result.status?.continue);
 
       // Capture and notify about effective time range

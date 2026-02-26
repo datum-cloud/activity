@@ -67,6 +67,17 @@ export interface ApiClientConfig {
    * Custom fetch implementation (useful for testing)
    */
   fetch?: typeof fetch;
+
+  /**
+   * Optional response transformer for proxies that wrap API responses.
+   * Called with the parsed JSON response, should return the unwrapped data.
+   *
+   * Example for a proxy that wraps responses in {code, data, ...}:
+   * ```
+   * responseTransformer: (response) => response.data
+   * ```
+   */
+  responseTransformer?: (response: unknown) => unknown;
 }
 
 export class ActivityApiClient {
@@ -101,7 +112,7 @@ export class ActivityApiClient {
       }
     );
 
-    return response.json();
+    return this.parseJson(response);
   }
 
   /**
@@ -161,7 +172,7 @@ export class ActivityApiClient {
       }
     );
 
-    return response.json();
+    return this.parseJson(response);
   }
 
   /**
@@ -184,7 +195,7 @@ export class ActivityApiClient {
     const path = `/apis/activity.miloapis.com/v1alpha1/activities${queryString ? `?${queryString}` : ''}`;
 
     const response = await this.fetch(path);
-    return response.json();
+    return this.parseJson(response);
   }
 
   /**
@@ -194,7 +205,7 @@ export class ActivityApiClient {
     const response = await this.fetch(
       `/apis/activity.miloapis.com/v1alpha1/namespaces/${namespace}/activities/${name}`
     );
-    return response.json();
+    return this.parseJson(response);
   }
 
   /**
@@ -215,7 +226,7 @@ export class ActivityApiClient {
       }
     );
 
-    return response.json();
+    return this.parseJson(response);
   }
 
   /**
@@ -454,7 +465,7 @@ export class ActivityApiClient {
     const response = await this.fetch(
       '/apis/activity.miloapis.com/v1alpha1/activitypolicies'
     );
-    return response.json();
+    return this.parseJson(response);
   }
 
   /**
@@ -464,7 +475,7 @@ export class ActivityApiClient {
     const response = await this.fetch(
       `/apis/activity.miloapis.com/v1alpha1/activitypolicies/${name}`
     );
-    return response.json();
+    return this.parseJson(response);
   }
 
   /**
@@ -498,7 +509,7 @@ export class ActivityApiClient {
       body: JSON.stringify(policy),
     });
 
-    return response.json();
+    return this.parseJson(response);
   }
 
   /**
@@ -537,7 +548,7 @@ export class ActivityApiClient {
       body: JSON.stringify(policy),
     });
 
-    return response.json();
+    return this.parseJson(response);
   }
 
   /**
@@ -559,7 +570,7 @@ export class ActivityApiClient {
    */
   async discoverAPIGroups(): Promise<{ groups: APIGroup[] }> {
     const response = await this.fetch('/apis');
-    return response.json();
+    return this.parseJson(response);
   }
 
   /**
@@ -582,7 +593,7 @@ export class ActivityApiClient {
     }
 
     const response = await this.fetch(`/apis/${group}/${apiVersion}`);
-    return response.json();
+    return this.parseJson(response);
   }
 
   // ============================================
@@ -608,7 +619,7 @@ export class ActivityApiClient {
       }
     );
 
-    return response.json();
+    return this.parseJson(response);
   }
 
   /**
@@ -669,7 +680,7 @@ export class ActivityApiClient {
       }
     );
 
-    return response.json();
+    return this.parseJson(response);
   }
 
   // ============================================
@@ -698,7 +709,7 @@ export class ActivityApiClient {
     const path = `${basePath}${queryString ? `?${queryString}` : ''}`;
 
     const response = await this.fetch(path);
-    return response.json();
+    return this.parseJson(response);
   }
 
   /**
@@ -719,7 +730,7 @@ export class ActivityApiClient {
       }
     );
 
-    return response.json();
+    return this.parseJson(response);
   }
 
   /**
@@ -746,7 +757,7 @@ export class ActivityApiClient {
       }
     );
 
-    return response.json();
+    return this.parseJson(response);
   }
 
   /**
@@ -884,5 +895,24 @@ export class ActivityApiClient {
     }
 
     return response;
+  }
+
+  /**
+   * Parse JSON response and apply optional transformer.
+   * Use this instead of response.json() to support proxy response unwrapping.
+   */
+  private async parseJson<T>(response: Response): Promise<T> {
+    const json = await response.json();
+    console.log('[ActivityApiClient] parseJson - raw JSON:', json);
+    console.log('[ActivityApiClient] Has transformer?', !!this.config.responseTransformer);
+
+    if (this.config.responseTransformer) {
+      const transformed = this.config.responseTransformer(json);
+      console.log('[ActivityApiClient] parseJson - transformed:', transformed);
+      return transformed as T;
+    }
+
+    console.log('[ActivityApiClient] parseJson - no transformer, returning as-is');
+    return json as T;
   }
 }
