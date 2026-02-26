@@ -7,8 +7,8 @@ import { ResourceLinkClickHandler } from './ActivityFeedSummary';
 import { ActivityApiClient } from '../api/client';
 import { Button } from './ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
-import { Alert, AlertDescription } from './ui/alert';
 import { cn } from '../lib/utils';
+import { ApiErrorAlert } from './ApiErrorAlert';
 
 /**
  * Resource filter for searching by resource attributes
@@ -212,16 +212,7 @@ export function ResourceHistoryView({
         )}
 
         {/* Error Display */}
-        {hasValidFilter && error && (
-          <Alert variant="destructive" className="mb-4">
-            <AlertDescription className="flex items-center justify-between gap-4">
-              <span className="text-sm">{error.message}</span>
-              <Button variant="outline" size="sm" onClick={refresh}>
-                Retry
-              </Button>
-            </AlertDescription>
-          </Alert>
-        )}
+        {hasValidFilter && <ApiErrorAlert error={error} onRetry={refresh} className="mb-4" />}
 
         {/* Loading state (initial) */}
         {hasValidFilter && isLoading && activities.length === 0 && (

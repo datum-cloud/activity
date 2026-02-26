@@ -11,8 +11,8 @@ import { EventsFeedFilters } from './EventsFeedFilters';
 import { ActivityApiClient } from '../api/client';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
-import { Alert, AlertDescription } from './ui/alert';
 import { Badge } from './ui/badge';
+import { ApiErrorAlert } from './ApiErrorAlert';
 
 export interface EventsFeedProps {
   /** API client instance */
@@ -235,18 +235,7 @@ export function EventsFeed({
       )}
 
       {/* Error Display */}
-      {error && (
-        <Alert variant="destructive" className="mb-2 flex justify-between items-center gap-4 py-2">
-          <AlertDescription className="text-sm">{error.message}</AlertDescription>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={refresh}
-          >
-            Retry
-          </Button>
-        </Alert>
-      )}
+      <ApiErrorAlert error={error} onRetry={refresh} className="mb-2" />
 
       {/* Event List */}
       <div className={listClasses} ref={scrollContainerRef}>

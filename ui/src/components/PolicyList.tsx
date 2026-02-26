@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from './ui/dialog';
 import { Separator } from './ui/separator';
+import { ApiErrorAlert } from './ApiErrorAlert';
 
 export interface PolicyListProps {
   /** API client instance */
@@ -172,18 +173,7 @@ export function PolicyList({
 
       <CardContent>
         {/* Error Display */}
-        {policyList.error && (
-          <div className="p-4 bg-red-50 text-red-800 border border-red-200 dark:bg-red-950/50 dark:text-red-200 dark:border-red-800 rounded-lg mb-4 flex justify-between items-center">
-            <strong>Error:</strong> {policyList.error.message}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={policyList.refresh}
-            >
-              Retry
-            </Button>
-          </div>
-        )}
+        <ApiErrorAlert error={policyList.error} onRetry={policyList.refresh} className="mb-4" />
 
         {/* Loading State */}
         {policyList.isLoading && policyList.policies.length === 0 && (

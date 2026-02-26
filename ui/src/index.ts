@@ -90,6 +90,9 @@ export type { BadgeProps } from './components/ui/badge';
 
 export { Alert, AlertTitle, AlertDescription } from './components/ui/alert';
 
+export { ApiErrorAlert } from './components/ApiErrorAlert';
+export type { ApiErrorAlertProps } from './components/ApiErrorAlert';
+
 export { Checkbox } from './components/ui/checkbox';
 
 export { Textarea } from './components/ui/textarea';
@@ -129,6 +132,8 @@ export type { TimeRangeDropdownProps, TimeRangePreset } from './components/ui/ti
 
 // Utilities
 export { cn } from './lib/utils';
+export { ApiError, parseApiError } from './lib/errors';
+export type { ApiErrorResponse } from './lib/errors';
 
 // Hooks - Audit Log Query (existing)
 export { useAuditLogQuery } from './hooks/useAuditLogQuery';

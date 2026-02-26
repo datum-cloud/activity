@@ -7,8 +7,8 @@ import type { AuditLogQuerySpec, Event } from '../types';
 import type { ActivityApiClient } from '../api/client';
 import type { EffectiveTimeRangeCallback } from '../types/activity';
 import { Card } from './ui/card';
-import { Alert, AlertDescription } from './ui/alert';
 import { Button } from './ui/button';
+import { ApiErrorAlert } from './ApiErrorAlert';
 
 // Debounce delay for filter changes (ms)
 const FILTER_DEBOUNCE_MS = 300;
@@ -191,18 +191,7 @@ export function AuditLogQueryComponent({
       />
 
       {/* Error Display */}
-      {error && (
-        <Alert variant="destructive" className="mb-4 flex justify-between items-center gap-4">
-          <AlertDescription className="text-sm">{error.message}</AlertDescription>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={refresh}
-          >
-            Retry
-          </Button>
-        </Alert>
-      )}
+      <ApiErrorAlert error={error} onRetry={refresh} className="mb-4" />
 
       {/* Loading State (initial load) */}
       {isLoading && events.length === 0 && (

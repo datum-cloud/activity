@@ -12,7 +12,7 @@ import { Button } from './ui/button';
 import { Card, CardHeader, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Label } from './ui/label';
-import { Alert, AlertDescription } from './ui/alert';
+import { ApiErrorAlert } from './ApiErrorAlert';
 
 export interface PolicyEditorProps {
   /** API client instance */
@@ -171,13 +171,7 @@ export function PolicyEditor({
       </CardHeader>
 
       {/* Error Display */}
-      {editor.error && (
-        <Alert variant="destructive" className="mx-6 mt-4">
-          <AlertDescription>
-            <strong>Error:</strong> {editor.error.message}
-          </AlertDescription>
-        </Alert>
-      )}
+      <ApiErrorAlert error={editor.error} className="mx-6 mt-4" />
 
       {/* Loading State */}
       {editor.isLoading && (

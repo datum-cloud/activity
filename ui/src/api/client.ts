@@ -18,6 +18,7 @@ import type {
   PolicyPreview,
   PolicyPreviewSpec,
 } from '../types/policy';
+import { parseApiError } from '../lib/errors';
 import type {
   K8sEvent,
   K8sEventList,
@@ -878,8 +879,8 @@ export class ActivityApiClient {
     });
 
     if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`API request failed: ${response.status} ${error}`);
+      const errorBody = await response.text();
+      throw parseApiError(response.status, errorBody);
     }
 
     return response;

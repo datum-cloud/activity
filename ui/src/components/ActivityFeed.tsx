@@ -10,8 +10,8 @@ import { ActivityFeedFilters } from './ActivityFeedFilters';
 import { ActivityApiClient } from '../api/client';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
-import { Alert, AlertDescription } from './ui/alert';
 import { Badge } from './ui/badge';
+import { ApiErrorAlert } from './ApiErrorAlert';
 
 export interface ActivityFeedProps {
   /** API client instance */
@@ -274,18 +274,7 @@ export function ActivityFeed({
       )}
 
       {/* Error Display */}
-      {error && (
-        <Alert variant="destructive" className="mb-4 flex justify-between items-center gap-4">
-          <AlertDescription className="text-sm">{error.message}</AlertDescription>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={refresh}
-          >
-            Retry
-          </Button>
-        </Alert>
-      )}
+      <ApiErrorAlert error={error} onRetry={refresh} className="mb-4" />
 
       {/* No Policies Empty State */}
       {!policiesLoading && hasPolicies === false && (
