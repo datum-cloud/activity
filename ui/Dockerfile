@@ -23,8 +23,8 @@ COPY example/package.json ./example/
 COPY example/app/ ./example/app/
 COPY example/tsconfig.json ./example/
 COPY example/vite.config.ts ./example/
-COPY example/postcss.config.js ./example/
 COPY example/tailwind.config.js ./example/
+COPY example/postcss.config.js ./example/
 
 # Install dependencies and build
 RUN pnpm install --frozen-lockfile && \
