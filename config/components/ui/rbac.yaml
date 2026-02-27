@@ -16,7 +16,7 @@ rules:
     resources: ["activities", "activitypolicies", "events", "facets", "previews", "policypreviews", "activityfacetqueries"]
     verbs: ["get", "list", "watch", "create", "update", "delete"]
   - apiGroups: ["activity.miloapis.com"]
-    resources: ["auditlogqueries", "auditlogfacetsqueries", "activitylogqueries", "eventqueries", "eventfacetqueries"]
+    resources: ["auditlogqueries", "auditlogfacetsqueries", "activityqueries", "eventqueries", "eventfacetqueries"]
     verbs: ["create"]
   # Access to events.k8s.io API (served by activity-apiserver)
   - apiGroups: ["events.k8s.io"]
