@@ -1,0 +1,17 @@
+apiVersion: iam.miloapis.com/v1alpha1
+kind: Role
+metadata:
+  name: activity.miloapis.com-event-viewer
+  namespace: milo-system
+  labels:
+    app.kubernetes.io/name: event-viewer
+    app.kubernetes.io/part-of: activity.miloapis.com
+spec:
+  launchStage: Beta
+  includedPermissions:
+    # Event feed - list and watch for real-time streaming
+    - events.k8s.io/events.list
+    - events.k8s.io/events.watch
+    # Event queries - search cluster events
+    - activity.miloapis.com/eventqueries.create
+    - activity.miloapis.com/eventfacetqueries.create

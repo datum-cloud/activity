@@ -1,0 +1,69 @@
+# Staging RBAC - Allow anonymous access to activity API resources
+# This is required because the gateway doesn't have authentication configured in staging
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: activity:anonymous-access
+rules:
+# Allow anonymous users to query activities
+- apiGroups: ["activity.miloapis.com"]
+  resources:
+    - activities
+    - activityqueries
+    - activityfacetqueries
+  verbs: ["get", "list", "create"]
+- apiGroups: ["activity.miloapis.com"]
+  resources: ["activities", "activitypolicies", "events", "facets", "previews", "policypreviews", "activityfacetqueries"]
+  verbs: ["get", "list", "watch", "create", "update", "delete"]
+- apiGroups: ["activity.miloapis.com"]
+  resources: ["auditlogqueries", "auditlogfacetsqueries", "activitylogqueries"]
+  verbs: ["create"]
+# Allow anonymous users to query audit logs
+- apiGroups: ["activity.miloapis.com"]
+  resources:
+    - auditlogqueries
+    - auditlogfacetsqueries
+  verbs: ["get", "list", "create"]
+
+# Allow anonymous users to query events via activity API
+- apiGroups: ["activity.miloapis.com"]
+  resources:
+    - eventqueries
+    - eventfacetqueries
+  verbs: ["get", "list", "create"]
+
+# Allow anonymous users to access events.k8s.io API (served by activity-apiserver)
+- apiGroups: ["events.k8s.io"]
+  resources:
+    - events
+  verbs: ["get", "list", "watch"]
+
+# Allow anonymous users to access core/v1 events API (served by activity-apiserver)
+- apiGroups: [""]
+  resources:
+    - events
+  verbs: ["get", "list", "watch"]
+
+# Allow anonymous users to preview activity policies (read-only)
+- apiGroups: ["activity.miloapis.com"]
+  resources:
+    - activitypolicies
+    - policypreviews
+  verbs: ["get", "list", "create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: activity:anonymous-access
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: activity:anonymous-access
+subjects:
+- apiGroup: rbac.authorization.k8s.io
+  kind: User
+  name: system:anonymous
+- apiGroup: rbac.authorization.k8s.io
+  kind: Group
+  name: system:unauthenticated
