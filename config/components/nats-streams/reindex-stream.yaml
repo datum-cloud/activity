@@ -1,0 +1,51 @@
+---
+apiVersion: jetstream.nats.io/v1beta2
+kind: Stream
+metadata:
+  name: activities-reindex
+spec:
+  # Stream name in NATS
+  name: ACTIVITIES_REINDEX
+
+  # Subjects for reindex activities
+  # Format: activities.reindex.<tenant_type>.<api_group>.<kind>
+  subjects:
+    - activities.reindex.>
+
+  # Retention policy: limits-based (time + size)
+  retention: limits
+
+  # Storage: file-based for durability
+  storage: file
+
+  # Maximum age: 7 days retention (reindex data is transient)
+  maxAge: 168h  # 7 days = 168 hours
+
+  # Maximum bytes: 1GB (sufficient for reindex operations)
+  maxBytes: 1073741824  # 1 * 1024 * 1024 * 1024
+
+  # Number of replicas for high availability
+  # NOTE: Set to 1 for dev/test. Production deployments should use a Kustomize
+  # overlay to patch this to 3 for HA. See config/overlays/production/
+  replicas: 1
+
+  # Discard policy when limits are reached
+  discard: old
+
+  # Allow direct access for queries
+  allowDirect: true
+
+  # Deduplication window - prevents duplicate reindex messages
+  duplicateWindow: 5m
+
+  # Maximum number of consumers
+  maxConsumers: 100
+
+  # Maximum message size (1MB should be plenty for activities)
+  maxMsgSize: 1048576  # 1 * 1024 * 1024
+
+  # No message limit - rely on age and size limits
+  maxMsgs: -1
+
+  # Require acknowledgments for durability
+  noAck: false

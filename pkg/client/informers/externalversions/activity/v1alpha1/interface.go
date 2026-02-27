@@ -12,6 +12,8 @@ type Interface interface {
 	Activities() ActivityInformer
 	// ActivityPolicies returns a ActivityPolicyInformer.
 	ActivityPolicies() ActivityPolicyInformer
+	// ReindexJobs returns a ReindexJobInformer.
+	ReindexJobs() ReindexJobInformer
 }
 
 type version struct {
@@ -33,4 +35,9 @@ func (v *version) Activities() ActivityInformer {
 // ActivityPolicies returns a ActivityPolicyInformer.
 func (v *version) ActivityPolicies() ActivityPolicyInformer {
 	return &activityPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// ReindexJobs returns a ReindexJobInformer.
+func (v *version) ReindexJobs() ReindexJobInformer {
+	return &reindexJobInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

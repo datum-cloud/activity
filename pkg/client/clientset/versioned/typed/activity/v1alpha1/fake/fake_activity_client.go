@@ -48,6 +48,10 @@ func (c *FakeActivityV1alpha1) PolicyPreviews() v1alpha1.PolicyPreviewInterface 
 	return newFakePolicyPreviews(c)
 }
 
+func (c *FakeActivityV1alpha1) ReindexJobs(namespace string) v1alpha1.ReindexJobInterface {
+	return newFakeReindexJobs(c, namespace)
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeActivityV1alpha1) RESTClient() rest.Interface {

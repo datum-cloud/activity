@@ -124,6 +124,28 @@ spec:
           decoding:
             codec: json
 
+        # NATS JetStream consumer for reindexed activities
+        # Reindexed activities are produced by the reindex job when backfilling data
+        nats_reindex_consumer:
+          type: nats
+          connection_name: vector-aggregator-reindex
+          url: nats://nats.nats-system.svc.cluster.local:4222
+
+          # Subject filter for reindexed activities
+          subject: activities.reindex.>
+
+          # JetStream configuration
+          jetstream:
+            stream: ACTIVITIES_REINDEX
+            consumer: clickhouse-ingest-reindex
+
+            batch_config:
+              batch: 1000
+              # Maximum 5MB per batch (activities are smaller than raw audit events)
+              max_bytes: 5242880
+          decoding:
+            codec: json
+
         internal_metrics:
           type: internal_metrics
           namespace: vector
@@ -234,10 +256,12 @@ spec:
         # Prepare activities for ClickHouse
         # Activities are already processed by the activity-processor, so we just
         # need to wrap them as activity_json for the activities table schema.
+        # This transform handles both real-time activities and reindexed activities.
         prepare_activities_for_clickhouse:
           type: remap
           inputs:
             - nats_activities_consumer
+            - nats_reindex_consumer
           source: |
             # Wrap entire activity as activity_json for ClickHouse
             .activity_json = encode_json(.)

@@ -141,6 +141,11 @@ func (in AuditLogQueryStatus) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in EvaluationStats) OpenAPIModelName() string {
+	return "com.miloapis.activity.v1alpha1.EvaluationStats"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in EventFacetQuery) OpenAPIModelName() string {
 	return "com.miloapis.activity.v1alpha1.EventFacetQuery"
 }
@@ -223,5 +228,45 @@ func (in PolicyPreviewSpec) OpenAPIModelName() string {
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in PolicyPreviewStatus) OpenAPIModelName() string {
 	return "com.miloapis.activity.v1alpha1.PolicyPreviewStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ReindexConfig) OpenAPIModelName() string {
+	return "com.miloapis.activity.v1alpha1.ReindexConfig"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ReindexJob) OpenAPIModelName() string {
+	return "com.miloapis.activity.v1alpha1.ReindexJob"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ReindexJobList) OpenAPIModelName() string {
+	return "com.miloapis.activity.v1alpha1.ReindexJobList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ReindexJobSpec) OpenAPIModelName() string {
+	return "com.miloapis.activity.v1alpha1.ReindexJobSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ReindexJobStatus) OpenAPIModelName() string {
+	return "com.miloapis.activity.v1alpha1.ReindexJobStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ReindexPolicySelector) OpenAPIModelName() string {
+	return "com.miloapis.activity.v1alpha1.ReindexPolicySelector"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ReindexProgress) OpenAPIModelName() string {
+	return "com.miloapis.activity.v1alpha1.ReindexProgress"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ReindexTimeRange) OpenAPIModelName() string {
+	return "com.miloapis.activity.v1alpha1.ReindexTimeRange"
 }
 

@@ -1,0 +1,33 @@
+---
+apiVersion: jetstream.nats.io/v1beta2
+kind: Consumer
+metadata:
+  name: clickhouse-ingest-reindex
+spec:
+  # Link to the reindex stream
+  streamName: ACTIVITIES_REINDEX
+
+  # Durable consumer name
+  durableName: clickhouse-ingest-reindex
+
+  # Delivery policy: deliver all messages (including historical)
+  deliverPolicy: all
+
+  # Ack policy: explicit acknowledgments required
+  ackPolicy: explicit
+
+  # Replay policy: instant (process as fast as possible)
+  replayPolicy: instant
+
+  # Filter subject: all reindex activities
+  filterSubject: activities.reindex.>
+
+  # Max delivery attempts: unlimited (-1)
+  maxDeliver: -1
+
+  # Max ack pending: allow 5000 unacknowledged messages
+  # Reindex activities are similar in size to normal activities
+  maxAckPending: 5000
+
+  # Ack wait: 60 seconds before redelivery
+  ackWait: 60s

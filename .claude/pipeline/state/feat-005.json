@@ -1,0 +1,65 @@
+{
+  "feature_id": "feat-005",
+  "slug": "event-reindexing-policy-updates",
+  "current_stage": "implementation",
+  "created": "2026-02-27T01:47:28Z",
+  "updated": "2026-02-27T05:30:00Z",
+  "gates": {
+    "architecture": "approved"
+  },
+  "artifacts": {
+    "request": ".claude/pipeline/requests/feat-005-event-reindexing-policy-updates.md",
+    "discovery_brief": ".claude/pipeline/briefs/feat-005-discovery.md",
+    "architecture": ".claude/pipeline/designs/feat-005-architecture.md"
+  },
+  "key_decisions": [
+    "Overwrite existing activities via ClickHouse ReplacingMergeTree deduplication",
+    "Schema migration: change ORDER BY to use origin_id instead of resource_uid",
+    "Manual operator-initiated re-indexing (not automatic on policy update)",
+    "API-driven: ReindexJob CRD with controller in activity-controller-manager",
+    "Direct ClickHouse INSERT (bypasses NATS/Vector for isolation)",
+    "Single concurrent job (additional jobs queue in Pending state)",
+    "Rate limit default: 100 events/sec"
+  ],
+  "history": [
+    {
+      "stage": "request",
+      "timestamp": "2026-02-27T01:47:28Z",
+      "actor": "user",
+      "action": "created"
+    },
+    {
+      "stage": "discovery",
+      "timestamp": "2026-02-27T01:52:07Z",
+      "actor": "product-discovery",
+      "action": "completed"
+    },
+    {
+      "stage": "discovery",
+      "timestamp": "2026-02-27T02:02:00Z",
+      "actor": "user",
+      "action": "decisions_confirmed",
+      "notes": "Confirmed schema migration approach for ReplacingMergeTree deduplication"
+    },
+    {
+      "stage": "architecture",
+      "timestamp": "2026-02-27T02:08:23Z",
+      "actor": "datum-platform:plan",
+      "action": "completed"
+    },
+    {
+      "stage": "architecture",
+      "timestamp": "2026-02-27T02:14:19Z",
+      "actor": "user",
+      "action": "revision",
+      "notes": "Changed from CLI to API-driven approach: ReindexJob CRD with controller"
+    },
+    {
+      "stage": "architecture",
+      "timestamp": "2026-02-27T05:30:00Z",
+      "actor": "user",
+      "action": "approved",
+      "notes": "Architecture design approved - clarified origin_id usage for audit logs and events"
+    }
+  ]
+}

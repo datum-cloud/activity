@@ -21,6 +21,7 @@ Package v1alpha1 contains API Schema definitions for the activity v1alpha1 API g
 
 
 
+
 #### Activity
 
 
@@ -296,6 +297,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#condition-v1-meta) array_ | Conditions represent the current state of the policy.<br />The "Ready" condition indicates whether all rules compile successfully. |  |  |
 | `observedGeneration` _integer_ | ObservedGeneration is the generation last processed by the controller. |  |  |
+| `evaluationStats` _[EvaluationStats](#evaluationstats)_ | EvaluationStats contains runtime evaluation statistics from the processor.<br />Updated periodically by the activity-processor to report rule evaluation health. |  |  |
 
 
 
@@ -496,6 +498,29 @@ _Appears in:_
 | `continue` _string_ | Continue is the pagination cursor.<br />Non-empty means more results are available - copy this to spec.continue for the next page.<br />Empty means you have all results. |  |  |
 | `effectiveStartTime` _string_ | EffectiveStartTime is the actual start time used for this query (RFC3339 format).<br /><br />When you use relative times like "now-7d", this shows the exact timestamp that was<br />calculated. Useful for understanding exactly what time range was queried, especially<br />for auditing, debugging, or recreating queries with absolute timestamps.<br /><br />Example: If you query with startTime="now-7d" at 2025-12-17T12:00:00Z,<br />this will be "2025-12-10T12:00:00Z". |  |  |
 | `effectiveEndTime` _string_ | EffectiveEndTime is the actual end time used for this query (RFC3339 format).<br /><br />When you use relative times like "now", this shows the exact timestamp that was<br />calculated. Useful for understanding exactly what time range was queried.<br /><br />Example: If you query with endTime="now" at 2025-12-17T12:00:00Z,<br />this will be "2025-12-17T12:00:00Z". |  |  |
+
+
+#### EvaluationStats
+
+
+
+EvaluationStats tracks runtime CEL expression evaluation health for a policy.
+These metrics are collected by the activity-processor and reported via status updates.
+
+
+
+_Appears in:_
+- [ActivityPolicyStatus](#activitypolicystatus)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `lastEvaluationTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#time-v1-meta)_ | LastEvaluationTime is when this policy last evaluated an event/audit. |  |  |
+| `successCount` _integer_ | SuccessCount is the number of successful evaluations in the current window. |  |  |
+| `errorCount` _integer_ | ErrorCount is the number of failed evaluations in the current window. |  |  |
+| `lastErrorTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#time-v1-meta)_ | LastErrorTime is when the most recent error occurred. |  |  |
+| `lastErrorMessage` _string_ | LastErrorMessage contains the error message from the most recent failure. |  |  |
+| `lastErrorRuleIndex` _integer_ | LastErrorRuleIndex indicates which rule failed (0-based index). |  |  |
+| `windowStartTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#time-v1-meta)_ | WindowStartTime marks the beginning of the current statistics window. |  |  |
 
 
 
@@ -790,5 +815,198 @@ _Appears in:_
 | `activities` _[Activity](#activity) array_ | Activities contains the rendered Activity objects for inputs that matched a rule.<br />The order corresponds to the order of matched inputs (not necessarily the input order).<br />Inputs that don't match any rule are not included here. |  |  |
 | `results` _[PolicyPreviewInputResult](#policypreviewinputresult) array_ | Results contains detailed results for each input, in the same order as spec.inputs.<br />Use this to see which inputs matched and any errors that occurred. |  |  |
 | `error` _string_ | Error contains a general error message if the preview failed entirely.<br />Individual input errors are reported in results[].error. |  |  |
+
+
+#### ReindexConfig
+
+
+
+ReindexConfig contains processing configuration options.
+
+
+
+_Appears in:_
+- [ReindexJobSpec](#reindexjobspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `batchSize` _integer_ | BatchSize is the number of events to process per batch.<br />Larger batches are faster but use more memory.<br />Default: 1000 | 1000 | Maximum: 10000 <br />Minimum: 100 <br /> |
+| `rateLimit` _integer_ | RateLimit is the maximum events per second to process.<br />Prevents overwhelming ClickHouse.<br />Default: 100 | 100 | Maximum: 1000 <br />Minimum: 10 <br /> |
+| `dryRun` _boolean_ | DryRun previews changes without writing activities.<br />Useful for estimating impact before execution.<br />Default: false |  |  |
+
+
+#### ReindexJob
+
+
+
+ReindexJob triggers re-processing of historical audit logs and events through
+current ActivityPolicy rules. Use this to fix policy bugs retroactively, add
+coverage for new policies, or refine activity summaries after policy improvements.
+
+
+ReindexJob is a one-shot resource: once completed or failed, it cannot be
+re-run. Create a new ReindexJob for subsequent re-indexing operations.
+
+
+KUBERNETES EVENT LIMITATION:
+
+
+When a Kubernetes Event is updated (e.g., count incremented from 1 to 5),
+it retains the same UID. Re-indexing will produce ONE activity per Event UID,
+reflecting the Event's final state. Historical activity occurrences from earlier
+Event states are lost.
+
+
+Example: Event "pod-oom" fires 5 times (count=5) → Re-indexing produces 1 activity (not 5)
+
+
+Mitigation: Scope re-indexing to audit logs only via spec.policySelector to
+preserve activities from earlier Event occurrences.
+
+
+Example:
+
+
+	kubectl apply -f - <<EOF
+	apiVersion: activity.miloapis.com/v1alpha1
+	kind: ReindexJob
+	metadata:
+	  name: fix-policy-bug-2026-02-27
+	  namespace: activity-system
+	spec:
+	  timeRange:
+	    startTime: "2026-02-25T00:00:00Z"
+	  policySelector:
+	    names: ["httpproxy-policy"]
+	EOF
+
+
+	kubectl get reindexjobs -w  # Watch progress
+
+
+
+_Appears in:_
+- [ReindexJobList](#reindexjoblist)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[ReindexJobSpec](#reindexjobspec)_ |  |  |  |
+| `status` _[ReindexJobStatus](#reindexjobstatus)_ |  |  |  |
+
+
+
+
+#### ReindexJobPhase
+
+_Underlying type:_ _string_
+
+ReindexJobPhase represents the lifecycle phase of a ReindexJob.
+
+
+
+_Appears in:_
+- [ReindexJobStatus](#reindexjobstatus)
+
+| Field | Description |
+| --- | --- |
+| `Pending` |  |
+| `Running` |  |
+| `Succeeded` |  |
+| `Failed` |  |
+
+
+#### ReindexJobSpec
+
+
+
+ReindexJobSpec defines the parameters for a re-indexing operation.
+
+
+
+_Appears in:_
+- [ReindexJob](#reindexjob)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `timeRange` _[ReindexTimeRange](#reindextimerange)_ | TimeRange specifies the time window of events to re-index.<br />Events outside this range are not processed. |  |  |
+| `policySelector` _[ReindexPolicySelector](#reindexpolicyselector)_ | PolicySelector optionally limits re-indexing to specific policies.<br />If omitted, all active ActivityPolicies are evaluated. |  |  |
+| `config` _[ReindexConfig](#reindexconfig)_ | Config contains processing configuration options. |  |  |
+
+
+#### ReindexJobStatus
+
+
+
+ReindexJobStatus represents the current state of a ReindexJob.
+
+
+
+_Appears in:_
+- [ReindexJob](#reindexjob)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `phase` _[ReindexJobPhase](#reindexjobphase)_ | Phase is the current lifecycle phase.<br />Values: Pending, Running, Succeeded, Failed |  |  |
+| `message` _string_ | Message is a human-readable description of the current state. |  |  |
+| `progress` _[ReindexProgress](#reindexprogress)_ | Progress contains detailed progress information. |  |  |
+| `startedAt` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#time-v1-meta)_ | StartedAt is when processing began. |  |  |
+| `completedAt` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#time-v1-meta)_ | CompletedAt is when processing finished (success or failure). |  |  |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#condition-v1-meta) array_ | Conditions represent the latest observations of the job's state. |  |  |
+
+
+#### ReindexPolicySelector
+
+
+
+ReindexPolicySelector specifies which policies to include in re-indexing.
+
+
+
+_Appears in:_
+- [ReindexJobSpec](#reindexjobspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `names` _string array_ | Names is a list of ActivityPolicy names to include.<br />Mutually exclusive with MatchLabels. |  |  |
+| `matchLabels` _object (keys:string, values:string)_ | MatchLabels selects policies by label.<br />Mutually exclusive with Names. |  |  |
+
+
+#### ReindexProgress
+
+
+
+ReindexProgress contains detailed progress metrics.
+
+
+
+_Appears in:_
+- [ReindexJobStatus](#reindexjobstatus)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `totalEvents` _integer_ | TotalEvents is the estimated total events to process. |  |  |
+| `processedEvents` _integer_ | ProcessedEvents is the number of events processed so far. |  |  |
+| `activitiesGenerated` _integer_ | ActivitiesGenerated is the number of activities created. |  |  |
+| `errors` _integer_ | Errors is the count of non-fatal errors encountered. |  |  |
+| `currentBatch` _integer_ | CurrentBatch is the batch number currently being processed. |  |  |
+| `totalBatches` _integer_ | TotalBatches is the estimated total number of batches. |  |  |
+
+
+#### ReindexTimeRange
+
+
+
+ReindexTimeRange specifies the time window for re-indexing.
+
+
+
+_Appears in:_
+- [ReindexJobSpec](#reindexjobspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `startTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#time-v1-meta)_ | StartTime is the beginning of the time range (inclusive).<br />Must be within the ClickHouse retention window (60 days). |  |  |
+| `endTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#time-v1-meta)_ | EndTime is the end of the time range (exclusive).<br />Defaults to the current time if omitted. |  |  |
 
 

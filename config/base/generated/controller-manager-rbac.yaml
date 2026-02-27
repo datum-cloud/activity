@@ -5,6 +5,13 @@ metadata:
   name: activity-controller-manager
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
   - activity.miloapis.com
   resources:
   - activitypolicies
@@ -28,6 +35,30 @@ rules:
   - activitypolicies/status
   verbs:
   - get
+  - patch
+  - update
+- apiGroups:
+  - activity.miloapis.com
+  resources:
+  - auditlogqueries
+  - eventqueries
+  verbs:
+  - create
+- apiGroups:
+  - activity.miloapis.com
+  resources:
+  - reindexjobs
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - activity.miloapis.com
+  resources:
+  - reindexjobs/status
+  verbs:
   - patch
   - update
 - apiGroups:

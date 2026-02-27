@@ -23,6 +23,7 @@ import (
 	"go.miloapis.com/activity/internal/registry/activity/policy"
 	"go.miloapis.com/activity/internal/registry/activity/preview"
 	"go.miloapis.com/activity/internal/registry/activity/record"
+	"go.miloapis.com/activity/internal/registry/activity/reindexjob"
 	"go.miloapis.com/activity/internal/storage"
 	"go.miloapis.com/activity/internal/watch"
 	"go.miloapis.com/activity/pkg/apis/activity/install"
@@ -143,6 +144,14 @@ func (c completedConfig) New() (*ActivityServer, error) {
 	}
 	v1alpha1Storage["activitypolicies"] = policyStorage
 	v1alpha1Storage["activitypolicies/status"] = policyStatusStorage
+
+	// ReindexJob is stored in etcd (namespace-scoped)
+	reindexJobStorage, reindexJobStatusStorage, err := reindexjob.NewStorage(Scheme, c.GenericConfig.RESTOptionsGetter)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create ReindexJob storage: %w", err)
+	}
+	v1alpha1Storage["reindexjobs"] = reindexJobStorage
+	v1alpha1Storage["reindexjobs/status"] = reindexJobStatusStorage
 
 	// Activity List/Watch for real-time streaming (last hour, standard field selectors)
 	v1alpha1Storage["activities"] = record.NewActivityStorageWithWatcher(clickhouseStorage, watcher)

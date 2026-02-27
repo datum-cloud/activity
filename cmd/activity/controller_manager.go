@@ -1,6 +1,12 @@
 package main
 
 import (
+	"crypto/tls"
+	"crypto/x509"
+	"fmt"
+	"os"
+
+	"github.com/nats-io/nats.go"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"k8s.io/client-go/rest"
@@ -19,6 +25,13 @@ type ControllerManagerOptions struct {
 	Workers         int
 	MetricsAddr     string
 	HealthProbeAddr string
+
+	// Optional: NATS configuration for ReindexJob controller
+	NATSURL        string
+	NATSTLSEnabled bool
+	NATSTLSCertFile string
+	NATSTLSKeyFile  string
+	NATSTLSCAFile   string
 }
 
 // NewControllerManagerOptions creates options with default values.
@@ -42,6 +55,18 @@ func (o *ControllerManagerOptions) AddFlags(fs *pflag.FlagSet) {
 		"The address to bind the metrics endpoint.")
 	fs.StringVar(&o.HealthProbeAddr, "health-probe-addr", o.HealthProbeAddr,
 		"The address to bind the health probe endpoint.")
+
+	// Optional NATS flags for ReindexJob controller
+	fs.StringVar(&o.NATSURL, "nats-url", o.NATSURL,
+		"NATS server URL (e.g., nats://localhost:4222). Required for ReindexJob controller.")
+	fs.BoolVar(&o.NATSTLSEnabled, "nats-tls-enabled", o.NATSTLSEnabled,
+		"Enable TLS for NATS connection.")
+	fs.StringVar(&o.NATSTLSCertFile, "nats-tls-cert-file", o.NATSTLSCertFile,
+		"Path to client certificate file for NATS TLS.")
+	fs.StringVar(&o.NATSTLSKeyFile, "nats-tls-key-file", o.NATSTLSKeyFile,
+		"Path to client private key file for NATS TLS.")
+	fs.StringVar(&o.NATSTLSCAFile, "nats-tls-ca-file", o.NATSTLSCAFile,
+		"Path to CA certificate file for NATS TLS.")
 }
 
 // NewControllerManagerCommand creates the controller-manager subcommand.
@@ -84,12 +109,68 @@ func RunControllerManager(options *ControllerManagerOptions) error {
 		return err
 	}
 
-	// Create the controller manager
-	mgr, err := controller.NewManager(config, controller.ManagerOptions{
+	managerOpts := controller.ManagerOptions{
 		Workers:         options.Workers,
 		MetricsAddr:     options.MetricsAddr,
 		HealthProbeAddr: options.HealthProbeAddr,
-	})
+	}
+
+	// Optional: Initialize NATS JetStream for ReindexJob controller
+	var js nats.JetStreamContext
+	var natsConn *nats.Conn
+	if options.NATSURL != "" {
+		klog.Info("Initializing NATS JetStream for ReindexJob controller")
+
+		var natsOpts []nats.Option
+
+		// Configure TLS if enabled
+		if options.NATSTLSEnabled {
+			tlsConfig := &tls.Config{
+				MinVersion: tls.VersionTLS12,
+			}
+
+			// Load client cert/key if provided
+			if options.NATSTLSCertFile != "" && options.NATSTLSKeyFile != "" {
+				cert, err := tls.LoadX509KeyPair(options.NATSTLSCertFile, options.NATSTLSKeyFile)
+				if err != nil {
+					return fmt.Errorf("failed to load NATS TLS client cert: %w", err)
+				}
+				tlsConfig.Certificates = []tls.Certificate{cert}
+			}
+
+			// Load CA cert if provided
+			if options.NATSTLSCAFile != "" {
+				caCert, err := os.ReadFile(options.NATSTLSCAFile)
+				if err != nil {
+					return fmt.Errorf("failed to read NATS TLS CA file: %w", err)
+				}
+				caCertPool := x509.NewCertPool()
+				if !caCertPool.AppendCertsFromPEM(caCert) {
+					return fmt.Errorf("failed to parse NATS TLS CA certificate")
+				}
+				tlsConfig.RootCAs = caCertPool
+			}
+
+			natsOpts = append(natsOpts, nats.Secure(tlsConfig))
+		}
+
+		var err error
+		natsConn, err = nats.Connect(options.NATSURL, natsOpts...)
+		if err != nil {
+			return fmt.Errorf("failed to connect to NATS: %w", err)
+		}
+
+		js, err = natsConn.JetStream()
+		if err != nil {
+			natsConn.Close()
+			return fmt.Errorf("failed to get JetStream context: %w", err)
+		}
+		managerOpts.JetStream = js
+		klog.Info("NATS JetStream initialized", "url", options.NATSURL)
+	}
+
+	// Create the controller manager
+	mgr, err := controller.NewManager(config, managerOpts)
 	if err != nil {
 		return err
 	}
@@ -98,8 +179,16 @@ func RunControllerManager(options *ControllerManagerOptions) error {
 	ctx := ctrl.SetupSignalHandler()
 
 	// Run the controller manager
-	if err := controller.Run(ctx, mgr); err != nil {
-		return err
+	runErr := controller.Run(ctx, mgr)
+
+	// Clean up NATS connection on shutdown
+	if natsConn != nil {
+		klog.Info("Closing NATS connection")
+		natsConn.Close()
+	}
+
+	if runErr != nil {
+		return runErr
 	}
 
 	klog.Info("Controller manager shutdown complete")
