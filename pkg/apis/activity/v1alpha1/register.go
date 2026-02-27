@@ -41,6 +41,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&EventQuery{},
 		&EventQueryList{},
 		&PolicyPreview{},
+		&ReindexJob{},
+		&ReindexJobList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 

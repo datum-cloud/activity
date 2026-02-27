@@ -70,6 +70,17 @@ spec:
         - --workers=$(WORKERS)
         - --metrics-addr=$(METRICS_ADDR)
         - --health-probe-addr=$(HEALTH_PROBE_ADDR)
+        - --nats-url=$(NATS_URL)
+        - --nats-tls-enabled=$(NATS_TLS_ENABLED)
+        - --nats-tls-cert-file=$(NATS_TLS_CERT_FILE)
+        - --nats-tls-key-file=$(NATS_TLS_KEY_FILE)
+        - --nats-tls-ca-file=$(NATS_TLS_CA_FILE)
+        - --reindex-job-namespace=$(REINDEX_JOB_NAMESPACE)
+        - --reindex-service-account=$(REINDEX_SERVICE_ACCOUNT)
+        - --reindex-memory-limit=$(REINDEX_MEMORY_LIMIT)
+        - --reindex-cpu-limit=$(REINDEX_CPU_LIMIT)
+        - --max-concurrent-reindex-jobs=$(MAX_CONCURRENT_REINDEX_JOBS)
+        - --activity-image=$(ACTIVITY_IMAGE)
         - -v=$(LOG_LEVEL)
         env:
         - name: KUBECONFIG
@@ -80,8 +91,50 @@ spec:
           value: ":8080"
         - name: HEALTH_PROBE_ADDR
           value: ":8081"
+        - name: NATS_URL
+          value: "nats://nats.nats-system.svc.cluster.local:4222"
+        - name: NATS_TLS_ENABLED
+          value: "false"
+        - name: NATS_TLS_CERT_FILE
+          value: ""
+        - name: NATS_TLS_KEY_FILE
+          value: ""
+        - name: NATS_TLS_CA_FILE
+          value: ""
         - name: LOG_LEVEL
           value: "2"
+        - name: ACTIVITY_IMAGE
+          value: "ghcr.io/datum-cloud/activity:latest"
+        - name: REINDEX_JOB_NAMESPACE
+          value: "activity-system"
+        - name: REINDEX_SERVICE_ACCOUNT
+          value: "activity-reindex-worker"
+        - name: REINDEX_MEMORY_LIMIT
+          value: "2Gi"
+        - name: REINDEX_CPU_LIMIT
+          value: "1000m"
+        - name: MAX_CONCURRENT_REINDEX_JOBS
+          value: "1"
+        - name: CLICKHOUSE_ADDRESS
+          valueFrom:
+            secretKeyRef:
+              name: clickhouse-credentials
+              key: address
+        - name: CLICKHOUSE_DATABASE
+          valueFrom:
+            secretKeyRef:
+              name: clickhouse-credentials
+              key: database
+        - name: CLICKHOUSE_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: clickhouse-credentials
+              key: username
+        - name: CLICKHOUSE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: clickhouse-credentials
+              key: password
         resources:
           requests:
             cpu: 50m

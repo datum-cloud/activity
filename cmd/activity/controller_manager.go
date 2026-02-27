@@ -1,6 +1,12 @@
 package main
 
 import (
+	"crypto/tls"
+	"crypto/x509"
+	"fmt"
+	"os"
+
+	"github.com/nats-io/nats.go"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"k8s.io/client-go/rest"
@@ -19,14 +25,35 @@ type ControllerManagerOptions struct {
 	Workers         int
 	MetricsAddr     string
 	HealthProbeAddr string
+
+	// NATS configuration (required)
+	NATSURL         string
+	NATSTLSEnabled  bool
+	NATSTLSCertFile string
+	NATSTLSKeyFile  string
+	NATSTLSCAFile   string
+
+	// ReindexJob configuration
+	ReindexJobNamespace      string
+	ReindexServiceAccount    string
+	ReindexMemoryLimit       string
+	ReindexCPULimit          string
+	MaxConcurrentReindexJobs int
+	ActivityImage            string
 }
 
 // NewControllerManagerOptions creates options with default values.
 func NewControllerManagerOptions() *ControllerManagerOptions {
 	return &ControllerManagerOptions{
-		Workers:         2,
-		MetricsAddr:     ":8080",
-		HealthProbeAddr: ":8081",
+		Workers:                  2,
+		MetricsAddr:              ":8080",
+		HealthProbeAddr:          ":8081",
+		ReindexJobNamespace:      "activity-system",
+		ReindexServiceAccount:    "activity-reindex-worker",
+		ReindexMemoryLimit:       "2Gi",
+		ReindexCPULimit:          "1000m",
+		MaxConcurrentReindexJobs: 1,
+		ActivityImage:            "ghcr.io/datum-cloud/activity:latest",
 	}
 }
 
@@ -42,6 +69,32 @@ func (o *ControllerManagerOptions) AddFlags(fs *pflag.FlagSet) {
 		"The address to bind the metrics endpoint.")
 	fs.StringVar(&o.HealthProbeAddr, "health-probe-addr", o.HealthProbeAddr,
 		"The address to bind the health probe endpoint.")
+
+	// NATS flags (required)
+	fs.StringVar(&o.NATSURL, "nats-url", o.NATSURL,
+		"NATS server URL (e.g., nats://localhost:4222). Required.")
+	fs.BoolVar(&o.NATSTLSEnabled, "nats-tls-enabled", o.NATSTLSEnabled,
+		"Enable TLS for NATS connection.")
+	fs.StringVar(&o.NATSTLSCertFile, "nats-tls-cert-file", o.NATSTLSCertFile,
+		"Path to client certificate file for NATS TLS.")
+	fs.StringVar(&o.NATSTLSKeyFile, "nats-tls-key-file", o.NATSTLSKeyFile,
+		"Path to client private key file for NATS TLS.")
+	fs.StringVar(&o.NATSTLSCAFile, "nats-tls-ca-file", o.NATSTLSCAFile,
+		"Path to CA certificate file for NATS TLS.")
+
+	// ReindexJob flags
+	fs.StringVar(&o.ReindexJobNamespace, "reindex-job-namespace", o.ReindexJobNamespace,
+		"Namespace where ReindexJob worker Jobs are created.")
+	fs.StringVar(&o.ReindexServiceAccount, "reindex-service-account", o.ReindexServiceAccount,
+		"ServiceAccount for ReindexJob worker pods.")
+	fs.StringVar(&o.ReindexMemoryLimit, "reindex-memory-limit", o.ReindexMemoryLimit,
+		"Memory limit for ReindexJob worker pods (e.g., 2Gi).")
+	fs.StringVar(&o.ReindexCPULimit, "reindex-cpu-limit", o.ReindexCPULimit,
+		"CPU limit for ReindexJob worker pods (e.g., 1000m).")
+	fs.IntVar(&o.MaxConcurrentReindexJobs, "max-concurrent-reindex-jobs", o.MaxConcurrentReindexJobs,
+		"Maximum number of concurrent ReindexJobs allowed.")
+	fs.StringVar(&o.ActivityImage, "activity-image", o.ActivityImage,
+		"Container image for activity binary used by ReindexJob workers.")
 }
 
 // NewControllerManagerCommand creates the controller-manager subcommand.
@@ -69,6 +122,11 @@ and ensuring consistent state across the cluster.`,
 
 // RunControllerManager starts the controller manager.
 func RunControllerManager(options *ControllerManagerOptions) error {
+	// Validate required flags
+	if options.NATSURL == "" {
+		return fmt.Errorf("--nats-url is required")
+	}
+
 	klog.Info("Starting Activity Controller Manager")
 
 	// Build the client configuration
@@ -84,12 +142,74 @@ func RunControllerManager(options *ControllerManagerOptions) error {
 		return err
 	}
 
+	managerOpts := controller.ManagerOptions{
+		Workers:                  options.Workers,
+		MetricsAddr:              options.MetricsAddr,
+		HealthProbeAddr:          options.HealthProbeAddr,
+		ReindexJobNamespace:      options.ReindexJobNamespace,
+		ReindexServiceAccount:    options.ReindexServiceAccount,
+		ReindexMemoryLimit:       options.ReindexMemoryLimit,
+		ReindexCPULimit:          options.ReindexCPULimit,
+		MaxConcurrentReindexJobs: options.MaxConcurrentReindexJobs,
+		ActivityImage:            options.ActivityImage,
+		NATSURL:                  options.NATSURL,
+		NATSTLSEnabled:           options.NATSTLSEnabled,
+		NATSTLSCertFile:          options.NATSTLSCertFile,
+		NATSTLSKeyFile:           options.NATSTLSKeyFile,
+		NATSTLSCAFile:            options.NATSTLSCAFile,
+	}
+
+	// Initialize NATS JetStream connection
+	klog.Info("Initializing NATS JetStream connection")
+
+	var natsOpts []nats.Option
+
+	// Configure TLS if enabled
+	if options.NATSTLSEnabled {
+		tlsConfig := &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		}
+
+		// Load client cert/key if provided
+		if options.NATSTLSCertFile != "" && options.NATSTLSKeyFile != "" {
+			cert, err := tls.LoadX509KeyPair(options.NATSTLSCertFile, options.NATSTLSKeyFile)
+			if err != nil {
+				return fmt.Errorf("failed to load NATS TLS client cert: %w", err)
+			}
+			tlsConfig.Certificates = []tls.Certificate{cert}
+		}
+
+		// Load CA cert if provided
+		if options.NATSTLSCAFile != "" {
+			caCert, err := os.ReadFile(options.NATSTLSCAFile)
+			if err != nil {
+				return fmt.Errorf("failed to read NATS TLS CA file: %w", err)
+			}
+			caCertPool := x509.NewCertPool()
+			if !caCertPool.AppendCertsFromPEM(caCert) {
+				return fmt.Errorf("failed to parse NATS TLS CA certificate")
+			}
+			tlsConfig.RootCAs = caCertPool
+		}
+
+		natsOpts = append(natsOpts, nats.Secure(tlsConfig))
+	}
+
+	natsConn, err := nats.Connect(options.NATSURL, natsOpts...)
+	if err != nil {
+		return fmt.Errorf("failed to connect to NATS: %w", err)
+	}
+
+	js, err := natsConn.JetStream()
+	if err != nil {
+		natsConn.Close()
+		return fmt.Errorf("failed to get JetStream context: %w", err)
+	}
+	managerOpts.JetStream = js
+	klog.Info("NATS JetStream initialized", "url", options.NATSURL)
+
 	// Create the controller manager
-	mgr, err := controller.NewManager(config, controller.ManagerOptions{
-		Workers:         options.Workers,
-		MetricsAddr:     options.MetricsAddr,
-		HealthProbeAddr: options.HealthProbeAddr,
-	})
+	mgr, err := controller.NewManager(config, managerOpts)
 	if err != nil {
 		return err
 	}
@@ -98,8 +218,14 @@ func RunControllerManager(options *ControllerManagerOptions) error {
 	ctx := ctrl.SetupSignalHandler()
 
 	// Run the controller manager
-	if err := controller.Run(ctx, mgr); err != nil {
-		return err
+	runErr := controller.Run(ctx, mgr)
+
+	// Clean up NATS connection on shutdown
+	klog.Info("Closing NATS connection")
+	natsConn.Close()
+
+	if runErr != nil {
+		return runErr
 	}
 
 	klog.Info("Controller manager shutdown complete")

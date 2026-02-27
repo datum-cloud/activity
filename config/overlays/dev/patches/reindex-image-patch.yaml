@@ -1,0 +1,13 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: activity-controller-manager
+  namespace: activity-system
+spec:
+  template:
+    spec:
+      containers:
+      - name: manager
+        env:
+        - name: ACTIVITY_IMAGE
+          value: "ghcr.io/datum-cloud/activity:dev"

@@ -6,11 +6,9 @@
 package openapi
 
 import (
-	v1alpha1 "go.miloapis.com/activity/pkg/apis/activity/v1alpha1"
 	v1 "k8s.io/api/authentication/v1"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
-	eventsv1 "k8s.io/api/events/v1"
 	resource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
@@ -22,386 +20,382 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		v1alpha1.Activity{}.OpenAPIModelName():                           schema_pkg_apis_activity_v1alpha1_Activity(ref),
-		v1alpha1.ActivityActor{}.OpenAPIModelName():                      schema_pkg_apis_activity_v1alpha1_ActivityActor(ref),
-		v1alpha1.ActivityChange{}.OpenAPIModelName():                     schema_pkg_apis_activity_v1alpha1_ActivityChange(ref),
-		v1alpha1.ActivityFacetQuery{}.OpenAPIModelName():                 schema_pkg_apis_activity_v1alpha1_ActivityFacetQuery(ref),
-		v1alpha1.ActivityFacetQuerySpec{}.OpenAPIModelName():             schema_pkg_apis_activity_v1alpha1_ActivityFacetQuerySpec(ref),
-		v1alpha1.ActivityFacetQueryStatus{}.OpenAPIModelName():           schema_pkg_apis_activity_v1alpha1_ActivityFacetQueryStatus(ref),
-		v1alpha1.ActivityLink{}.OpenAPIModelName():                       schema_pkg_apis_activity_v1alpha1_ActivityLink(ref),
-		v1alpha1.ActivityList{}.OpenAPIModelName():                       schema_pkg_apis_activity_v1alpha1_ActivityList(ref),
-		v1alpha1.ActivityOrigin{}.OpenAPIModelName():                     schema_pkg_apis_activity_v1alpha1_ActivityOrigin(ref),
-		v1alpha1.ActivityPolicy{}.OpenAPIModelName():                     schema_pkg_apis_activity_v1alpha1_ActivityPolicy(ref),
-		v1alpha1.ActivityPolicyList{}.OpenAPIModelName():                 schema_pkg_apis_activity_v1alpha1_ActivityPolicyList(ref),
-		v1alpha1.ActivityPolicyResource{}.OpenAPIModelName():             schema_pkg_apis_activity_v1alpha1_ActivityPolicyResource(ref),
-		v1alpha1.ActivityPolicyRule{}.OpenAPIModelName():                 schema_pkg_apis_activity_v1alpha1_ActivityPolicyRule(ref),
-		v1alpha1.ActivityPolicySpec{}.OpenAPIModelName():                 schema_pkg_apis_activity_v1alpha1_ActivityPolicySpec(ref),
-		v1alpha1.ActivityPolicyStatus{}.OpenAPIModelName():               schema_pkg_apis_activity_v1alpha1_ActivityPolicyStatus(ref),
-		v1alpha1.ActivityQuery{}.OpenAPIModelName():                      schema_pkg_apis_activity_v1alpha1_ActivityQuery(ref),
-		v1alpha1.ActivityQuerySpec{}.OpenAPIModelName():                  schema_pkg_apis_activity_v1alpha1_ActivityQuerySpec(ref),
-		v1alpha1.ActivityQueryStatus{}.OpenAPIModelName():                schema_pkg_apis_activity_v1alpha1_ActivityQueryStatus(ref),
-		v1alpha1.ActivityResource{}.OpenAPIModelName():                   schema_pkg_apis_activity_v1alpha1_ActivityResource(ref),
-		v1alpha1.ActivitySpec{}.OpenAPIModelName():                       schema_pkg_apis_activity_v1alpha1_ActivitySpec(ref),
-		v1alpha1.ActivityTenant{}.OpenAPIModelName():                     schema_pkg_apis_activity_v1alpha1_ActivityTenant(ref),
-		v1alpha1.AuditLogFacetsQuery{}.OpenAPIModelName():                schema_pkg_apis_activity_v1alpha1_AuditLogFacetsQuery(ref),
-		v1alpha1.AuditLogFacetsQuerySpec{}.OpenAPIModelName():            schema_pkg_apis_activity_v1alpha1_AuditLogFacetsQuerySpec(ref),
-		v1alpha1.AuditLogFacetsQueryStatus{}.OpenAPIModelName():          schema_pkg_apis_activity_v1alpha1_AuditLogFacetsQueryStatus(ref),
-		v1alpha1.AuditLogQuery{}.OpenAPIModelName():                      schema_pkg_apis_activity_v1alpha1_AuditLogQuery(ref),
-		v1alpha1.AuditLogQuerySpec{}.OpenAPIModelName():                  schema_pkg_apis_activity_v1alpha1_AuditLogQuerySpec(ref),
-		v1alpha1.AuditLogQueryStatus{}.OpenAPIModelName():                schema_pkg_apis_activity_v1alpha1_AuditLogQueryStatus(ref),
-		v1alpha1.AutoFetchSpec{}.OpenAPIModelName():                      schema_pkg_apis_activity_v1alpha1_AutoFetchSpec(ref),
-		v1alpha1.EventFacetQuery{}.OpenAPIModelName():                    schema_pkg_apis_activity_v1alpha1_EventFacetQuery(ref),
-		v1alpha1.EventFacetQuerySpec{}.OpenAPIModelName():                schema_pkg_apis_activity_v1alpha1_EventFacetQuerySpec(ref),
-		v1alpha1.EventFacetQueryStatus{}.OpenAPIModelName():              schema_pkg_apis_activity_v1alpha1_EventFacetQueryStatus(ref),
-		v1alpha1.EventQuery{}.OpenAPIModelName():                         schema_pkg_apis_activity_v1alpha1_EventQuery(ref),
-		v1alpha1.EventQueryList{}.OpenAPIModelName():                     schema_pkg_apis_activity_v1alpha1_EventQueryList(ref),
-		v1alpha1.EventQuerySpec{}.OpenAPIModelName():                     schema_pkg_apis_activity_v1alpha1_EventQuerySpec(ref),
-		v1alpha1.EventQueryStatus{}.OpenAPIModelName():                   schema_pkg_apis_activity_v1alpha1_EventQueryStatus(ref),
-		v1alpha1.EventRecord{}.OpenAPIModelName():                        schema_pkg_apis_activity_v1alpha1_EventRecord(ref),
-		v1alpha1.FacetResult{}.OpenAPIModelName():                        schema_pkg_apis_activity_v1alpha1_FacetResult(ref),
-		v1alpha1.FacetSpec{}.OpenAPIModelName():                          schema_pkg_apis_activity_v1alpha1_FacetSpec(ref),
-		v1alpha1.FacetTimeRange{}.OpenAPIModelName():                     schema_pkg_apis_activity_v1alpha1_FacetTimeRange(ref),
-		v1alpha1.FacetValue{}.OpenAPIModelName():                         schema_pkg_apis_activity_v1alpha1_FacetValue(ref),
-		v1alpha1.PolicyPreview{}.OpenAPIModelName():                      schema_pkg_apis_activity_v1alpha1_PolicyPreview(ref),
-		v1alpha1.PolicyPreviewInput{}.OpenAPIModelName():                 schema_pkg_apis_activity_v1alpha1_PolicyPreviewInput(ref),
-		v1alpha1.PolicyPreviewInputResult{}.OpenAPIModelName():           schema_pkg_apis_activity_v1alpha1_PolicyPreviewInputResult(ref),
-		v1alpha1.PolicyPreviewSpec{}.OpenAPIModelName():                  schema_pkg_apis_activity_v1alpha1_PolicyPreviewSpec(ref),
-		v1alpha1.PolicyPreviewStatus{}.OpenAPIModelName():                schema_pkg_apis_activity_v1alpha1_PolicyPreviewStatus(ref),
-		v1alpha1.ReindexConfig{}.OpenAPIModelName():                      schema_pkg_apis_activity_v1alpha1_ReindexConfig(ref),
-		v1alpha1.ReindexJob{}.OpenAPIModelName():                         schema_pkg_apis_activity_v1alpha1_ReindexJob(ref),
-		v1alpha1.ReindexJobList{}.OpenAPIModelName():                     schema_pkg_apis_activity_v1alpha1_ReindexJobList(ref),
-		v1alpha1.ReindexJobSpec{}.OpenAPIModelName():                     schema_pkg_apis_activity_v1alpha1_ReindexJobSpec(ref),
-		v1alpha1.ReindexJobStatus{}.OpenAPIModelName():                   schema_pkg_apis_activity_v1alpha1_ReindexJobStatus(ref),
-		v1alpha1.ReindexPolicySelector{}.OpenAPIModelName():              schema_pkg_apis_activity_v1alpha1_ReindexPolicySelector(ref),
-		v1alpha1.ReindexProgress{}.OpenAPIModelName():                    schema_pkg_apis_activity_v1alpha1_ReindexProgress(ref),
-		v1alpha1.ReindexTimeRange{}.OpenAPIModelName():                   schema_pkg_apis_activity_v1alpha1_ReindexTimeRange(ref),
-		v1.BoundObjectReference{}.OpenAPIModelName():                     schema_k8sio_api_authentication_v1_BoundObjectReference(ref),
-		v1.SelfSubjectReview{}.OpenAPIModelName():                        schema_k8sio_api_authentication_v1_SelfSubjectReview(ref),
-		v1.SelfSubjectReviewStatus{}.OpenAPIModelName():                  schema_k8sio_api_authentication_v1_SelfSubjectReviewStatus(ref),
-		v1.TokenRequest{}.OpenAPIModelName():                             schema_k8sio_api_authentication_v1_TokenRequest(ref),
-		v1.TokenRequestSpec{}.OpenAPIModelName():                         schema_k8sio_api_authentication_v1_TokenRequestSpec(ref),
-		v1.TokenRequestStatus{}.OpenAPIModelName():                       schema_k8sio_api_authentication_v1_TokenRequestStatus(ref),
-		v1.TokenReview{}.OpenAPIModelName():                              schema_k8sio_api_authentication_v1_TokenReview(ref),
-		v1.TokenReviewSpec{}.OpenAPIModelName():                          schema_k8sio_api_authentication_v1_TokenReviewSpec(ref),
-		v1.TokenReviewStatus{}.OpenAPIModelName():                        schema_k8sio_api_authentication_v1_TokenReviewStatus(ref),
-		v1.UserInfo{}.OpenAPIModelName():                                 schema_k8sio_api_authentication_v1_UserInfo(ref),
-		authorizationv1.FieldSelectorAttributes{}.OpenAPIModelName():     schema_k8sio_api_authorization_v1_FieldSelectorAttributes(ref),
-		authorizationv1.LabelSelectorAttributes{}.OpenAPIModelName():     schema_k8sio_api_authorization_v1_LabelSelectorAttributes(ref),
-		authorizationv1.LocalSubjectAccessReview{}.OpenAPIModelName():    schema_k8sio_api_authorization_v1_LocalSubjectAccessReview(ref),
-		authorizationv1.NonResourceAttributes{}.OpenAPIModelName():       schema_k8sio_api_authorization_v1_NonResourceAttributes(ref),
-		authorizationv1.NonResourceRule{}.OpenAPIModelName():             schema_k8sio_api_authorization_v1_NonResourceRule(ref),
-		authorizationv1.ResourceAttributes{}.OpenAPIModelName():          schema_k8sio_api_authorization_v1_ResourceAttributes(ref),
-		authorizationv1.ResourceRule{}.OpenAPIModelName():                schema_k8sio_api_authorization_v1_ResourceRule(ref),
-		authorizationv1.SelfSubjectAccessReview{}.OpenAPIModelName():     schema_k8sio_api_authorization_v1_SelfSubjectAccessReview(ref),
-		authorizationv1.SelfSubjectAccessReviewSpec{}.OpenAPIModelName(): schema_k8sio_api_authorization_v1_SelfSubjectAccessReviewSpec(ref),
-		authorizationv1.SelfSubjectRulesReview{}.OpenAPIModelName():      schema_k8sio_api_authorization_v1_SelfSubjectRulesReview(ref),
-		authorizationv1.SelfSubjectRulesReviewSpec{}.OpenAPIModelName():  schema_k8sio_api_authorization_v1_SelfSubjectRulesReviewSpec(ref),
-		authorizationv1.SubjectAccessReview{}.OpenAPIModelName():         schema_k8sio_api_authorization_v1_SubjectAccessReview(ref),
-		authorizationv1.SubjectAccessReviewSpec{}.OpenAPIModelName():     schema_k8sio_api_authorization_v1_SubjectAccessReviewSpec(ref),
-		authorizationv1.SubjectAccessReviewStatus{}.OpenAPIModelName():   schema_k8sio_api_authorization_v1_SubjectAccessReviewStatus(ref),
-		authorizationv1.SubjectRulesReviewStatus{}.OpenAPIModelName():    schema_k8sio_api_authorization_v1_SubjectRulesReviewStatus(ref),
-		corev1.AWSElasticBlockStoreVolumeSource{}.OpenAPIModelName():     schema_k8sio_api_core_v1_AWSElasticBlockStoreVolumeSource(ref),
-		corev1.Affinity{}.OpenAPIModelName():                             schema_k8sio_api_core_v1_Affinity(ref),
-		corev1.AppArmorProfile{}.OpenAPIModelName():                      schema_k8sio_api_core_v1_AppArmorProfile(ref),
-		corev1.AttachedVolume{}.OpenAPIModelName():                       schema_k8sio_api_core_v1_AttachedVolume(ref),
-		corev1.AvoidPods{}.OpenAPIModelName():                            schema_k8sio_api_core_v1_AvoidPods(ref),
-		corev1.AzureDiskVolumeSource{}.OpenAPIModelName():                schema_k8sio_api_core_v1_AzureDiskVolumeSource(ref),
-		corev1.AzureFilePersistentVolumeSource{}.OpenAPIModelName():      schema_k8sio_api_core_v1_AzureFilePersistentVolumeSource(ref),
-		corev1.AzureFileVolumeSource{}.OpenAPIModelName():                schema_k8sio_api_core_v1_AzureFileVolumeSource(ref),
-		corev1.Binding{}.OpenAPIModelName():                              schema_k8sio_api_core_v1_Binding(ref),
-		corev1.CSIPersistentVolumeSource{}.OpenAPIModelName():            schema_k8sio_api_core_v1_CSIPersistentVolumeSource(ref),
-		corev1.CSIVolumeSource{}.OpenAPIModelName():                      schema_k8sio_api_core_v1_CSIVolumeSource(ref),
-		corev1.Capabilities{}.OpenAPIModelName():                         schema_k8sio_api_core_v1_Capabilities(ref),
-		corev1.CephFSPersistentVolumeSource{}.OpenAPIModelName():         schema_k8sio_api_core_v1_CephFSPersistentVolumeSource(ref),
-		corev1.CephFSVolumeSource{}.OpenAPIModelName():                   schema_k8sio_api_core_v1_CephFSVolumeSource(ref),
-		corev1.CinderPersistentVolumeSource{}.OpenAPIModelName():         schema_k8sio_api_core_v1_CinderPersistentVolumeSource(ref),
-		corev1.CinderVolumeSource{}.OpenAPIModelName():                   schema_k8sio_api_core_v1_CinderVolumeSource(ref),
-		corev1.ClientIPConfig{}.OpenAPIModelName():                       schema_k8sio_api_core_v1_ClientIPConfig(ref),
-		corev1.ClusterTrustBundleProjection{}.OpenAPIModelName():         schema_k8sio_api_core_v1_ClusterTrustBundleProjection(ref),
-		corev1.ComponentCondition{}.OpenAPIModelName():                   schema_k8sio_api_core_v1_ComponentCondition(ref),
-		corev1.ComponentStatus{}.OpenAPIModelName():                      schema_k8sio_api_core_v1_ComponentStatus(ref),
-		corev1.ComponentStatusList{}.OpenAPIModelName():                  schema_k8sio_api_core_v1_ComponentStatusList(ref),
-		corev1.ConfigMap{}.OpenAPIModelName():                            schema_k8sio_api_core_v1_ConfigMap(ref),
-		corev1.ConfigMapEnvSource{}.OpenAPIModelName():                   schema_k8sio_api_core_v1_ConfigMapEnvSource(ref),
-		corev1.ConfigMapKeySelector{}.OpenAPIModelName():                 schema_k8sio_api_core_v1_ConfigMapKeySelector(ref),
-		corev1.ConfigMapList{}.OpenAPIModelName():                        schema_k8sio_api_core_v1_ConfigMapList(ref),
-		corev1.ConfigMapNodeConfigSource{}.OpenAPIModelName():            schema_k8sio_api_core_v1_ConfigMapNodeConfigSource(ref),
-		corev1.ConfigMapProjection{}.OpenAPIModelName():                  schema_k8sio_api_core_v1_ConfigMapProjection(ref),
-		corev1.ConfigMapVolumeSource{}.OpenAPIModelName():                schema_k8sio_api_core_v1_ConfigMapVolumeSource(ref),
-		corev1.Container{}.OpenAPIModelName():                            schema_k8sio_api_core_v1_Container(ref),
-		corev1.ContainerExtendedResourceRequest{}.OpenAPIModelName():     schema_k8sio_api_core_v1_ContainerExtendedResourceRequest(ref),
-		corev1.ContainerImage{}.OpenAPIModelName():                       schema_k8sio_api_core_v1_ContainerImage(ref),
-		corev1.ContainerPort{}.OpenAPIModelName():                        schema_k8sio_api_core_v1_ContainerPort(ref),
-		corev1.ContainerResizePolicy{}.OpenAPIModelName():                schema_k8sio_api_core_v1_ContainerResizePolicy(ref),
-		corev1.ContainerRestartRule{}.OpenAPIModelName():                 schema_k8sio_api_core_v1_ContainerRestartRule(ref),
-		corev1.ContainerRestartRuleOnExitCodes{}.OpenAPIModelName():      schema_k8sio_api_core_v1_ContainerRestartRuleOnExitCodes(ref),
-		corev1.ContainerState{}.OpenAPIModelName():                       schema_k8sio_api_core_v1_ContainerState(ref),
-		corev1.ContainerStateRunning{}.OpenAPIModelName():                schema_k8sio_api_core_v1_ContainerStateRunning(ref),
-		corev1.ContainerStateTerminated{}.OpenAPIModelName():             schema_k8sio_api_core_v1_ContainerStateTerminated(ref),
-		corev1.ContainerStateWaiting{}.OpenAPIModelName():                schema_k8sio_api_core_v1_ContainerStateWaiting(ref),
-		corev1.ContainerStatus{}.OpenAPIModelName():                      schema_k8sio_api_core_v1_ContainerStatus(ref),
-		corev1.ContainerUser{}.OpenAPIModelName():                        schema_k8sio_api_core_v1_ContainerUser(ref),
-		corev1.DaemonEndpoint{}.OpenAPIModelName():                       schema_k8sio_api_core_v1_DaemonEndpoint(ref),
-		corev1.DownwardAPIProjection{}.OpenAPIModelName():                schema_k8sio_api_core_v1_DownwardAPIProjection(ref),
-		corev1.DownwardAPIVolumeFile{}.OpenAPIModelName():                schema_k8sio_api_core_v1_DownwardAPIVolumeFile(ref),
-		corev1.DownwardAPIVolumeSource{}.OpenAPIModelName():              schema_k8sio_api_core_v1_DownwardAPIVolumeSource(ref),
-		corev1.EmptyDirVolumeSource{}.OpenAPIModelName():                 schema_k8sio_api_core_v1_EmptyDirVolumeSource(ref),
-		corev1.EndpointAddress{}.OpenAPIModelName():                      schema_k8sio_api_core_v1_EndpointAddress(ref),
-		corev1.EndpointPort{}.OpenAPIModelName():                         schema_k8sio_api_core_v1_EndpointPort(ref),
-		corev1.EndpointSubset{}.OpenAPIModelName():                       schema_k8sio_api_core_v1_EndpointSubset(ref),
-		corev1.Endpoints{}.OpenAPIModelName():                            schema_k8sio_api_core_v1_Endpoints(ref),
-		corev1.EndpointsList{}.OpenAPIModelName():                        schema_k8sio_api_core_v1_EndpointsList(ref),
-		corev1.EnvFromSource{}.OpenAPIModelName():                        schema_k8sio_api_core_v1_EnvFromSource(ref),
-		corev1.EnvVar{}.OpenAPIModelName():                               schema_k8sio_api_core_v1_EnvVar(ref),
-		corev1.EnvVarSource{}.OpenAPIModelName():                         schema_k8sio_api_core_v1_EnvVarSource(ref),
-		corev1.EphemeralContainer{}.OpenAPIModelName():                   schema_k8sio_api_core_v1_EphemeralContainer(ref),
-		corev1.EphemeralContainerCommon{}.OpenAPIModelName():             schema_k8sio_api_core_v1_EphemeralContainerCommon(ref),
-		corev1.EphemeralVolumeSource{}.OpenAPIModelName():                schema_k8sio_api_core_v1_EphemeralVolumeSource(ref),
-		corev1.Event{}.OpenAPIModelName():                                schema_k8sio_api_core_v1_Event(ref),
-		corev1.EventList{}.OpenAPIModelName():                            schema_k8sio_api_core_v1_EventList(ref),
-		corev1.EventSeries{}.OpenAPIModelName():                          schema_k8sio_api_core_v1_EventSeries(ref),
-		corev1.EventSource{}.OpenAPIModelName():                          schema_k8sio_api_core_v1_EventSource(ref),
-		corev1.ExecAction{}.OpenAPIModelName():                           schema_k8sio_api_core_v1_ExecAction(ref),
-		corev1.FCVolumeSource{}.OpenAPIModelName():                       schema_k8sio_api_core_v1_FCVolumeSource(ref),
-		corev1.FileKeySelector{}.OpenAPIModelName():                      schema_k8sio_api_core_v1_FileKeySelector(ref),
-		corev1.FlexPersistentVolumeSource{}.OpenAPIModelName():           schema_k8sio_api_core_v1_FlexPersistentVolumeSource(ref),
-		corev1.FlexVolumeSource{}.OpenAPIModelName():                     schema_k8sio_api_core_v1_FlexVolumeSource(ref),
-		corev1.FlockerVolumeSource{}.OpenAPIModelName():                  schema_k8sio_api_core_v1_FlockerVolumeSource(ref),
-		corev1.GCEPersistentDiskVolumeSource{}.OpenAPIModelName():        schema_k8sio_api_core_v1_GCEPersistentDiskVolumeSource(ref),
-		corev1.GRPCAction{}.OpenAPIModelName():                           schema_k8sio_api_core_v1_GRPCAction(ref),
-		corev1.GitRepoVolumeSource{}.OpenAPIModelName():                  schema_k8sio_api_core_v1_GitRepoVolumeSource(ref),
-		corev1.GlusterfsPersistentVolumeSource{}.OpenAPIModelName():      schema_k8sio_api_core_v1_GlusterfsPersistentVolumeSource(ref),
-		corev1.GlusterfsVolumeSource{}.OpenAPIModelName():                schema_k8sio_api_core_v1_GlusterfsVolumeSource(ref),
-		corev1.HTTPGetAction{}.OpenAPIModelName():                        schema_k8sio_api_core_v1_HTTPGetAction(ref),
-		corev1.HTTPHeader{}.OpenAPIModelName():                           schema_k8sio_api_core_v1_HTTPHeader(ref),
-		corev1.HostAlias{}.OpenAPIModelName():                            schema_k8sio_api_core_v1_HostAlias(ref),
-		corev1.HostIP{}.OpenAPIModelName():                               schema_k8sio_api_core_v1_HostIP(ref),
-		corev1.HostPathVolumeSource{}.OpenAPIModelName():                 schema_k8sio_api_core_v1_HostPathVolumeSource(ref),
-		corev1.ISCSIPersistentVolumeSource{}.OpenAPIModelName():          schema_k8sio_api_core_v1_ISCSIPersistentVolumeSource(ref),
-		corev1.ISCSIVolumeSource{}.OpenAPIModelName():                    schema_k8sio_api_core_v1_ISCSIVolumeSource(ref),
-		corev1.ImageVolumeSource{}.OpenAPIModelName():                    schema_k8sio_api_core_v1_ImageVolumeSource(ref),
-		corev1.KeyToPath{}.OpenAPIModelName():                            schema_k8sio_api_core_v1_KeyToPath(ref),
-		corev1.Lifecycle{}.OpenAPIModelName():                            schema_k8sio_api_core_v1_Lifecycle(ref),
-		corev1.LifecycleHandler{}.OpenAPIModelName():                     schema_k8sio_api_core_v1_LifecycleHandler(ref),
-		corev1.LimitRange{}.OpenAPIModelName():                           schema_k8sio_api_core_v1_LimitRange(ref),
-		corev1.LimitRangeItem{}.OpenAPIModelName():                       schema_k8sio_api_core_v1_LimitRangeItem(ref),
-		corev1.LimitRangeList{}.OpenAPIModelName():                       schema_k8sio_api_core_v1_LimitRangeList(ref),
-		corev1.LimitRangeSpec{}.OpenAPIModelName():                       schema_k8sio_api_core_v1_LimitRangeSpec(ref),
-		corev1.LinuxContainerUser{}.OpenAPIModelName():                   schema_k8sio_api_core_v1_LinuxContainerUser(ref),
-		corev1.List{}.OpenAPIModelName():                                 schema_k8sio_api_core_v1_List(ref),
-		corev1.LoadBalancerIngress{}.OpenAPIModelName():                  schema_k8sio_api_core_v1_LoadBalancerIngress(ref),
-		corev1.LoadBalancerStatus{}.OpenAPIModelName():                   schema_k8sio_api_core_v1_LoadBalancerStatus(ref),
-		corev1.LocalObjectReference{}.OpenAPIModelName():                 schema_k8sio_api_core_v1_LocalObjectReference(ref),
-		corev1.LocalVolumeSource{}.OpenAPIModelName():                    schema_k8sio_api_core_v1_LocalVolumeSource(ref),
-		corev1.ModifyVolumeStatus{}.OpenAPIModelName():                   schema_k8sio_api_core_v1_ModifyVolumeStatus(ref),
-		corev1.NFSVolumeSource{}.OpenAPIModelName():                      schema_k8sio_api_core_v1_NFSVolumeSource(ref),
-		corev1.Namespace{}.OpenAPIModelName():                            schema_k8sio_api_core_v1_Namespace(ref),
-		corev1.NamespaceCondition{}.OpenAPIModelName():                   schema_k8sio_api_core_v1_NamespaceCondition(ref),
-		corev1.NamespaceList{}.OpenAPIModelName():                        schema_k8sio_api_core_v1_NamespaceList(ref),
-		corev1.NamespaceSpec{}.OpenAPIModelName():                        schema_k8sio_api_core_v1_NamespaceSpec(ref),
-		corev1.NamespaceStatus{}.OpenAPIModelName():                      schema_k8sio_api_core_v1_NamespaceStatus(ref),
-		corev1.Node{}.OpenAPIModelName():                                 schema_k8sio_api_core_v1_Node(ref),
-		corev1.NodeAddress{}.OpenAPIModelName():                          schema_k8sio_api_core_v1_NodeAddress(ref),
-		corev1.NodeAffinity{}.OpenAPIModelName():                         schema_k8sio_api_core_v1_NodeAffinity(ref),
-		corev1.NodeCondition{}.OpenAPIModelName():                        schema_k8sio_api_core_v1_NodeCondition(ref),
-		corev1.NodeConfigSource{}.OpenAPIModelName():                     schema_k8sio_api_core_v1_NodeConfigSource(ref),
-		corev1.NodeConfigStatus{}.OpenAPIModelName():                     schema_k8sio_api_core_v1_NodeConfigStatus(ref),
-		corev1.NodeDaemonEndpoints{}.OpenAPIModelName():                  schema_k8sio_api_core_v1_NodeDaemonEndpoints(ref),
-		corev1.NodeFeatures{}.OpenAPIModelName():                         schema_k8sio_api_core_v1_NodeFeatures(ref),
-		corev1.NodeList{}.OpenAPIModelName():                             schema_k8sio_api_core_v1_NodeList(ref),
-		corev1.NodeProxyOptions{}.OpenAPIModelName():                     schema_k8sio_api_core_v1_NodeProxyOptions(ref),
-		corev1.NodeRuntimeHandler{}.OpenAPIModelName():                   schema_k8sio_api_core_v1_NodeRuntimeHandler(ref),
-		corev1.NodeRuntimeHandlerFeatures{}.OpenAPIModelName():           schema_k8sio_api_core_v1_NodeRuntimeHandlerFeatures(ref),
-		corev1.NodeSelector{}.OpenAPIModelName():                         schema_k8sio_api_core_v1_NodeSelector(ref),
-		corev1.NodeSelectorRequirement{}.OpenAPIModelName():              schema_k8sio_api_core_v1_NodeSelectorRequirement(ref),
-		corev1.NodeSelectorTerm{}.OpenAPIModelName():                     schema_k8sio_api_core_v1_NodeSelectorTerm(ref),
-		corev1.NodeSpec{}.OpenAPIModelName():                             schema_k8sio_api_core_v1_NodeSpec(ref),
-		corev1.NodeStatus{}.OpenAPIModelName():                           schema_k8sio_api_core_v1_NodeStatus(ref),
-		corev1.NodeSwapStatus{}.OpenAPIModelName():                       schema_k8sio_api_core_v1_NodeSwapStatus(ref),
-		corev1.NodeSystemInfo{}.OpenAPIModelName():                       schema_k8sio_api_core_v1_NodeSystemInfo(ref),
-		corev1.ObjectFieldSelector{}.OpenAPIModelName():                  schema_k8sio_api_core_v1_ObjectFieldSelector(ref),
-		corev1.ObjectReference{}.OpenAPIModelName():                      schema_k8sio_api_core_v1_ObjectReference(ref),
-		corev1.PersistentVolume{}.OpenAPIModelName():                     schema_k8sio_api_core_v1_PersistentVolume(ref),
-		corev1.PersistentVolumeClaim{}.OpenAPIModelName():                schema_k8sio_api_core_v1_PersistentVolumeClaim(ref),
-		corev1.PersistentVolumeClaimCondition{}.OpenAPIModelName():       schema_k8sio_api_core_v1_PersistentVolumeClaimCondition(ref),
-		corev1.PersistentVolumeClaimList{}.OpenAPIModelName():            schema_k8sio_api_core_v1_PersistentVolumeClaimList(ref),
-		corev1.PersistentVolumeClaimSpec{}.OpenAPIModelName():            schema_k8sio_api_core_v1_PersistentVolumeClaimSpec(ref),
-		corev1.PersistentVolumeClaimStatus{}.OpenAPIModelName():          schema_k8sio_api_core_v1_PersistentVolumeClaimStatus(ref),
-		corev1.PersistentVolumeClaimTemplate{}.OpenAPIModelName():        schema_k8sio_api_core_v1_PersistentVolumeClaimTemplate(ref),
-		corev1.PersistentVolumeClaimVolumeSource{}.OpenAPIModelName():    schema_k8sio_api_core_v1_PersistentVolumeClaimVolumeSource(ref),
-		corev1.PersistentVolumeList{}.OpenAPIModelName():                 schema_k8sio_api_core_v1_PersistentVolumeList(ref),
-		corev1.PersistentVolumeSource{}.OpenAPIModelName():               schema_k8sio_api_core_v1_PersistentVolumeSource(ref),
-		corev1.PersistentVolumeSpec{}.OpenAPIModelName():                 schema_k8sio_api_core_v1_PersistentVolumeSpec(ref),
-		corev1.PersistentVolumeStatus{}.OpenAPIModelName():               schema_k8sio_api_core_v1_PersistentVolumeStatus(ref),
-		corev1.PhotonPersistentDiskVolumeSource{}.OpenAPIModelName():     schema_k8sio_api_core_v1_PhotonPersistentDiskVolumeSource(ref),
-		corev1.Pod{}.OpenAPIModelName():                                  schema_k8sio_api_core_v1_Pod(ref),
-		corev1.PodAffinity{}.OpenAPIModelName():                          schema_k8sio_api_core_v1_PodAffinity(ref),
-		corev1.PodAffinityTerm{}.OpenAPIModelName():                      schema_k8sio_api_core_v1_PodAffinityTerm(ref),
-		corev1.PodAntiAffinity{}.OpenAPIModelName():                      schema_k8sio_api_core_v1_PodAntiAffinity(ref),
-		corev1.PodAttachOptions{}.OpenAPIModelName():                     schema_k8sio_api_core_v1_PodAttachOptions(ref),
-		corev1.PodCertificateProjection{}.OpenAPIModelName():             schema_k8sio_api_core_v1_PodCertificateProjection(ref),
-		corev1.PodCondition{}.OpenAPIModelName():                         schema_k8sio_api_core_v1_PodCondition(ref),
-		corev1.PodDNSConfig{}.OpenAPIModelName():                         schema_k8sio_api_core_v1_PodDNSConfig(ref),
-		corev1.PodDNSConfigOption{}.OpenAPIModelName():                   schema_k8sio_api_core_v1_PodDNSConfigOption(ref),
-		corev1.PodExecOptions{}.OpenAPIModelName():                       schema_k8sio_api_core_v1_PodExecOptions(ref),
-		corev1.PodExtendedResourceClaimStatus{}.OpenAPIModelName():       schema_k8sio_api_core_v1_PodExtendedResourceClaimStatus(ref),
-		corev1.PodIP{}.OpenAPIModelName():                                schema_k8sio_api_core_v1_PodIP(ref),
-		corev1.PodList{}.OpenAPIModelName():                              schema_k8sio_api_core_v1_PodList(ref),
-		corev1.PodLogOptions{}.OpenAPIModelName():                        schema_k8sio_api_core_v1_PodLogOptions(ref),
-		corev1.PodOS{}.OpenAPIModelName():                                schema_k8sio_api_core_v1_PodOS(ref),
-		corev1.PodPortForwardOptions{}.OpenAPIModelName():                schema_k8sio_api_core_v1_PodPortForwardOptions(ref),
-		corev1.PodProxyOptions{}.OpenAPIModelName():                      schema_k8sio_api_core_v1_PodProxyOptions(ref),
-		corev1.PodReadinessGate{}.OpenAPIModelName():                     schema_k8sio_api_core_v1_PodReadinessGate(ref),
-		corev1.PodResourceClaim{}.OpenAPIModelName():                     schema_k8sio_api_core_v1_PodResourceClaim(ref),
-		corev1.PodResourceClaimStatus{}.OpenAPIModelName():               schema_k8sio_api_core_v1_PodResourceClaimStatus(ref),
-		corev1.PodSchedulingGate{}.OpenAPIModelName():                    schema_k8sio_api_core_v1_PodSchedulingGate(ref),
-		corev1.PodSecurityContext{}.OpenAPIModelName():                   schema_k8sio_api_core_v1_PodSecurityContext(ref),
-		corev1.PodSignature{}.OpenAPIModelName():                         schema_k8sio_api_core_v1_PodSignature(ref),
-		corev1.PodSpec{}.OpenAPIModelName():                              schema_k8sio_api_core_v1_PodSpec(ref),
-		corev1.PodStatus{}.OpenAPIModelName():                            schema_k8sio_api_core_v1_PodStatus(ref),
-		corev1.PodStatusResult{}.OpenAPIModelName():                      schema_k8sio_api_core_v1_PodStatusResult(ref),
-		corev1.PodTemplate{}.OpenAPIModelName():                          schema_k8sio_api_core_v1_PodTemplate(ref),
-		corev1.PodTemplateList{}.OpenAPIModelName():                      schema_k8sio_api_core_v1_PodTemplateList(ref),
-		corev1.PodTemplateSpec{}.OpenAPIModelName():                      schema_k8sio_api_core_v1_PodTemplateSpec(ref),
-		corev1.PortStatus{}.OpenAPIModelName():                           schema_k8sio_api_core_v1_PortStatus(ref),
-		corev1.PortworxVolumeSource{}.OpenAPIModelName():                 schema_k8sio_api_core_v1_PortworxVolumeSource(ref),
-		corev1.PreferAvoidPodsEntry{}.OpenAPIModelName():                 schema_k8sio_api_core_v1_PreferAvoidPodsEntry(ref),
-		corev1.PreferredSchedulingTerm{}.OpenAPIModelName():              schema_k8sio_api_core_v1_PreferredSchedulingTerm(ref),
-		corev1.Probe{}.OpenAPIModelName():                                schema_k8sio_api_core_v1_Probe(ref),
-		corev1.ProbeHandler{}.OpenAPIModelName():                         schema_k8sio_api_core_v1_ProbeHandler(ref),
-		corev1.ProjectedVolumeSource{}.OpenAPIModelName():                schema_k8sio_api_core_v1_ProjectedVolumeSource(ref),
-		corev1.QuobyteVolumeSource{}.OpenAPIModelName():                  schema_k8sio_api_core_v1_QuobyteVolumeSource(ref),
-		corev1.RBDPersistentVolumeSource{}.OpenAPIModelName():            schema_k8sio_api_core_v1_RBDPersistentVolumeSource(ref),
-		corev1.RBDVolumeSource{}.OpenAPIModelName():                      schema_k8sio_api_core_v1_RBDVolumeSource(ref),
-		corev1.RangeAllocation{}.OpenAPIModelName():                      schema_k8sio_api_core_v1_RangeAllocation(ref),
-		corev1.ReplicationController{}.OpenAPIModelName():                schema_k8sio_api_core_v1_ReplicationController(ref),
-		corev1.ReplicationControllerCondition{}.OpenAPIModelName():       schema_k8sio_api_core_v1_ReplicationControllerCondition(ref),
-		corev1.ReplicationControllerList{}.OpenAPIModelName():            schema_k8sio_api_core_v1_ReplicationControllerList(ref),
-		corev1.ReplicationControllerSpec{}.OpenAPIModelName():            schema_k8sio_api_core_v1_ReplicationControllerSpec(ref),
-		corev1.ReplicationControllerStatus{}.OpenAPIModelName():          schema_k8sio_api_core_v1_ReplicationControllerStatus(ref),
-		corev1.ResourceClaim{}.OpenAPIModelName():                        schema_k8sio_api_core_v1_ResourceClaim(ref),
-		corev1.ResourceFieldSelector{}.OpenAPIModelName():                schema_k8sio_api_core_v1_ResourceFieldSelector(ref),
-		corev1.ResourceHealth{}.OpenAPIModelName():                       schema_k8sio_api_core_v1_ResourceHealth(ref),
-		corev1.ResourceQuota{}.OpenAPIModelName():                        schema_k8sio_api_core_v1_ResourceQuota(ref),
-		corev1.ResourceQuotaList{}.OpenAPIModelName():                    schema_k8sio_api_core_v1_ResourceQuotaList(ref),
-		corev1.ResourceQuotaSpec{}.OpenAPIModelName():                    schema_k8sio_api_core_v1_ResourceQuotaSpec(ref),
-		corev1.ResourceQuotaStatus{}.OpenAPIModelName():                  schema_k8sio_api_core_v1_ResourceQuotaStatus(ref),
-		corev1.ResourceRequirements{}.OpenAPIModelName():                 schema_k8sio_api_core_v1_ResourceRequirements(ref),
-		corev1.ResourceStatus{}.OpenAPIModelName():                       schema_k8sio_api_core_v1_ResourceStatus(ref),
-		corev1.SELinuxOptions{}.OpenAPIModelName():                       schema_k8sio_api_core_v1_SELinuxOptions(ref),
-		corev1.ScaleIOPersistentVolumeSource{}.OpenAPIModelName():        schema_k8sio_api_core_v1_ScaleIOPersistentVolumeSource(ref),
-		corev1.ScaleIOVolumeSource{}.OpenAPIModelName():                  schema_k8sio_api_core_v1_ScaleIOVolumeSource(ref),
-		corev1.ScopeSelector{}.OpenAPIModelName():                        schema_k8sio_api_core_v1_ScopeSelector(ref),
-		corev1.ScopedResourceSelectorRequirement{}.OpenAPIModelName():    schema_k8sio_api_core_v1_ScopedResourceSelectorRequirement(ref),
-		corev1.SeccompProfile{}.OpenAPIModelName():                       schema_k8sio_api_core_v1_SeccompProfile(ref),
-		corev1.Secret{}.OpenAPIModelName():                               schema_k8sio_api_core_v1_Secret(ref),
-		corev1.SecretEnvSource{}.OpenAPIModelName():                      schema_k8sio_api_core_v1_SecretEnvSource(ref),
-		corev1.SecretKeySelector{}.OpenAPIModelName():                    schema_k8sio_api_core_v1_SecretKeySelector(ref),
-		corev1.SecretList{}.OpenAPIModelName():                           schema_k8sio_api_core_v1_SecretList(ref),
-		corev1.SecretProjection{}.OpenAPIModelName():                     schema_k8sio_api_core_v1_SecretProjection(ref),
-		corev1.SecretReference{}.OpenAPIModelName():                      schema_k8sio_api_core_v1_SecretReference(ref),
-		corev1.SecretVolumeSource{}.OpenAPIModelName():                   schema_k8sio_api_core_v1_SecretVolumeSource(ref),
-		corev1.SecurityContext{}.OpenAPIModelName():                      schema_k8sio_api_core_v1_SecurityContext(ref),
-		corev1.SerializedReference{}.OpenAPIModelName():                  schema_k8sio_api_core_v1_SerializedReference(ref),
-		corev1.Service{}.OpenAPIModelName():                              schema_k8sio_api_core_v1_Service(ref),
-		corev1.ServiceAccount{}.OpenAPIModelName():                       schema_k8sio_api_core_v1_ServiceAccount(ref),
-		corev1.ServiceAccountList{}.OpenAPIModelName():                   schema_k8sio_api_core_v1_ServiceAccountList(ref),
-		corev1.ServiceAccountTokenProjection{}.OpenAPIModelName():        schema_k8sio_api_core_v1_ServiceAccountTokenProjection(ref),
-		corev1.ServiceList{}.OpenAPIModelName():                          schema_k8sio_api_core_v1_ServiceList(ref),
-		corev1.ServicePort{}.OpenAPIModelName():                          schema_k8sio_api_core_v1_ServicePort(ref),
-		corev1.ServiceProxyOptions{}.OpenAPIModelName():                  schema_k8sio_api_core_v1_ServiceProxyOptions(ref),
-		corev1.ServiceSpec{}.OpenAPIModelName():                          schema_k8sio_api_core_v1_ServiceSpec(ref),
-		corev1.ServiceStatus{}.OpenAPIModelName():                        schema_k8sio_api_core_v1_ServiceStatus(ref),
-		corev1.SessionAffinityConfig{}.OpenAPIModelName():                schema_k8sio_api_core_v1_SessionAffinityConfig(ref),
-		corev1.SleepAction{}.OpenAPIModelName():                          schema_k8sio_api_core_v1_SleepAction(ref),
-		corev1.StorageOSPersistentVolumeSource{}.OpenAPIModelName():      schema_k8sio_api_core_v1_StorageOSPersistentVolumeSource(ref),
-		corev1.StorageOSVolumeSource{}.OpenAPIModelName():                schema_k8sio_api_core_v1_StorageOSVolumeSource(ref),
-		corev1.Sysctl{}.OpenAPIModelName():                               schema_k8sio_api_core_v1_Sysctl(ref),
-		corev1.TCPSocketAction{}.OpenAPIModelName():                      schema_k8sio_api_core_v1_TCPSocketAction(ref),
-		corev1.Taint{}.OpenAPIModelName():                                schema_k8sio_api_core_v1_Taint(ref),
-		corev1.Toleration{}.OpenAPIModelName():                           schema_k8sio_api_core_v1_Toleration(ref),
-		corev1.TopologySelectorLabelRequirement{}.OpenAPIModelName():     schema_k8sio_api_core_v1_TopologySelectorLabelRequirement(ref),
-		corev1.TopologySelectorTerm{}.OpenAPIModelName():                 schema_k8sio_api_core_v1_TopologySelectorTerm(ref),
-		corev1.TopologySpreadConstraint{}.OpenAPIModelName():             schema_k8sio_api_core_v1_TopologySpreadConstraint(ref),
-		corev1.TypedLocalObjectReference{}.OpenAPIModelName():            schema_k8sio_api_core_v1_TypedLocalObjectReference(ref),
-		corev1.TypedObjectReference{}.OpenAPIModelName():                 schema_k8sio_api_core_v1_TypedObjectReference(ref),
-		corev1.Volume{}.OpenAPIModelName():                               schema_k8sio_api_core_v1_Volume(ref),
-		corev1.VolumeDevice{}.OpenAPIModelName():                         schema_k8sio_api_core_v1_VolumeDevice(ref),
-		corev1.VolumeMount{}.OpenAPIModelName():                          schema_k8sio_api_core_v1_VolumeMount(ref),
-		corev1.VolumeMountStatus{}.OpenAPIModelName():                    schema_k8sio_api_core_v1_VolumeMountStatus(ref),
-		corev1.VolumeNodeAffinity{}.OpenAPIModelName():                   schema_k8sio_api_core_v1_VolumeNodeAffinity(ref),
-		corev1.VolumeProjection{}.OpenAPIModelName():                     schema_k8sio_api_core_v1_VolumeProjection(ref),
-		corev1.VolumeResourceRequirements{}.OpenAPIModelName():           schema_k8sio_api_core_v1_VolumeResourceRequirements(ref),
-		corev1.VolumeSource{}.OpenAPIModelName():                         schema_k8sio_api_core_v1_VolumeSource(ref),
-		corev1.VsphereVirtualDiskVolumeSource{}.OpenAPIModelName():       schema_k8sio_api_core_v1_VsphereVirtualDiskVolumeSource(ref),
-		corev1.WeightedPodAffinityTerm{}.OpenAPIModelName():              schema_k8sio_api_core_v1_WeightedPodAffinityTerm(ref),
-		corev1.WindowsSecurityContextOptions{}.OpenAPIModelName():        schema_k8sio_api_core_v1_WindowsSecurityContextOptions(ref),
-		corev1.WorkloadReference{}.OpenAPIModelName():                    schema_k8sio_api_core_v1_WorkloadReference(ref),
-		eventsv1.Event{}.OpenAPIModelName():                              schema_k8sio_api_events_v1_Event(ref),
-		eventsv1.EventList{}.OpenAPIModelName():                          schema_k8sio_api_events_v1_EventList(ref),
-		eventsv1.EventSeries{}.OpenAPIModelName():                        schema_k8sio_api_events_v1_EventSeries(ref),
-		resource.Quantity{}.OpenAPIModelName():                           schema_apimachinery_pkg_api_resource_Quantity(ref),
-		metav1.APIGroup{}.OpenAPIModelName():                             schema_pkg_apis_meta_v1_APIGroup(ref),
-		metav1.APIGroupList{}.OpenAPIModelName():                         schema_pkg_apis_meta_v1_APIGroupList(ref),
-		metav1.APIResource{}.OpenAPIModelName():                          schema_pkg_apis_meta_v1_APIResource(ref),
-		metav1.APIResourceList{}.OpenAPIModelName():                      schema_pkg_apis_meta_v1_APIResourceList(ref),
-		metav1.APIVersions{}.OpenAPIModelName():                          schema_pkg_apis_meta_v1_APIVersions(ref),
-		metav1.ApplyOptions{}.OpenAPIModelName():                         schema_pkg_apis_meta_v1_ApplyOptions(ref),
-		metav1.Condition{}.OpenAPIModelName():                            schema_pkg_apis_meta_v1_Condition(ref),
-		metav1.CreateOptions{}.OpenAPIModelName():                        schema_pkg_apis_meta_v1_CreateOptions(ref),
-		metav1.DeleteOptions{}.OpenAPIModelName():                        schema_pkg_apis_meta_v1_DeleteOptions(ref),
-		metav1.Duration{}.OpenAPIModelName():                             schema_pkg_apis_meta_v1_Duration(ref),
-		metav1.FieldSelectorRequirement{}.OpenAPIModelName():             schema_pkg_apis_meta_v1_FieldSelectorRequirement(ref),
-		metav1.FieldsV1{}.OpenAPIModelName():                             schema_pkg_apis_meta_v1_FieldsV1(ref),
-		metav1.GetOptions{}.OpenAPIModelName():                           schema_pkg_apis_meta_v1_GetOptions(ref),
-		metav1.GroupKind{}.OpenAPIModelName():                            schema_pkg_apis_meta_v1_GroupKind(ref),
-		metav1.GroupResource{}.OpenAPIModelName():                        schema_pkg_apis_meta_v1_GroupResource(ref),
-		metav1.GroupVersion{}.OpenAPIModelName():                         schema_pkg_apis_meta_v1_GroupVersion(ref),
-		metav1.GroupVersionForDiscovery{}.OpenAPIModelName():             schema_pkg_apis_meta_v1_GroupVersionForDiscovery(ref),
-		metav1.GroupVersionKind{}.OpenAPIModelName():                     schema_pkg_apis_meta_v1_GroupVersionKind(ref),
-		metav1.GroupVersionResource{}.OpenAPIModelName():                 schema_pkg_apis_meta_v1_GroupVersionResource(ref),
-		metav1.InternalEvent{}.OpenAPIModelName():                        schema_pkg_apis_meta_v1_InternalEvent(ref),
-		metav1.LabelSelector{}.OpenAPIModelName():                        schema_pkg_apis_meta_v1_LabelSelector(ref),
-		metav1.LabelSelectorRequirement{}.OpenAPIModelName():             schema_pkg_apis_meta_v1_LabelSelectorRequirement(ref),
-		metav1.List{}.OpenAPIModelName():                                 schema_pkg_apis_meta_v1_List(ref),
-		metav1.ListMeta{}.OpenAPIModelName():                             schema_pkg_apis_meta_v1_ListMeta(ref),
-		metav1.ListOptions{}.OpenAPIModelName():                          schema_pkg_apis_meta_v1_ListOptions(ref),
-		metav1.ManagedFieldsEntry{}.OpenAPIModelName():                   schema_pkg_apis_meta_v1_ManagedFieldsEntry(ref),
-		metav1.MicroTime{}.OpenAPIModelName():                            schema_pkg_apis_meta_v1_MicroTime(ref),
-		metav1.ObjectMeta{}.OpenAPIModelName():                           schema_pkg_apis_meta_v1_ObjectMeta(ref),
-		metav1.OwnerReference{}.OpenAPIModelName():                       schema_pkg_apis_meta_v1_OwnerReference(ref),
-		metav1.PartialObjectMetadata{}.OpenAPIModelName():                schema_pkg_apis_meta_v1_PartialObjectMetadata(ref),
-		metav1.PartialObjectMetadataList{}.OpenAPIModelName():            schema_pkg_apis_meta_v1_PartialObjectMetadataList(ref),
-		metav1.Patch{}.OpenAPIModelName():                                schema_pkg_apis_meta_v1_Patch(ref),
-		metav1.PatchOptions{}.OpenAPIModelName():                         schema_pkg_apis_meta_v1_PatchOptions(ref),
-		metav1.Preconditions{}.OpenAPIModelName():                        schema_pkg_apis_meta_v1_Preconditions(ref),
-		metav1.RootPaths{}.OpenAPIModelName():                            schema_pkg_apis_meta_v1_RootPaths(ref),
-		metav1.ServerAddressByClientCIDR{}.OpenAPIModelName():            schema_pkg_apis_meta_v1_ServerAddressByClientCIDR(ref),
-		metav1.Status{}.OpenAPIModelName():                               schema_pkg_apis_meta_v1_Status(ref),
-		metav1.StatusCause{}.OpenAPIModelName():                          schema_pkg_apis_meta_v1_StatusCause(ref),
-		metav1.StatusDetails{}.OpenAPIModelName():                        schema_pkg_apis_meta_v1_StatusDetails(ref),
-		metav1.Table{}.OpenAPIModelName():                                schema_pkg_apis_meta_v1_Table(ref),
-		metav1.TableColumnDefinition{}.OpenAPIModelName():                schema_pkg_apis_meta_v1_TableColumnDefinition(ref),
-		metav1.TableOptions{}.OpenAPIModelName():                         schema_pkg_apis_meta_v1_TableOptions(ref),
-		metav1.TableRow{}.OpenAPIModelName():                             schema_pkg_apis_meta_v1_TableRow(ref),
-		metav1.TableRowCondition{}.OpenAPIModelName():                    schema_pkg_apis_meta_v1_TableRowCondition(ref),
-		metav1.Time{}.OpenAPIModelName():                                 schema_pkg_apis_meta_v1_Time(ref),
-		metav1.Timestamp{}.OpenAPIModelName():                            schema_pkg_apis_meta_v1_Timestamp(ref),
-		metav1.TypeMeta{}.OpenAPIModelName():                             schema_pkg_apis_meta_v1_TypeMeta(ref),
-		metav1.UpdateOptions{}.OpenAPIModelName():                        schema_pkg_apis_meta_v1_UpdateOptions(ref),
-		metav1.WatchEvent{}.OpenAPIModelName():                           schema_pkg_apis_meta_v1_WatchEvent(ref),
-		runtime.RawExtension{}.OpenAPIModelName():                        schema_k8sio_apimachinery_pkg_runtime_RawExtension(ref),
-		runtime.TypeMeta{}.OpenAPIModelName():                            schema_k8sio_apimachinery_pkg_runtime_TypeMeta(ref),
-		runtime.Unknown{}.OpenAPIModelName():                             schema_k8sio_apimachinery_pkg_runtime_Unknown(ref),
-		version.Info{}.OpenAPIModelName():                                schema_k8sio_apimachinery_pkg_version_Info(ref),
-		auditv1.AuthenticationMetadata{}.OpenAPIModelName():              schema_pkg_apis_audit_v1_AuthenticationMetadata(ref),
-		auditv1.Event{}.OpenAPIModelName():                               schema_pkg_apis_audit_v1_Event(ref),
-		auditv1.EventList{}.OpenAPIModelName():                           schema_pkg_apis_audit_v1_EventList(ref),
-		auditv1.GroupResources{}.OpenAPIModelName():                      schema_pkg_apis_audit_v1_GroupResources(ref),
-		auditv1.ObjectReference{}.OpenAPIModelName():                     schema_pkg_apis_audit_v1_ObjectReference(ref),
-		auditv1.Policy{}.OpenAPIModelName():                              schema_pkg_apis_audit_v1_Policy(ref),
-		auditv1.PolicyList{}.OpenAPIModelName():                          schema_pkg_apis_audit_v1_PolicyList(ref),
-		auditv1.PolicyRule{}.OpenAPIModelName():                          schema_pkg_apis_audit_v1_PolicyRule(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.Activity":                  schema_pkg_apis_activity_v1alpha1_Activity(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityActor":             schema_pkg_apis_activity_v1alpha1_ActivityActor(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityChange":            schema_pkg_apis_activity_v1alpha1_ActivityChange(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityFacetQuery":        schema_pkg_apis_activity_v1alpha1_ActivityFacetQuery(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityFacetQuerySpec":    schema_pkg_apis_activity_v1alpha1_ActivityFacetQuerySpec(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityFacetQueryStatus":  schema_pkg_apis_activity_v1alpha1_ActivityFacetQueryStatus(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityLink":              schema_pkg_apis_activity_v1alpha1_ActivityLink(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityList":              schema_pkg_apis_activity_v1alpha1_ActivityList(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityOrigin":            schema_pkg_apis_activity_v1alpha1_ActivityOrigin(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicy":            schema_pkg_apis_activity_v1alpha1_ActivityPolicy(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicyList":        schema_pkg_apis_activity_v1alpha1_ActivityPolicyList(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicyResource":    schema_pkg_apis_activity_v1alpha1_ActivityPolicyResource(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicyRule":        schema_pkg_apis_activity_v1alpha1_ActivityPolicyRule(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicySpec":        schema_pkg_apis_activity_v1alpha1_ActivityPolicySpec(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicyStatus":      schema_pkg_apis_activity_v1alpha1_ActivityPolicyStatus(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityQuery":             schema_pkg_apis_activity_v1alpha1_ActivityQuery(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityQuerySpec":         schema_pkg_apis_activity_v1alpha1_ActivityQuerySpec(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityQueryStatus":       schema_pkg_apis_activity_v1alpha1_ActivityQueryStatus(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityResource":          schema_pkg_apis_activity_v1alpha1_ActivityResource(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivitySpec":              schema_pkg_apis_activity_v1alpha1_ActivitySpec(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityTenant":            schema_pkg_apis_activity_v1alpha1_ActivityTenant(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.AuditLogFacetsQuery":       schema_pkg_apis_activity_v1alpha1_AuditLogFacetsQuery(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.AuditLogFacetsQuerySpec":   schema_pkg_apis_activity_v1alpha1_AuditLogFacetsQuerySpec(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.AuditLogFacetsQueryStatus": schema_pkg_apis_activity_v1alpha1_AuditLogFacetsQueryStatus(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.AuditLogQuery":             schema_pkg_apis_activity_v1alpha1_AuditLogQuery(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.AuditLogQuerySpec":         schema_pkg_apis_activity_v1alpha1_AuditLogQuerySpec(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.AuditLogQueryStatus":       schema_pkg_apis_activity_v1alpha1_AuditLogQueryStatus(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventFacetQuery":           schema_pkg_apis_activity_v1alpha1_EventFacetQuery(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventFacetQuerySpec":       schema_pkg_apis_activity_v1alpha1_EventFacetQuerySpec(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventFacetQueryStatus":     schema_pkg_apis_activity_v1alpha1_EventFacetQueryStatus(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventQuery":                schema_pkg_apis_activity_v1alpha1_EventQuery(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventQueryList":            schema_pkg_apis_activity_v1alpha1_EventQueryList(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventQuerySpec":            schema_pkg_apis_activity_v1alpha1_EventQuerySpec(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventQueryStatus":          schema_pkg_apis_activity_v1alpha1_EventQueryStatus(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventRecord":               schema_pkg_apis_activity_v1alpha1_EventRecord(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetResult":               schema_pkg_apis_activity_v1alpha1_FacetResult(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetSpec":                 schema_pkg_apis_activity_v1alpha1_FacetSpec(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetTimeRange":            schema_pkg_apis_activity_v1alpha1_FacetTimeRange(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetValue":                schema_pkg_apis_activity_v1alpha1_FacetValue(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreview":             schema_pkg_apis_activity_v1alpha1_PolicyPreview(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreviewInput":        schema_pkg_apis_activity_v1alpha1_PolicyPreviewInput(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreviewInputResult":  schema_pkg_apis_activity_v1alpha1_PolicyPreviewInputResult(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreviewSpec":         schema_pkg_apis_activity_v1alpha1_PolicyPreviewSpec(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreviewStatus":       schema_pkg_apis_activity_v1alpha1_PolicyPreviewStatus(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexConfig":             schema_pkg_apis_activity_v1alpha1_ReindexConfig(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexJob":                schema_pkg_apis_activity_v1alpha1_ReindexJob(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexJobList":            schema_pkg_apis_activity_v1alpha1_ReindexJobList(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexJobSpec":            schema_pkg_apis_activity_v1alpha1_ReindexJobSpec(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexJobStatus":          schema_pkg_apis_activity_v1alpha1_ReindexJobStatus(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexPolicySelector":     schema_pkg_apis_activity_v1alpha1_ReindexPolicySelector(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexProgress":           schema_pkg_apis_activity_v1alpha1_ReindexProgress(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexTimeRange":          schema_pkg_apis_activity_v1alpha1_ReindexTimeRange(ref),
+		v1.BoundObjectReference{}.OpenAPIModelName():                                    schema_k8sio_api_authentication_v1_BoundObjectReference(ref),
+		v1.SelfSubjectReview{}.OpenAPIModelName():                                       schema_k8sio_api_authentication_v1_SelfSubjectReview(ref),
+		v1.SelfSubjectReviewStatus{}.OpenAPIModelName():                                 schema_k8sio_api_authentication_v1_SelfSubjectReviewStatus(ref),
+		v1.TokenRequest{}.OpenAPIModelName():                                            schema_k8sio_api_authentication_v1_TokenRequest(ref),
+		v1.TokenRequestSpec{}.OpenAPIModelName():                                        schema_k8sio_api_authentication_v1_TokenRequestSpec(ref),
+		v1.TokenRequestStatus{}.OpenAPIModelName():                                      schema_k8sio_api_authentication_v1_TokenRequestStatus(ref),
+		v1.TokenReview{}.OpenAPIModelName():                                             schema_k8sio_api_authentication_v1_TokenReview(ref),
+		v1.TokenReviewSpec{}.OpenAPIModelName():                                         schema_k8sio_api_authentication_v1_TokenReviewSpec(ref),
+		v1.TokenReviewStatus{}.OpenAPIModelName():                                       schema_k8sio_api_authentication_v1_TokenReviewStatus(ref),
+		v1.UserInfo{}.OpenAPIModelName():                                                schema_k8sio_api_authentication_v1_UserInfo(ref),
+		authorizationv1.FieldSelectorAttributes{}.OpenAPIModelName():                    schema_k8sio_api_authorization_v1_FieldSelectorAttributes(ref),
+		authorizationv1.LabelSelectorAttributes{}.OpenAPIModelName():                    schema_k8sio_api_authorization_v1_LabelSelectorAttributes(ref),
+		authorizationv1.LocalSubjectAccessReview{}.OpenAPIModelName():                   schema_k8sio_api_authorization_v1_LocalSubjectAccessReview(ref),
+		authorizationv1.NonResourceAttributes{}.OpenAPIModelName():                      schema_k8sio_api_authorization_v1_NonResourceAttributes(ref),
+		authorizationv1.NonResourceRule{}.OpenAPIModelName():                            schema_k8sio_api_authorization_v1_NonResourceRule(ref),
+		authorizationv1.ResourceAttributes{}.OpenAPIModelName():                         schema_k8sio_api_authorization_v1_ResourceAttributes(ref),
+		authorizationv1.ResourceRule{}.OpenAPIModelName():                               schema_k8sio_api_authorization_v1_ResourceRule(ref),
+		authorizationv1.SelfSubjectAccessReview{}.OpenAPIModelName():                    schema_k8sio_api_authorization_v1_SelfSubjectAccessReview(ref),
+		authorizationv1.SelfSubjectAccessReviewSpec{}.OpenAPIModelName():                schema_k8sio_api_authorization_v1_SelfSubjectAccessReviewSpec(ref),
+		authorizationv1.SelfSubjectRulesReview{}.OpenAPIModelName():                     schema_k8sio_api_authorization_v1_SelfSubjectRulesReview(ref),
+		authorizationv1.SelfSubjectRulesReviewSpec{}.OpenAPIModelName():                 schema_k8sio_api_authorization_v1_SelfSubjectRulesReviewSpec(ref),
+		authorizationv1.SubjectAccessReview{}.OpenAPIModelName():                        schema_k8sio_api_authorization_v1_SubjectAccessReview(ref),
+		authorizationv1.SubjectAccessReviewSpec{}.OpenAPIModelName():                    schema_k8sio_api_authorization_v1_SubjectAccessReviewSpec(ref),
+		authorizationv1.SubjectAccessReviewStatus{}.OpenAPIModelName():                  schema_k8sio_api_authorization_v1_SubjectAccessReviewStatus(ref),
+		authorizationv1.SubjectRulesReviewStatus{}.OpenAPIModelName():                   schema_k8sio_api_authorization_v1_SubjectRulesReviewStatus(ref),
+		corev1.AWSElasticBlockStoreVolumeSource{}.OpenAPIModelName():                    schema_k8sio_api_core_v1_AWSElasticBlockStoreVolumeSource(ref),
+		corev1.Affinity{}.OpenAPIModelName():                                            schema_k8sio_api_core_v1_Affinity(ref),
+		corev1.AppArmorProfile{}.OpenAPIModelName():                                     schema_k8sio_api_core_v1_AppArmorProfile(ref),
+		corev1.AttachedVolume{}.OpenAPIModelName():                                      schema_k8sio_api_core_v1_AttachedVolume(ref),
+		corev1.AvoidPods{}.OpenAPIModelName():                                           schema_k8sio_api_core_v1_AvoidPods(ref),
+		corev1.AzureDiskVolumeSource{}.OpenAPIModelName():                               schema_k8sio_api_core_v1_AzureDiskVolumeSource(ref),
+		corev1.AzureFilePersistentVolumeSource{}.OpenAPIModelName():                     schema_k8sio_api_core_v1_AzureFilePersistentVolumeSource(ref),
+		corev1.AzureFileVolumeSource{}.OpenAPIModelName():                               schema_k8sio_api_core_v1_AzureFileVolumeSource(ref),
+		corev1.Binding{}.OpenAPIModelName():                                             schema_k8sio_api_core_v1_Binding(ref),
+		corev1.CSIPersistentVolumeSource{}.OpenAPIModelName():                           schema_k8sio_api_core_v1_CSIPersistentVolumeSource(ref),
+		corev1.CSIVolumeSource{}.OpenAPIModelName():                                     schema_k8sio_api_core_v1_CSIVolumeSource(ref),
+		corev1.Capabilities{}.OpenAPIModelName():                                        schema_k8sio_api_core_v1_Capabilities(ref),
+		corev1.CephFSPersistentVolumeSource{}.OpenAPIModelName():                        schema_k8sio_api_core_v1_CephFSPersistentVolumeSource(ref),
+		corev1.CephFSVolumeSource{}.OpenAPIModelName():                                  schema_k8sio_api_core_v1_CephFSVolumeSource(ref),
+		corev1.CinderPersistentVolumeSource{}.OpenAPIModelName():                        schema_k8sio_api_core_v1_CinderPersistentVolumeSource(ref),
+		corev1.CinderVolumeSource{}.OpenAPIModelName():                                  schema_k8sio_api_core_v1_CinderVolumeSource(ref),
+		corev1.ClientIPConfig{}.OpenAPIModelName():                                      schema_k8sio_api_core_v1_ClientIPConfig(ref),
+		corev1.ClusterTrustBundleProjection{}.OpenAPIModelName():                        schema_k8sio_api_core_v1_ClusterTrustBundleProjection(ref),
+		corev1.ComponentCondition{}.OpenAPIModelName():                                  schema_k8sio_api_core_v1_ComponentCondition(ref),
+		corev1.ComponentStatus{}.OpenAPIModelName():                                     schema_k8sio_api_core_v1_ComponentStatus(ref),
+		corev1.ComponentStatusList{}.OpenAPIModelName():                                 schema_k8sio_api_core_v1_ComponentStatusList(ref),
+		corev1.ConfigMap{}.OpenAPIModelName():                                           schema_k8sio_api_core_v1_ConfigMap(ref),
+		corev1.ConfigMapEnvSource{}.OpenAPIModelName():                                  schema_k8sio_api_core_v1_ConfigMapEnvSource(ref),
+		corev1.ConfigMapKeySelector{}.OpenAPIModelName():                                schema_k8sio_api_core_v1_ConfigMapKeySelector(ref),
+		corev1.ConfigMapList{}.OpenAPIModelName():                                       schema_k8sio_api_core_v1_ConfigMapList(ref),
+		corev1.ConfigMapNodeConfigSource{}.OpenAPIModelName():                           schema_k8sio_api_core_v1_ConfigMapNodeConfigSource(ref),
+		corev1.ConfigMapProjection{}.OpenAPIModelName():                                 schema_k8sio_api_core_v1_ConfigMapProjection(ref),
+		corev1.ConfigMapVolumeSource{}.OpenAPIModelName():                               schema_k8sio_api_core_v1_ConfigMapVolumeSource(ref),
+		corev1.Container{}.OpenAPIModelName():                                           schema_k8sio_api_core_v1_Container(ref),
+		corev1.ContainerExtendedResourceRequest{}.OpenAPIModelName():                    schema_k8sio_api_core_v1_ContainerExtendedResourceRequest(ref),
+		corev1.ContainerImage{}.OpenAPIModelName():                                      schema_k8sio_api_core_v1_ContainerImage(ref),
+		corev1.ContainerPort{}.OpenAPIModelName():                                       schema_k8sio_api_core_v1_ContainerPort(ref),
+		corev1.ContainerResizePolicy{}.OpenAPIModelName():                               schema_k8sio_api_core_v1_ContainerResizePolicy(ref),
+		corev1.ContainerRestartRule{}.OpenAPIModelName():                                schema_k8sio_api_core_v1_ContainerRestartRule(ref),
+		corev1.ContainerRestartRuleOnExitCodes{}.OpenAPIModelName():                     schema_k8sio_api_core_v1_ContainerRestartRuleOnExitCodes(ref),
+		corev1.ContainerState{}.OpenAPIModelName():                                      schema_k8sio_api_core_v1_ContainerState(ref),
+		corev1.ContainerStateRunning{}.OpenAPIModelName():                               schema_k8sio_api_core_v1_ContainerStateRunning(ref),
+		corev1.ContainerStateTerminated{}.OpenAPIModelName():                            schema_k8sio_api_core_v1_ContainerStateTerminated(ref),
+		corev1.ContainerStateWaiting{}.OpenAPIModelName():                               schema_k8sio_api_core_v1_ContainerStateWaiting(ref),
+		corev1.ContainerStatus{}.OpenAPIModelName():                                     schema_k8sio_api_core_v1_ContainerStatus(ref),
+		corev1.ContainerUser{}.OpenAPIModelName():                                       schema_k8sio_api_core_v1_ContainerUser(ref),
+		corev1.DaemonEndpoint{}.OpenAPIModelName():                                      schema_k8sio_api_core_v1_DaemonEndpoint(ref),
+		corev1.DownwardAPIProjection{}.OpenAPIModelName():                               schema_k8sio_api_core_v1_DownwardAPIProjection(ref),
+		corev1.DownwardAPIVolumeFile{}.OpenAPIModelName():                               schema_k8sio_api_core_v1_DownwardAPIVolumeFile(ref),
+		corev1.DownwardAPIVolumeSource{}.OpenAPIModelName():                             schema_k8sio_api_core_v1_DownwardAPIVolumeSource(ref),
+		corev1.EmptyDirVolumeSource{}.OpenAPIModelName():                                schema_k8sio_api_core_v1_EmptyDirVolumeSource(ref),
+		corev1.EndpointAddress{}.OpenAPIModelName():                                     schema_k8sio_api_core_v1_EndpointAddress(ref),
+		corev1.EndpointPort{}.OpenAPIModelName():                                        schema_k8sio_api_core_v1_EndpointPort(ref),
+		corev1.EndpointSubset{}.OpenAPIModelName():                                      schema_k8sio_api_core_v1_EndpointSubset(ref),
+		corev1.Endpoints{}.OpenAPIModelName():                                           schema_k8sio_api_core_v1_Endpoints(ref),
+		corev1.EndpointsList{}.OpenAPIModelName():                                       schema_k8sio_api_core_v1_EndpointsList(ref),
+		corev1.EnvFromSource{}.OpenAPIModelName():                                       schema_k8sio_api_core_v1_EnvFromSource(ref),
+		corev1.EnvVar{}.OpenAPIModelName():                                              schema_k8sio_api_core_v1_EnvVar(ref),
+		corev1.EnvVarSource{}.OpenAPIModelName():                                        schema_k8sio_api_core_v1_EnvVarSource(ref),
+		corev1.EphemeralContainer{}.OpenAPIModelName():                                  schema_k8sio_api_core_v1_EphemeralContainer(ref),
+		corev1.EphemeralContainerCommon{}.OpenAPIModelName():                            schema_k8sio_api_core_v1_EphemeralContainerCommon(ref),
+		corev1.EphemeralVolumeSource{}.OpenAPIModelName():                               schema_k8sio_api_core_v1_EphemeralVolumeSource(ref),
+		corev1.Event{}.OpenAPIModelName():                                               schema_k8sio_api_core_v1_Event(ref),
+		corev1.EventList{}.OpenAPIModelName():                                           schema_k8sio_api_core_v1_EventList(ref),
+		corev1.EventSeries{}.OpenAPIModelName():                                         schema_k8sio_api_core_v1_EventSeries(ref),
+		corev1.EventSource{}.OpenAPIModelName():                                         schema_k8sio_api_core_v1_EventSource(ref),
+		corev1.ExecAction{}.OpenAPIModelName():                                          schema_k8sio_api_core_v1_ExecAction(ref),
+		corev1.FCVolumeSource{}.OpenAPIModelName():                                      schema_k8sio_api_core_v1_FCVolumeSource(ref),
+		corev1.FileKeySelector{}.OpenAPIModelName():                                     schema_k8sio_api_core_v1_FileKeySelector(ref),
+		corev1.FlexPersistentVolumeSource{}.OpenAPIModelName():                          schema_k8sio_api_core_v1_FlexPersistentVolumeSource(ref),
+		corev1.FlexVolumeSource{}.OpenAPIModelName():                                    schema_k8sio_api_core_v1_FlexVolumeSource(ref),
+		corev1.FlockerVolumeSource{}.OpenAPIModelName():                                 schema_k8sio_api_core_v1_FlockerVolumeSource(ref),
+		corev1.GCEPersistentDiskVolumeSource{}.OpenAPIModelName():                       schema_k8sio_api_core_v1_GCEPersistentDiskVolumeSource(ref),
+		corev1.GRPCAction{}.OpenAPIModelName():                                          schema_k8sio_api_core_v1_GRPCAction(ref),
+		corev1.GitRepoVolumeSource{}.OpenAPIModelName():                                 schema_k8sio_api_core_v1_GitRepoVolumeSource(ref),
+		corev1.GlusterfsPersistentVolumeSource{}.OpenAPIModelName():                     schema_k8sio_api_core_v1_GlusterfsPersistentVolumeSource(ref),
+		corev1.GlusterfsVolumeSource{}.OpenAPIModelName():                               schema_k8sio_api_core_v1_GlusterfsVolumeSource(ref),
+		corev1.HTTPGetAction{}.OpenAPIModelName():                                       schema_k8sio_api_core_v1_HTTPGetAction(ref),
+		corev1.HTTPHeader{}.OpenAPIModelName():                                          schema_k8sio_api_core_v1_HTTPHeader(ref),
+		corev1.HostAlias{}.OpenAPIModelName():                                           schema_k8sio_api_core_v1_HostAlias(ref),
+		corev1.HostIP{}.OpenAPIModelName():                                              schema_k8sio_api_core_v1_HostIP(ref),
+		corev1.HostPathVolumeSource{}.OpenAPIModelName():                                schema_k8sio_api_core_v1_HostPathVolumeSource(ref),
+		corev1.ISCSIPersistentVolumeSource{}.OpenAPIModelName():                         schema_k8sio_api_core_v1_ISCSIPersistentVolumeSource(ref),
+		corev1.ISCSIVolumeSource{}.OpenAPIModelName():                                   schema_k8sio_api_core_v1_ISCSIVolumeSource(ref),
+		corev1.ImageVolumeSource{}.OpenAPIModelName():                                   schema_k8sio_api_core_v1_ImageVolumeSource(ref),
+		corev1.KeyToPath{}.OpenAPIModelName():                                           schema_k8sio_api_core_v1_KeyToPath(ref),
+		corev1.Lifecycle{}.OpenAPIModelName():                                           schema_k8sio_api_core_v1_Lifecycle(ref),
+		corev1.LifecycleHandler{}.OpenAPIModelName():                                    schema_k8sio_api_core_v1_LifecycleHandler(ref),
+		corev1.LimitRange{}.OpenAPIModelName():                                          schema_k8sio_api_core_v1_LimitRange(ref),
+		corev1.LimitRangeItem{}.OpenAPIModelName():                                      schema_k8sio_api_core_v1_LimitRangeItem(ref),
+		corev1.LimitRangeList{}.OpenAPIModelName():                                      schema_k8sio_api_core_v1_LimitRangeList(ref),
+		corev1.LimitRangeSpec{}.OpenAPIModelName():                                      schema_k8sio_api_core_v1_LimitRangeSpec(ref),
+		corev1.LinuxContainerUser{}.OpenAPIModelName():                                  schema_k8sio_api_core_v1_LinuxContainerUser(ref),
+		corev1.List{}.OpenAPIModelName():                                                schema_k8sio_api_core_v1_List(ref),
+		corev1.LoadBalancerIngress{}.OpenAPIModelName():                                 schema_k8sio_api_core_v1_LoadBalancerIngress(ref),
+		corev1.LoadBalancerStatus{}.OpenAPIModelName():                                  schema_k8sio_api_core_v1_LoadBalancerStatus(ref),
+		corev1.LocalObjectReference{}.OpenAPIModelName():                                schema_k8sio_api_core_v1_LocalObjectReference(ref),
+		corev1.LocalVolumeSource{}.OpenAPIModelName():                                   schema_k8sio_api_core_v1_LocalVolumeSource(ref),
+		corev1.ModifyVolumeStatus{}.OpenAPIModelName():                                  schema_k8sio_api_core_v1_ModifyVolumeStatus(ref),
+		corev1.NFSVolumeSource{}.OpenAPIModelName():                                     schema_k8sio_api_core_v1_NFSVolumeSource(ref),
+		corev1.Namespace{}.OpenAPIModelName():                                           schema_k8sio_api_core_v1_Namespace(ref),
+		corev1.NamespaceCondition{}.OpenAPIModelName():                                  schema_k8sio_api_core_v1_NamespaceCondition(ref),
+		corev1.NamespaceList{}.OpenAPIModelName():                                       schema_k8sio_api_core_v1_NamespaceList(ref),
+		corev1.NamespaceSpec{}.OpenAPIModelName():                                       schema_k8sio_api_core_v1_NamespaceSpec(ref),
+		corev1.NamespaceStatus{}.OpenAPIModelName():                                     schema_k8sio_api_core_v1_NamespaceStatus(ref),
+		corev1.Node{}.OpenAPIModelName():                                                schema_k8sio_api_core_v1_Node(ref),
+		corev1.NodeAddress{}.OpenAPIModelName():                                         schema_k8sio_api_core_v1_NodeAddress(ref),
+		corev1.NodeAffinity{}.OpenAPIModelName():                                        schema_k8sio_api_core_v1_NodeAffinity(ref),
+		corev1.NodeCondition{}.OpenAPIModelName():                                       schema_k8sio_api_core_v1_NodeCondition(ref),
+		corev1.NodeConfigSource{}.OpenAPIModelName():                                    schema_k8sio_api_core_v1_NodeConfigSource(ref),
+		corev1.NodeConfigStatus{}.OpenAPIModelName():                                    schema_k8sio_api_core_v1_NodeConfigStatus(ref),
+		corev1.NodeDaemonEndpoints{}.OpenAPIModelName():                                 schema_k8sio_api_core_v1_NodeDaemonEndpoints(ref),
+		corev1.NodeFeatures{}.OpenAPIModelName():                                        schema_k8sio_api_core_v1_NodeFeatures(ref),
+		corev1.NodeList{}.OpenAPIModelName():                                            schema_k8sio_api_core_v1_NodeList(ref),
+		corev1.NodeProxyOptions{}.OpenAPIModelName():                                    schema_k8sio_api_core_v1_NodeProxyOptions(ref),
+		corev1.NodeRuntimeHandler{}.OpenAPIModelName():                                  schema_k8sio_api_core_v1_NodeRuntimeHandler(ref),
+		corev1.NodeRuntimeHandlerFeatures{}.OpenAPIModelName():                          schema_k8sio_api_core_v1_NodeRuntimeHandlerFeatures(ref),
+		corev1.NodeSelector{}.OpenAPIModelName():                                        schema_k8sio_api_core_v1_NodeSelector(ref),
+		corev1.NodeSelectorRequirement{}.OpenAPIModelName():                             schema_k8sio_api_core_v1_NodeSelectorRequirement(ref),
+		corev1.NodeSelectorTerm{}.OpenAPIModelName():                                    schema_k8sio_api_core_v1_NodeSelectorTerm(ref),
+		corev1.NodeSpec{}.OpenAPIModelName():                                            schema_k8sio_api_core_v1_NodeSpec(ref),
+		corev1.NodeStatus{}.OpenAPIModelName():                                          schema_k8sio_api_core_v1_NodeStatus(ref),
+		corev1.NodeSwapStatus{}.OpenAPIModelName():                                      schema_k8sio_api_core_v1_NodeSwapStatus(ref),
+		corev1.NodeSystemInfo{}.OpenAPIModelName():                                      schema_k8sio_api_core_v1_NodeSystemInfo(ref),
+		corev1.ObjectFieldSelector{}.OpenAPIModelName():                                 schema_k8sio_api_core_v1_ObjectFieldSelector(ref),
+		corev1.ObjectReference{}.OpenAPIModelName():                                     schema_k8sio_api_core_v1_ObjectReference(ref),
+		corev1.PersistentVolume{}.OpenAPIModelName():                                    schema_k8sio_api_core_v1_PersistentVolume(ref),
+		corev1.PersistentVolumeClaim{}.OpenAPIModelName():                               schema_k8sio_api_core_v1_PersistentVolumeClaim(ref),
+		corev1.PersistentVolumeClaimCondition{}.OpenAPIModelName():                      schema_k8sio_api_core_v1_PersistentVolumeClaimCondition(ref),
+		corev1.PersistentVolumeClaimList{}.OpenAPIModelName():                           schema_k8sio_api_core_v1_PersistentVolumeClaimList(ref),
+		corev1.PersistentVolumeClaimSpec{}.OpenAPIModelName():                           schema_k8sio_api_core_v1_PersistentVolumeClaimSpec(ref),
+		corev1.PersistentVolumeClaimStatus{}.OpenAPIModelName():                         schema_k8sio_api_core_v1_PersistentVolumeClaimStatus(ref),
+		corev1.PersistentVolumeClaimTemplate{}.OpenAPIModelName():                       schema_k8sio_api_core_v1_PersistentVolumeClaimTemplate(ref),
+		corev1.PersistentVolumeClaimVolumeSource{}.OpenAPIModelName():                   schema_k8sio_api_core_v1_PersistentVolumeClaimVolumeSource(ref),
+		corev1.PersistentVolumeList{}.OpenAPIModelName():                                schema_k8sio_api_core_v1_PersistentVolumeList(ref),
+		corev1.PersistentVolumeSource{}.OpenAPIModelName():                              schema_k8sio_api_core_v1_PersistentVolumeSource(ref),
+		corev1.PersistentVolumeSpec{}.OpenAPIModelName():                                schema_k8sio_api_core_v1_PersistentVolumeSpec(ref),
+		corev1.PersistentVolumeStatus{}.OpenAPIModelName():                              schema_k8sio_api_core_v1_PersistentVolumeStatus(ref),
+		corev1.PhotonPersistentDiskVolumeSource{}.OpenAPIModelName():                    schema_k8sio_api_core_v1_PhotonPersistentDiskVolumeSource(ref),
+		corev1.Pod{}.OpenAPIModelName():                                                 schema_k8sio_api_core_v1_Pod(ref),
+		corev1.PodAffinity{}.OpenAPIModelName():                                         schema_k8sio_api_core_v1_PodAffinity(ref),
+		corev1.PodAffinityTerm{}.OpenAPIModelName():                                     schema_k8sio_api_core_v1_PodAffinityTerm(ref),
+		corev1.PodAntiAffinity{}.OpenAPIModelName():                                     schema_k8sio_api_core_v1_PodAntiAffinity(ref),
+		corev1.PodAttachOptions{}.OpenAPIModelName():                                    schema_k8sio_api_core_v1_PodAttachOptions(ref),
+		corev1.PodCertificateProjection{}.OpenAPIModelName():                            schema_k8sio_api_core_v1_PodCertificateProjection(ref),
+		corev1.PodCondition{}.OpenAPIModelName():                                        schema_k8sio_api_core_v1_PodCondition(ref),
+		corev1.PodDNSConfig{}.OpenAPIModelName():                                        schema_k8sio_api_core_v1_PodDNSConfig(ref),
+		corev1.PodDNSConfigOption{}.OpenAPIModelName():                                  schema_k8sio_api_core_v1_PodDNSConfigOption(ref),
+		corev1.PodExecOptions{}.OpenAPIModelName():                                      schema_k8sio_api_core_v1_PodExecOptions(ref),
+		corev1.PodExtendedResourceClaimStatus{}.OpenAPIModelName():                      schema_k8sio_api_core_v1_PodExtendedResourceClaimStatus(ref),
+		corev1.PodIP{}.OpenAPIModelName():                                               schema_k8sio_api_core_v1_PodIP(ref),
+		corev1.PodList{}.OpenAPIModelName():                                             schema_k8sio_api_core_v1_PodList(ref),
+		corev1.PodLogOptions{}.OpenAPIModelName():                                       schema_k8sio_api_core_v1_PodLogOptions(ref),
+		corev1.PodOS{}.OpenAPIModelName():                                               schema_k8sio_api_core_v1_PodOS(ref),
+		corev1.PodPortForwardOptions{}.OpenAPIModelName():                               schema_k8sio_api_core_v1_PodPortForwardOptions(ref),
+		corev1.PodProxyOptions{}.OpenAPIModelName():                                     schema_k8sio_api_core_v1_PodProxyOptions(ref),
+		corev1.PodReadinessGate{}.OpenAPIModelName():                                    schema_k8sio_api_core_v1_PodReadinessGate(ref),
+		corev1.PodResourceClaim{}.OpenAPIModelName():                                    schema_k8sio_api_core_v1_PodResourceClaim(ref),
+		corev1.PodResourceClaimStatus{}.OpenAPIModelName():                              schema_k8sio_api_core_v1_PodResourceClaimStatus(ref),
+		corev1.PodSchedulingGate{}.OpenAPIModelName():                                   schema_k8sio_api_core_v1_PodSchedulingGate(ref),
+		corev1.PodSecurityContext{}.OpenAPIModelName():                                  schema_k8sio_api_core_v1_PodSecurityContext(ref),
+		corev1.PodSignature{}.OpenAPIModelName():                                        schema_k8sio_api_core_v1_PodSignature(ref),
+		corev1.PodSpec{}.OpenAPIModelName():                                             schema_k8sio_api_core_v1_PodSpec(ref),
+		corev1.PodStatus{}.OpenAPIModelName():                                           schema_k8sio_api_core_v1_PodStatus(ref),
+		corev1.PodStatusResult{}.OpenAPIModelName():                                     schema_k8sio_api_core_v1_PodStatusResult(ref),
+		corev1.PodTemplate{}.OpenAPIModelName():                                         schema_k8sio_api_core_v1_PodTemplate(ref),
+		corev1.PodTemplateList{}.OpenAPIModelName():                                     schema_k8sio_api_core_v1_PodTemplateList(ref),
+		corev1.PodTemplateSpec{}.OpenAPIModelName():                                     schema_k8sio_api_core_v1_PodTemplateSpec(ref),
+		corev1.PortStatus{}.OpenAPIModelName():                                          schema_k8sio_api_core_v1_PortStatus(ref),
+		corev1.PortworxVolumeSource{}.OpenAPIModelName():                                schema_k8sio_api_core_v1_PortworxVolumeSource(ref),
+		corev1.PreferAvoidPodsEntry{}.OpenAPIModelName():                                schema_k8sio_api_core_v1_PreferAvoidPodsEntry(ref),
+		corev1.PreferredSchedulingTerm{}.OpenAPIModelName():                             schema_k8sio_api_core_v1_PreferredSchedulingTerm(ref),
+		corev1.Probe{}.OpenAPIModelName():                                               schema_k8sio_api_core_v1_Probe(ref),
+		corev1.ProbeHandler{}.OpenAPIModelName():                                        schema_k8sio_api_core_v1_ProbeHandler(ref),
+		corev1.ProjectedVolumeSource{}.OpenAPIModelName():                               schema_k8sio_api_core_v1_ProjectedVolumeSource(ref),
+		corev1.QuobyteVolumeSource{}.OpenAPIModelName():                                 schema_k8sio_api_core_v1_QuobyteVolumeSource(ref),
+		corev1.RBDPersistentVolumeSource{}.OpenAPIModelName():                           schema_k8sio_api_core_v1_RBDPersistentVolumeSource(ref),
+		corev1.RBDVolumeSource{}.OpenAPIModelName():                                     schema_k8sio_api_core_v1_RBDVolumeSource(ref),
+		corev1.RangeAllocation{}.OpenAPIModelName():                                     schema_k8sio_api_core_v1_RangeAllocation(ref),
+		corev1.ReplicationController{}.OpenAPIModelName():                               schema_k8sio_api_core_v1_ReplicationController(ref),
+		corev1.ReplicationControllerCondition{}.OpenAPIModelName():                      schema_k8sio_api_core_v1_ReplicationControllerCondition(ref),
+		corev1.ReplicationControllerList{}.OpenAPIModelName():                           schema_k8sio_api_core_v1_ReplicationControllerList(ref),
+		corev1.ReplicationControllerSpec{}.OpenAPIModelName():                           schema_k8sio_api_core_v1_ReplicationControllerSpec(ref),
+		corev1.ReplicationControllerStatus{}.OpenAPIModelName():                         schema_k8sio_api_core_v1_ReplicationControllerStatus(ref),
+		corev1.ResourceClaim{}.OpenAPIModelName():                                       schema_k8sio_api_core_v1_ResourceClaim(ref),
+		corev1.ResourceFieldSelector{}.OpenAPIModelName():                               schema_k8sio_api_core_v1_ResourceFieldSelector(ref),
+		corev1.ResourceHealth{}.OpenAPIModelName():                                      schema_k8sio_api_core_v1_ResourceHealth(ref),
+		corev1.ResourceQuota{}.OpenAPIModelName():                                       schema_k8sio_api_core_v1_ResourceQuota(ref),
+		corev1.ResourceQuotaList{}.OpenAPIModelName():                                   schema_k8sio_api_core_v1_ResourceQuotaList(ref),
+		corev1.ResourceQuotaSpec{}.OpenAPIModelName():                                   schema_k8sio_api_core_v1_ResourceQuotaSpec(ref),
+		corev1.ResourceQuotaStatus{}.OpenAPIModelName():                                 schema_k8sio_api_core_v1_ResourceQuotaStatus(ref),
+		corev1.ResourceRequirements{}.OpenAPIModelName():                                schema_k8sio_api_core_v1_ResourceRequirements(ref),
+		corev1.ResourceStatus{}.OpenAPIModelName():                                      schema_k8sio_api_core_v1_ResourceStatus(ref),
+		corev1.SELinuxOptions{}.OpenAPIModelName():                                      schema_k8sio_api_core_v1_SELinuxOptions(ref),
+		corev1.ScaleIOPersistentVolumeSource{}.OpenAPIModelName():                       schema_k8sio_api_core_v1_ScaleIOPersistentVolumeSource(ref),
+		corev1.ScaleIOVolumeSource{}.OpenAPIModelName():                                 schema_k8sio_api_core_v1_ScaleIOVolumeSource(ref),
+		corev1.ScopeSelector{}.OpenAPIModelName():                                       schema_k8sio_api_core_v1_ScopeSelector(ref),
+		corev1.ScopedResourceSelectorRequirement{}.OpenAPIModelName():                   schema_k8sio_api_core_v1_ScopedResourceSelectorRequirement(ref),
+		corev1.SeccompProfile{}.OpenAPIModelName():                                      schema_k8sio_api_core_v1_SeccompProfile(ref),
+		corev1.Secret{}.OpenAPIModelName():                                              schema_k8sio_api_core_v1_Secret(ref),
+		corev1.SecretEnvSource{}.OpenAPIModelName():                                     schema_k8sio_api_core_v1_SecretEnvSource(ref),
+		corev1.SecretKeySelector{}.OpenAPIModelName():                                   schema_k8sio_api_core_v1_SecretKeySelector(ref),
+		corev1.SecretList{}.OpenAPIModelName():                                          schema_k8sio_api_core_v1_SecretList(ref),
+		corev1.SecretProjection{}.OpenAPIModelName():                                    schema_k8sio_api_core_v1_SecretProjection(ref),
+		corev1.SecretReference{}.OpenAPIModelName():                                     schema_k8sio_api_core_v1_SecretReference(ref),
+		corev1.SecretVolumeSource{}.OpenAPIModelName():                                  schema_k8sio_api_core_v1_SecretVolumeSource(ref),
+		corev1.SecurityContext{}.OpenAPIModelName():                                     schema_k8sio_api_core_v1_SecurityContext(ref),
+		corev1.SerializedReference{}.OpenAPIModelName():                                 schema_k8sio_api_core_v1_SerializedReference(ref),
+		corev1.Service{}.OpenAPIModelName():                                             schema_k8sio_api_core_v1_Service(ref),
+		corev1.ServiceAccount{}.OpenAPIModelName():                                      schema_k8sio_api_core_v1_ServiceAccount(ref),
+		corev1.ServiceAccountList{}.OpenAPIModelName():                                  schema_k8sio_api_core_v1_ServiceAccountList(ref),
+		corev1.ServiceAccountTokenProjection{}.OpenAPIModelName():                       schema_k8sio_api_core_v1_ServiceAccountTokenProjection(ref),
+		corev1.ServiceList{}.OpenAPIModelName():                                         schema_k8sio_api_core_v1_ServiceList(ref),
+		corev1.ServicePort{}.OpenAPIModelName():                                         schema_k8sio_api_core_v1_ServicePort(ref),
+		corev1.ServiceProxyOptions{}.OpenAPIModelName():                                 schema_k8sio_api_core_v1_ServiceProxyOptions(ref),
+		corev1.ServiceSpec{}.OpenAPIModelName():                                         schema_k8sio_api_core_v1_ServiceSpec(ref),
+		corev1.ServiceStatus{}.OpenAPIModelName():                                       schema_k8sio_api_core_v1_ServiceStatus(ref),
+		corev1.SessionAffinityConfig{}.OpenAPIModelName():                               schema_k8sio_api_core_v1_SessionAffinityConfig(ref),
+		corev1.SleepAction{}.OpenAPIModelName():                                         schema_k8sio_api_core_v1_SleepAction(ref),
+		corev1.StorageOSPersistentVolumeSource{}.OpenAPIModelName():                     schema_k8sio_api_core_v1_StorageOSPersistentVolumeSource(ref),
+		corev1.StorageOSVolumeSource{}.OpenAPIModelName():                               schema_k8sio_api_core_v1_StorageOSVolumeSource(ref),
+		corev1.Sysctl{}.OpenAPIModelName():                                              schema_k8sio_api_core_v1_Sysctl(ref),
+		corev1.TCPSocketAction{}.OpenAPIModelName():                                     schema_k8sio_api_core_v1_TCPSocketAction(ref),
+		corev1.Taint{}.OpenAPIModelName():                                               schema_k8sio_api_core_v1_Taint(ref),
+		corev1.Toleration{}.OpenAPIModelName():                                          schema_k8sio_api_core_v1_Toleration(ref),
+		corev1.TopologySelectorLabelRequirement{}.OpenAPIModelName():                    schema_k8sio_api_core_v1_TopologySelectorLabelRequirement(ref),
+		corev1.TopologySelectorTerm{}.OpenAPIModelName():                                schema_k8sio_api_core_v1_TopologySelectorTerm(ref),
+		corev1.TopologySpreadConstraint{}.OpenAPIModelName():                            schema_k8sio_api_core_v1_TopologySpreadConstraint(ref),
+		corev1.TypedLocalObjectReference{}.OpenAPIModelName():                           schema_k8sio_api_core_v1_TypedLocalObjectReference(ref),
+		corev1.TypedObjectReference{}.OpenAPIModelName():                                schema_k8sio_api_core_v1_TypedObjectReference(ref),
+		corev1.Volume{}.OpenAPIModelName():                                              schema_k8sio_api_core_v1_Volume(ref),
+		corev1.VolumeDevice{}.OpenAPIModelName():                                        schema_k8sio_api_core_v1_VolumeDevice(ref),
+		corev1.VolumeMount{}.OpenAPIModelName():                                         schema_k8sio_api_core_v1_VolumeMount(ref),
+		corev1.VolumeMountStatus{}.OpenAPIModelName():                                   schema_k8sio_api_core_v1_VolumeMountStatus(ref),
+		corev1.VolumeNodeAffinity{}.OpenAPIModelName():                                  schema_k8sio_api_core_v1_VolumeNodeAffinity(ref),
+		corev1.VolumeProjection{}.OpenAPIModelName():                                    schema_k8sio_api_core_v1_VolumeProjection(ref),
+		corev1.VolumeResourceRequirements{}.OpenAPIModelName():                          schema_k8sio_api_core_v1_VolumeResourceRequirements(ref),
+		corev1.VolumeSource{}.OpenAPIModelName():                                        schema_k8sio_api_core_v1_VolumeSource(ref),
+		corev1.VsphereVirtualDiskVolumeSource{}.OpenAPIModelName():                      schema_k8sio_api_core_v1_VsphereVirtualDiskVolumeSource(ref),
+		corev1.WeightedPodAffinityTerm{}.OpenAPIModelName():                             schema_k8sio_api_core_v1_WeightedPodAffinityTerm(ref),
+		corev1.WindowsSecurityContextOptions{}.OpenAPIModelName():                       schema_k8sio_api_core_v1_WindowsSecurityContextOptions(ref),
+		corev1.WorkloadReference{}.OpenAPIModelName():                                   schema_k8sio_api_core_v1_WorkloadReference(ref),
+		resource.Quantity{}.OpenAPIModelName():                                          schema_apimachinery_pkg_api_resource_Quantity(ref),
+		metav1.APIGroup{}.OpenAPIModelName():                                            schema_pkg_apis_meta_v1_APIGroup(ref),
+		metav1.APIGroupList{}.OpenAPIModelName():                                        schema_pkg_apis_meta_v1_APIGroupList(ref),
+		metav1.APIResource{}.OpenAPIModelName():                                         schema_pkg_apis_meta_v1_APIResource(ref),
+		metav1.APIResourceList{}.OpenAPIModelName():                                     schema_pkg_apis_meta_v1_APIResourceList(ref),
+		metav1.APIVersions{}.OpenAPIModelName():                                         schema_pkg_apis_meta_v1_APIVersions(ref),
+		metav1.ApplyOptions{}.OpenAPIModelName():                                        schema_pkg_apis_meta_v1_ApplyOptions(ref),
+		metav1.Condition{}.OpenAPIModelName():                                           schema_pkg_apis_meta_v1_Condition(ref),
+		metav1.CreateOptions{}.OpenAPIModelName():                                       schema_pkg_apis_meta_v1_CreateOptions(ref),
+		metav1.DeleteOptions{}.OpenAPIModelName():                                       schema_pkg_apis_meta_v1_DeleteOptions(ref),
+		metav1.Duration{}.OpenAPIModelName():                                            schema_pkg_apis_meta_v1_Duration(ref),
+		metav1.FieldSelectorRequirement{}.OpenAPIModelName():                            schema_pkg_apis_meta_v1_FieldSelectorRequirement(ref),
+		metav1.FieldsV1{}.OpenAPIModelName():                                            schema_pkg_apis_meta_v1_FieldsV1(ref),
+		metav1.GetOptions{}.OpenAPIModelName():                                          schema_pkg_apis_meta_v1_GetOptions(ref),
+		metav1.GroupKind{}.OpenAPIModelName():                                           schema_pkg_apis_meta_v1_GroupKind(ref),
+		metav1.GroupResource{}.OpenAPIModelName():                                       schema_pkg_apis_meta_v1_GroupResource(ref),
+		metav1.GroupVersion{}.OpenAPIModelName():                                        schema_pkg_apis_meta_v1_GroupVersion(ref),
+		metav1.GroupVersionForDiscovery{}.OpenAPIModelName():                            schema_pkg_apis_meta_v1_GroupVersionForDiscovery(ref),
+		metav1.GroupVersionKind{}.OpenAPIModelName():                                    schema_pkg_apis_meta_v1_GroupVersionKind(ref),
+		metav1.GroupVersionResource{}.OpenAPIModelName():                                schema_pkg_apis_meta_v1_GroupVersionResource(ref),
+		metav1.InternalEvent{}.OpenAPIModelName():                                       schema_pkg_apis_meta_v1_InternalEvent(ref),
+		metav1.LabelSelector{}.OpenAPIModelName():                                       schema_pkg_apis_meta_v1_LabelSelector(ref),
+		metav1.LabelSelectorRequirement{}.OpenAPIModelName():                            schema_pkg_apis_meta_v1_LabelSelectorRequirement(ref),
+		metav1.List{}.OpenAPIModelName():                                                schema_pkg_apis_meta_v1_List(ref),
+		metav1.ListMeta{}.OpenAPIModelName():                                            schema_pkg_apis_meta_v1_ListMeta(ref),
+		metav1.ListOptions{}.OpenAPIModelName():                                         schema_pkg_apis_meta_v1_ListOptions(ref),
+		metav1.ManagedFieldsEntry{}.OpenAPIModelName():                                  schema_pkg_apis_meta_v1_ManagedFieldsEntry(ref),
+		metav1.MicroTime{}.OpenAPIModelName():                                           schema_pkg_apis_meta_v1_MicroTime(ref),
+		metav1.ObjectMeta{}.OpenAPIModelName():                                          schema_pkg_apis_meta_v1_ObjectMeta(ref),
+		metav1.OwnerReference{}.OpenAPIModelName():                                      schema_pkg_apis_meta_v1_OwnerReference(ref),
+		metav1.PartialObjectMetadata{}.OpenAPIModelName():                               schema_pkg_apis_meta_v1_PartialObjectMetadata(ref),
+		metav1.PartialObjectMetadataList{}.OpenAPIModelName():                           schema_pkg_apis_meta_v1_PartialObjectMetadataList(ref),
+		metav1.Patch{}.OpenAPIModelName():                                               schema_pkg_apis_meta_v1_Patch(ref),
+		metav1.PatchOptions{}.OpenAPIModelName():                                        schema_pkg_apis_meta_v1_PatchOptions(ref),
+		metav1.Preconditions{}.OpenAPIModelName():                                       schema_pkg_apis_meta_v1_Preconditions(ref),
+		metav1.RootPaths{}.OpenAPIModelName():                                           schema_pkg_apis_meta_v1_RootPaths(ref),
+		metav1.ServerAddressByClientCIDR{}.OpenAPIModelName():                           schema_pkg_apis_meta_v1_ServerAddressByClientCIDR(ref),
+		metav1.Status{}.OpenAPIModelName():                                              schema_pkg_apis_meta_v1_Status(ref),
+		metav1.StatusCause{}.OpenAPIModelName():                                         schema_pkg_apis_meta_v1_StatusCause(ref),
+		metav1.StatusDetails{}.OpenAPIModelName():                                       schema_pkg_apis_meta_v1_StatusDetails(ref),
+		metav1.Table{}.OpenAPIModelName():                                               schema_pkg_apis_meta_v1_Table(ref),
+		metav1.TableColumnDefinition{}.OpenAPIModelName():                               schema_pkg_apis_meta_v1_TableColumnDefinition(ref),
+		metav1.TableOptions{}.OpenAPIModelName():                                        schema_pkg_apis_meta_v1_TableOptions(ref),
+		metav1.TableRow{}.OpenAPIModelName():                                            schema_pkg_apis_meta_v1_TableRow(ref),
+		metav1.TableRowCondition{}.OpenAPIModelName():                                   schema_pkg_apis_meta_v1_TableRowCondition(ref),
+		metav1.Time{}.OpenAPIModelName():                                                schema_pkg_apis_meta_v1_Time(ref),
+		metav1.Timestamp{}.OpenAPIModelName():                                           schema_pkg_apis_meta_v1_Timestamp(ref),
+		metav1.TypeMeta{}.OpenAPIModelName():                                            schema_pkg_apis_meta_v1_TypeMeta(ref),
+		metav1.UpdateOptions{}.OpenAPIModelName():                                       schema_pkg_apis_meta_v1_UpdateOptions(ref),
+		metav1.WatchEvent{}.OpenAPIModelName():                                          schema_pkg_apis_meta_v1_WatchEvent(ref),
+		runtime.RawExtension{}.OpenAPIModelName():                                       schema_k8sio_apimachinery_pkg_runtime_RawExtension(ref),
+		runtime.TypeMeta{}.OpenAPIModelName():                                           schema_k8sio_apimachinery_pkg_runtime_TypeMeta(ref),
+		runtime.Unknown{}.OpenAPIModelName():                                            schema_k8sio_apimachinery_pkg_runtime_Unknown(ref),
+		version.Info{}.OpenAPIModelName():                                               schema_k8sio_apimachinery_pkg_version_Info(ref),
+		auditv1.AuthenticationMetadata{}.OpenAPIModelName():                             schema_pkg_apis_audit_v1_AuthenticationMetadata(ref),
+		auditv1.Event{}.OpenAPIModelName():                                              schema_pkg_apis_audit_v1_Event(ref),
+		auditv1.EventList{}.OpenAPIModelName():                                          schema_pkg_apis_audit_v1_EventList(ref),
+		auditv1.GroupResources{}.OpenAPIModelName():                                     schema_pkg_apis_audit_v1_GroupResources(ref),
+		auditv1.ObjectReference{}.OpenAPIModelName():                                    schema_pkg_apis_audit_v1_ObjectReference(ref),
+		auditv1.Policy{}.OpenAPIModelName():                                             schema_pkg_apis_audit_v1_Policy(ref),
+		auditv1.PolicyList{}.OpenAPIModelName():                                         schema_pkg_apis_audit_v1_PolicyList(ref),
+		auditv1.PolicyRule{}.OpenAPIModelName():                                         schema_pkg_apis_audit_v1_PolicyRule(ref),
 	}
 }
 
@@ -435,7 +429,7 @@ func schema_pkg_apis_activity_v1alpha1_Activity(ref common.ReferenceCallback) co
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref(v1alpha1.ActivitySpec{}.OpenAPIModelName()),
+							Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivitySpec"),
 						},
 					},
 				},
@@ -443,7 +437,7 @@ func schema_pkg_apis_activity_v1alpha1_Activity(ref common.ReferenceCallback) co
 			},
 		},
 		Dependencies: []string{
-			v1alpha1.ActivitySpec{}.OpenAPIModelName(), metav1.ObjectMeta{}.OpenAPIModelName()},
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivitySpec", metav1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -557,13 +551,13 @@ func schema_pkg_apis_activity_v1alpha1_ActivityFacetQuery(ref common.ReferenceCa
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref(v1alpha1.ActivityFacetQuerySpec{}.OpenAPIModelName()),
+							Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityFacetQuerySpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref(v1alpha1.ActivityFacetQueryStatus{}.OpenAPIModelName()),
+							Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityFacetQueryStatus"),
 						},
 					},
 				},
@@ -571,7 +565,7 @@ func schema_pkg_apis_activity_v1alpha1_ActivityFacetQuery(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			v1alpha1.ActivityFacetQuerySpec{}.OpenAPIModelName(), v1alpha1.ActivityFacetQueryStatus{}.OpenAPIModelName(), metav1.ObjectMeta{}.OpenAPIModelName()},
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityFacetQuerySpec", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityFacetQueryStatus", metav1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -586,7 +580,7 @@ func schema_pkg_apis_activity_v1alpha1_ActivityFacetQuerySpec(ref common.Referen
 						SchemaProps: spec.SchemaProps{
 							Description: "TimeRange sets how far back to look. Defaults to the last 7 days if not set. Use relative times like \"now-7d\" or absolute timestamps.",
 							Default:     map[string]interface{}{},
-							Ref:         ref(v1alpha1.FacetTimeRange{}.OpenAPIModelName()),
+							Ref:         ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetTimeRange"),
 						},
 					},
 					"filter": {
@@ -609,7 +603,7 @@ func schema_pkg_apis_activity_v1alpha1_ActivityFacetQuerySpec(ref common.Referen
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(v1alpha1.FacetSpec{}.OpenAPIModelName()),
+										Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetSpec"),
 									},
 								},
 							},
@@ -620,7 +614,7 @@ func schema_pkg_apis_activity_v1alpha1_ActivityFacetQuerySpec(ref common.Referen
 			},
 		},
 		Dependencies: []string{
-			v1alpha1.FacetSpec{}.OpenAPIModelName(), v1alpha1.FacetTimeRange{}.OpenAPIModelName()},
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetSpec", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetTimeRange"},
 	}
 }
 
@@ -644,7 +638,7 @@ func schema_pkg_apis_activity_v1alpha1_ActivityFacetQueryStatus(ref common.Refer
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(v1alpha1.FacetResult{}.OpenAPIModelName()),
+										Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetResult"),
 									},
 								},
 							},
@@ -654,7 +648,7 @@ func schema_pkg_apis_activity_v1alpha1_ActivityFacetQueryStatus(ref common.Refer
 			},
 		},
 		Dependencies: []string{
-			v1alpha1.FacetResult{}.OpenAPIModelName()},
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetResult"},
 	}
 }
 
@@ -677,7 +671,7 @@ func schema_pkg_apis_activity_v1alpha1_ActivityLink(ref common.ReferenceCallback
 						SchemaProps: spec.SchemaProps{
 							Description: "Resource identifies what the marker links to.",
 							Default:     map[string]interface{}{},
-							Ref:         ref(v1alpha1.ActivityResource{}.OpenAPIModelName()),
+							Ref:         ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityResource"),
 						},
 					},
 				},
@@ -685,7 +679,7 @@ func schema_pkg_apis_activity_v1alpha1_ActivityLink(ref common.ReferenceCallback
 			},
 		},
 		Dependencies: []string{
-			v1alpha1.ActivityResource{}.OpenAPIModelName()},
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityResource"},
 	}
 }
 
@@ -723,7 +717,7 @@ func schema_pkg_apis_activity_v1alpha1_ActivityList(ref common.ReferenceCallback
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(v1alpha1.Activity{}.OpenAPIModelName()),
+										Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.Activity"),
 									},
 								},
 							},
@@ -734,7 +728,7 @@ func schema_pkg_apis_activity_v1alpha1_ActivityList(ref common.ReferenceCallback
 			},
 		},
 		Dependencies: []string{
-			v1alpha1.Activity{}.OpenAPIModelName(), metav1.ListMeta{}.OpenAPIModelName()},
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.Activity", metav1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -772,7 +766,7 @@ func schema_pkg_apis_activity_v1alpha1_ActivityPolicy(ref common.ReferenceCallba
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "ActivityPolicy defines translation rules for a specific resource type. Service providers create one ActivityPolicy per resource kind to customize activity descriptions without modifying the Activity Processor.\n\nExample:\n\n\tapiVersion: activity.miloapis.com/v1alpha1\n\tkind: ActivityPolicy\n\tmetadata:\n\t  name: networking-httpproxy\n\tspec:\n\t  resource:\n\t    apiGroup: networking.datumapis.com\n\t    kind: HTTPProxy\n\t  auditRules:\n\t    - match: \"verb == 'create'\"\n\t      summary: \"{{ actor }} created {{ link(kind + ' ' + objectRef.name, responseObject) }}\"\n\t  eventRules:\n\t    - match: \"event.reason == 'Programmed'\"\n\t      summary: \"{{ link(kind + ' ' + event.regarding.name, event.regarding) }} is now programmed\"",
+				Description: "ActivityPolicy defines translation rules for a specific resource type. Service providers create one ActivityPolicy per resource kind to customize activity descriptions without modifying the Activity Processor.\n\nExample:\n\n\tapiVersion: activity.miloapis.com/v1alpha1\n\tkind: ActivityPolicy\n\tmetadata:\n\t  name: networking-httpproxy\n\tspec:\n\t  resource:\n\t    apiGroup: networking.datumapis.com\n\t    kind: HTTPProxy\n\t  auditRules:\n\t    - match: \"audit.verb == 'create'\"\n\t      summary: \"{{ actor }} created {{ link(kind + ' ' + audit.objectRef.name, audit.responseObject) }}\"\n\t  eventRules:\n\t    - match: \"event.reason == 'Programmed'\"\n\t      summary: \"{{ link(kind + ' ' + event.regarding.name, event.regarding) }} is now programmed\"",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -798,13 +792,13 @@ func schema_pkg_apis_activity_v1alpha1_ActivityPolicy(ref common.ReferenceCallba
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref(v1alpha1.ActivityPolicySpec{}.OpenAPIModelName()),
+							Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicySpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref(v1alpha1.ActivityPolicyStatus{}.OpenAPIModelName()),
+							Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicyStatus"),
 						},
 					},
 				},
@@ -812,7 +806,7 @@ func schema_pkg_apis_activity_v1alpha1_ActivityPolicy(ref common.ReferenceCallba
 			},
 		},
 		Dependencies: []string{
-			v1alpha1.ActivityPolicySpec{}.OpenAPIModelName(), v1alpha1.ActivityPolicyStatus{}.OpenAPIModelName(), metav1.ObjectMeta{}.OpenAPIModelName()},
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicySpec", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicyStatus", metav1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -850,7 +844,7 @@ func schema_pkg_apis_activity_v1alpha1_ActivityPolicyList(ref common.ReferenceCa
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(v1alpha1.ActivityPolicy{}.OpenAPIModelName()),
+										Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicy"),
 									},
 								},
 							},
@@ -861,7 +855,7 @@ func schema_pkg_apis_activity_v1alpha1_ActivityPolicyList(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			v1alpha1.ActivityPolicy{}.OpenAPIModelName(), metav1.ListMeta{}.OpenAPIModelName()},
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicy", metav1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -902,24 +896,9 @@ func schema_pkg_apis_activity_v1alpha1_ActivityPolicyRule(ref common.ReferenceCa
 				Description: "ActivityPolicyRule defines a single translation rule that matches input events and generates human-readable activity summaries.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"name": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Name is a unique identifier for this rule within the policy. Used for strategic merge patching and error reporting.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"description": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Description is an optional human-readable description of what this rule does.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 					"match": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Match is a CEL expression that determines if this rule applies to the input. For audit rules, use top-level variables (e.g., \"verb == 'create'\", \"objectRef.namespace == 'default'\"). For event rules, use the `event` variable (e.g., \"event.reason == 'Programmed'\").\n\nExamples:\n  \"verb == 'create'\"\n  \"verb in ['update', 'patch']\"\n  \"event.reason.startsWith('Failed')\"\n  \"true\"  (fallback rule that always matches)",
+							Description: "Match is a CEL expression that determines if this rule applies to the input. For audit rules, use the `audit` variable (e.g., \"audit.verb == 'create'\"). For event rules, use the `event` variable (e.g., \"event.reason == 'Programmed'\").\n\nExamples:\n  \"audit.verb == 'create'\"\n  \"audit.verb in ['update', 'patch']\"\n  \"event.reason.startsWith('Failed')\"\n  \"true\"  (fallback rule that always matches)",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -927,14 +906,14 @@ func schema_pkg_apis_activity_v1alpha1_ActivityPolicyRule(ref common.ReferenceCa
 					},
 					"summary": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Summary is a CEL template for generating the activity summary. Use {{ }} delimiters to embed CEL expressions within strings.\n\nAvailable variables:\n  - For audit rules: verb, objectRef, user, responseStatus, responseObject, actor, actorRef, kind\n  - For event rules: event, actor\n\nAvailable functions:\n  - link(displayText, resourceRef): Creates a clickable reference\n\nExamples:\n  \"{{ actor }} created {{ link(kind + ' ' + objectRef.name, responseObject) }}\"\n  \"{{ link(kind + ' ' + event.regarding.name, event.regarding) }} is now programmed\"",
+							Description: "Summary is a CEL template for generating the activity summary. Use {{ }} delimiters to embed CEL expressions within strings.\n\nAvailable variables:\n  - audit/event: The full input object\n  - actor: Resolved display name for the actor\n\nAvailable functions:\n  - link(displayText, resourceRef): Creates a clickable reference\n\nExamples:\n  \"{{ actor }} created {{ link(kind + ' ' + audit.objectRef.name, audit.responseObject) }}\"\n  \"{{ link(kind + ' ' + event.regarding.name, event.regarding) }} is now programmed\"",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 				},
-				Required: []string{"name", "match", "summary"},
+				Required: []string{"match", "summary"},
 			},
 		},
 	}
@@ -951,26 +930,23 @@ func schema_pkg_apis_activity_v1alpha1_ActivityPolicySpec(ref common.ReferenceCa
 						SchemaProps: spec.SchemaProps{
 							Description: "Resource identifies the Kubernetes resource this policy applies to. One ActivityPolicy should exist per resource kind.",
 							Default:     map[string]interface{}{},
-							Ref:         ref(v1alpha1.ActivityPolicyResource{}.OpenAPIModelName()),
+							Ref:         ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicyResource"),
 						},
 					},
 					"auditRules": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
-								"x-kubernetes-list-map-keys": []interface{}{
-									"name",
-								},
-								"x-kubernetes-list-type": "map",
+								"x-kubernetes-list-type": "atomic",
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "AuditRules define how to translate audit log entries into activity summaries. Rules are evaluated in order; the first matching rule wins. Available variables: verb, objectRef, user, responseStatus, responseObject, actor, actorRef, kind Convenience variables available: actor",
+							Description: "AuditRules define how to translate audit log entries into activity summaries. Rules are evaluated in order; the first matching rule wins. The `audit` variable contains the full Kubernetes audit event structure. Convenience variables available: actor",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(v1alpha1.ActivityPolicyRule{}.OpenAPIModelName()),
+										Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicyRule"),
 									},
 								},
 							},
@@ -979,10 +955,7 @@ func schema_pkg_apis_activity_v1alpha1_ActivityPolicySpec(ref common.ReferenceCa
 					"eventRules": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
-								"x-kubernetes-list-map-keys": []interface{}{
-									"name",
-								},
-								"x-kubernetes-list-type": "map",
+								"x-kubernetes-list-type": "atomic",
 							},
 						},
 						SchemaProps: spec.SchemaProps{
@@ -992,7 +965,7 @@ func schema_pkg_apis_activity_v1alpha1_ActivityPolicySpec(ref common.ReferenceCa
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(v1alpha1.ActivityPolicyRule{}.OpenAPIModelName()),
+										Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicyRule"),
 									},
 								},
 							},
@@ -1003,7 +976,7 @@ func schema_pkg_apis_activity_v1alpha1_ActivityPolicySpec(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			v1alpha1.ActivityPolicyResource{}.OpenAPIModelName(), v1alpha1.ActivityPolicyRule{}.OpenAPIModelName()},
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicyResource", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicyRule"},
 	}
 }
 
@@ -1081,13 +1054,13 @@ func schema_pkg_apis_activity_v1alpha1_ActivityQuery(ref common.ReferenceCallbac
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref(v1alpha1.ActivityQuerySpec{}.OpenAPIModelName()),
+							Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityQuerySpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref(v1alpha1.ActivityQueryStatus{}.OpenAPIModelName()),
+							Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityQueryStatus"),
 						},
 					},
 				},
@@ -1095,7 +1068,7 @@ func schema_pkg_apis_activity_v1alpha1_ActivityQuery(ref common.ReferenceCallbac
 			},
 		},
 		Dependencies: []string{
-			v1alpha1.ActivityQuerySpec{}.OpenAPIModelName(), v1alpha1.ActivityQueryStatus{}.OpenAPIModelName(), metav1.ObjectMeta{}.OpenAPIModelName()},
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityQuerySpec", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityQueryStatus", metav1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -1219,7 +1192,7 @@ func schema_pkg_apis_activity_v1alpha1_ActivityQueryStatus(ref common.ReferenceC
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(v1alpha1.Activity{}.OpenAPIModelName()),
+										Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.Activity"),
 									},
 								},
 							},
@@ -1250,7 +1223,7 @@ func schema_pkg_apis_activity_v1alpha1_ActivityQueryStatus(ref common.ReferenceC
 			},
 		},
 		Dependencies: []string{
-			v1alpha1.Activity{}.OpenAPIModelName()},
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.Activity"},
 	}
 }
 
@@ -1340,14 +1313,14 @@ func schema_pkg_apis_activity_v1alpha1_ActivitySpec(ref common.ReferenceCallback
 						SchemaProps: spec.SchemaProps{
 							Description: "Actor identifies who performed the action.",
 							Default:     map[string]interface{}{},
-							Ref:         ref(v1alpha1.ActivityActor{}.OpenAPIModelName()),
+							Ref:         ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityActor"),
 						},
 					},
 					"resource": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Resource identifies the Kubernetes resource that was affected.",
 							Default:     map[string]interface{}{},
-							Ref:         ref(v1alpha1.ActivityResource{}.OpenAPIModelName()),
+							Ref:         ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityResource"),
 						},
 					},
 					"links": {
@@ -1363,7 +1336,7 @@ func schema_pkg_apis_activity_v1alpha1_ActivitySpec(ref common.ReferenceCallback
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(v1alpha1.ActivityLink{}.OpenAPIModelName()),
+										Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityLink"),
 									},
 								},
 							},
@@ -1373,7 +1346,7 @@ func schema_pkg_apis_activity_v1alpha1_ActivitySpec(ref common.ReferenceCallback
 						SchemaProps: spec.SchemaProps{
 							Description: "Tenant identifies the scope for multi-tenant isolation.",
 							Default:     map[string]interface{}{},
-							Ref:         ref(v1alpha1.ActivityTenant{}.OpenAPIModelName()),
+							Ref:         ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityTenant"),
 						},
 					},
 					"changes": {
@@ -1389,7 +1362,7 @@ func schema_pkg_apis_activity_v1alpha1_ActivitySpec(ref common.ReferenceCallback
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(v1alpha1.ActivityChange{}.OpenAPIModelName()),
+										Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityChange"),
 									},
 								},
 							},
@@ -1399,7 +1372,7 @@ func schema_pkg_apis_activity_v1alpha1_ActivitySpec(ref common.ReferenceCallback
 						SchemaProps: spec.SchemaProps{
 							Description: "Origin identifies the source record for correlation.",
 							Default:     map[string]interface{}{},
-							Ref:         ref(v1alpha1.ActivityOrigin{}.OpenAPIModelName()),
+							Ref:         ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityOrigin"),
 						},
 					},
 				},
@@ -1407,7 +1380,7 @@ func schema_pkg_apis_activity_v1alpha1_ActivitySpec(ref common.ReferenceCallback
 			},
 		},
 		Dependencies: []string{
-			v1alpha1.ActivityActor{}.OpenAPIModelName(), v1alpha1.ActivityChange{}.OpenAPIModelName(), v1alpha1.ActivityLink{}.OpenAPIModelName(), v1alpha1.ActivityOrigin{}.OpenAPIModelName(), v1alpha1.ActivityResource{}.OpenAPIModelName(), v1alpha1.ActivityTenant{}.OpenAPIModelName()},
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityActor", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityChange", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityLink", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityOrigin", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityResource", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityTenant"},
 	}
 }
 
@@ -1471,13 +1444,13 @@ func schema_pkg_apis_activity_v1alpha1_AuditLogFacetsQuery(ref common.ReferenceC
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref(v1alpha1.AuditLogFacetsQuerySpec{}.OpenAPIModelName()),
+							Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.AuditLogFacetsQuerySpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref(v1alpha1.AuditLogFacetsQueryStatus{}.OpenAPIModelName()),
+							Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.AuditLogFacetsQueryStatus"),
 						},
 					},
 				},
@@ -1485,7 +1458,7 @@ func schema_pkg_apis_activity_v1alpha1_AuditLogFacetsQuery(ref common.ReferenceC
 			},
 		},
 		Dependencies: []string{
-			v1alpha1.AuditLogFacetsQuerySpec{}.OpenAPIModelName(), v1alpha1.AuditLogFacetsQueryStatus{}.OpenAPIModelName(), metav1.ObjectMeta{}.OpenAPIModelName()},
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.AuditLogFacetsQuerySpec", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.AuditLogFacetsQueryStatus", metav1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -1500,7 +1473,7 @@ func schema_pkg_apis_activity_v1alpha1_AuditLogFacetsQuerySpec(ref common.Refere
 						SchemaProps: spec.SchemaProps{
 							Description: "TimeRange limits the time window for facet aggregation. If not specified, defaults to the last 7 days.",
 							Default:     map[string]interface{}{},
-							Ref:         ref(v1alpha1.FacetTimeRange{}.OpenAPIModelName()),
+							Ref:         ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetTimeRange"),
 						},
 					},
 					"filter": {
@@ -1523,7 +1496,7 @@ func schema_pkg_apis_activity_v1alpha1_AuditLogFacetsQuerySpec(ref common.Refere
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(v1alpha1.FacetSpec{}.OpenAPIModelName()),
+										Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetSpec"),
 									},
 								},
 							},
@@ -1534,7 +1507,7 @@ func schema_pkg_apis_activity_v1alpha1_AuditLogFacetsQuerySpec(ref common.Refere
 			},
 		},
 		Dependencies: []string{
-			v1alpha1.FacetSpec{}.OpenAPIModelName(), v1alpha1.FacetTimeRange{}.OpenAPIModelName()},
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetSpec", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetTimeRange"},
 	}
 }
 
@@ -1558,7 +1531,7 @@ func schema_pkg_apis_activity_v1alpha1_AuditLogFacetsQueryStatus(ref common.Refe
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(v1alpha1.FacetResult{}.OpenAPIModelName()),
+										Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetResult"),
 									},
 								},
 							},
@@ -1568,7 +1541,7 @@ func schema_pkg_apis_activity_v1alpha1_AuditLogFacetsQueryStatus(ref common.Refe
 			},
 		},
 		Dependencies: []string{
-			v1alpha1.FacetResult{}.OpenAPIModelName()},
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetResult"},
 	}
 }
 
@@ -1602,13 +1575,13 @@ func schema_pkg_apis_activity_v1alpha1_AuditLogQuery(ref common.ReferenceCallbac
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref(v1alpha1.AuditLogQuerySpec{}.OpenAPIModelName()),
+							Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.AuditLogQuerySpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref(v1alpha1.AuditLogQueryStatus{}.OpenAPIModelName()),
+							Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.AuditLogQueryStatus"),
 						},
 					},
 				},
@@ -1616,7 +1589,7 @@ func schema_pkg_apis_activity_v1alpha1_AuditLogQuery(ref common.ReferenceCallbac
 			},
 		},
 		Dependencies: []string{
-			v1alpha1.AuditLogQuerySpec{}.OpenAPIModelName(), v1alpha1.AuditLogQueryStatus{}.OpenAPIModelName(), metav1.ObjectMeta{}.OpenAPIModelName()},
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.AuditLogQuerySpec", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.AuditLogQueryStatus", metav1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -1726,40 +1699,6 @@ func schema_pkg_apis_activity_v1alpha1_AuditLogQueryStatus(ref common.ReferenceC
 	}
 }
 
-func schema_pkg_apis_activity_v1alpha1_AutoFetchSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "AutoFetchSpec configures automatic sample data retrieval.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"limit": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Limit is the maximum number of sample inputs to fetch (default: 10, max: 50). The API fetches up to this many audit logs and/or events.",
-							Type:        []string{"integer"},
-							Format:      "int32",
-						},
-					},
-					"timeRange": {
-						SchemaProps: spec.SchemaProps{
-							Description: "TimeRange specifies how far back to look for samples (default: \"24h\"). Supports relative format: \"1h\", \"24h\", \"7d\", \"30d\"",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"sources": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Sources specifies which data sources to query: \"audit\", \"events\", or \"both\" (default: \"both\"). - \"audit\": Only fetch audit logs (only tests auditRules) - \"events\": Only fetch Kubernetes events (only tests eventRules) - \"both\": Fetch both types (tests all rules)",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
 func schema_pkg_apis_activity_v1alpha1_EventFacetQuery(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -1790,13 +1729,13 @@ func schema_pkg_apis_activity_v1alpha1_EventFacetQuery(ref common.ReferenceCallb
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref(v1alpha1.EventFacetQuerySpec{}.OpenAPIModelName()),
+							Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventFacetQuerySpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref(v1alpha1.EventFacetQueryStatus{}.OpenAPIModelName()),
+							Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventFacetQueryStatus"),
 						},
 					},
 				},
@@ -1804,7 +1743,7 @@ func schema_pkg_apis_activity_v1alpha1_EventFacetQuery(ref common.ReferenceCallb
 			},
 		},
 		Dependencies: []string{
-			v1alpha1.EventFacetQuerySpec{}.OpenAPIModelName(), v1alpha1.EventFacetQueryStatus{}.OpenAPIModelName(), metav1.ObjectMeta{}.OpenAPIModelName()},
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventFacetQuerySpec", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventFacetQueryStatus", metav1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -1819,7 +1758,7 @@ func schema_pkg_apis_activity_v1alpha1_EventFacetQuerySpec(ref common.ReferenceC
 						SchemaProps: spec.SchemaProps{
 							Description: "TimeRange limits the time window for facet aggregation. If not specified, defaults to the last 7 days.",
 							Default:     map[string]interface{}{},
-							Ref:         ref(v1alpha1.FacetTimeRange{}.OpenAPIModelName()),
+							Ref:         ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetTimeRange"),
 						},
 					},
 					"facets": {
@@ -1835,7 +1774,7 @@ func schema_pkg_apis_activity_v1alpha1_EventFacetQuerySpec(ref common.ReferenceC
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(v1alpha1.FacetSpec{}.OpenAPIModelName()),
+										Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetSpec"),
 									},
 								},
 							},
@@ -1846,7 +1785,7 @@ func schema_pkg_apis_activity_v1alpha1_EventFacetQuerySpec(ref common.ReferenceC
 			},
 		},
 		Dependencies: []string{
-			v1alpha1.FacetSpec{}.OpenAPIModelName(), v1alpha1.FacetTimeRange{}.OpenAPIModelName()},
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetSpec", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetTimeRange"},
 	}
 }
 
@@ -1870,7 +1809,7 @@ func schema_pkg_apis_activity_v1alpha1_EventFacetQueryStatus(ref common.Referenc
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(v1alpha1.FacetResult{}.OpenAPIModelName()),
+										Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetResult"),
 									},
 								},
 							},
@@ -1880,7 +1819,7 @@ func schema_pkg_apis_activity_v1alpha1_EventFacetQueryStatus(ref common.Referenc
 			},
 		},
 		Dependencies: []string{
-			v1alpha1.FacetResult{}.OpenAPIModelName()},
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetResult"},
 	}
 }
 
@@ -1914,13 +1853,13 @@ func schema_pkg_apis_activity_v1alpha1_EventQuery(ref common.ReferenceCallback) 
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref(v1alpha1.EventQuerySpec{}.OpenAPIModelName()),
+							Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventQuerySpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref(v1alpha1.EventQueryStatus{}.OpenAPIModelName()),
+							Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventQueryStatus"),
 						},
 					},
 				},
@@ -1928,7 +1867,7 @@ func schema_pkg_apis_activity_v1alpha1_EventQuery(ref common.ReferenceCallback) 
 			},
 		},
 		Dependencies: []string{
-			v1alpha1.EventQuerySpec{}.OpenAPIModelName(), v1alpha1.EventQueryStatus{}.OpenAPIModelName(), metav1.ObjectMeta{}.OpenAPIModelName()},
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventQuerySpec", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventQueryStatus", metav1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -1966,7 +1905,7 @@ func schema_pkg_apis_activity_v1alpha1_EventQueryList(ref common.ReferenceCallba
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(v1alpha1.EventQuery{}.OpenAPIModelName()),
+										Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventQuery"),
 									},
 								},
 							},
@@ -1977,7 +1916,7 @@ func schema_pkg_apis_activity_v1alpha1_EventQueryList(ref common.ReferenceCallba
 			},
 		},
 		Dependencies: []string{
-			v1alpha1.EventQuery{}.OpenAPIModelName(), metav1.ListMeta{}.OpenAPIModelName()},
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventQuery", metav1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -2059,7 +1998,7 @@ func schema_pkg_apis_activity_v1alpha1_EventQueryStatus(ref common.ReferenceCall
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(v1alpha1.EventRecord{}.OpenAPIModelName()),
+										Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventRecord"),
 									},
 								},
 							},
@@ -2090,7 +2029,7 @@ func schema_pkg_apis_activity_v1alpha1_EventQueryStatus(ref common.ReferenceCall
 			},
 		},
 		Dependencies: []string{
-			v1alpha1.EventRecord{}.OpenAPIModelName()},
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventRecord"},
 	}
 }
 
@@ -2125,7 +2064,7 @@ func schema_pkg_apis_activity_v1alpha1_EventRecord(ref common.ReferenceCallback)
 						SchemaProps: spec.SchemaProps{
 							Description: "Event contains the full Kubernetes Event data in events.k8s.io/v1 format. This includes fields like eventTime, regarding, note, type, reason, reportingController, reportingInstance, series, and action.",
 							Default:     map[string]interface{}{},
-							Ref:         ref(eventsv1.Event{}.OpenAPIModelName()),
+							Ref:         ref("k8s.io/api/events/v1.Event"),
 						},
 					},
 				},
@@ -2133,7 +2072,7 @@ func schema_pkg_apis_activity_v1alpha1_EventRecord(ref common.ReferenceCallback)
 			},
 		},
 		Dependencies: []string{
-			eventsv1.Event{}.OpenAPIModelName(), metav1.ObjectMeta{}.OpenAPIModelName()},
+			"k8s.io/api/events/v1.Event", metav1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -2165,7 +2104,7 @@ func schema_pkg_apis_activity_v1alpha1_FacetResult(ref common.ReferenceCallback)
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(v1alpha1.FacetValue{}.OpenAPIModelName()),
+										Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetValue"),
 									},
 								},
 							},
@@ -2176,7 +2115,7 @@ func schema_pkg_apis_activity_v1alpha1_FacetResult(ref common.ReferenceCallback)
 			},
 		},
 		Dependencies: []string{
-			v1alpha1.FacetValue{}.OpenAPIModelName()},
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetValue"},
 	}
 }
 
@@ -2270,7 +2209,7 @@ func schema_pkg_apis_activity_v1alpha1_PolicyPreview(ref common.ReferenceCallbac
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "PolicyPreview tests an ActivityPolicy against sample inputs without persisting anything. Use this to verify that your policy rules match correctly and generate the expected summaries before deploying the policy.\n\nThe preview accepts multiple inputs (audit logs and/or events) and returns the rendered Activity stream that would be generated by the policy.\n\nExample:\n\n\tapiVersion: activity.miloapis.com/v1alpha1\n\tkind: PolicyPreview\n\tmetadata:\n\t  name: test-preview\n\tspec:\n\t  policy:\n\t    resource:\n\t      apiGroup: networking.datumapis.com\n\t      kind: HTTPProxy\n\t    auditRules:\n\t      - match: \"verb == 'create'\"\n\t        summary: \"{{ actor }} created HTTPProxy\"\n\t      - match: \"verb == 'delete'\"\n\t        summary: \"{{ actor }} deleted HTTPProxy\"\n\t  inputs:\n\t    - type: audit\n\t      audit:\n\t        verb: create\n\t        objectRef:\n\t          apiGroup: networking.datumapis.com\n\t          resource: httpproxies\n\t          name: my-proxy\n\t        user:\n\t          username: alice@example.com\n\t    - type: audit\n\t      audit:\n\t        verb: delete\n\t        objectRef:\n\t          apiGroup: networking.datumapis.com\n\t          resource: httpproxies\n\t          name: old-proxy\n\t        user:\n\t          username: bob@example.com",
+				Description: "PolicyPreview tests an ActivityPolicy against sample inputs without persisting anything. Use this to verify that your policy rules match correctly and generate the expected summaries before deploying the policy.\n\nThe preview accepts multiple inputs (audit logs and/or events) and returns the rendered Activity stream that would be generated by the policy.\n\nExample:\n\n\tapiVersion: activity.miloapis.com/v1alpha1\n\tkind: PolicyPreview\n\tmetadata:\n\t  name: test-preview\n\tspec:\n\t  policy:\n\t    resource:\n\t      apiGroup: networking.datumapis.com\n\t      kind: HTTPProxy\n\t    auditRules:\n\t      - match: \"audit.verb == 'create'\"\n\t        summary: \"{{ actor }} created HTTPProxy\"\n\t      - match: \"audit.verb == 'delete'\"\n\t        summary: \"{{ actor }} deleted HTTPProxy\"\n\t  inputs:\n\t    - type: audit\n\t      audit:\n\t        verb: create\n\t        objectRef:\n\t          apiGroup: networking.datumapis.com\n\t          resource: httpproxies\n\t          name: my-proxy\n\t        user:\n\t          username: alice@example.com\n\t    - type: audit\n\t      audit:\n\t        verb: delete\n\t        objectRef:\n\t          apiGroup: networking.datumapis.com\n\t          resource: httpproxies\n\t          name: old-proxy\n\t        user:\n\t          username: bob@example.com",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -2296,13 +2235,13 @@ func schema_pkg_apis_activity_v1alpha1_PolicyPreview(ref common.ReferenceCallbac
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref(v1alpha1.PolicyPreviewSpec{}.OpenAPIModelName()),
+							Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreviewSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref(v1alpha1.PolicyPreviewStatus{}.OpenAPIModelName()),
+							Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreviewStatus"),
 						},
 					},
 				},
@@ -2310,7 +2249,7 @@ func schema_pkg_apis_activity_v1alpha1_PolicyPreview(ref common.ReferenceCallbac
 			},
 		},
 		Dependencies: []string{
-			v1alpha1.PolicyPreviewSpec{}.OpenAPIModelName(), v1alpha1.PolicyPreviewStatus{}.OpenAPIModelName(), metav1.ObjectMeta{}.OpenAPIModelName()},
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreviewSpec", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreviewStatus", metav1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -2388,13 +2327,6 @@ func schema_pkg_apis_activity_v1alpha1_PolicyPreviewInputResult(ref common.Refer
 							Format:      "",
 						},
 					},
-					"matchedRuleName": {
-						SchemaProps: spec.SchemaProps{
-							Description: "MatchedRuleName is the name of the rule that matched this input. This is the value from the rule's Name field in the policy spec. Empty if no rule matched.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 					"error": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Error contains any error message if evaluating this input failed. This could be a CEL compilation error or evaluation error.",
@@ -2420,7 +2352,7 @@ func schema_pkg_apis_activity_v1alpha1_PolicyPreviewSpec(ref common.ReferenceCal
 						SchemaProps: spec.SchemaProps{
 							Description: "Policy is the ActivityPolicy spec to test. You can use the full spec from an existing policy or create a new one.",
 							Default:     map[string]interface{}{},
-							Ref:         ref(v1alpha1.ActivityPolicySpec{}.OpenAPIModelName()),
+							Ref:         ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicySpec"),
 						},
 					},
 					"inputs": {
@@ -2430,44 +2362,24 @@ func schema_pkg_apis_activity_v1alpha1_PolicyPreviewSpec(ref common.ReferenceCal
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "Inputs contains sample audit logs and/or events to test against the policy. Each input is evaluated independently and produces an Activity if a rule matches. You can mix audit logs and events in the same request. Optional when AutoFetch is specified.",
+							Description: "Inputs contains sample audit logs and/or events to test against the policy. Each input is evaluated independently and produces an Activity if a rule matches. You can mix audit logs and events in the same request.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(v1alpha1.PolicyPreviewInput{}.OpenAPIModelName()),
+										Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreviewInput"),
 									},
 								},
 							},
 						},
 					},
-					"autoFetch": {
-						SchemaProps: spec.SchemaProps{
-							Description: "AutoFetch automatically retrieves sample inputs based on the policy resource type. When specified, the API queries recent audit logs and/or events matching the policy. Mutually exclusive with manual inputs - only one should be provided.",
-							Ref:         ref(v1alpha1.AutoFetchSpec{}.OpenAPIModelName()),
-						},
-					},
-					"kindLabel": {
-						SchemaProps: spec.SchemaProps{
-							Description: "KindLabel overrides the display label for the resource kind.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"kindLabelPlural": {
-						SchemaProps: spec.SchemaProps{
-							Description: "KindLabelPlural overrides the plural display label.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 				},
-				Required: []string{"policy"},
+				Required: []string{"policy", "inputs"},
 			},
 		},
 		Dependencies: []string{
-			v1alpha1.ActivityPolicySpec{}.OpenAPIModelName(), v1alpha1.AutoFetchSpec{}.OpenAPIModelName(), v1alpha1.PolicyPreviewInput{}.OpenAPIModelName()},
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicySpec", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreviewInput"},
 	}
 }
 
@@ -2491,7 +2403,7 @@ func schema_pkg_apis_activity_v1alpha1_PolicyPreviewStatus(ref common.ReferenceC
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(v1alpha1.Activity{}.OpenAPIModelName()),
+										Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.Activity"),
 									},
 								},
 							},
@@ -2510,26 +2422,7 @@ func schema_pkg_apis_activity_v1alpha1_PolicyPreviewStatus(ref common.ReferenceC
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(v1alpha1.PolicyPreviewInputResult{}.OpenAPIModelName()),
-									},
-								},
-							},
-						},
-					},
-					"fetchedInputs": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "atomic",
-							},
-						},
-						SchemaProps: spec.SchemaProps{
-							Description: "FetchedInputs contains the auto-fetched sample inputs (only present when autoFetch was used). This allows clients to see what data was tested.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1alpha1.PolicyPreviewInput{}.OpenAPIModelName()),
+										Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreviewInputResult"),
 									},
 								},
 							},
@@ -2546,7 +2439,7 @@ func schema_pkg_apis_activity_v1alpha1_PolicyPreviewStatus(ref common.ReferenceC
 			},
 		},
 		Dependencies: []string{
-			v1alpha1.Activity{}.OpenAPIModelName(), v1alpha1.PolicyPreviewInput{}.OpenAPIModelName(), v1alpha1.PolicyPreviewInputResult{}.OpenAPIModelName()},
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.Activity", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreviewInputResult"},
 	}
 }
 
@@ -2614,13 +2507,13 @@ func schema_pkg_apis_activity_v1alpha1_ReindexJob(ref common.ReferenceCallback) 
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref(v1alpha1.ReindexJobSpec{}.OpenAPIModelName()),
+							Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexJobSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref(v1alpha1.ReindexJobStatus{}.OpenAPIModelName()),
+							Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexJobStatus"),
 						},
 					},
 				},
@@ -2628,7 +2521,7 @@ func schema_pkg_apis_activity_v1alpha1_ReindexJob(ref common.ReferenceCallback) 
 			},
 		},
 		Dependencies: []string{
-			v1alpha1.ReindexJobSpec{}.OpenAPIModelName(), v1alpha1.ReindexJobStatus{}.OpenAPIModelName(), metav1.ObjectMeta{}.OpenAPIModelName()},
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexJobSpec", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexJobStatus", metav1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -2666,7 +2559,7 @@ func schema_pkg_apis_activity_v1alpha1_ReindexJobList(ref common.ReferenceCallba
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(v1alpha1.ReindexJob{}.OpenAPIModelName()),
+										Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexJob"),
 									},
 								},
 							},
@@ -2677,7 +2570,7 @@ func schema_pkg_apis_activity_v1alpha1_ReindexJobList(ref common.ReferenceCallba
 			},
 		},
 		Dependencies: []string{
-			v1alpha1.ReindexJob{}.OpenAPIModelName(), metav1.ListMeta{}.OpenAPIModelName()},
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexJob", metav1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -2692,19 +2585,19 @@ func schema_pkg_apis_activity_v1alpha1_ReindexJobSpec(ref common.ReferenceCallba
 						SchemaProps: spec.SchemaProps{
 							Description: "TimeRange specifies the time window of events to re-index. Events outside this range are not processed.",
 							Default:     map[string]interface{}{},
-							Ref:         ref(v1alpha1.ReindexTimeRange{}.OpenAPIModelName()),
+							Ref:         ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexTimeRange"),
 						},
 					},
 					"policySelector": {
 						SchemaProps: spec.SchemaProps{
 							Description: "PolicySelector optionally limits re-indexing to specific policies. If omitted, all active ActivityPolicies are evaluated.",
-							Ref:         ref(v1alpha1.ReindexPolicySelector{}.OpenAPIModelName()),
+							Ref:         ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexPolicySelector"),
 						},
 					},
 					"config": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Config contains processing configuration options.",
-							Ref:         ref(v1alpha1.ReindexConfig{}.OpenAPIModelName()),
+							Ref:         ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexConfig"),
 						},
 					},
 					"ttlSecondsAfterFinished": {
@@ -2719,7 +2612,7 @@ func schema_pkg_apis_activity_v1alpha1_ReindexJobSpec(ref common.ReferenceCallba
 			},
 		},
 		Dependencies: []string{
-			v1alpha1.ReindexConfig{}.OpenAPIModelName(), v1alpha1.ReindexPolicySelector{}.OpenAPIModelName(), v1alpha1.ReindexTimeRange{}.OpenAPIModelName()},
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexConfig", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexPolicySelector", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexTimeRange"},
 	}
 }
 
@@ -2747,7 +2640,7 @@ func schema_pkg_apis_activity_v1alpha1_ReindexJobStatus(ref common.ReferenceCall
 					"progress": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Progress contains detailed progress information.",
-							Ref:         ref(v1alpha1.ReindexProgress{}.OpenAPIModelName()),
+							Ref:         ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexProgress"),
 						},
 					},
 					"startedAt": {
@@ -2788,7 +2681,7 @@ func schema_pkg_apis_activity_v1alpha1_ReindexJobStatus(ref common.ReferenceCall
 			},
 		},
 		Dependencies: []string{
-			v1alpha1.ReindexProgress{}.OpenAPIModelName(), metav1.Condition{}.OpenAPIModelName(), metav1.Time{}.OpenAPIModelName()},
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexProgress", metav1.Condition{}.OpenAPIModelName(), metav1.Time{}.OpenAPIModelName()},
 	}
 }
 
@@ -18075,217 +17968,6 @@ func schema_k8sio_api_core_v1_WorkloadReference(ref common.ReferenceCallback) co
 				Required: []string{"name", "podGroup"},
 			},
 		},
-	}
-}
-
-func schema_k8sio_api_events_v1_Event(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "Event is a report of an event somewhere in the cluster. It generally denotes some state change in the system. Events have a limited retention time and triggers and messages may evolve with time.  Event consumers should not rely on the timing of an event with a given Reason reflecting a consistent underlying trigger, or the continued existence of events with that Reason.  Events should be treated as informative, best-effort, supplemental data.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
-							Default:     map[string]interface{}{},
-							Ref:         ref(metav1.ObjectMeta{}.OpenAPIModelName()),
-						},
-					},
-					"eventTime": {
-						SchemaProps: spec.SchemaProps{
-							Description: "eventTime is the time when this Event was first observed. It is required.",
-							Ref:         ref(metav1.MicroTime{}.OpenAPIModelName()),
-						},
-					},
-					"series": {
-						SchemaProps: spec.SchemaProps{
-							Description: "series is data about the Event series this event represents or nil if it's a singleton Event.",
-							Ref:         ref(eventsv1.EventSeries{}.OpenAPIModelName()),
-						},
-					},
-					"reportingController": {
-						SchemaProps: spec.SchemaProps{
-							Description: "reportingController is the name of the controller that emitted this Event, e.g. `kubernetes.io/kubelet`. This field cannot be empty for new Events.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"reportingInstance": {
-						SchemaProps: spec.SchemaProps{
-							Description: "reportingInstance is the ID of the controller instance, e.g. `kubelet-xyzf`. This field cannot be empty for new Events and it can have at most 128 characters.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"action": {
-						SchemaProps: spec.SchemaProps{
-							Description: "action is what action was taken/failed regarding to the regarding object. It is machine-readable. This field cannot be empty for new Events and it can have at most 128 characters.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"reason": {
-						SchemaProps: spec.SchemaProps{
-							Description: "reason is why the action was taken. It is human-readable. This field cannot be empty for new Events and it can have at most 128 characters.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"regarding": {
-						SchemaProps: spec.SchemaProps{
-							Description: "regarding contains the object this Event is about. In most cases it's an Object reporting controller implements, e.g. ReplicaSetController implements ReplicaSets and this event is emitted because it acts on some changes in a ReplicaSet object.",
-							Default:     map[string]interface{}{},
-							Ref:         ref(corev1.ObjectReference{}.OpenAPIModelName()),
-						},
-					},
-					"related": {
-						SchemaProps: spec.SchemaProps{
-							Description: "related is the optional secondary object for more complex actions. E.g. when regarding object triggers a creation or deletion of related object.",
-							Ref:         ref(corev1.ObjectReference{}.OpenAPIModelName()),
-						},
-					},
-					"note": {
-						SchemaProps: spec.SchemaProps{
-							Description: "note is a human-readable description of the status of this operation. Maximal length of the note is 1kB, but libraries should be prepared to handle values up to 64kB.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"type": {
-						SchemaProps: spec.SchemaProps{
-							Description: "type is the type of this event (Normal, Warning), new types could be added in the future. It is machine-readable. This field cannot be empty for new Events.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"deprecatedSource": {
-						SchemaProps: spec.SchemaProps{
-							Description: "deprecatedSource is the deprecated field assuring backward compatibility with core.v1 Event type.",
-							Default:     map[string]interface{}{},
-							Ref:         ref(corev1.EventSource{}.OpenAPIModelName()),
-						},
-					},
-					"deprecatedFirstTimestamp": {
-						SchemaProps: spec.SchemaProps{
-							Description: "deprecatedFirstTimestamp is the deprecated field assuring backward compatibility with core.v1 Event type.",
-							Ref:         ref(metav1.Time{}.OpenAPIModelName()),
-						},
-					},
-					"deprecatedLastTimestamp": {
-						SchemaProps: spec.SchemaProps{
-							Description: "deprecatedLastTimestamp is the deprecated field assuring backward compatibility with core.v1 Event type.",
-							Ref:         ref(metav1.Time{}.OpenAPIModelName()),
-						},
-					},
-					"deprecatedCount": {
-						SchemaProps: spec.SchemaProps{
-							Description: "deprecatedCount is the deprecated field assuring backward compatibility with core.v1 Event type.",
-							Type:        []string{"integer"},
-							Format:      "int32",
-						},
-					},
-				},
-				Required: []string{"eventTime"},
-			},
-		},
-		Dependencies: []string{
-			corev1.EventSource{}.OpenAPIModelName(), corev1.ObjectReference{}.OpenAPIModelName(), eventsv1.EventSeries{}.OpenAPIModelName(), metav1.MicroTime{}.OpenAPIModelName(), metav1.ObjectMeta{}.OpenAPIModelName(), metav1.Time{}.OpenAPIModelName()},
-	}
-}
-
-func schema_k8sio_api_events_v1_EventList(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "EventList is a list of Event objects.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Standard list metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
-							Default:     map[string]interface{}{},
-							Ref:         ref(metav1.ListMeta{}.OpenAPIModelName()),
-						},
-					},
-					"items": {
-						SchemaProps: spec.SchemaProps{
-							Description: "items is a list of schema objects.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(eventsv1.Event{}.OpenAPIModelName()),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"items"},
-			},
-		},
-		Dependencies: []string{
-			eventsv1.Event{}.OpenAPIModelName(), metav1.ListMeta{}.OpenAPIModelName()},
-	}
-}
-
-func schema_k8sio_api_events_v1_EventSeries(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "EventSeries contain information on series of events, i.e. thing that was/is happening continuously for some time. How often to update the EventSeries is up to the event reporters. The default event reporter in \"k8s.io/client-go/tools/events/event_broadcaster.go\" shows how this struct is updated on heartbeats and can guide customized reporter implementations.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"count": {
-						SchemaProps: spec.SchemaProps{
-							Description: "count is the number of occurrences in this series up to the last heartbeat time.",
-							Default:     0,
-							Type:        []string{"integer"},
-							Format:      "int32",
-						},
-					},
-					"lastObservedTime": {
-						SchemaProps: spec.SchemaProps{
-							Description: "lastObservedTime is the time when last Event from the series was seen before last heartbeat.",
-							Ref:         ref(metav1.MicroTime{}.OpenAPIModelName()),
-						},
-					},
-				},
-				Required: []string{"count", "lastObservedTime"},
-			},
-		},
-		Dependencies: []string{
-			metav1.MicroTime{}.OpenAPIModelName()},
 	}
 }
 
