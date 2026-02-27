@@ -12,6 +12,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	eventsv1 "k8s.io/api/events/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 
 	"go.miloapis.com/activity/internal/metrics"
@@ -371,7 +372,10 @@ func GetEventQueryNotFoundError(name string) error {
 // to avoid OpenAPI GVK conflicts while preserving full event data.
 func convertEventsV1ToEventRecord(event *eventsv1.Event) v1alpha1.EventRecord {
 	return v1alpha1.EventRecord{
-		TypeMeta:   event.TypeMeta,
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: v1alpha1.SchemeGroupVersion.String(),
+			Kind:       "EventRecord",
+		},
 		ObjectMeta: event.ObjectMeta,
 		Event:      *event,
 	}
