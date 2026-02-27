@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/nats-io/nats.go"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -37,6 +38,21 @@ type ManagerOptions struct {
 	MetricsAddr string
 	// HealthProbeAddr is the address to bind the health probe endpoint.
 	HealthProbeAddr string
+	// JetStream is the NATS JetStream context for publishing activities (required)
+	JetStream nats.JetStreamContext
+
+	// ReindexJob configuration
+	ReindexJobNamespace      string
+	ReindexServiceAccount    string
+	ReindexMemoryLimit       string
+	ReindexCPULimit          string
+	MaxConcurrentReindexJobs int
+	ActivityImage            string
+	NATSURL                  string
+	NATSTLSEnabled           bool
+	NATSTLSCertFile          string
+	NATSTLSKeyFile           string
+	NATSTLSCAFile            string
 }
 
 // ActivityPolicyGVR is the GroupVersionResource for ActivityPolicy.
@@ -68,14 +84,37 @@ func NewManager(config *rest.Config, options ManagerOptions) (ctrl.Manager, erro
 	}
 
 	// Create and register the ActivityPolicy reconciler
-	reconciler := &ActivityPolicyReconciler{
+	policyReconciler := &ActivityPolicyReconciler{
 		Client:     mgr.GetClient(),
 		Scheme:     mgr.GetScheme(),
 		RESTMapper: mgr.GetRESTMapper(),
 	}
 
-	if err := reconciler.SetupWithManager(mgr, options.Workers); err != nil {
+	if err := policyReconciler.SetupWithManager(mgr, options.Workers); err != nil {
 		return nil, fmt.Errorf("failed to create ActivityPolicy controller: %w", err)
+	}
+
+	// Create and register the ReindexJob reconciler
+	reindexReconciler := &ReindexJobReconciler{
+		Client:                mgr.GetClient(),
+		Scheme:                mgr.GetScheme(),
+		JetStream:             options.JetStream,
+		Recorder:              mgr.GetEventRecorderFor("reindexjob-controller"),
+		JobNamespace:          options.ReindexJobNamespace,
+		ActivityImage:         options.ActivityImage,
+		ReindexServiceAccount: options.ReindexServiceAccount,
+		ReindexMemoryLimit:    options.ReindexMemoryLimit,
+		ReindexCPULimit:       options.ReindexCPULimit,
+		MaxConcurrentJobs:     options.MaxConcurrentReindexJobs,
+		NATSURL:               options.NATSURL,
+		NATSTLSEnabled:        options.NATSTLSEnabled,
+		NATSTLSCertFile:       options.NATSTLSCertFile,
+		NATSTLSKeyFile:        options.NATSTLSKeyFile,
+		NATSTLSCAFile:         options.NATSTLSCAFile,
+	}
+
+	if err := reindexReconciler.SetupWithManager(mgr, options.Workers); err != nil {
+		return nil, fmt.Errorf("failed to create ReindexJob controller: %w", err)
 	}
 
 	return mgr, nil

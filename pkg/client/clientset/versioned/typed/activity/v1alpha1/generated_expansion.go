@@ -19,3 +19,5 @@ type EventFacetQueryExpansion interface{}
 type EventQueryExpansion interface{}
 
 type PolicyPreviewExpansion interface{}
+
+type ReindexJobExpansion interface{}

@@ -41,6 +41,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Activity().V1alpha1().Activities().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("activitypolicies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Activity().V1alpha1().ActivityPolicies().Informer()}, nil
+	case v1alpha1.SchemeGroupVersion.WithResource("reindexjobs"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Activity().V1alpha1().ReindexJobs().Informer()}, nil
 
 	}
 
