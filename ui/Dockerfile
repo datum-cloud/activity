@@ -52,5 +52,5 @@ ENV NODE_ENV=production
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget -q --spider http://localhost:3000/health || exit 1
 
-# Start the Remix server
-CMD ["npx", "remix-serve", "./build/server/index.js"]
+# Start the Remix server (use node_modules binary directly to avoid npx issues)
+CMD ["node", "./node_modules/@remix-run/serve/dist/cli.js", "./build/server/index.js"]
