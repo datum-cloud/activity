@@ -10,10 +10,12 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
-	corev1 "k8s.io/api/core/v1"
+	eventsv1 "k8s.io/api/events/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 
+	"go.miloapis.com/activity/internal/metrics"
 	"go.miloapis.com/activity/internal/timeutil"
 	"go.miloapis.com/activity/pkg/apis/activity/v1alpha1"
 )
@@ -39,7 +41,7 @@ type EventQueryBackend interface {
 
 // EventQueryResult contains events and pagination state from an EventQuery.
 type EventQueryResult struct {
-	Events   []corev1.Event
+	Events   []v1alpha1.EventRecord
 	Continue string
 }
 
@@ -86,10 +88,23 @@ func (b *ClickHouseEventQueryBackend) QueryEvents(ctx context.Context, spec v1al
 
 	rows, err := b.conn.Query(ctx, query, args...)
 	if err != nil {
+		// Classify error type
+		errorType := "unknown"
+		errStr := err.Error()
+		if strings.Contains(errStr, "connection") {
+			errorType = "connection"
+		} else if strings.Contains(errStr, "timeout") {
+			errorType = "timeout"
+		} else if strings.Contains(errStr, "syntax") {
+			errorType = "syntax"
+		}
+		metrics.ClickHouseQueryErrors.WithLabelValues(errorType).Inc()
+
 		klog.ErrorS(err, "EventQuery ClickHouse query failed",
 			"fieldSelector", spec.FieldSelector,
 			"namespace", spec.Namespace,
 			"limit", spec.Limit,
+			"errorType", errorType,
 		)
 		return nil, fmt.Errorf("unable to retrieve events. Try again or contact support if the problem persists")
 	}
@@ -97,24 +112,27 @@ func (b *ClickHouseEventQueryBackend) QueryEvents(ctx context.Context, spec v1al
 
 	limit := resolveEventQueryLimit(spec.Limit)
 
-	var events []corev1.Event
+	var events []v1alpha1.EventRecord
 	for rows.Next() {
 		var eventJSON string
 		if err := rows.Scan(&eventJSON); err != nil {
+			metrics.ClickHouseQueryErrors.WithLabelValues("scan").Inc()
 			klog.ErrorS(err, "Failed to scan EventQuery row")
 			return nil, fmt.Errorf("unable to retrieve events. Try again or contact support if the problem persists")
 		}
 
-		var event corev1.Event
+		var event eventsv1.Event
 		if err := json.Unmarshal([]byte(eventJSON), &event); err != nil {
 			klog.ErrorS(err, "Failed to unmarshal event in EventQuery, skipping")
 			continue
 		}
 
-		events = append(events, event)
+		// Convert eventsv1.Event to v1alpha1.EventRecord
+		events = append(events, convertEventsV1ToEventRecord(&event))
 	}
 
 	if err := rows.Err(); err != nil {
+		metrics.ClickHouseQueryErrors.WithLabelValues("iteration").Inc()
 		klog.ErrorS(err, "Error iterating EventQuery rows")
 		return nil, fmt.Errorf("unable to retrieve events. Try again or contact support if the problem persists")
 	}
@@ -281,7 +299,7 @@ func hashEventQueryParams(spec v1alpha1.EventQuerySpec) string {
 
 // encodeEventQueryCursor creates a base64-encoded pagination token.
 // The offset is computed from the position of the last event returned.
-func encodeEventQueryCursor(lastEvent corev1.Event, spec v1alpha1.EventQuerySpec) string {
+func encodeEventQueryCursor(lastEvent v1alpha1.EventRecord, spec v1alpha1.EventQuerySpec) string {
 	// Determine the current page's starting offset from the Continue token, if any
 	currentOffset := int32(0)
 	if spec.Continue != "" {
@@ -347,4 +365,18 @@ func ValidateEventQueryCursor(cursor string, spec v1alpha1.EventQuerySpec) error
 // Exported for use by the REST handler.
 func GetEventQueryNotFoundError(name string) error {
 	return errors.NewNotFound(v1alpha1.Resource("eventqueries"), name)
+}
+
+// convertEventsV1ToEventRecord wraps an eventsv1.Event in an EventRecord.
+// This provides a wrapper type registered under activity.miloapis.com/v1alpha1
+// to avoid OpenAPI GVK conflicts while preserving full event data.
+func convertEventsV1ToEventRecord(event *eventsv1.Event) v1alpha1.EventRecord {
+	return v1alpha1.EventRecord{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: v1alpha1.SchemeGroupVersion.String(),
+			Kind:       "EventRecord",
+		},
+		ObjectMeta: event.ObjectMeta,
+		Event:      *event,
+	}
 }

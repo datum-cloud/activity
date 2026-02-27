@@ -1382,33 +1382,45 @@ func (p *ToolProvider) handleQueryEvents(ctx context.Context, req *mcp.CallToolR
 	}
 
 	// Format results for readability
+	// EventRecord wraps eventsv1.Event, so access event data via record.Event
 	events := make([]map[string]any, 0, len(result.Status.Results))
-	for _, event := range result.Status.Results {
+	for _, record := range result.Status.Results {
+		event := record.Event
 		eventMap := map[string]any{
 			"name":      event.Name,
 			"namespace": event.Namespace,
 			"type":      event.Type,
 			"reason":    event.Reason,
-			"message":   event.Message,
-			"involvedObject": map[string]any{
-				"kind":      event.InvolvedObject.Kind,
-				"name":      event.InvolvedObject.Name,
-				"namespace": event.InvolvedObject.Namespace,
-			},
-			"source": map[string]any{
-				"component": event.Source.Component,
-				"host":      event.Source.Host,
-			},
-			"count": event.Count,
+			"message":   event.Note,
 		}
 
-		// Use the most recent timestamp available
-		if !event.LastTimestamp.Time.IsZero() {
-			eventMap["timestamp"] = event.LastTimestamp.Format("2006-01-02T15:04:05Z")
-		} else if !event.EventTime.Time.IsZero() {
-			eventMap["timestamp"] = event.EventTime.Format("2006-01-02T15:04:05Z")
+		// eventsv1.Event uses Regarding instead of InvolvedObject
+		if event.Regarding.Name != "" || event.Regarding.Kind != "" {
+			eventMap["involvedObject"] = map[string]any{
+				"kind":      event.Regarding.Kind,
+				"name":      event.Regarding.Name,
+				"namespace": event.Regarding.Namespace,
+			}
+		}
+
+		// eventsv1.Event uses ReportingController/ReportingInstance instead of Source
+		eventMap["source"] = map[string]any{
+			"component": event.ReportingController,
+			"host":      event.ReportingInstance,
+		}
+
+		// eventsv1.Event uses Series.Count (Series is pointer), otherwise default to 1
+		if event.Series != nil {
+			eventMap["count"] = event.Series.Count
 		} else {
-			eventMap["timestamp"] = event.FirstTimestamp.Format("2006-01-02T15:04:05Z")
+			eventMap["count"] = int32(1)
+		}
+
+		// eventsv1 uses EventTime, or Series.LastObservedTime for recurring events
+		if event.Series != nil && !event.Series.LastObservedTime.IsZero() {
+			eventMap["timestamp"] = event.Series.LastObservedTime.Format("2006-01-02T15:04:05Z")
+		} else if !event.EventTime.IsZero() {
+			eventMap["timestamp"] = event.EventTime.Format("2006-01-02T15:04:05Z")
 		}
 
 		events = append(events, eventMap)

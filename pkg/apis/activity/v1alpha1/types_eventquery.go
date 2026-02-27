@@ -2,7 +2,6 @@
 package v1alpha1
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -138,14 +137,14 @@ type EventQuerySpec struct {
 type EventQueryStatus struct {
 	// Results contains matching Kubernetes Events, sorted newest-first.
 	//
-	// Each event follows the standard corev1.Event format with fields like:
-	//   involvedObject.{kind,name,namespace}, reason, message, type,
-	//   firstTimestamp, lastTimestamp, count, source.component
+	// Each event follows the eventsv1.Event format with fields like:
+	//   regarding.{kind,name,namespace}, reason, note, type,
+	//   eventTime, series.count, reportingController
 	//
 	// Empty results? Try broadening your field selector or time range.
 	//
 	// +listType=atomic
-	Results []corev1.Event `json:"results,omitempty"`
+	Results []EventRecord `json:"results,omitempty"`
 
 	// Continue is the pagination cursor.
 	// Non-empty means more results are available - copy this to spec.continue for the next page.
