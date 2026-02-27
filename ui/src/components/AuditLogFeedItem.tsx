@@ -169,7 +169,7 @@ export function AuditLogFeedItem({
 
             {/* Timestamp */}
             <span
-              className="text-[11px] text-muted-foreground whitespace-nowrap shrink-0"
+              className="text-xs text-muted-foreground whitespace-nowrap shrink-0"
               title={formatTimestampFull(timestamp)}
             >
               {formatTimestamp(timestamp)}

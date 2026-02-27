@@ -29,18 +29,16 @@ COPY example/postcss.config.js ./example/
 # Install dependencies and build
 RUN pnpm install --frozen-lockfile && \
     pnpm --filter @miloapis/activity-ui build && \
-    pnpm --filter activity-ui-example build
+    pnpm --filter activity-ui-example build && \
+    pnpm deploy --filter activity-ui-example --prod --legacy /deploy
 
 # Runtime stage - Node.js for Remix server
 FROM node:20-alpine AS runtime
 
 WORKDIR /app
 
-# Copy built server and client assets
-COPY --from=builder /app/example/build ./build
-COPY --from=builder /app/example/package.json ./
-# pnpm hoists dependencies to root node_modules
-COPY --from=builder /app/node_modules ./node_modules
+# Copy deployed app with all dependencies
+COPY --from=builder /deploy ./
 
 # Expose port 3000
 EXPOSE 3000
