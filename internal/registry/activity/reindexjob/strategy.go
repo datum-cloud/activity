@@ -194,15 +194,11 @@ func ValidateReindexJobSpec(spec *activity.ReindexJobSpec, specPath *field.Path)
 		}
 	}
 
-	// Validate retention window (60 days)
-	if !startTime.IsZero() {
-		retentionWindow := 60 * 24 * time.Hour
-		if time.Since(startTime) > retentionWindow {
-			allErrs = append(allErrs, field.Invalid(timeRangePath.Child("startTime"),
-				spec.TimeRange.StartTime,
-				"startTime exceeds ClickHouse retention window (60 days)"))
-		}
-	}
+	// NOTE: Retention window validation is deferred to worker execution time.
+	// Validating at creation time (with "now" as reference) could pass validation
+	// but fail at execution if the job is queued for hours. The worker validates
+	// against the retention window at the actual execution time and provides
+	// a clear error message if data has been pruned.
 
 	// Validate policySelector (names and matchLabels are mutually exclusive)
 	if spec.PolicySelector != nil {

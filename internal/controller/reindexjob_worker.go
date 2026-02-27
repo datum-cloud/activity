@@ -15,6 +15,49 @@ import (
 	"go.miloapis.com/activity/pkg/apis/activity/v1alpha1"
 )
 
+const (
+	// retentionWindow is the ClickHouse retention window for audit logs and events.
+	// Events older than this are pruned and cannot be reindexed.
+	retentionWindow = 60 * 24 * time.Hour
+
+	// statusUpdateRetries is the number of times to retry a status update before giving up.
+	statusUpdateRetries = 3
+
+	// statusUpdateRetryDelay is the delay between status update retry attempts.
+	statusUpdateRetryDelay = 100 * time.Millisecond
+)
+
+// updateJobStatusWithRetry updates the ReindexJob status with retry logic.
+// This prevents transient failures (like resource version conflicts) from leaving
+// the job in an inconsistent state. Returns an error if all retries fail.
+func (r *ReindexJobReconciler) updateJobStatusWithRetry(ctx context.Context, job *v1alpha1.ReindexJob, updateFn func(*v1alpha1.ReindexJob)) error {
+	var lastErr error
+	for i := 0; i < statusUpdateRetries; i++ {
+		// Fetch latest version to avoid conflicts
+		var latestJob v1alpha1.ReindexJob
+		if err := r.Get(ctx, client.ObjectKeyFromObject(job), &latestJob); err != nil {
+			lastErr = fmt.Errorf("failed to fetch latest ReindexJob: %w", err)
+			time.Sleep(statusUpdateRetryDelay)
+			continue
+		}
+
+		// Apply the update function to the latest version
+		updateFn(&latestJob)
+
+		// Try to update status
+		if err := r.Status().Update(ctx, &latestJob); err != nil {
+			lastErr = fmt.Errorf("failed to update ReindexJob status: %w", err)
+			time.Sleep(statusUpdateRetryDelay)
+			continue
+		}
+
+		// Success
+		return nil
+	}
+
+	return fmt.Errorf("status update failed after %d retries: %w", statusUpdateRetries, lastErr)
+}
+
 // runReindexWorker is the background goroutine that processes a ReindexJob.
 // It runs in the background and updates the job status as it progresses.
 func (r *ReindexJobReconciler) runReindexWorker(ctx context.Context, job *v1alpha1.ReindexJob) {
@@ -136,6 +179,49 @@ func (r *ReindexJobReconciler) runReindexWorker(ctx context.Context, job *v1alph
 		return
 	}
 
+	// Validate retention window at execution time.
+	// This is the actual check that matters - we validate against the retention
+	// window when the job actually runs, not when it was created.
+	// This prevents jobs that were created with valid times but queued for hours
+	// from executing against pruned data.
+	timeSinceStart := time.Since(startTime)
+	if timeSinceStart > retentionWindow {
+		updateErr := r.updateJobStatusWithRetry(ctx, job, func(j *v1alpha1.ReindexJob) {
+			j.Status.Phase = v1alpha1.ReindexJobFailed
+			j.Status.Message = fmt.Sprintf(
+				"startTime exceeds ClickHouse retention window: data from %s is beyond the %d-day retention period (age: %dd). "+
+					"ClickHouse has pruned this data. Use a more recent startTime.",
+				startTime.Format(time.RFC3339),
+				int(retentionWindow.Hours()/24),
+				int(timeSinceStart.Hours()/24),
+			)
+			nowTime := metav1.Now()
+			j.Status.CompletedAt = &nowTime
+
+			meta.SetStatusCondition(&j.Status.Conditions, metav1.Condition{
+				Type:               "Ready",
+				Status:             metav1.ConditionFalse,
+				Reason:             "RetentionWindowExceeded",
+				Message:            j.Status.Message,
+				ObservedGeneration: j.Generation,
+			})
+		})
+
+		if updateErr != nil {
+			logger.Error(updateErr, "failed to update ReindexJob status after retention validation failure")
+		}
+
+		logger.Error(nil, "ReindexJob failed: retention window exceeded",
+			"startTime", startTime,
+			"age", timeSinceStart,
+			"retentionWindow", retentionWindow,
+		)
+		r.Recorder.Eventf(job, "Warning", "RetentionWindowExceeded",
+			"startTime is beyond %d-day retention window", int(retentionWindow.Hours()/24))
+		reindexJobsCompletedTotal.WithLabelValues("failed").Inc()
+		return
+	}
+
 	batchSize := int32(1000)
 	if job.Spec.Config != nil && job.Spec.Config.BatchSize > 0 {
 		batchSize = job.Spec.Config.BatchSize
@@ -185,66 +271,75 @@ func (r *ReindexJobReconciler) runReindexWorker(ctx context.Context, job *v1alph
 	// Run the reindexer
 	runErr := reindexer.Run(ctx, opts)
 
-	// Fetch latest version of job for final status update
-	var finalJob v1alpha1.ReindexJob
-	if err := r.Get(ctx, client.ObjectKeyFromObject(job), &finalJob); err != nil {
-		logger.Error(err, "failed to fetch ReindexJob for final status update")
-		return
+	// Update final status with retry logic to prevent inconsistent state.
+	// If status update fails, we retry to ensure the job doesn't stay in "Running"
+	// with the slot released.
+	completedAt := metav1.Now()
+
+	statusUpdateErr := r.updateJobStatusWithRetry(ctx, job, func(finalJob *v1alpha1.ReindexJob) {
+		finalJob.Status.CompletedAt = &completedAt
+
+		if runErr != nil {
+			// Job failed
+			finalJob.Status.Phase = v1alpha1.ReindexJobFailed
+			finalJob.Status.Message = fmt.Sprintf("Re-indexing failed: %v", runErr)
+
+			meta.SetStatusCondition(&finalJob.Status.Conditions, metav1.Condition{
+				Type:               "Ready",
+				Status:             metav1.ConditionFalse,
+				Reason:             "Failed",
+				Message:            runErr.Error(),
+				ObservedGeneration: finalJob.Generation,
+			})
+		} else {
+			// Job succeeded
+			finalJob.Status.Phase = v1alpha1.ReindexJobSucceeded
+
+			activitiesGenerated := int64(0)
+			if finalJob.Status.Progress != nil {
+				activitiesGenerated = finalJob.Status.Progress.ActivitiesGenerated
+			}
+
+			if dryRun {
+				finalJob.Status.Message = fmt.Sprintf("Dry-run complete: %d activities would be generated", activitiesGenerated)
+			} else {
+				finalJob.Status.Message = fmt.Sprintf("Completed: %d activities generated", activitiesGenerated)
+			}
+
+			meta.SetStatusCondition(&finalJob.Status.Conditions, metav1.Condition{
+				Type:               "Ready",
+				Status:             metav1.ConditionTrue,
+				Reason:             "Succeeded",
+				Message:            "Re-indexing completed successfully",
+				ObservedGeneration: finalJob.Generation,
+			})
+		}
+	})
+
+	if statusUpdateErr != nil {
+		logger.Error(statusUpdateErr, "failed to update final ReindexJob status after retries",
+			"runErr", runErr)
 	}
 
-	completedAt := metav1.Now()
-	finalJob.Status.CompletedAt = &completedAt
-
+	// Record events and metrics
 	if runErr != nil {
-		// Job failed
-		finalJob.Status.Phase = v1alpha1.ReindexJobFailed
-		finalJob.Status.Message = fmt.Sprintf("Re-indexing failed: %v", runErr)
-
-		meta.SetStatusCondition(&finalJob.Status.Conditions, metav1.Condition{
-			Type:               "Ready",
-			Status:             metav1.ConditionFalse,
-			Reason:             "Failed",
-			Message:            runErr.Error(),
-			ObservedGeneration: finalJob.Generation,
-		})
-
 		logger.Error(runErr, "ReindexJob failed")
-		r.Recorder.Event(&finalJob, "Warning", "Failed", finalJob.Status.Message)
+		r.Recorder.Eventf(job, "Warning", "Failed", "Re-indexing failed: %v", runErr)
 		reindexJobsCompletedTotal.WithLabelValues("failed").Inc()
 	} else {
-		// Job succeeded
-		finalJob.Status.Phase = v1alpha1.ReindexJobSucceeded
+		var latestJob v1alpha1.ReindexJob
+		if err := r.Get(ctx, client.ObjectKeyFromObject(job), &latestJob); err == nil {
+			activitiesGenerated := int64(0)
+			if latestJob.Status.Progress != nil {
+				activitiesGenerated = latestJob.Status.Progress.ActivitiesGenerated
+			}
 
-		activitiesGenerated := int64(0)
-		if finalJob.Status.Progress != nil {
-			activitiesGenerated = finalJob.Status.Progress.ActivitiesGenerated
+			logger.Info("ReindexJob completed successfully",
+				"activitiesGenerated", activitiesGenerated,
+				"duration", time.Since(jobStartedAt),
+			)
 		}
-
-		if dryRun {
-			finalJob.Status.Message = fmt.Sprintf("Dry-run complete: %d activities would be generated", activitiesGenerated)
-		} else {
-			finalJob.Status.Message = fmt.Sprintf("Completed: %d activities generated", activitiesGenerated)
-		}
-
-		meta.SetStatusCondition(&finalJob.Status.Conditions, metav1.Condition{
-			Type:               "Ready",
-			Status:             metav1.ConditionTrue,
-			Reason:             "Succeeded",
-			Message:            "Re-indexing completed successfully",
-			ObservedGeneration: finalJob.Generation,
-		})
-
-		logger.Info("ReindexJob completed successfully",
-			"activitiesGenerated", activitiesGenerated,
-			"duration", time.Since(jobStartedAt),
-		)
-		r.Recorder.Event(&finalJob, "Normal", "Completed", finalJob.Status.Message)
+		r.Recorder.Event(job, "Normal", "Completed", "Re-indexing completed successfully")
 		reindexJobsCompletedTotal.WithLabelValues("succeeded").Inc()
-	}
-
-	// Update final status
-	if err := r.Status().Update(ctx, &finalJob); err != nil {
-		logger.Error(err, "failed to update final ReindexJob status",
-			"phase", finalJob.Status.Phase)
 	}
 }
