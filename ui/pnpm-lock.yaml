@@ -29,30 +29,18 @@ importers:
       '@radix-ui/react-tooltip':
         specifier: ^1.2.8
         version: 1.2.8(@types/react-dom@18.3.7(@types/react@18.3.28))(@types/react@18.3.28)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      '@remix-run/node':
-        specifier: ^2.17.4
-        version: 2.17.4(typescript@5.9.3)
-      '@remix-run/react':
-        specifier: ^2.17.4
-        version: 2.17.4(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
-      '@remix-run/serve':
-        specifier: ^2.17.4
-        version: 2.17.4(typescript@5.9.3)
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
-      cmdk:
-        specifier: ^1.1.1
-        version: 1.1.1(@types/react-dom@18.3.7(@types/react@18.3.28))(@types/react@18.3.28)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       date-fns:
         specifier: ^3.0.6
         version: 3.6.0
-      isbot:
-        specifier: ^5.1.35
-        version: 5.1.35
+      js-yaml:
+        specifier: ^4.1.1
+        version: 4.1.1
       lucide-react:
         specifier: ^0.563.0
         version: 0.563.0(react@19.2.4)
@@ -1851,12 +1839,6 @@ packages:
   clsx@2.1.1:
     resolution: {integrity: sha512-eYm0QWBtUrBWZWG0d386OGAw16Z995PiOVo2B7bjWSbHedGl5e0ZWaq65kOGgUSNesEIDkB9ISbTg/JK9dhCZA==}
     engines: {node: '>=6'}
-
-  cmdk@1.1.1:
-    resolution: {integrity: sha512-Vsv7kFaXm+ptHDMZ7izaRsP70GgrW9NBNGswt9OZaVBLlE0SNpDq8eu/VGXyF9r7M0azK3Wy7OlYXsuyYLFzHg==}
-    peerDependencies:
-      react: ^18 || ^19 || ^19.0.0-rc
-      react-dom: ^18 || ^19 || ^19.0.0-rc
 
   color-convert@2.0.1:
     resolution: {integrity: sha512-RRECPsj7iu/xb5oKYcsFHSppFNnsj/52OVTRKb4zP5onXwVF3zVmmToNcOfGC+CRDpfK/U584fMg38ZHCaElKQ==}
@@ -5521,18 +5503,6 @@ snapshots:
     optionalDependencies:
       typescript: 5.9.3
 
-  '@remix-run/react@2.17.4(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)':
-    dependencies:
-      '@remix-run/router': 1.23.2
-      '@remix-run/server-runtime': 2.17.4(typescript@5.9.3)
-      react: 19.2.4
-      react-dom: 19.2.4(react@19.2.4)
-      react-router: 6.30.3(react@19.2.4)
-      react-router-dom: 6.30.3(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      turbo-stream: 2.4.1
-    optionalDependencies:
-      typescript: 5.9.3
-
   '@remix-run/router@1.23.2': {}
 
   '@remix-run/serve@2.17.4(typescript@5.9.3)':
@@ -6269,18 +6239,6 @@ snapshots:
   clone@1.0.4: {}
 
   clsx@2.1.1: {}
-
-  cmdk@1.1.1(@types/react-dom@18.3.7(@types/react@18.3.28))(@types/react@18.3.28)(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
-    dependencies:
-      '@radix-ui/react-compose-refs': 1.1.2(@types/react@18.3.28)(react@19.2.4)
-      '@radix-ui/react-dialog': 1.1.15(@types/react-dom@18.3.7(@types/react@18.3.28))(@types/react@18.3.28)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      '@radix-ui/react-id': 1.1.1(@types/react@18.3.28)(react@19.2.4)
-      '@radix-ui/react-primitive': 2.1.4(@types/react-dom@18.3.7(@types/react@18.3.28))(@types/react@18.3.28)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      react: 19.2.4
-      react-dom: 19.2.4(react@19.2.4)
-    transitivePeerDependencies:
-      - '@types/react'
-      - '@types/react-dom'
 
   color-convert@2.0.1:
     dependencies:
@@ -8588,22 +8546,10 @@ snapshots:
       react-dom: 18.3.1(react@18.3.1)
       react-router: 6.30.3(react@18.3.1)
 
-  react-router-dom@6.30.3(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
-    dependencies:
-      '@remix-run/router': 1.23.2
-      react: 19.2.4
-      react-dom: 19.2.4(react@19.2.4)
-      react-router: 6.30.3(react@19.2.4)
-
   react-router@6.30.3(react@18.3.1):
     dependencies:
       '@remix-run/router': 1.23.2
       react: 18.3.1
-
-  react-router@6.30.3(react@19.2.4):
-    dependencies:
-      '@remix-run/router': 1.23.2
-      react: 19.2.4
 
   react-style-singleton@2.2.3(@types/react@18.3.28)(react@19.2.4):
     dependencies:
