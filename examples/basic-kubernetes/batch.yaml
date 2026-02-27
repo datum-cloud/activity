@@ -1,5 +1,8 @@
 # ActivityPolicies for batch Kubernetes API group
 # Resources: Job, CronJob
+#
+# These policies only generate activities for write operations (create, update, patch, delete).
+# Read operations (get, list, watch) are excluded as they don't represent meaningful state changes.
 
 ---
 apiVersion: activity.miloapis.com/v1alpha1
@@ -12,15 +15,11 @@ spec:
     kind: Job
   auditRules:
     - match: "audit.verb == 'create'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} started job {{ link(audit.objectRef.name, audit.objectRef) }}"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} started job {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"
     - match: "audit.verb == 'delete'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed job {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb in ['update', 'patch'] && audit.objectRef.subresource == 'status'"
-      summary: "Job {{ link(audit.objectRef.name, audit.objectRef) }} status changed"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} deleted job {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"
     - match: "audit.verb in ['update', 'patch']"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated job {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "true"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified job {{ link(audit.objectRef.name, audit.objectRef) }}"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated job {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"
 
 ---
 apiVersion: activity.miloapis.com/v1alpha1
@@ -33,10 +32,8 @@ spec:
     kind: CronJob
   auditRules:
     - match: "audit.verb == 'create'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} created scheduled job {{ link(audit.objectRef.name, audit.objectRef) }}"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} created scheduled job {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"
     - match: "audit.verb == 'delete'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed scheduled job {{ link(audit.objectRef.name, audit.objectRef) }}"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} deleted scheduled job {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"
     - match: "audit.verb in ['update', 'patch']"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated scheduled job {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "true"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified scheduled job {{ link(audit.objectRef.name, audit.objectRef) }}"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated scheduled job {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"

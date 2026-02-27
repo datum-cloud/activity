@@ -1,5 +1,8 @@
 # ActivityPolicies for networking.k8s.io Kubernetes API group
 # Resources: Ingress
+#
+# These policies only generate activities for write operations (create, update, patch, delete).
+# Read operations (get, list, watch) are excluded as they don't represent meaningful state changes.
 
 ---
 apiVersion: activity.miloapis.com/v1alpha1
@@ -12,10 +15,8 @@ spec:
     kind: Ingress
   auditRules:
     - match: "audit.verb == 'create'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} created ingress {{ link(audit.objectRef.name, audit.objectRef) }}"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} exposed route {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"
     - match: "audit.verb == 'delete'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed ingress {{ link(audit.objectRef.name, audit.objectRef) }}"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed route {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"
     - match: "audit.verb in ['update', 'patch']"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated ingress {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "true"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified ingress {{ link(audit.objectRef.name, audit.objectRef) }}"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated route {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"
