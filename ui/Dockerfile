@@ -52,4 +52,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget -q --spider http://localhost:3000/health || exit 1
 
 # Start the Remix server
-CMD ["node", "node_modules/.bin/remix-serve", "./build/server/index.js"]
+CMD ["npx", "remix-serve", "./build/server/index.js"]
