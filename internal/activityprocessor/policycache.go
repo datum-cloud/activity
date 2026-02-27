@@ -1,6 +1,7 @@
 package activityprocessor
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -11,6 +12,8 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	"k8s.io/klog/v2"
 
+	internalcel "go.miloapis.com/activity/internal/cel"
+	"go.miloapis.com/activity/internal/processor"
 	"go.miloapis.com/activity/pkg/apis/activity/v1alpha1"
 )
 
@@ -70,12 +73,17 @@ type PolicyCache struct {
 	// policies stores compiled policies indexed by apiGroup/resource (plural)
 	// Multiple policies can target the same resource.
 	policies map[string][]*CompiledPolicy
+
+	// policiesByKind stores compiled policies indexed by apiGroup/kind
+	// for event lookups since events use Kind not Resource.
+	policiesByKind map[string][]*CompiledPolicy
 }
 
 // NewPolicyCache creates a new policy cache.
 func NewPolicyCache() *PolicyCache {
 	return &PolicyCache{
-		policies: make(map[string][]*CompiledPolicy),
+		policies:       make(map[string][]*CompiledPolicy),
+		policiesByKind: make(map[string][]*CompiledPolicy),
 	}
 }
 
@@ -89,12 +97,18 @@ func (c *PolicyCache) Add(policy *v1alpha1.ActivityPolicy, resource string) erro
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	// Index by apiGroup/resource for audit lookups
 	key := policyKey(policy.Spec.Resource.APIGroup, resource)
 	c.policies[key] = append(c.policies[key], compiled)
+
+	// Index by apiGroup/kind for event lookups
+	kindKey := policyKey(policy.Spec.Resource.APIGroup, policy.Spec.Resource.Kind)
+	c.policiesByKind[kindKey] = append(c.policiesByKind[kindKey], compiled)
 
 	klog.V(2).InfoS("Added compiled policy to cache",
 		"policy", policy.Name,
 		"key", key,
+		"kindKey", kindKey,
 		"auditRules", len(compiled.AuditRules),
 		"eventRules", len(compiled.EventRules),
 	)
@@ -107,9 +121,11 @@ func (c *PolicyCache) Update(oldPolicy, newPolicy *v1alpha1.ActivityPolicy, oldR
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// Remove old policy
+	// Remove old policy from both indexes
 	oldKey := policyKey(oldPolicy.Spec.Resource.APIGroup, oldResource)
 	c.removeLocked(oldKey, oldPolicy.Name)
+	oldKindKey := policyKey(oldPolicy.Spec.Resource.APIGroup, oldPolicy.Spec.Resource.Kind)
+	c.removeKindLocked(oldKindKey, oldPolicy.Name)
 
 	// Compile and add new policy
 	compiled, err := c.compile(newPolicy, newResource)
@@ -120,10 +136,15 @@ func (c *PolicyCache) Update(oldPolicy, newPolicy *v1alpha1.ActivityPolicy, oldR
 	newKey := policyKey(newPolicy.Spec.Resource.APIGroup, newResource)
 	c.policies[newKey] = append(c.policies[newKey], compiled)
 
+	newKindKey := policyKey(newPolicy.Spec.Resource.APIGroup, newPolicy.Spec.Resource.Kind)
+	c.policiesByKind[newKindKey] = append(c.policiesByKind[newKindKey], compiled)
+
 	klog.V(2).InfoS("Updated compiled policy in cache",
 		"policy", newPolicy.Name,
 		"oldKey", oldKey,
 		"newKey", newKey,
+		"oldKindKey", oldKindKey,
+		"newKindKey", newKindKey,
 	)
 
 	return nil
@@ -137,7 +158,10 @@ func (c *PolicyCache) Remove(policy *v1alpha1.ActivityPolicy, resource string) {
 	key := policyKey(policy.Spec.Resource.APIGroup, resource)
 	c.removeLocked(key, policy.Name)
 
-	klog.V(2).InfoS("Removed policy from cache", "policy", policy.Name, "key", key)
+	kindKey := policyKey(policy.Spec.Resource.APIGroup, policy.Spec.Resource.Kind)
+	c.removeKindLocked(kindKey, policy.Name)
+
+	klog.V(2).InfoS("Removed policy from cache", "policy", policy.Name, "key", key, "kindKey", kindKey)
 }
 
 // removeLocked removes a policy by name from a key. Caller must hold the lock.
@@ -156,6 +180,22 @@ func (c *PolicyCache) removeLocked(key, policyName string) {
 	}
 }
 
+// removeKindLocked removes a policy by name from the kind index. Caller must hold the lock.
+func (c *PolicyCache) removeKindLocked(kindKey, policyName string) {
+	policies := c.policiesByKind[kindKey]
+	for i, p := range policies {
+		if p.Name == policyName {
+			// O(1) removal: swap with last element and truncate.
+			policies[i] = policies[len(policies)-1]
+			c.policiesByKind[kindKey] = policies[:len(policies)-1]
+			break
+		}
+	}
+	if len(c.policiesByKind[kindKey]) == 0 {
+		delete(c.policiesByKind, kindKey)
+	}
+}
+
 // Get returns compiled policies for a given apiGroup and resource.
 func (c *PolicyCache) Get(apiGroup, resource string) []*CompiledPolicy {
 	c.mu.RLock()
@@ -163,6 +203,16 @@ func (c *PolicyCache) Get(apiGroup, resource string) []*CompiledPolicy {
 
 	key := policyKey(apiGroup, resource)
 	return c.policies[key]
+}
+
+// GetByKind returns compiled policies for a given apiGroup and kind.
+// Used by event processing since events reference Kind not Resource.
+func (c *PolicyCache) GetByKind(apiGroup, kind string) []*CompiledPolicy {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	key := policyKey(apiGroup, kind)
+	return c.policiesByKind[key]
 }
 
 // Len returns the total number of policies in the cache.
@@ -514,4 +564,58 @@ func BuildEventVars(eventMap map[string]any) map[string]any {
 		"actor":    extractEventActor(eventMap),
 		"actorRef": buildEventActorRef(eventMap),
 	}
+}
+
+// MatchEvent implements processor.EventPolicyLookup.
+// It looks up matching event rules for the given apiGroup/kind and evaluates them
+// against the provided event map. Returns the first matching result, or nil if no policy matched.
+func (c *PolicyCache) MatchEvent(apiGroup, kind string, eventMap map[string]any) (*processor.MatchedPolicy, error) {
+	policies := c.GetByKind(apiGroup, kind)
+	if len(policies) == 0 {
+		return nil, nil
+	}
+
+	// First matching policy wins
+	for _, policy := range policies {
+		for i := range policy.EventRules {
+			rule := &policy.EventRules[i]
+			if !rule.Valid {
+				continue
+			}
+
+			// Evaluate match expression
+			matched, err := rule.EvaluateEventMatch(eventMap)
+			if err != nil {
+				eventJSON, _ := json.Marshal(eventMap)
+				klog.V(2).InfoS("Failed to evaluate event match",
+					"policy", policy.Name,
+					"ruleIndex", i,
+					"error", err,
+					"eventJSON", truncateString(string(eventJSON), 4096),
+				)
+				continue
+			}
+
+			if matched {
+				// Evaluate summary using internalcel.EvaluateEventSummary for proper link collection
+				summary, links, err := internalcel.EvaluateEventSummary(rule.Summary, eventMap)
+				if err != nil {
+					return nil, processor.NewPolicyEvaluationError(
+						policy.Name, i,
+						fmt.Errorf("failed to evaluate summary: %w", err),
+					)
+				}
+
+				return &processor.MatchedPolicy{
+					PolicyName: policy.Name,
+					APIGroup:   policy.APIGroup,
+					Kind:       policy.Kind,
+					Summary:    summary,
+					Links:      links,
+				}, nil
+			}
+		}
+	}
+
+	return nil, nil
 }

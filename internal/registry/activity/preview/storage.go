@@ -14,6 +14,7 @@ import (
 	"go.miloapis.com/activity/internal/apierrors"
 	"go.miloapis.com/activity/internal/processor"
 	"go.miloapis.com/activity/internal/registry/activity/policy"
+	"go.miloapis.com/activity/pkg/apis/activity"
 	"go.miloapis.com/activity/pkg/apis/activity/v1alpha1"
 )
 
@@ -76,14 +77,45 @@ func validatePolicyPreview(preview *v1alpha1.PolicyPreview) field.ErrorList {
 	allErrs := field.ErrorList{}
 	specPath := field.NewPath("spec")
 
+	// Convert v1alpha1 ActivityPolicySpec to internal type for validation
+	internalSpec := convertPolicySpecToInternal(&preview.Spec.Policy)
+
 	// Validate the policy spec
 	policyPath := specPath.Child("policy")
-	allErrs = append(allErrs, policy.ValidateActivityPolicySpec(&preview.Spec.Policy, policyPath)...)
+	allErrs = append(allErrs, policy.ValidateActivityPolicySpec(internalSpec, policyPath)...)
 
 	// Validate inputs
 	allErrs = append(allErrs, validatePreviewInputs(preview.Spec.Inputs, specPath.Child("inputs"))...)
 
 	return allErrs
+}
+
+// convertPolicySpecToInternal converts a v1alpha1 ActivityPolicySpec to the internal type.
+func convertPolicySpecToInternal(in *v1alpha1.ActivityPolicySpec) *activity.ActivityPolicySpec {
+	out := &activity.ActivityPolicySpec{
+		Resource: activity.ActivityPolicyResource{
+			APIGroup: in.Resource.APIGroup,
+			Kind:     in.Resource.Kind,
+		},
+	}
+
+	out.AuditRules = make([]activity.ActivityPolicyRule, len(in.AuditRules))
+	for i, rule := range in.AuditRules {
+		out.AuditRules[i] = activity.ActivityPolicyRule{
+			Match:   rule.Match,
+			Summary: rule.Summary,
+		}
+	}
+
+	out.EventRules = make([]activity.ActivityPolicyRule, len(in.EventRules))
+	for i, rule := range in.EventRules {
+		out.EventRules[i] = activity.ActivityPolicyRule{
+			Match:   rule.Match,
+			Summary: rule.Summary,
+		}
+	}
+
+	return out
 }
 
 // validatePreviewInputs validates the PolicyPreview inputs.
@@ -174,7 +206,8 @@ func evaluateAuditInput(spec *v1alpha1.ActivityPolicySpec, input *v1alpha1.Polic
 		return nil, fmt.Errorf("audit input is nil")
 	}
 
-	return processor.EvaluateAuditRules(spec, input.Audit)
+	// Pass nil for KindResolver since preview doesn't need full kind resolution
+	return processor.EvaluateAuditRules(spec, input.Audit, nil)
 }
 
 // evaluateEventInput evaluates event rules against a Kubernetes event input using the shared processor.
@@ -188,5 +221,6 @@ func evaluateEventInput(spec *v1alpha1.ActivityPolicySpec, input *v1alpha1.Polic
 		return nil, fmt.Errorf("failed to unmarshal event: %w", err)
 	}
 
-	return processor.EvaluateEventRules(spec, eventMap)
+	// Pass nil for KindResolver since preview doesn't need full kind resolution
+	return processor.EvaluateEventRules(spec, eventMap, nil)
 }

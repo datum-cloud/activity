@@ -24,9 +24,11 @@ type EvaluationResult struct {
 
 // EvaluateAuditRules evaluates audit rules against an audit log input.
 // Returns the generated Activity if a rule matches, or nil if no rule matched.
+// If resolveKind is provided, it will be used to resolve resource names to Kind in links.
 func EvaluateAuditRules(
 	spec *v1alpha1.ActivityPolicySpec,
 	audit *auditv1.Event,
+	resolveKind KindResolver,
 ) (*EvaluationResult, error) {
 	// Convert to map for CEL evaluation
 	auditMap, err := toMap(audit)
@@ -55,7 +57,10 @@ func EvaluateAuditRules(
 			}
 
 			// Build the Activity
-			activity := builder.BuildFromAudit(audit, summary, links)
+			activity, err := builder.BuildFromAudit(audit, summary, links, resolveKind)
+			if err != nil {
+				return nil, fmt.Errorf("failed to build activity for rule %d: %w", i, err)
+			}
 
 			return &EvaluationResult{
 				Activity:         activity,
@@ -73,9 +78,11 @@ func EvaluateAuditRules(
 
 // EvaluateEventRules evaluates event rules against a Kubernetes event input.
 // Returns the generated Activity if a rule matches, or nil if no rule matched.
+// If resolveKind is provided, it will be used to resolve resource names to Kind in links.
 func EvaluateEventRules(
 	spec *v1alpha1.ActivityPolicySpec,
 	eventData interface{},
+	resolveKind KindResolver,
 ) (*EvaluationResult, error) {
 	// Convert event data to map if needed
 	eventMap, err := toMap(eventData)
@@ -104,7 +111,10 @@ func EvaluateEventRules(
 			}
 
 			// Build the Activity
-			activity := builder.BuildFromEvent(eventMap, summary, links)
+			activity, err := builder.BuildFromEvent(eventMap, summary, links, resolveKind)
+			if err != nil {
+				return nil, fmt.Errorf("failed to build activity for rule %d: %w", i, err)
+			}
 
 			return &EvaluationResult{
 				Activity:         activity,

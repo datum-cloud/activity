@@ -93,8 +93,12 @@ func TestPolicyPreviewStorage_Create_SingleAuditMatch(t *testing.T) {
 		t.Errorf("Expected Summary=%q, got %q", expectedSummary, activity.Spec.Summary)
 	}
 
-	if activity.Spec.Actor.Name != "user-alice-123" {
-		t.Errorf("Expected Actor.Name='user-alice-123', got %q", activity.Spec.Actor.Name)
+	if activity.Spec.Actor.Name != "alice@example.com" {
+		t.Errorf("Expected Actor.Name='alice@example.com', got %q", activity.Spec.Actor.Name)
+	}
+
+	if activity.Spec.Actor.UID != "user-alice-123" {
+		t.Errorf("Expected Actor.UID='user-alice-123', got %q", activity.Spec.Actor.UID)
 	}
 
 	if activity.Spec.ChangeSource != "human" {

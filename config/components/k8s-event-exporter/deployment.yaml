@@ -32,6 +32,10 @@ spec:
           args:
             - event-exporter
             - -v=2
+          ports:
+            - containerPort: 8081
+              name: health
+              protocol: TCP
           env:
             - name: NATS_URL
               value: "nats://nats.nats-system.svc.cluster.local:4222"
@@ -57,3 +61,21 @@ spec:
             limits:
               cpu: 100m
               memory: 128Mi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: health
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3

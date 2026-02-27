@@ -14,7 +14,7 @@ import (
 	"sigs.k8s.io/structured-merge-diff/v6/fieldpath"
 
 	"go.miloapis.com/activity/internal/cel"
-	"go.miloapis.com/activity/pkg/apis/activity/v1alpha1"
+	"go.miloapis.com/activity/pkg/apis/activity"
 )
 
 // activityPolicyStrategy implements behavior for ActivityPolicy resources.
@@ -52,28 +52,28 @@ func (s activityPolicyStrategy) NamespaceScoped() bool {
 
 // PrepareForCreate clears status and sets defaults before creation.
 func (s activityPolicyStrategy) PrepareForCreate(ctx context.Context, obj runtime.Object) {
-	policy := obj.(*v1alpha1.ActivityPolicy)
+	policy := obj.(*activity.ActivityPolicy)
 	// Clear status on creation - it will be set by the controller
-	policy.Status = v1alpha1.ActivityPolicyStatus{}
+	policy.Status = activity.ActivityPolicyStatus{}
 }
 
 // PrepareForUpdate preserves status when spec is updated.
 func (s activityPolicyStrategy) PrepareForUpdate(ctx context.Context, obj, old runtime.Object) {
-	newPolicy := obj.(*v1alpha1.ActivityPolicy)
-	oldPolicy := old.(*v1alpha1.ActivityPolicy)
+	newPolicy := obj.(*activity.ActivityPolicy)
+	oldPolicy := old.(*activity.ActivityPolicy)
 	// Preserve status - only the status subresource can update it
 	newPolicy.Status = oldPolicy.Status
 }
 
 // Validate validates a new ActivityPolicy.
 func (s activityPolicyStrategy) Validate(ctx context.Context, obj runtime.Object) field.ErrorList {
-	policy := obj.(*v1alpha1.ActivityPolicy)
+	policy := obj.(*activity.ActivityPolicy)
 	return ValidateActivityPolicy(policy)
 }
 
 // WarningsOnCreate returns warnings for the creation of the given object.
 func (s activityPolicyStrategy) WarningsOnCreate(ctx context.Context, obj runtime.Object) []string {
-	policy := obj.(*v1alpha1.ActivityPolicy)
+	policy := obj.(*activity.ActivityPolicy)
 	return warningsForPolicy(policy)
 }
 
@@ -94,8 +94,8 @@ func (s activityPolicyStrategy) Canonicalize(obj runtime.Object) {
 
 // ValidateUpdate validates an update to an ActivityPolicy.
 func (s activityPolicyStrategy) ValidateUpdate(ctx context.Context, obj, old runtime.Object) field.ErrorList {
-	policy := obj.(*v1alpha1.ActivityPolicy)
-	oldPolicy := old.(*v1alpha1.ActivityPolicy)
+	policy := obj.(*activity.ActivityPolicy)
+	oldPolicy := old.(*activity.ActivityPolicy)
 
 	allErrs := ValidateActivityPolicy(policy)
 
@@ -114,18 +114,18 @@ func (s activityPolicyStrategy) ValidateUpdate(ctx context.Context, obj, old run
 
 // WarningsOnUpdate returns warnings for the update of the given object.
 func (s activityPolicyStrategy) WarningsOnUpdate(ctx context.Context, obj, old runtime.Object) []string {
-	policy := obj.(*v1alpha1.ActivityPolicy)
+	policy := obj.(*activity.ActivityPolicy)
 	return warningsForPolicy(policy)
 }
 
 // ValidateActivityPolicy validates an ActivityPolicy and returns field errors.
-func ValidateActivityPolicy(policy *v1alpha1.ActivityPolicy) field.ErrorList {
+func ValidateActivityPolicy(policy *activity.ActivityPolicy) field.ErrorList {
 	return ValidateActivityPolicySpec(&policy.Spec, field.NewPath("spec"))
 }
 
 // ValidateActivityPolicySpec validates an ActivityPolicySpec and returns field errors.
 // The specPath parameter allows customizing the field path for error messages.
-func ValidateActivityPolicySpec(spec *v1alpha1.ActivityPolicySpec, specPath *field.Path) field.ErrorList {
+func ValidateActivityPolicySpec(spec *activity.ActivityPolicySpec, specPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	// Validate required resource fields
@@ -155,7 +155,7 @@ func ValidateActivityPolicySpec(spec *v1alpha1.ActivityPolicySpec, specPath *fie
 }
 
 // warningsForPolicy returns warnings for an ActivityPolicy.
-func warningsForPolicy(policy *v1alpha1.ActivityPolicy) []string {
+func warningsForPolicy(policy *activity.ActivityPolicy) []string {
 	var warnings []string
 	if len(policy.Spec.AuditRules) == 0 && len(policy.Spec.EventRules) == 0 {
 		warnings = append(warnings, "policy has no rules defined and will have no effect")
@@ -164,7 +164,7 @@ func warningsForPolicy(policy *v1alpha1.ActivityPolicy) []string {
 }
 
 // validatePolicyRule validates a single ActivityPolicyRule.
-func validatePolicyRule(rule v1alpha1.ActivityPolicyRule, path *field.Path, ruleType cel.PolicyRuleType) field.ErrorList {
+func validatePolicyRule(rule activity.ActivityPolicyRule, path *field.Path, ruleType cel.PolicyRuleType) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	// Validate match expression
@@ -192,7 +192,7 @@ func validatePolicyRule(rule v1alpha1.ActivityPolicyRule, path *field.Path, rule
 
 // GetAttrs returns labels and fields of a given ActivityPolicy for filtering.
 func GetAttrs(obj runtime.Object) (labels.Set, fields.Set, error) {
-	policy, ok := obj.(*v1alpha1.ActivityPolicy)
+	policy, ok := obj.(*activity.ActivityPolicy)
 	if !ok {
 		return nil, nil, fmt.Errorf("given object is not an ActivityPolicy")
 	}
@@ -200,7 +200,7 @@ func GetAttrs(obj runtime.Object) (labels.Set, fields.Set, error) {
 }
 
 // SelectableFields returns the fields that can be used in field selectors.
-func SelectableFields(policy *v1alpha1.ActivityPolicy) fields.Set {
+func SelectableFields(policy *activity.ActivityPolicy) fields.Set {
 	return generic.ObjectMetaFieldsSet(&policy.ObjectMeta, false)
 }
 
@@ -223,8 +223,8 @@ func (s activityPolicyStatusStrategy) NamespaceScoped() bool {
 // PrepareForUpdate clears fields that are not allowed to be set by end users on status update.
 // Only status changes are allowed; spec changes are reverted.
 func (s activityPolicyStatusStrategy) PrepareForUpdate(ctx context.Context, obj, old runtime.Object) {
-	newPolicy := obj.(*v1alpha1.ActivityPolicy)
-	oldPolicy := old.(*v1alpha1.ActivityPolicy)
+	newPolicy := obj.(*activity.ActivityPolicy)
+	oldPolicy := old.(*activity.ActivityPolicy)
 	// Preserve spec, only allow status changes
 	newPolicy.Spec = oldPolicy.Spec
 	newPolicy.ObjectMeta.Labels = oldPolicy.ObjectMeta.Labels

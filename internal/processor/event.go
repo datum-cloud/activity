@@ -3,6 +3,7 @@ package processor
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -26,6 +27,7 @@ type EventProcessor struct {
 	batchSize      int
 	policyLookup   EventPolicyLookup
 	workers        int
+	dlqPublisher   DLQPublisher
 }
 
 // NewEventProcessor creates a new event processor.
@@ -34,6 +36,7 @@ type EventProcessor struct {
 // consumerName is the durable pull consumer name.
 // activityPrefix is the subject prefix for publishing generated activities.
 // policyLookup is used to evaluate events against ActivityPolicy event rules.
+// dlqPublisher is used to publish failed events to the dead-letter queue.
 func NewEventProcessor(
 	js nats.JetStreamContext,
 	streamName string,
@@ -42,6 +45,7 @@ func NewEventProcessor(
 	policyLookup EventPolicyLookup,
 	workers int,
 	batchSize int,
+	dlqPublisher DLQPublisher,
 ) *EventProcessor {
 	return &EventProcessor{
 		js:             js,
@@ -51,6 +55,7 @@ func NewEventProcessor(
 		policyLookup:   policyLookup,
 		workers:        workers,
 		batchSize:      batchSize,
+		dlqPublisher:   dlqPublisher,
 	}
 }
 
@@ -127,10 +132,22 @@ func (p *EventProcessor) worker(ctx context.Context, id int) {
 
 // processMessage processes a single Kubernetes event message.
 func (p *EventProcessor) processMessage(ctx context.Context, msg *nats.Msg) error {
+	// Keep raw payload for DLQ in case of failure
+	rawPayload := json.RawMessage(msg.Data)
+
 	// Parse the Kubernetes event.
 	var event map[string]interface{}
 	if err := json.Unmarshal(msg.Data, &event); err != nil {
-		return fmt.Errorf("failed to unmarshal event: %w", err)
+		// Publish to DLQ - unmarshal errors are unrecoverable
+		// Tenant is nil for events as they don't have user context
+		if dlqErr := p.dlqPublisher.PublishEventFailure(
+			ctx, rawPayload, "", -1, ErrorTypeUnmarshal, err, nil, nil,
+		); dlqErr != nil {
+			klog.ErrorS(dlqErr, "Failed to publish to DLQ")
+			return fmt.Errorf("failed to unmarshal event: %w", err)
+		}
+		// Successfully published to DLQ, message can be ACKed
+		return nil
 	}
 
 	// Extract involved object info to find matching policy.
@@ -156,13 +173,44 @@ func (p *EventProcessor) processMessage(ctx context.Context, msg *nats.Msg) erro
 		return nil
 	}
 
+	// Build resource info for DLQ context
+	dlqResource := &DeadLetterResource{
+		APIGroup:  apiGroup,
+		Kind:      kind,
+		Name:      getStringFromMap(involvedObject, "name"),
+		Namespace: getStringFromMap(involvedObject, "namespace"),
+	}
+
 	// Normalize event so CEL expressions can always use event.regarding.
 	normalizedEvent := p.normalizeEvent(event, involvedObject)
 
 	// Delegate policy matching to the lookup (avoids import cycle with activityprocessor).
 	matched, err := p.policyLookup.MatchEvent(apiGroup, kind, normalizedEvent)
 	if err != nil {
-		return fmt.Errorf("failed to match event against policies: %w", err)
+		// Extract policy context from error if available
+		errorType := ErrorTypeCELSummary // Default to summary since match errors are logged and skipped
+		policyName := ""
+		ruleIndex := -1
+
+		var policyErr *PolicyEvaluationError
+		if errors.As(err, &policyErr) {
+			policyName = policyErr.PolicyName
+			ruleIndex = policyErr.RuleIndex
+		}
+
+		// Publish to DLQ
+		// Tenant is nil for events as they don't have user context
+		if dlqErr := p.dlqPublisher.PublishEventFailure(
+			ctx, rawPayload, policyName, ruleIndex, errorType, err, dlqResource, nil,
+		); dlqErr != nil {
+			klog.ErrorS(dlqErr, "Failed to publish to DLQ, NAKing message")
+			return fmt.Errorf("failed to match event against policies: %w", err)
+		}
+
+		klog.ErrorS(err, "Failed to match event against policies, published to DLQ",
+			"apiGroup", apiGroup, "kind", kind, "policy", policyName, "ruleIndex", ruleIndex)
+		// Successfully published to DLQ, message can be ACKed
+		return nil
 	}
 
 	if matched == nil {

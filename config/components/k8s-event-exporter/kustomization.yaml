@@ -3,5 +3,6 @@ kind: Component
 
 resources:
   - deployment.yaml
+  - service.yaml
   - serviceaccount.yaml
   - rbac.yaml

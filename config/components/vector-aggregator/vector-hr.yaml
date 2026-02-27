@@ -264,14 +264,14 @@ spec:
             }
 
       sinks:
-        # Export audit events to ClickHouse audit.events table
+        # Export audit events to ClickHouse audit.audit_logs table
         clickhouse_audit_events:
           type: clickhouse
           inputs:
             - prepare_audit_for_clickhouse
           endpoint: http://clickhouse.activity-system.svc.cluster.local:8123
           database: audit
-          table: events
+          table: audit_logs
           encoding:
             only_fields:
               - event_json

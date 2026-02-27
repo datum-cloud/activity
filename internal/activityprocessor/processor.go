@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -13,56 +14,63 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	auditv1 "k8s.io/apiserver/pkg/apis/audit/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
+	"k8s.io/client-go/kubernetes"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	toolscache "k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
+	"go.miloapis.com/activity/internal/cel"
 	"go.miloapis.com/activity/internal/controller"
 	"go.miloapis.com/activity/internal/processor"
 	"go.miloapis.com/activity/pkg/apis/activity/v1alpha1"
 )
 
 var (
-	eventsReceived = prometheus.NewCounterVec(
+	auditEventsReceived = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "activity_processor",
-			Name:      "events_received_total",
+			Name:      "audit_events_received_total",
 			Help:      "Total number of audit events received from NATS",
 		},
 		[]string{"api_group", "resource"},
 	)
 
-	eventsEvaluated = prometheus.NewCounterVec(
+	auditEventsEvaluated = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "activity_processor",
-			Name:      "events_evaluated_total",
+			Name:      "audit_events_evaluated_total",
 			Help:      "Total number of audit events evaluated against policies",
 		},
 		[]string{"policy", "api_group", "kind", "matched"},
 	)
 
-	eventsSkipped = prometheus.NewCounterVec(
+	auditEventsSkipped = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "activity_processor",
-			Name:      "events_skipped_total",
+			Name:      "audit_events_skipped_total",
 			Help:      "Total number of audit events skipped",
 		},
 		[]string{"reason"}, // "no_object_ref", "no_matching_policy"
 	)
 
-	eventsErrored = prometheus.NewCounterVec(
+	auditEventsErrored = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "activity_processor",
-			Name:      "events_errored_total",
+			Name:      "audit_events_errored_total",
 			Help:      "Total number of audit events that encountered errors",
 		},
 		[]string{"error_type"}, // "unmarshal", "publish", "evaluate"
@@ -77,10 +85,10 @@ var (
 		[]string{"policy", "api_group", "kind"},
 	)
 
-	eventProcessingDuration = prometheus.NewHistogramVec(
+	auditEventProcessingDuration = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: "activity_processor",
-			Name:      "event_processing_duration_seconds",
+			Name:      "audit_event_processing_duration_seconds",
 			Help:      "Time spent processing audit events per policy",
 			Buckets:   prometheus.DefBuckets,
 		},
@@ -158,17 +166,45 @@ var (
 			Buckets:   []float64{.001, .005, .01, .025, .05, .1, .25, .5, 1},
 		},
 	)
+
+	// Kubernetes event processing metrics
+	k8sEventsReceived = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "activity_processor",
+			Name:      "k8s_events_received_total",
+			Help:      "Total number of Kubernetes events received from NATS",
+		},
+		[]string{"api_group", "kind"},
+	)
+
+	k8sEventsSkipped = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "activity_processor",
+			Name:      "k8s_events_skipped_total",
+			Help:      "Total number of Kubernetes events skipped",
+		},
+		[]string{"reason"}, // "no_involved_object", "no_matching_policy"
+	)
+
+	k8sEventsErrored = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "activity_processor",
+			Name:      "k8s_events_errored_total",
+			Help:      "Total number of Kubernetes events that encountered errors",
+		},
+		[]string{"error_type"}, // "unmarshal", "publish", "evaluate"
+	)
 )
 
 func init() {
 	// Use controller-runtime's registry so metrics are exposed alongside controller metrics.
 	metrics.Registry.MustRegister(
-		eventsReceived,
-		eventsEvaluated,
-		eventsSkipped,
-		eventsErrored,
+		auditEventsReceived,
+		auditEventsEvaluated,
+		auditEventsSkipped,
+		auditEventsErrored,
 		activitiesGenerated,
-		eventProcessingDuration,
+		auditEventProcessingDuration,
 		policyCount,
 		workerCount,
 		// NATS metrics
@@ -178,6 +214,10 @@ func init() {
 		natsErrorsTotal,
 		natsMessagesPublished,
 		natsPublishLatency,
+		// Kubernetes event metrics
+		k8sEventsReceived,
+		k8sEventsSkipped,
+		k8sEventsErrored,
 	)
 }
 
@@ -187,6 +227,10 @@ type Config struct {
 	NATSURL        string
 	NATSStreamName string // Source stream for audit events (e.g., "AUDIT_EVENTS")
 	ConsumerName   string // Durable consumer name
+
+	// Event stream configuration
+	NATSEventStream   string // Source stream for Kubernetes events (e.g., "EVENTS")
+	NATSEventConsumer string // Durable consumer name for event processor
 
 	// Output NATS stream for generated activities
 	OutputStreamName    string // Stream for publishing activities (e.g., "ACTIVITIES")
@@ -198,6 +242,11 @@ type Config struct {
 	NATSTLSKeyFile  string // Path to client private key file (for mTLS)
 	NATSTLSCAFile   string // Path to CA certificate file for server verification
 
+	// Dead-letter queue configuration
+	DLQEnabled       bool   // Enable dead-letter queue for failed events
+	DLQStreamName    string // NATS stream name for DLQ (e.g., "ACTIVITY_DEAD_LETTER")
+	DLQSubjectPrefix string // Subject prefix for DLQ messages (e.g., "activity.dlq")
+
 	// Processing configuration
 	Workers    int           // Number of concurrent workers
 	BatchSize  int           // Messages to fetch per batch
@@ -206,6 +255,7 @@ type Config struct {
 
 	// Health probe configuration
 	HealthProbeAddr string // Address for health probe server (e.g., ":8081")
+
 }
 
 // DefaultConfig returns configuration with default values.
@@ -214,8 +264,13 @@ func DefaultConfig() Config {
 		NATSURL:             "nats://localhost:4222",
 		NATSStreamName:      "AUDIT_EVENTS",
 		ConsumerName:        "activity-processor@activity.miloapis.com",
+		NATSEventStream:     "EVENTS",
+		NATSEventConsumer:   "activity-event-processor",
 		OutputStreamName:    "ACTIVITIES",
 		OutputSubjectPrefix: "activities",
+		DLQEnabled:          true,
+		DLQStreamName:       "ACTIVITY_DEAD_LETTER",
+		DLQSubjectPrefix:    "activity.dlq",
 		Workers:             4,
 		BatchSize:           100,
 		AckWait:             30 * time.Second,
@@ -241,6 +296,15 @@ type Processor struct {
 
 	// policyCache holds pre-compiled policies indexed by apiGroup/resource.
 	policyCache *PolicyCache
+
+	// eventProcessor processes Kubernetes events from the EVENTS stream.
+	eventProcessor *processor.EventProcessor
+
+	// eventEmitter emits Kubernetes Warning events for evaluation failures.
+	eventEmitter *EventEmitter
+
+	// dlqPublisher publishes failed events to the dead-letter queue.
+	dlqPublisher processor.DLQPublisher
 
 	wg     sync.WaitGroup
 	ctx    context.Context
@@ -316,6 +380,30 @@ func (p *Processor) Start(ctx context.Context) error {
 	}
 
 	klog.InfoS("ActivityPolicy cache synced")
+
+	// Create controller-runtime client for event emission
+	k8sClient, err := client.New(p.restConfig, client.Options{
+		Scheme: controller.Scheme,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create kubernetes client: %w", err)
+	}
+
+	// Create Kubernetes clientset for event broadcaster
+	clientset, err := kubernetes.NewForConfig(p.restConfig)
+	if err != nil {
+		return fmt.Errorf("failed to create kubernetes clientset: %w", err)
+	}
+
+	// Create event broadcaster and recorder for emitting Kubernetes events
+	eventBroadcaster := record.NewBroadcaster()
+	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{
+		Interface: clientset.CoreV1().Events(""),
+	})
+	recorder := eventBroadcaster.NewRecorder(controller.Scheme, corev1.EventSource{Component: "activity-processor"})
+
+	// Create event emitter for health reporting
+	p.eventEmitter = NewEventEmitter(k8sClient, recorder)
 
 	// Build NATS connection options
 	natsOpts := []nats.Option{
@@ -395,6 +483,31 @@ func (p *Processor) Start(ctx context.Context) error {
 			p.config.OutputStreamName, err)
 	}
 
+	// Initialize dead-letter queue publisher
+	dlqConfig := processor.DLQConfig{
+		Enabled:       p.config.DLQEnabled,
+		StreamName:    p.config.DLQStreamName,
+		SubjectPrefix: p.config.DLQSubjectPrefix,
+	}
+	if dlqConfig.Enabled {
+		// Verify DLQ stream exists
+		_, err = js.StreamInfo(dlqConfig.StreamName)
+		if err != nil {
+			klog.V(1).InfoS("DLQ stream not found, dead-letter queue will be disabled",
+				"stream", dlqConfig.StreamName,
+				"error", err,
+			)
+			dlqConfig.Enabled = false
+		}
+	}
+	p.dlqPublisher = processor.NewDLQPublisher(js, dlqConfig)
+	if dlqConfig.Enabled {
+		klog.InfoS("Dead-letter queue enabled",
+			"stream", dlqConfig.StreamName,
+			"subjectPrefix", dlqConfig.SubjectPrefix,
+		)
+	}
+
 	klog.InfoS("Activity processor starting",
 		"stream", p.config.NATSStreamName,
 		"consumer", p.config.ConsumerName,
@@ -402,12 +515,46 @@ func (p *Processor) Start(ctx context.Context) error {
 		"workers", p.config.Workers,
 	)
 
+	// Start audit event workers
 	workerErrors := make(chan error, p.config.Workers)
 	for i := 0; i < p.config.Workers; i++ {
 		p.wg.Add(1)
 		go p.worker(ctx, i, workerErrors)
 	}
 	go p.monitorWorkers(ctx, workerErrors)
+
+	// Check that event stream consumer exists
+	_, err = js.ConsumerInfo(p.config.NATSEventStream, p.config.NATSEventConsumer)
+	if err != nil {
+		klog.V(1).InfoS("Event consumer not found, event processing will be disabled",
+			"stream", p.config.NATSEventStream,
+			"consumer", p.config.NATSEventConsumer,
+			"error", err,
+		)
+	} else {
+		// Start event processor
+		p.eventProcessor = processor.NewEventProcessor(
+			p.js,
+			p.config.NATSEventStream,
+			p.config.NATSEventConsumer,
+			p.config.OutputSubjectPrefix,
+			p.policyCache, // PolicyCache implements EventPolicyLookup
+			p.config.Workers,
+			p.config.BatchSize,
+			p.dlqPublisher,
+		)
+		p.wg.Add(1)
+		go func() {
+			defer p.wg.Done()
+			if err := p.eventProcessor.Run(ctx); err != nil {
+				klog.ErrorS(err, "Event processor failed")
+			}
+		}()
+		klog.InfoS("Event processor started",
+			"stream", p.config.NATSEventStream,
+			"consumer", p.config.NATSEventConsumer,
+		)
+	}
 
 	// Mark as ready and healthy now that everything is initialized
 	p.setReady(true)
@@ -502,6 +649,40 @@ func (p *Processor) kindToResource(apiGroup, kind string) (string, error) {
 	}
 
 	return mapping.Resource.Resource, nil
+}
+
+// resourceToKind converts a plural resource name to its Kind using API discovery.
+// On cache miss, it resets the discovery cache and retries to handle newly registered CRDs.
+func (p *Processor) resourceToKind(apiGroup, resource string) (string, error) {
+	gvr := schema.GroupVersionResource{
+		Group:    apiGroup,
+		Resource: resource,
+	}
+
+	kinds, err := p.mapper.KindsFor(gvr)
+	if err != nil {
+		if meta.IsNoMatchError(err) {
+			// Cache miss - reset and retry to discover newly registered CRDs.
+			klog.V(2).InfoS("Kind mapping not found, resetting discovery cache",
+				"apiGroup", apiGroup,
+				"resource", resource,
+			)
+			p.mapper.Reset()
+
+			kinds, err = p.mapper.KindsFor(gvr)
+			if err != nil {
+				return "", fmt.Errorf("failed to find kind for %s/%s: %w", apiGroup, resource, err)
+			}
+		} else {
+			return "", fmt.Errorf("failed to find kind for %s/%s: %w", apiGroup, resource, err)
+		}
+	}
+
+	if len(kinds) == 0 {
+		return "", fmt.Errorf("no kind found for %s/%s", apiGroup, resource)
+	}
+
+	return kinds[0].Kind, nil
 }
 
 func (p *Processor) onPolicyAdd(obj any) {
@@ -691,14 +872,30 @@ func (p *Processor) worker(ctx context.Context, id int, errors chan<- error) {
 }
 
 func (p *Processor) processMessage(msg *nats.Msg) error {
+	// Keep raw payload for DLQ in case of failure
+	rawPayload := json.RawMessage(msg.Data)
+
 	var audit auditv1.Event
 	if err := json.Unmarshal(msg.Data, &audit); err != nil {
-		eventsErrored.WithLabelValues("unmarshal").Inc()
-		return fmt.Errorf("failed to unmarshal audit event: %w", err)
+		auditEventsErrored.WithLabelValues("unmarshal").Inc()
+		// Publish to DLQ - unmarshal errors are unrecoverable
+		// Tenant is nil since we couldn't unmarshal the event
+		if dlqErr := p.dlqPublisher.PublishAuditFailure(
+			p.ctx, rawPayload, "", -1, processor.ErrorTypeUnmarshal, err, nil, nil,
+		); dlqErr != nil {
+			klog.ErrorS(dlqErr, "Failed to publish to DLQ")
+			return fmt.Errorf("failed to unmarshal audit event: %w", err)
+		}
+		// Successfully published to DLQ, message can be ACKed
+		return nil
 	}
 
+	// Extract tenant info early for DLQ context
+	activityTenant := processor.ExtractTenant(audit.User)
+	dlqTenant := processor.NewDeadLetterTenantFromActivity(activityTenant.Type, activityTenant.Name)
+
 	if audit.ObjectRef == nil {
-		eventsSkipped.WithLabelValues("no_object_ref").Inc()
+		auditEventsSkipped.WithLabelValues("no_object_ref").Inc()
 		return nil
 	}
 
@@ -706,46 +903,117 @@ func (p *Processor) processMessage(msg *nats.Msg) error {
 	if apiGroup == "" {
 		apiGroup = "core"
 	}
-	eventsReceived.WithLabelValues(apiGroup, audit.ObjectRef.Resource).Inc()
+	auditEventsReceived.WithLabelValues(apiGroup, audit.ObjectRef.Resource).Inc()
 
 	// Get compiled policies for this resource
 	policies := p.policyCache.Get(audit.ObjectRef.APIGroup, audit.ObjectRef.Resource)
 	if len(policies) == 0 {
-		eventsSkipped.WithLabelValues("no_matching_policy").Inc()
+		auditEventsSkipped.WithLabelValues("no_matching_policy").Inc()
 		return nil
 	}
 
 	// Convert audit event to map for CEL evaluation
 	auditMap, err := auditToMap(&audit)
 	if err != nil {
-		eventsErrored.WithLabelValues("unmarshal").Inc()
-		return fmt.Errorf("failed to convert audit to map: %w", err)
+		auditEventsErrored.WithLabelValues("unmarshal").Inc()
+		// Publish to DLQ - auditToMap errors are unrecoverable
+		dlqResource := &processor.DeadLetterResource{
+			APIGroup:  audit.ObjectRef.APIGroup,
+			Kind:      "", // Can't resolve kind without the map
+			Name:      audit.ObjectRef.Name,
+			Namespace: audit.ObjectRef.Namespace,
+		}
+		// Try to resolve kind for better DLQ context
+		if kind, kindErr := p.resourceToKind(audit.ObjectRef.APIGroup, audit.ObjectRef.Resource); kindErr == nil {
+			dlqResource.Kind = kind
+		}
+		if dlqErr := p.dlqPublisher.PublishAuditFailure(
+			p.ctx, rawPayload, "", -1, processor.ErrorTypeUnmarshal, err, dlqResource, dlqTenant,
+		); dlqErr != nil {
+			klog.ErrorS(dlqErr, "Failed to publish to DLQ")
+			return fmt.Errorf("failed to convert audit to map: %w", err)
+		}
+		return nil
+	}
+
+	// Build resource info for DLQ context with proper kind resolution
+	dlqResource := &processor.DeadLetterResource{
+		APIGroup:  audit.ObjectRef.APIGroup,
+		Kind:      "", // Will be set from policy or resolved dynamically
+		Name:      audit.ObjectRef.Name,
+		Namespace: audit.ObjectRef.Namespace,
+	}
+	// Pre-resolve kind for DLQ context (best effort, will be overwritten by policy.Kind when available)
+	if kind, kindErr := p.resourceToKind(audit.ObjectRef.APIGroup, audit.ObjectRef.Resource); kindErr == nil {
+		dlqResource.Kind = kind
 	}
 
 	// First matching policy wins.
 	for _, policy := range policies {
 		policyStart := time.Now()
 
+		// Use policy's Kind for DLQ context (more accurate than resolved kind)
+		dlqResource.Kind = policy.Kind
+
 		// Evaluate audit rules using pre-compiled programs
 		activity, ruleIndex, err := p.evaluateCompiledAuditRules(policy, auditMap, &audit)
 		if err != nil {
+			// Serialize audit event for debugging
+			eventJSON, _ := json.Marshal(auditMap)
+
 			klog.ErrorS(err, "Failed to evaluate policy",
 				"policy", policy.Name,
 				"auditID", audit.AuditID,
+				"eventJSON", truncateString(string(eventJSON), 4096),
 			)
-			eventsErrored.WithLabelValues("evaluate").Inc()
-			eventsEvaluated.WithLabelValues(
+
+			// Emit Kubernetes Warning event
+			p.eventEmitter.EmitEvaluationError(p.ctx, policy.Name, ruleIndex, err)
+
+			// Classify error type for DLQ using sentinel errors
+			errorType := processor.ErrorTypeCELMatch
+			if ruleIndex >= 0 {
+				// If we have a rule index, check if it's a kind resolution or summary error
+				if errors.Is(err, processor.ErrKindResolution) {
+					errorType = processor.ErrorTypeKindResolve
+				} else if errors.Is(err, processor.ErrActivityBuild) {
+					errorType = processor.ErrorTypeKindResolve // Activity build errors are typically kind resolution
+				} else {
+					errorType = processor.ErrorTypeCELSummary
+				}
+			}
+
+			// Publish to DLQ
+			if dlqErr := p.dlqPublisher.PublishAuditFailure(
+				p.ctx, rawPayload, policy.Name, ruleIndex, errorType, err, dlqResource, dlqTenant,
+			); dlqErr != nil {
+				klog.ErrorS(dlqErr, "Failed to publish to DLQ, NAKing message")
+				auditEventsErrored.WithLabelValues("evaluate").Inc()
+				auditEventsEvaluated.WithLabelValues(
+					policy.Name,
+					policy.APIGroup,
+					policy.Kind,
+					"error",
+				).Inc()
+				auditEventProcessingDuration.WithLabelValues(policy.Name).Observe(time.Since(policyStart).Seconds())
+				// Return error to NAK the message so it gets redelivered
+				return fmt.Errorf("failed to evaluate policy and publish to DLQ: %w", dlqErr)
+			}
+
+			// Successfully published to DLQ, continue to next policy (message will be ACKed)
+			auditEventsErrored.WithLabelValues("evaluate").Inc()
+			auditEventsEvaluated.WithLabelValues(
 				policy.Name,
 				policy.APIGroup,
 				policy.Kind,
 				"error",
 			).Inc()
-			eventProcessingDuration.WithLabelValues(policy.Name).Observe(time.Since(policyStart).Seconds())
+			auditEventProcessingDuration.WithLabelValues(policy.Name).Observe(time.Since(policyStart).Seconds())
 			continue
 		}
 
 		ruleMatched := activity != nil
-		eventsEvaluated.WithLabelValues(
+		auditEventsEvaluated.WithLabelValues(
 			policy.Name,
 			policy.APIGroup,
 			policy.Kind,
@@ -753,13 +1021,13 @@ func (p *Processor) processMessage(msg *nats.Msg) error {
 		).Inc()
 
 		if !ruleMatched {
-			eventProcessingDuration.WithLabelValues(policy.Name).Observe(time.Since(policyStart).Seconds())
+			auditEventProcessingDuration.WithLabelValues(policy.Name).Observe(time.Since(policyStart).Seconds())
 			continue
 		}
 
 		if err := p.publishActivity(activity, policy); err != nil {
-			eventsErrored.WithLabelValues("publish").Inc()
-			eventProcessingDuration.WithLabelValues(policy.Name).Observe(time.Since(policyStart).Seconds())
+			auditEventsErrored.WithLabelValues("publish").Inc()
+			auditEventProcessingDuration.WithLabelValues(policy.Name).Observe(time.Since(policyStart).Seconds())
 			return fmt.Errorf("failed to publish activity: %w", err)
 		}
 
@@ -770,7 +1038,7 @@ func (p *Processor) processMessage(msg *nats.Msg) error {
 			"auditID", audit.AuditID,
 		)
 
-		eventProcessingDuration.WithLabelValues(policy.Name).Observe(time.Since(policyStart).Seconds())
+		auditEventProcessingDuration.WithLabelValues(policy.Name).Observe(time.Since(policyStart).Seconds())
 		return nil
 	}
 
@@ -779,8 +1047,6 @@ func (p *Processor) processMessage(msg *nats.Msg) error {
 
 // evaluateCompiledAuditRules evaluates audit rules using pre-compiled CEL programs.
 func (p *Processor) evaluateCompiledAuditRules(policy *CompiledPolicy, auditMap map[string]any, audit *auditv1.Event) (*v1alpha1.Activity, int, error) {
-	vars := BuildAuditVars(auditMap)
-
 	for i := range policy.AuditRules {
 		rule := &policy.AuditRules[i]
 		if !rule.Valid {
@@ -789,13 +1055,15 @@ func (p *Processor) evaluateCompiledAuditRules(policy *CompiledPolicy, auditMap 
 
 		matched, err := rule.EvaluateAuditMatch(auditMap)
 		if err != nil {
-			return nil, -1, fmt.Errorf("rule %d match: %w", i, err)
+			return nil, i, fmt.Errorf("rule %d match: %w", i, err)
 		}
 
 		if matched {
-			summary, err := rule.EvaluateSummary(vars)
+			// Use the cel package's EvaluateAuditSummaryMap which properly collects links
+			// from link() function calls in the summary template.
+			summary, links, err := cel.EvaluateAuditSummaryMap(rule.Summary, auditMap)
 			if err != nil {
-				return nil, -1, fmt.Errorf("rule %d summary: %w", i, err)
+				return nil, i, fmt.Errorf("rule %d summary: %w", i, err)
 			}
 
 			// Build activity using the processor package
@@ -803,7 +1071,10 @@ func (p *Processor) evaluateCompiledAuditRules(policy *CompiledPolicy, auditMap 
 				APIGroup: policy.APIGroup,
 				Kind:     policy.Kind,
 			}
-			activity := builder.BuildFromAudit(audit, summary, nil)
+			activity, err := builder.BuildFromAudit(audit, summary, links, p.resourceToKind)
+			if err != nil {
+				return nil, i, fmt.Errorf("rule %d build: %w", i, err)
+			}
 
 			return activity, i, nil
 		}
@@ -924,6 +1195,9 @@ func (p *Processor) startHealthServer() {
 			"policies-ready": p.policiesReadyChecker(),
 		},
 	}))
+
+	// Metrics endpoint for Prometheus scraping
+	mux.Handle("/metrics", promhttp.HandlerFor(metrics.Registry, promhttp.HandlerOpts{}))
 
 	p.healthServer = &http.Server{
 		Addr:    p.config.HealthProbeAddr,
