@@ -235,7 +235,6 @@ apiVersion: activity.miloapis.com/v1alpha1
 kind: ReindexJob
 metadata:
   name: test-api-check
-  namespace: activity-system
 spec:
   timeRange:
     startTime: "2026-02-26T00:00:00Z"
@@ -309,13 +308,13 @@ Add new API resource `ReindexJob` to `activity.miloapis.com/v1alpha1` using etcd
 - Follows the existing ActivityPolicy pattern for consistency
 - Enables server-side validation, status subresources, and table formatting
 
-**Scoping Decision: Namespace-scoped**
+**Scoping Decision: Cluster-scoped**
 
-Unlike ActivityPolicy (which is cluster-scoped), ReindexJob is **namespace-scoped** because:
-- Re-indexing operations should be scoped to the namespace where the activity-system components run
-- Provides better multi-tenancy isolation if multiple activity systems run in a cluster
-- Allows RBAC to control which users can trigger re-indexing operations per namespace
-- Matches the namespace-scoped pattern of Jobs and other batch operations in Kubernetes
+ReindexJob is **cluster-scoped** (like ActivityPolicy) because:
+- Multi-tenancy is handled at the control plane level - each tenant has their own control plane
+- Namespace-scoping provides no benefit since there's only one activity-system per control plane
+- Consistent with ActivityPolicy (both are cluster-scoped configuration resources)
+- Simpler RBAC model - no need to manage namespace-level permissions
 
 **Implementation Pattern (following ActivityPolicy):**
 
@@ -324,7 +323,7 @@ internal/registry/activity/
 ├── policy/                           # Existing: ActivityPolicy (cluster-scoped)
 │   ├── storage.go                    # etcd storage using genericregistry.Store
 │   └── strategy.go                   # CRUD strategy (validation, defaults)
-├── reindexjob/                       # NEW: ReindexJob (namespace-scoped)
+├── reindexjob/                       # NEW: ReindexJob (cluster-scoped)
 │   ├── storage.go                    # etcd storage
 │   └── strategy.go                   # CRUD strategy
 ```
@@ -338,7 +337,7 @@ internal/registry/activity/
 **Registration in apiserver.go:**
 
 ```go
-// ReindexJob is stored in etcd (namespace-scoped)
+// ReindexJob is stored in etcd (cluster-scoped)
 reindexJobStorage, reindexJobStatusStorage, err := reindexjob.NewStorage(Scheme, c.GenericConfig.RESTOptionsGetter)
 if err != nil {
     return nil, fmt.Errorf("failed to create ReindexJob storage: %w", err)
@@ -354,7 +353,6 @@ apiVersion: activity.miloapis.com/v1alpha1
 kind: ReindexJob
 metadata:
   name: fix-httpproxy-policy-2026-02-27
-  namespace: activity-system
 spec:
   # Time range for re-indexing (required)
   timeRange:
@@ -634,7 +632,6 @@ apiVersion: activity.miloapis.com/v1alpha1
 kind: ReindexJob
 metadata:
   name: fix-httpproxy-typo
-  namespace: activity-system
 spec:
   timeRange:
     startTime: "2026-02-25T00:00:00Z"
@@ -654,7 +651,6 @@ apiVersion: activity.miloapis.com/v1alpha1
 kind: ReindexJob
 metadata:
   name: preview-new-policy
-  namespace: activity-system
 spec:
   timeRange:
     startTime: "2026-02-20T00:00:00Z"
@@ -671,7 +667,6 @@ apiVersion: activity.miloapis.com/v1alpha1
 kind: ReindexJob
 metadata:
   name: full-reindex-2026-02-26
-  namespace: activity-system
 spec:
   timeRange:
     startTime: "2026-02-26T00:00:00Z"
@@ -703,9 +698,9 @@ type ReindexJobStorage struct {
     *genericregistry.Store
 }
 
-// Key difference from ActivityPolicy: NamespaceScoped() returns TRUE
+// Same as ActivityPolicy: NamespaceScoped() returns FALSE
 func (s reindexJobStrategy) NamespaceScoped() bool {
-    return true  // ReindexJob is namespace-scoped, unlike ActivityPolicy
+    return false  // ReindexJob is cluster-scoped, like ActivityPolicy
 }
 ```
 
@@ -1806,7 +1801,7 @@ The ReindexJob controller runs as part of `activity-controller-manager`. No addi
 
 **RBAC Configuration:**
 
-ReindexJob is namespace-scoped, but the controller needs cluster-wide visibility. Use ClusterRole with namespace-scoped permissions:
+ReindexJob is cluster-scoped (like ActivityPolicy). Controller and operators both use ClusterRole permissions:
 
 **Controller-Manager Permissions (ClusterRole):**
 
@@ -1830,26 +1825,24 @@ rules:
 
 **Operator Permissions (users who create ReindexJobs):**
 
-Option 1: Namespace-scoped (recommended):
+Platform admins need cluster-wide permissions:
 ```yaml
 apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
+kind: ClusterRole
 metadata:
   name: activity-reindex-operator
-  namespace: activity-system
 rules:
 - apiGroups: ["activity.miloapis.com"]
   resources: ["reindexjobs"]
   verbs: ["create", "get", "list", "watch", "delete"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
+kind: ClusterRoleBinding
 metadata:
   name: activity-reindex-operator
-  namespace: activity-system
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: Role
+  kind: ClusterRole
   name: activity-reindex-operator
 subjects:
 - kind: User
@@ -1857,22 +1850,10 @@ subjects:
   apiGroup: rbac.authorization.k8s.io
 ```
 
-Option 2: Cluster-wide (for platform admins):
-```yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: activity-reindex-admin
-rules:
-- apiGroups: ["activity.miloapis.com"]
-  resources: ["reindexjobs"]
-  verbs: ["*"]
-```
-
-**Why ClusterRole for controller despite namespace-scoped resource:**
-- Controller-runtime requires ClusterRole to watch namespace-scoped resources across namespaces
-- Controller needs to reconcile jobs in `activity-system` namespace
-- Standard pattern: namespace-scoped resources with ClusterRole controller, namespace-scoped operator roles
+**Why ClusterRole for both controller and operators:**
+- ReindexJob is cluster-scoped (like ActivityPolicy)
+- Multi-tenancy is at control plane level, not namespace level
+- Consistent with existing ActivityPolicy RBAC pattern
 
 **Resource limits:**
 
@@ -1897,7 +1878,6 @@ apiVersion: activity.miloapis.com/v1alpha1
 kind: ReindexJob
 metadata:
   name: preview-policy-changes
-  namespace: activity-system
 spec:
   timeRange:
     startTime: "2026-02-25T00:00:00Z"
@@ -2030,7 +2010,7 @@ LAST SEEN   TYPE     REASON      OBJECT                          MESSAGE
    - Add conversion functions if needed (see `pkg/apis/activity/v1alpha1/conversion.go` for pattern)
 2. Create etcd storage (following ActivityPolicy pattern exactly):
    - `internal/registry/activity/reindexjob/storage.go` (copy pattern from policy/storage.go)
-   - `internal/registry/activity/reindexjob/strategy.go` (copy pattern from policy/strategy.go, set NamespaceScoped() = true)
+   - `internal/registry/activity/reindexjob/strategy.go` (copy pattern from policy/strategy.go, set NamespaceScoped() = false)
    - Add import for reindexjob package in `internal/apiserver/apiserver.go`
 3. Register storage in `internal/apiserver/apiserver.go`:
    - Add to v1alpha1Storage map: `v1alpha1Storage["reindexjobs"]` and `v1alpha1Storage["reindexjobs/status"]`
@@ -2106,8 +2086,8 @@ LAST SEEN   TYPE     REASON      OBJECT                          MESSAGE
 - **Decision 3: ReindexJob API resource with etcd storage (following ActivityPolicy pattern)**
   - Rationale: The activity-apiserver is an aggregated API server that doesn't use CRDs. ReindexJob is stored in etcd and served alongside other activity.miloapis.com resources. This provides status tracking, event emission, and integration with kubectl workflows. kubectl plugin wrapper can be added later.
 
-- **Decision 3a: ReindexJob is namespace-scoped (unlike cluster-scoped ActivityPolicy)**
-  - Rationale: Re-indexing operations should be scoped to the namespace where activity-system runs. This provides better multi-tenancy isolation, allows namespace-level RBAC control, and matches the pattern of Jobs and other batch operations in Kubernetes.
+- **Decision 3a: ReindexJob is cluster-scoped (like ActivityPolicy)**
+  - Rationale: Multi-tenancy is handled at the control plane level - each tenant has their own control plane. Namespace-scoping provides no benefit since there's only one activity-system per control plane. Consistent with ActivityPolicy and simpler RBAC model.
 
 - **Decision 4: Controller runs in activity-controller-manager**
   - Rationale: No additional deployment needed. Reuses existing ClickHouse and policy connections.
@@ -2156,7 +2136,7 @@ LAST SEEN   TYPE     REASON      OBJECT                          MESSAGE
    - Add TableConvertor for kubectl output (columns: NAME, PHASE, TIME_RANGE, PROGRESS, AGE)
 5. Create `internal/registry/activity/reindexjob/strategy.go`:
    - Copy pattern from `internal/registry/activity/policy/strategy.go`
-   - **KEY DIFFERENCE:** `NamespaceScoped() bool` returns `true` (ReindexJob is namespace-scoped)
+   - **SAME AS ACTIVITYPOLICY:** `NamespaceScoped() bool` returns `false` (ReindexJob is cluster-scoped)
    - Implement validation logic in ValidateReindexJob
    - Add GetAttrs, SelectableFields, MatchReindexJob functions
 6. Register in `internal/apiserver/apiserver.go`:

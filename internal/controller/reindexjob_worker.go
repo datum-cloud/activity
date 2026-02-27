@@ -22,17 +22,16 @@ func (r *ReindexJobReconciler) runReindexWorker(ctx context.Context, job *v1alph
 	// Always release the job slot when done
 	defer func() {
 		r.mu.Lock()
-		r.runningJob = nil
+		r.runningJob = ""
 		r.mu.Unlock()
 		reindexJobsRunning.Dec()
 
 		// Record job duration
-		reindexJobDuration.WithLabelValues(job.Namespace).Observe(time.Since(startTime).Seconds())
+		reindexJobDuration.Observe(time.Since(startTime).Seconds())
 	}()
 
 	logger := klog.LoggerWithValues(klog.Background(),
 		"job", job.Name,
-		"namespace", job.Namespace,
 	)
 
 	// Create reindexer with dependencies
@@ -144,7 +143,7 @@ func (r *ReindexJobReconciler) runReindexWorker(ctx context.Context, job *v1alph
 
 		logger.Error(runErr, "ReindexJob failed")
 		r.Recorder.Event(&finalJob, "Warning", "Failed", finalJob.Status.Message)
-		reindexJobsCompletedTotal.WithLabelValues(finalJob.Namespace, "failed").Inc()
+		reindexJobsCompletedTotal.WithLabelValues("failed").Inc()
 	} else {
 		// Job succeeded
 		finalJob.Status.Phase = v1alpha1.ReindexJobSucceeded
@@ -173,7 +172,7 @@ func (r *ReindexJobReconciler) runReindexWorker(ctx context.Context, job *v1alph
 			"duration", time.Since(startTime),
 		)
 		r.Recorder.Event(&finalJob, "Normal", "Completed", finalJob.Status.Message)
-		reindexJobsCompletedTotal.WithLabelValues(finalJob.Namespace, "succeeded").Inc()
+		reindexJobsCompletedTotal.WithLabelValues("succeeded").Inc()
 	}
 
 	// Update final status

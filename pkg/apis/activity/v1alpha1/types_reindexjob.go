@@ -6,6 +6,7 @@ import (
 )
 
 // +genclient
+// +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // ReindexJob triggers re-processing of historical audit logs and events through
@@ -34,7 +35,6 @@ import (
 //	kind: ReindexJob
 //	metadata:
 //	  name: fix-policy-bug-2026-02-27
-//	  namespace: activity-system
 //	spec:
 //	  timeRange:
 //	    startTime: "2026-02-25T00:00:00Z"

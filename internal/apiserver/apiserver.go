@@ -145,7 +145,7 @@ func (c completedConfig) New() (*ActivityServer, error) {
 	v1alpha1Storage["activitypolicies"] = policyStorage
 	v1alpha1Storage["activitypolicies/status"] = policyStatusStorage
 
-	// ReindexJob is stored in etcd (namespace-scoped)
+	// ReindexJob is stored in etcd (cluster-scoped)
 	reindexJobStorage, reindexJobStatusStorage, err := reindexjob.NewStorage(Scheme, c.GenericConfig.RESTOptionsGetter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create ReindexJob storage: %w", err)

@@ -14,11 +14,11 @@ type fakeReindexJobs struct {
 	Fake *FakeActivityV1alpha1
 }
 
-func newFakeReindexJobs(fake *FakeActivityV1alpha1, namespace string) activityv1alpha1.ReindexJobInterface {
+func newFakeReindexJobs(fake *FakeActivityV1alpha1) activityv1alpha1.ReindexJobInterface {
 	return &fakeReindexJobs{
 		gentype.NewFakeClientWithList[*v1alpha1.ReindexJob, *v1alpha1.ReindexJobList](
 			fake.Fake,
-			namespace,
+			"",
 			v1alpha1.SchemeGroupVersion.WithResource("reindexjobs"),
 			v1alpha1.SchemeGroupVersion.WithKind("ReindexJob"),
 			func() *v1alpha1.ReindexJob { return &v1alpha1.ReindexJob{} },

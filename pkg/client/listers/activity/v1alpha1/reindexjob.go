@@ -15,8 +15,9 @@ type ReindexJobLister interface {
 	// List lists all ReindexJobs in the indexer.
 	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*activityv1alpha1.ReindexJob, err error)
-	// ReindexJobs returns an object that can list and get ReindexJobs.
-	ReindexJobs(namespace string) ReindexJobNamespaceLister
+	// Get retrieves the ReindexJob from the index for a given name.
+	// Objects returned here must be treated as read-only.
+	Get(name string) (*activityv1alpha1.ReindexJob, error)
 	ReindexJobListerExpansion
 }
 
@@ -28,27 +29,4 @@ type reindexJobLister struct {
 // NewReindexJobLister returns a new ReindexJobLister.
 func NewReindexJobLister(indexer cache.Indexer) ReindexJobLister {
 	return &reindexJobLister{listers.New[*activityv1alpha1.ReindexJob](indexer, activityv1alpha1.Resource("reindexjob"))}
-}
-
-// ReindexJobs returns an object that can list and get ReindexJobs.
-func (s *reindexJobLister) ReindexJobs(namespace string) ReindexJobNamespaceLister {
-	return reindexJobNamespaceLister{listers.NewNamespaced[*activityv1alpha1.ReindexJob](s.ResourceIndexer, namespace)}
-}
-
-// ReindexJobNamespaceLister helps list and get ReindexJobs.
-// All objects returned here must be treated as read-only.
-type ReindexJobNamespaceLister interface {
-	// List lists all ReindexJobs in the indexer for a given namespace.
-	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*activityv1alpha1.ReindexJob, err error)
-	// Get retrieves the ReindexJob from the indexer for a given namespace and name.
-	// Objects returned here must be treated as read-only.
-	Get(name string) (*activityv1alpha1.ReindexJob, error)
-	ReindexJobNamespaceListerExpansion
-}
-
-// reindexJobNamespaceLister implements the ReindexJobNamespaceLister
-// interface.
-type reindexJobNamespaceLister struct {
-	listers.ResourceIndexer[*activityv1alpha1.ReindexJob]
 }

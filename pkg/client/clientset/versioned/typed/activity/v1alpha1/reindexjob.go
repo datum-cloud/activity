@@ -16,7 +16,7 @@ import (
 // ReindexJobsGetter has a method to return a ReindexJobInterface.
 // A group's client should implement this interface.
 type ReindexJobsGetter interface {
-	ReindexJobs(namespace string) ReindexJobInterface
+	ReindexJobs() ReindexJobInterface
 }
 
 // ReindexJobInterface has methods to work with ReindexJob resources.
@@ -40,13 +40,13 @@ type reindexJobs struct {
 }
 
 // newReindexJobs returns a ReindexJobs
-func newReindexJobs(c *ActivityV1alpha1Client, namespace string) *reindexJobs {
+func newReindexJobs(c *ActivityV1alpha1Client) *reindexJobs {
 	return &reindexJobs{
 		gentype.NewClientWithList[*activityv1alpha1.ReindexJob, *activityv1alpha1.ReindexJobList](
 			"reindexjobs",
 			c.RESTClient(),
 			scheme.ParameterCodec,
-			namespace,
+			"",
 			func() *activityv1alpha1.ReindexJob { return &activityv1alpha1.ReindexJob{} },
 			func() *activityv1alpha1.ReindexJobList { return &activityv1alpha1.ReindexJobList{} },
 		),

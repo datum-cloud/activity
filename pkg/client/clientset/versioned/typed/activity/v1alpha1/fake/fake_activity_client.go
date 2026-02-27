@@ -48,8 +48,8 @@ func (c *FakeActivityV1alpha1) PolicyPreviews() v1alpha1.PolicyPreviewInterface 
 	return newFakePolicyPreviews(c)
 }
 
-func (c *FakeActivityV1alpha1) ReindexJobs(namespace string) v1alpha1.ReindexJobInterface {
-	return newFakeReindexJobs(c, namespace)
+func (c *FakeActivityV1alpha1) ReindexJobs() v1alpha1.ReindexJobInterface {
+	return newFakeReindexJobs(c)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

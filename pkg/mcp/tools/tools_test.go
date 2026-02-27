@@ -32,6 +32,7 @@ type mockActivityV1alpha1Client struct {
 	activities            *mockActivityInterface
 	eventFacetQueries     *mockEventFacetQueryInterface
 	eventQueries          *mockEventQueryInterface
+	reindexJobs           *mockReindexJobInterface
 }
 
 func newMockClient() *mockActivityV1alpha1Client {
@@ -45,6 +46,7 @@ func newMockClient() *mockActivityV1alpha1Client {
 		activities:            &mockActivityInterface{},
 		eventFacetQueries:     &mockEventFacetQueryInterface{},
 		eventQueries:          &mockEventQueryInterface{},
+		reindexJobs:           &mockReindexJobInterface{},
 	}
 }
 
@@ -84,6 +86,9 @@ func (m *mockActivityV1alpha1Client) EventQueries() activityclient.EventQueryInt
 	return m.eventQueries
 }
 
+func (m *mockActivityV1alpha1Client) ReindexJobs() activityclient.ReindexJobInterface {
+	return m.reindexJobs
+}
 
 func (m *mockActivityV1alpha1Client) RESTClient() rest.Interface {
 	return nil
@@ -409,6 +414,44 @@ type mockEventQueryInterface struct{}
 
 func (m *mockEventQueryInterface) Create(ctx context.Context, query *v1alpha1.EventQuery, opts metav1.CreateOptions) (*v1alpha1.EventQuery, error) {
 	return query, nil
+}
+
+type mockReindexJobInterface struct{}
+
+func (m *mockReindexJobInterface) Create(ctx context.Context, job *v1alpha1.ReindexJob, opts metav1.CreateOptions) (*v1alpha1.ReindexJob, error) {
+	return job, nil
+}
+
+func (m *mockReindexJobInterface) Update(ctx context.Context, job *v1alpha1.ReindexJob, opts metav1.UpdateOptions) (*v1alpha1.ReindexJob, error) {
+	return job, nil
+}
+
+func (m *mockReindexJobInterface) UpdateStatus(ctx context.Context, job *v1alpha1.ReindexJob, opts metav1.UpdateOptions) (*v1alpha1.ReindexJob, error) {
+	return job, nil
+}
+
+func (m *mockReindexJobInterface) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
+	return nil
+}
+
+func (m *mockReindexJobInterface) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
+	return nil
+}
+
+func (m *mockReindexJobInterface) Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1alpha1.ReindexJob, error) {
+	return &v1alpha1.ReindexJob{}, nil
+}
+
+func (m *mockReindexJobInterface) List(ctx context.Context, opts metav1.ListOptions) (*v1alpha1.ReindexJobList, error) {
+	return &v1alpha1.ReindexJobList{}, nil
+}
+
+func (m *mockReindexJobInterface) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
+	return nil, nil
+}
+
+func (m *mockReindexJobInterface) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*v1alpha1.ReindexJob, error) {
+	return &v1alpha1.ReindexJob{}, nil
 }
 
 func (m *mockEventQueryInterface) Update(ctx context.Context, query *v1alpha1.EventQuery, opts metav1.UpdateOptions) (*v1alpha1.EventQuery, error) {

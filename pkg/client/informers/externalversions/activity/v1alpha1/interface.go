@@ -39,5 +39,5 @@ func (v *version) ActivityPolicies() ActivityPolicyInformer {
 
 // ReindexJobs returns a ReindexJobInformer.
 func (v *version) ReindexJobs() ReindexJobInformer {
-	return &reindexJobInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+	return &reindexJobInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }

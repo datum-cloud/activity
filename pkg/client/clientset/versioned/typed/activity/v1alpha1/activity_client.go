@@ -65,8 +65,8 @@ func (c *ActivityV1alpha1Client) PolicyPreviews() PolicyPreviewInterface {
 	return newPolicyPreviews(c)
 }
 
-func (c *ActivityV1alpha1Client) ReindexJobs(namespace string) ReindexJobInterface {
-	return newReindexJobs(c, namespace)
+func (c *ActivityV1alpha1Client) ReindexJobs() ReindexJobInterface {
+	return newReindexJobs(c)
 }
 
 // NewForConfig creates a new ActivityV1alpha1Client for the given config.

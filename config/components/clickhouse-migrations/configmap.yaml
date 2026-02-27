@@ -1293,7 +1293,12 @@ data:
     )
     ENGINE = ReplicatedReplacingMergeTree(reindex_version)
     PARTITION BY toYYYYMMDD(timestamp)
-    -- Updated ORDER BY with origin_id for deduplication
+    -- Updated ORDER BY with origin_id for deduplication.
+    -- NOTE: The combination (tenant_type, tenant_name, timestamp, origin_id) is unique because
+    -- the activity processor follows a "first policy wins" rule - each source event (audit log
+    -- or Kubernetes Event) produces at most one Activity. Even if multiple ActivityPolicies
+    -- match the same event, only the first matching policy generates an Activity.
+    -- See evaluateBatch() in internal/reindex/evaluate.go.
     ORDER BY (tenant_type, tenant_name, timestamp, origin_id)
     PRIMARY KEY (tenant_type, tenant_name, timestamp, origin_id)
 

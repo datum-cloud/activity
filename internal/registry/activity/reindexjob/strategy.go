@@ -45,9 +45,9 @@ func NewStatusStrategy(typer runtime.ObjectTyper) reindexJobStatusStrategy {
 	}
 }
 
-// NamespaceScoped returns true because ReindexJob is namespace-scoped.
+// NamespaceScoped returns false because ReindexJob is cluster-scoped.
 func (s reindexJobStrategy) NamespaceScoped() bool {
-	return true
+	return false
 }
 
 // PrepareForCreate clears status and sets defaults before creation.
@@ -242,7 +242,7 @@ func GetAttrs(obj runtime.Object) (labels.Set, fields.Set, error) {
 
 // SelectableFields returns the fields that can be used in field selectors.
 func SelectableFields(job *activity.ReindexJob) fields.Set {
-	return generic.ObjectMetaFieldsSet(&job.ObjectMeta, true)
+	return generic.ObjectMetaFieldsSet(&job.ObjectMeta, false)
 }
 
 // MatchReindexJob returns a matcher for ReindexJob resources.
@@ -256,9 +256,9 @@ func MatchReindexJob(label labels.Selector, field fields.Selector) storage.Selec
 
 // Status strategy methods
 
-// NamespaceScoped returns true because ReindexJob is namespace-scoped.
+// NamespaceScoped returns false because ReindexJob is cluster-scoped.
 func (s reindexJobStatusStrategy) NamespaceScoped() bool {
-	return true
+	return false
 }
 
 // PrepareForUpdate clears fields that are not allowed to be set by end users on status update.

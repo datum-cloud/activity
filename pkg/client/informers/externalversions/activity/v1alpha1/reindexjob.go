@@ -26,45 +26,44 @@ type ReindexJobInformer interface {
 type reindexJobInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
-	namespace        string
 }
 
 // NewReindexJobInformer constructs a new informer for ReindexJob type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewReindexJobInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredReindexJobInformer(client, namespace, resyncPeriod, indexers, nil)
+func NewReindexJobInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredReindexJobInformer(client, resyncPeriod, indexers, nil)
 }
 
 // NewFilteredReindexJobInformer constructs a new informer for ReindexJob type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredReindexJobInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredReindexJobInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.ActivityV1alpha1().ReindexJobs(namespace).List(context.Background(), options)
+				return client.ActivityV1alpha1().ReindexJobs().List(context.Background(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.ActivityV1alpha1().ReindexJobs(namespace).Watch(context.Background(), options)
+				return client.ActivityV1alpha1().ReindexJobs().Watch(context.Background(), options)
 			},
 			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.ActivityV1alpha1().ReindexJobs(namespace).List(ctx, options)
+				return client.ActivityV1alpha1().ReindexJobs().List(ctx, options)
 			},
 			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.ActivityV1alpha1().ReindexJobs(namespace).Watch(ctx, options)
+				return client.ActivityV1alpha1().ReindexJobs().Watch(ctx, options)
 			},
 		}, client),
 		&apisactivityv1alpha1.ReindexJob{},
@@ -74,7 +73,7 @@ func NewFilteredReindexJobInformer(client versioned.Interface, namespace string,
 }
 
 func (f *reindexJobInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredReindexJobInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+	return NewFilteredReindexJobInformer(client, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
 func (f *reindexJobInformer) Informer() cache.SharedIndexInformer {

@@ -11,7 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -23,13 +22,12 @@ import (
 )
 
 var (
-	reindexJobsStartedTotal = prometheus.NewCounterVec(
+	reindexJobsStartedTotal = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Namespace: "activity_controller",
 			Name:      "reindex_jobs_started_total",
 			Help:      "Total number of ReindexJob resources started",
 		},
-		[]string{"namespace"},
 	)
 
 	reindexJobsCompletedTotal = prometheus.NewCounterVec(
@@ -38,17 +36,16 @@ var (
 			Name:      "reindex_jobs_completed_total",
 			Help:      "Total number of ReindexJob resources completed",
 		},
-		[]string{"namespace", "result"}, // result: succeeded, failed
+		[]string{"result"}, // result: succeeded, failed
 	)
 
-	reindexJobDuration = prometheus.NewHistogramVec(
+	reindexJobDuration = prometheus.NewHistogram(
 		prometheus.HistogramOpts{
 			Namespace: "activity_controller",
 			Name:      "reindex_job_duration_seconds",
 			Help:      "Time spent running ReindexJob operations",
 			Buckets:   prometheus.ExponentialBuckets(10, 2, 10), // 10s to ~2.8 hours
 		},
-		[]string{"namespace"},
 	)
 
 	reindexJobsRunning = prometheus.NewGauge(
@@ -76,8 +73,10 @@ type ReindexJobReconciler struct {
 	JetStream nats.JetStreamContext
 	Recorder  record.EventRecorder
 
-	// Concurrency control - only one job can run at a time
-	runningJob *types.NamespacedName
+	// Concurrency control - only one job can run at a time.
+	// Since ReindexJob is cluster-scoped, we only track the job name (not namespace).
+	// Empty string means no job is currently running.
+	runningJob string
 	mu         sync.Mutex
 
 	// Context for graceful shutdown of worker goroutines
@@ -115,12 +114,12 @@ func (r *ReindexJobReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	// Check if another job is running (mutex-protected)
 	r.mu.Lock()
-	if r.runningJob != nil && *r.runningJob != req.NamespacedName {
+	if r.runningJob != "" && r.runningJob != req.Name {
 		r.mu.Unlock()
 		// Queue this job
 		if job.Status.Phase != v1alpha1.ReindexJobPending {
 			job.Status.Phase = v1alpha1.ReindexJobPending
-			job.Status.Message = fmt.Sprintf("Waiting for %s/%s to complete", r.runningJob.Namespace, r.runningJob.Name)
+			job.Status.Message = fmt.Sprintf("Waiting for %s to complete", r.runningJob)
 			meta.SetStatusCondition(&job.Status.Conditions, metav1.Condition{
 				Type:               "Ready",
 				Status:             metav1.ConditionFalse,
@@ -157,13 +156,12 @@ func (r *ReindexJobReconciler) startJob(ctx context.Context, job *v1alpha1.Reind
 
 	// Claim the job slot under mutex protection
 	r.mu.Lock()
-	if r.runningJob != nil {
+	if r.runningJob != "" {
 		r.mu.Unlock()
 		// Another job claimed the slot, requeue
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
-	nn := types.NamespacedName{Name: job.Name, Namespace: job.Namespace}
-	r.runningJob = &nn
+	r.runningJob = job.Name
 	r.mu.Unlock()
 
 	// Update status to Running
@@ -183,7 +181,7 @@ func (r *ReindexJobReconciler) startJob(ctx context.Context, job *v1alpha1.Reind
 		logger.Error(err, "failed to update ReindexJob status to Running")
 		// Release the slot on error
 		r.mu.Lock()
-		r.runningJob = nil
+		r.runningJob = ""
 		r.mu.Unlock()
 		return ctrl.Result{}, err
 	}
@@ -196,7 +194,7 @@ func (r *ReindexJobReconciler) startJob(ctx context.Context, job *v1alpha1.Reind
 		dryRun = job.Spec.Config.DryRun
 	}
 	logger.Info("Starting ReindexJob",
-		"job", nn,
+		"job", job.Name,
 		"startTime", job.Spec.TimeRange.StartTime,
 		"endTime", job.Spec.TimeRange.EndTime,
 		"batchSize", batchSize,
@@ -204,7 +202,7 @@ func (r *ReindexJobReconciler) startJob(ctx context.Context, job *v1alpha1.Reind
 	)
 
 	// Record metrics
-	reindexJobsStartedTotal.WithLabelValues(job.Namespace).Inc()
+	reindexJobsStartedTotal.Inc()
 	reindexJobsRunning.Inc()
 
 	// Emit Started event

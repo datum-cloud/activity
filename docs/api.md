@@ -872,7 +872,6 @@ Example:
 	kind: ReindexJob
 	metadata:
 	  name: fix-policy-bug-2026-02-27
-	  namespace: activity-system
 	spec:
 	  timeRange:
 	    startTime: "2026-02-25T00:00:00Z"
