@@ -15,9 +15,6 @@ const FILTER_DEBOUNCE_MS = 300;
 // Default page size for infinite scroll
 const DEFAULT_PAGE_SIZE = 100;
 
-// Default verbs: show only mutating actions (modify events)
-const DEFAULT_MODIFY_VERBS = ['create', 'update', 'patch', 'delete'];
-
 export interface AuditLogQueryComponentProps {
   client: ActivityApiClient;
   className?: string;
@@ -42,13 +39,7 @@ export function AuditLogQueryComponent({
   },
   errorFormatter,
 }: AuditLogQueryComponentProps) {
-  // Apply default modify-only filter if no verbs are specified in initialFilters
-  const defaultFilters: AuditLogFilterState = {
-    verbs: DEFAULT_MODIFY_VERBS,
-    ...initialFilters,
-  };
-
-  const [filters, setFilters] = useState<AuditLogFilterState>(defaultFilters);
+  const [filters, setFilters] = useState<AuditLogFilterState>(initialFilters);
   const [timeRange, setTimeRange] = useState<TimeRange>(initialTimeRange);
 
   const { events, isLoading, error, hasMore, executeQuery, loadMore } =
