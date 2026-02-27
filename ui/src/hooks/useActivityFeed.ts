@@ -25,6 +25,8 @@ export interface ActivityFeedFilters {
   resourceName?: string;
   /** Filter by resource namespaces (multi-select) */
   resourceNamespaces?: string[];
+  /** Filter by actions (multi-select) - prepared for future backend support */
+  actions?: string[];
   /** Custom CEL filter expression */
   customFilter?: string;
 }

@@ -11,8 +11,6 @@ import { TimeRangeDropdown } from './ui/time-range-dropdown';
 import { FilterChip } from './ui/filter-chip';
 import { AddFilterDropdown, type FilterOption } from './ui/add-filter-dropdown';
 import { Input } from './ui/input';
-import { ActionMultiSelect } from './ActionMultiSelect';
-import { UserSelect } from './UserSelect';
 
 export interface ActivityFeedFiltersProps {
   /** API client instance for fetching facets */
@@ -28,7 +26,7 @@ export interface ActivityFeedFiltersProps {
   /** Whether the filters are disabled (e.g., during loading) */
   disabled?: boolean;
   /** Filters that should be locked and hidden from the UI (programmatically set by parent) */
-  hiddenFilters?: Array<'resourceKinds' | 'actorNames' | 'apiGroups' | 'resourceNamespaces' | 'resourceName' | 'changeSource'>;
+  hiddenFilters?: Array<'resourceKinds' | 'actorNames' | 'apiGroups' | 'resourceNamespaces' | 'resourceName' | 'actions' | 'changeSource'>;
   /** Additional CSS class */
   className?: string;
 }
@@ -46,7 +44,7 @@ const TIME_PRESETS = [
 /**
  * Filter configuration registry
  */
-type FilterId = 'resourceKinds' | 'actorNames' | 'apiGroups' | 'resourceNamespaces' | 'resourceName';
+type FilterId = 'resourceKinds' | 'actorNames' | 'apiGroups' | 'resourceNamespaces' | 'resourceName' | 'actions';
 
 interface FilterConfig {
   id: FilterId;
@@ -86,6 +84,12 @@ const FILTER_CONFIGS: Record<FilterId, FilterConfig> = {
     label: 'Resource Name',
     inputMode: 'text',
     placeholder: 'Enter resource name...',
+  },
+  actions: {
+    id: 'actions',
+    label: 'Action',
+    inputMode: 'typeahead',
+    searchPlaceholder: 'Search actions...',
   },
 };
 
@@ -196,14 +200,13 @@ export function ActivityFeedFilters({
   };
 
   // Determine which filters are currently active (have values) and not hidden
-  // Note: actorNames is now handled by UserSelect quick filter, not filter chips
   const filtersWithValues: FilterId[] = [];
   if (filters.resourceKinds && filters.resourceKinds.length > 0 && !hiddenFilters.includes('resourceKinds')) filtersWithValues.push('resourceKinds');
-  // actorNames is handled by UserSelect, skip it here
-  // if (filters.actorNames && filters.actorNames.length > 0 && !hiddenFilters.includes('actorNames')) filtersWithValues.push('actorNames');
+  if (filters.actorNames && filters.actorNames.length > 0 && !hiddenFilters.includes('actorNames')) filtersWithValues.push('actorNames');
   if (filters.apiGroups && filters.apiGroups.length > 0 && !hiddenFilters.includes('apiGroups')) filtersWithValues.push('apiGroups');
   if (filters.resourceNamespaces && filters.resourceNamespaces.length > 0 && !hiddenFilters.includes('resourceNamespaces')) filtersWithValues.push('resourceNamespaces');
   if (filters.resourceName && !hiddenFilters.includes('resourceName')) filtersWithValues.push('resourceName');
+  if (filters.actions && filters.actions.length > 0) filtersWithValues.push('actions');
 
   // Include pendingFilter (newly added filter awaiting value selection) in the displayed filters
   const activeFilterIds: FilterId[] = pendingFilter && !filtersWithValues.includes(pendingFilter)
@@ -219,13 +222,13 @@ export function ActivityFeedFilters({
   }, [pendingFilter, filtersWithValues]);
 
   // Build available filters list (exclude hidden filters)
-  // Note: actorNames is now a quick filter (UserSelect), not in the dropdown
   const availableFilters: FilterOption[] = [
     { id: 'resourceKinds', label: 'Kind' },
-    // actorNames is handled by UserSelect quick filter
+    { id: 'actorNames', label: 'Actor' },
     { id: 'apiGroups', label: 'API Group' },
     { id: 'resourceNamespaces', label: 'Namespace' },
     { id: 'resourceName', label: 'Resource Name' },
+    { id: 'actions', label: 'Action' },
   ].filter((filter) => !hiddenFilters.includes(filter.id as FilterId));
 
   // Handle adding a filter
@@ -307,6 +310,9 @@ export function ActivityFeedFilters({
             label: facet.value,
             count: facet.count,
           }));
+      case 'actions':
+        // TODO: Return action facets when backend supports it
+        return [];
       default:
         return [];
     }
@@ -317,6 +323,9 @@ export function ActivityFeedFilters({
     const value = filters[filterId];
     if (filterId === 'resourceName') {
       return value ? [value as string] : [];
+    }
+    if (filterId === 'actions') {
+      return (value as string[] | undefined) || [];
     }
     return (value as string[] | undefined) || [];
   };
@@ -333,56 +342,6 @@ export function ActivityFeedFilters({
     [filters, onFiltersChange]
   );
 
-  // Handle user select change
-  const handleUserChange = useCallback(
-    (username?: string) => {
-      onFiltersChange({
-        ...filters,
-        actorNames: username ? [username] : undefined,
-      });
-    },
-    [filters, onFiltersChange]
-  );
-
-  // Get current user value for select (single selection for quick filter)
-  const getCurrentUser = (): string | undefined => {
-    return filters.actorNames && filters.actorNames.length === 1
-      ? filters.actorNames[0]
-      : undefined;
-  };
-
-  // Prepare user options for select
-  const userOptions = actorNames
-    .filter((facet) => facet.value)
-    .map((facet) => ({
-      value: facet.value,
-      label: facet.value,
-      count: facet.count,
-    }));
-
-  // Handle action multi-select change
-  // Note: Action/verb filtering not yet implemented in Activity backend
-  // This is prepared for future support
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleActionChange = useCallback((selectedActions: string[]) => {
-    // TODO: Implement when backend supports action/verb filtering
-    // When backend adds action/verb support, uncomment:
-    // onFiltersChange({
-    //   ...filters,
-    //   actions: selectedActions.length > 0 ? selectedActions : undefined,
-    // });
-  }, []);
-
-  // Get current action values for multi-select
-  const getActionValues = (): string[] => {
-    // TODO: Return filters.actions when backend supports it
-    return [];
-  };
-
-  // Prepare action options from facets
-  // TODO: Fetch action facets when backend supports spec.action or similar field
-  const actionOptions: Array<{ value: string; label: string; count?: number }> = [];
-
   return (
     <div className={`mb-3 pb-3 border-b border-border pr-2 ${className}`}>
       <div className="flex flex-wrap gap-2 items-center">
@@ -392,27 +351,6 @@ export function ActivityFeedFilters({
             value={filters.changeSource || 'all'}
             onChange={handleChangeSourceChange}
             disabled={disabled}
-          />
-        )}
-
-        {/* Action Multi-Select */}
-        <ActionMultiSelect
-          value={getActionValues()}
-          onChange={handleActionChange}
-          options={actionOptions}
-          disabled={disabled}
-          isLoading={false}
-          className="h-7 text-xs min-w-[180px]"
-        />
-
-        {/* User Select */}
-        {!hiddenFilters.includes('actorNames') && (
-          <UserSelect
-            value={getCurrentUser()}
-            options={userOptions}
-            onChange={handleUserChange}
-            disabled={disabled}
-            isLoading={!actorNames.length && !facetsError}
           />
         )}
 
