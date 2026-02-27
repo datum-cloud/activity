@@ -53,7 +53,7 @@ function formatTimestampFull(timestamp?: string): string {
  * Get Tailwind classes for verb badge
  */
 function getVerbBadgeClasses(verb?: string): string {
-  const baseClasses = 'text-xs h-4 px-1.5 py-0.5 leading-3';
+  const baseClasses = 'text-[0.55rem] h-5 px-2 py-1 leading-3';
   const normalized = verb?.toLowerCase();
 
   switch (normalized) {
@@ -160,7 +160,7 @@ export function AuditLogFeedItem({
             </Badge>
 
             {/* Response status */}
-            <span className={cn('inline-flex items-center gap-1 text-xs font-semibold shrink-0', statusIndicator.className)}>
+            <span className={cn('inline-flex items-center gap-1 text-[0.65rem] font-semibold shrink-0', statusIndicator.className)}>
               <span>{statusIndicator.icon}</span>
               {event.responseStatus?.code && (
                 <span>{event.responseStatus.code}</span>

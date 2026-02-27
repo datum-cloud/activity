@@ -73,9 +73,9 @@ export interface AuditLogQuerySpec {
   limit?: number;
 
   /**
-   * Cursor for pagination (timestamp from previous query's status.continueAfter)
+   * Cursor for pagination (copy from previous query's status.continue)
    */
-  continueAfter?: string;
+  continue?: string;
 
   /**
    * Start time for the query (ISO 8601 timestamp)
@@ -93,7 +93,8 @@ export interface AuditLogQuerySpec {
 export interface AuditLogQueryStatus {
   phase?: QueryPhase;
   results?: Event[];
-  continueAfter?: string;
+  /** Pagination cursor - copy to spec.continue to get the next page */
+  continue?: string;
   message?: string;
 }
 

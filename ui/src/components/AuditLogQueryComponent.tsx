@@ -150,6 +150,7 @@ export function AuditLogQueryComponent({
       (entries) => {
         const entry = entries[0];
         if (entry.isIntersecting && hasMore && !isLoading) {
+          console.log('[AuditLogQueryComponent] Intersection triggered, loading more...');
           // Call through the ref to always use the latest function
           loadMoreRef.current();
         }
@@ -192,54 +193,53 @@ export function AuditLogQueryComponent({
       {/* Error Display */}
       <ApiErrorAlert error={error} onRetry={refresh} className="mb-4" errorFormatter={errorFormatter} />
 
-      {/* Loading State (initial load) */}
-      {isLoading && events.length === 0 && (
-        <div className="flex items-center justify-center gap-3 py-8 text-muted-foreground text-sm">
-          <div className="w-5 h-5 border-[3px] border-muted border-t-primary rounded-full animate-spin"></div>
-          <span>Searching audit logs...</span>
-        </div>
-      )}
-
-      {/* Empty State */}
-      {!isLoading && events.length === 0 && !error && (
-        <div className="py-12 text-center text-muted-foreground">
-          <p className="m-0">No audit events found</p>
-          <p className="text-sm text-muted-foreground mt-2 m-0">
-            Try adjusting your filters or time range
-          </p>
-        </div>
-      )}
-
       {/* Event List with Infinite Scroll */}
-      {events.length > 0 && (
-        <div className="max-h-[calc(100vh-200px)] overflow-y-auto pr-2" ref={scrollContainerRef}>
-          {events.map((event, index) => (
-            <AuditLogFeedItem
-              key={event.auditID || `event-${index}`}
-              event={event}
-              onEventClick={onEventSelect}
-            />
-          ))}
+      <div className="max-h-[calc(100vh-200px)] overflow-y-auto pr-2" ref={scrollContainerRef}>
+        {/* Loading State (initial load) */}
+        {isLoading && events.length === 0 && (
+          <div className="flex items-center justify-center gap-3 py-8 text-muted-foreground text-sm">
+            <div className="w-5 h-5 border-[3px] border-muted border-t-primary rounded-full animate-spin"></div>
+            <span>Searching audit logs...</span>
+          </div>
+        )}
 
-          {/* Load More Trigger for Infinite Scroll */}
-          {hasMore && <div ref={loadMoreTriggerRef} className="h-px mt-4" />}
+        {/* Empty State */}
+        {!isLoading && events.length === 0 && !error && (
+          <div className="py-12 text-center text-muted-foreground">
+            <p className="m-0">No audit events found</p>
+            <p className="text-sm text-muted-foreground mt-2 m-0">
+              Try adjusting your filters or time range
+            </p>
+          </div>
+        )}
 
-          {/* Loading Indicator (pagination) */}
-          {isLoading && (
-            <div className="flex items-center justify-center gap-3 py-8 text-muted-foreground text-sm">
-              <div className="w-5 h-5 border-[3px] border-muted border-t-primary rounded-full animate-spin"></div>
-              <span>Loading more events...</span>
-            </div>
-          )}
+        {/* Event List */}
+        {events.map((event, index) => (
+          <AuditLogFeedItem
+            key={event.auditID || `event-${index}`}
+            event={event}
+            onEventClick={onEventSelect}
+          />
+        ))}
 
-          {/* End of Results */}
-          {!hasMore && events.length > 0 && !isLoading && (
-            <div className="text-center py-6 text-muted-foreground text-sm border-t border-border mt-4">
-              End of results
-            </div>
-          )}
-        </div>
-      )}
+        {/* Load More Trigger for Infinite Scroll */}
+        {hasMore && <div ref={loadMoreTriggerRef} className="h-px mt-4" />}
+
+        {/* Loading Indicator (pagination) */}
+        {isLoading && events.length > 0 && (
+          <div className="flex items-center justify-center gap-3 py-8 text-muted-foreground text-sm">
+            <div className="w-5 h-5 border-[3px] border-muted border-t-primary rounded-full animate-spin"></div>
+            <span>Loading more events...</span>
+          </div>
+        )}
+
+        {/* End of Results */}
+        {!hasMore && events.length > 0 && !isLoading && (
+          <div className="text-center py-6 text-muted-foreground text-sm border-t border-border mt-4">
+            End of results
+          </div>
+        )}
+      </div>
     </Card>
   );
 }

@@ -43,7 +43,7 @@ export function useAuditLogQuery({
 
         console.log('[useAuditLogQuery] Query response:', {
           resultCount: result.status?.results?.length,
-          continueAfter: result.status?.continueAfter,
+          continue: result.status?.continue,
           phase: result.status?.phase,
         });
 
@@ -59,16 +59,16 @@ export function useAuditLogQuery({
   );
 
   const loadMore = useCallback(async () => {
-    if (!query?.status?.continueAfter || !currentSpec || isLoading) {
+    if (!query?.status?.continue || !currentSpec || isLoading) {
       console.log('[useAuditLogQuery] loadMore skipped:', {
-        hasContinueAfter: !!query?.status?.continueAfter,
+        hasContinue: !!query?.status?.continue,
         hasCurrentSpec: !!currentSpec,
         isLoading,
       });
       return;
     }
 
-    console.log('[useAuditLogQuery] Loading more with continueAfter:', query.status.continueAfter);
+    console.log('[useAuditLogQuery] Loading more with continue:', query.status.continue);
 
     setIsLoading(true);
     setError(null);
@@ -76,7 +76,7 @@ export function useAuditLogQuery({
     try {
       const nextSpec: AuditLogQuerySpec = {
         ...currentSpec,
-        continueAfter: query.status.continueAfter,
+        continue: query.status.continue,
       };
 
       const queryName = `query-${Date.now()}`;
@@ -84,7 +84,7 @@ export function useAuditLogQuery({
 
       console.log('[useAuditLogQuery] loadMore response:', {
         resultCount: result.status?.results?.length,
-        continueAfter: result.status?.continueAfter,
+        continue: result.status?.continue,
         totalEvents: events.length + (result.status?.results?.length || 0),
       });
 
@@ -123,7 +123,7 @@ export function useAuditLogQuery({
     events,
     isLoading,
     error,
-    hasMore: !!query?.status?.continueAfter,
+    hasMore: !!query?.status?.continue,
     executeQuery,
     loadMore,
     reset,

@@ -137,13 +137,13 @@ export class ActivityApiClient {
       yield result;
 
       // Check if there are more results
-      if (!result.status?.continueAfter) {
+      if (!result.status?.continue) {
         break;
       }
 
       currentSpec = {
         ...currentSpec,
-        continueAfter: result.status.continueAfter,
+        continue: result.status.continue,
       };
       pageNum++;
     }

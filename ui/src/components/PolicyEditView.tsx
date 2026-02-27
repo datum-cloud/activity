@@ -153,7 +153,7 @@ export function PolicyEditView({
 
         const result = await client.createQuery(queryName, spec);
         const events = result.status?.results || [];
-        const cursor = result.status?.continueAfter;
+        const cursor = result.status?.continue;
 
         if (events.length > 0) {
           preview.setAuditInputs(events);
@@ -212,12 +212,12 @@ export function PolicyEditView({
         limit: 10,
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
-        continueAfter, // Use the cursor from the previous query
+        continue: continueAfter, // Use the cursor from the previous query
       };
 
       const result = await client.createQuery(queryName, spec);
       const events = result.status?.results || [];
-      const cursor = result.status?.continueAfter;
+      const cursor = result.status?.continue;
 
       if (events.length > 0) {
         // Append new events to existing inputs
