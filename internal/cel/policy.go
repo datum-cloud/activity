@@ -367,8 +367,16 @@ func EvaluateEventSummary(template string, event map[string]interface{}) (string
 
 // evaluateSummaryTemplate evaluates a summary template with the given variables.
 // Links are captured by the linkCollector in the CEL environment during evaluation.
+// Returns an error if any template expression fails to compile or evaluate.
 func evaluateSummaryTemplate(env *cel.Env, template string, vars map[string]interface{}) (string, error) {
+	var evalErr error
+
 	result := summaryTemplateRegex.ReplaceAllStringFunc(template, func(match string) string {
+		// If we've already encountered an error, stop processing
+		if evalErr != nil {
+			return ""
+		}
+
 		// Extract the expression from {{ expression }}
 		submatches := summaryTemplateRegex.FindStringSubmatch(match)
 		if len(submatches) < 2 {
@@ -381,21 +389,29 @@ func evaluateSummaryTemplate(env *cel.Env, template string, vars map[string]inte
 		// The link() function in the environment will capture links automatically
 		ast, issues := env.Compile(expr)
 		if issues != nil && issues.Err() != nil {
-			return fmt.Sprintf("[ERROR: %v]", issues.Err())
+			evalErr = fmt.Errorf("failed to compile template expression '{{ %s }}': %w", expr, issues.Err())
+			return ""
 		}
 
 		prg, err := env.Program(ast)
 		if err != nil {
-			return fmt.Sprintf("[ERROR: %v]", err)
+			evalErr = fmt.Errorf("failed to create program for template expression '{{ %s }}': %w", expr, err)
+			return ""
 		}
 
 		out, _, err := prg.Eval(vars)
 		if err != nil {
-			return fmt.Sprintf("[ERROR: %v]", err)
+			evalErr = fmt.Errorf("failed to evaluate template expression '{{ %s }}': %w", expr, err)
+			return ""
 		}
 
 		return fmt.Sprintf("%v", out.Value())
 	})
+
+	// Check if an error occurred during template evaluation
+	if evalErr != nil {
+		return "", evalErr
+	}
 
 	return result, nil
 }

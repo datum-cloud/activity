@@ -49,6 +49,43 @@ type ActivityPolicyStatus struct {
 	// ObservedGeneration is the generation last processed by the controller.
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	// EvaluationStats contains runtime evaluation statistics from the processor.
+	// Updated periodically by the activity-processor to report rule evaluation health.
+	// +optional
+	EvaluationStats *EvaluationStats `json:"evaluationStats,omitempty"`
+}
+
+// EvaluationStats tracks runtime CEL expression evaluation health for a policy.
+// These metrics are collected by the activity-processor and reported via status updates.
+type EvaluationStats struct {
+	// LastEvaluationTime is when this policy last evaluated an event/audit.
+	// +optional
+	LastEvaluationTime *metav1.Time `json:"lastEvaluationTime,omitempty"`
+
+	// SuccessCount is the number of successful evaluations in the current window.
+	// +optional
+	SuccessCount int64 `json:"successCount,omitempty"`
+
+	// ErrorCount is the number of failed evaluations in the current window.
+	// +optional
+	ErrorCount int64 `json:"errorCount,omitempty"`
+
+	// LastErrorTime is when the most recent error occurred.
+	// +optional
+	LastErrorTime *metav1.Time `json:"lastErrorTime,omitempty"`
+
+	// LastErrorMessage contains the error message from the most recent failure.
+	// +optional
+	LastErrorMessage string `json:"lastErrorMessage,omitempty"`
+
+	// LastErrorRuleIndex indicates which rule failed (0-based index).
+	// +optional
+	LastErrorRuleIndex *int `json:"lastErrorRuleIndex,omitempty"`
+
+	// WindowStartTime marks the beginning of the current statistics window.
+	// +optional
+	WindowStartTime *metav1.Time `json:"windowStartTime,omitempty"`
 }
 
 // ActivityPolicySpec defines the translation rules for a resource type.
