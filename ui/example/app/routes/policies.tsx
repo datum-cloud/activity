@@ -9,11 +9,13 @@ import { NavigationToolbar } from "~/components/NavigationToolbar";
  */
 export default function PoliciesLayout() {
   const [client, setClient] = useState<ActivityApiClient | null>(null);
-  const isProduction = typeof window !== "undefined" &&
-    window.location.hostname !== "localhost" &&
-    window.location.hostname !== "127.0.0.1";
 
   useEffect(() => {
+    // Check if in production environment
+    const isProduction = typeof window !== "undefined" &&
+      window.location.hostname !== "localhost" &&
+      window.location.hostname !== "127.0.0.1";
+
     if (isProduction) {
       setClient(new ActivityApiClient({ baseUrl: "" }));
     } else {
@@ -26,7 +28,7 @@ export default function PoliciesLayout() {
         })
       );
     }
-  }, [isProduction]);
+  }, []);
 
   return (
     <AppLayout>

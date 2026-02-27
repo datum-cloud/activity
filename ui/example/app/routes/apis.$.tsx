@@ -29,10 +29,16 @@ async function proxyRequest(request: Request): Promise<Response> {
   const headers: Record<string, string> = {};
   request.headers.forEach((value, key) => {
     const lowerKey = key.toLowerCase();
-    if (lowerKey !== "host" && lowerKey !== "connection") {
+    // Skip headers that shouldn't be proxied
+    if (lowerKey !== "host" && lowerKey !== "connection" && lowerKey !== "authorization") {
       headers[key] = value;
     }
   });
+
+  // Add bearer token authentication if available
+  if (config.bearerToken) {
+    headers["Authorization"] = `Bearer ${config.bearerToken}`;
+  }
 
   return new Promise((resolve) => {
     const options: https.RequestOptions = {

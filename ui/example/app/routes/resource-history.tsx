@@ -80,12 +80,13 @@ export default function ResourceHistoryPage() {
     setUid(initialUid);
   }, [filterFromParams, initialApiGroup, initialKind, initialNamespace, initialName, initialUid]);
 
-  const isProduction =
-    typeof window !== "undefined" &&
-    window.location.hostname !== "localhost" &&
-    window.location.hostname !== "127.0.0.1";
-
   useEffect(() => {
+    // Check if in production environment
+    const isProduction =
+      typeof window !== "undefined" &&
+      window.location.hostname !== "localhost" &&
+      window.location.hostname !== "127.0.0.1";
+
     if (isProduction) {
       setClient(new ActivityApiClient({ baseUrl: "" }));
     } else {
@@ -98,7 +99,7 @@ export default function ResourceHistoryPage() {
         })
       );
     }
-  }, [isProduction]);
+  }, []);
 
   // Build filter state from current form selections for cascading dropdowns
   const currentFilters = useMemo((): ActivityFeedFilterState => {

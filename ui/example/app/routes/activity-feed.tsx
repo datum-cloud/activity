@@ -19,11 +19,13 @@ export default function ActivityFeedPage() {
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(
     null
   );
-  const isProduction = typeof window !== "undefined" &&
-    window.location.hostname !== "localhost" &&
-    window.location.hostname !== "127.0.0.1";
 
   useEffect(() => {
+    // Check if in production environment
+    const isProduction = typeof window !== "undefined" &&
+      window.location.hostname !== "localhost" &&
+      window.location.hostname !== "127.0.0.1";
+
     if (isProduction) {
       // In production, use relative URLs (Gateway handles routing)
       setClient(new ActivityApiClient({ baseUrl: "" }));
@@ -40,7 +42,7 @@ export default function ActivityFeedPage() {
         })
       );
     }
-  }, [isProduction]);
+  }, []);
 
   const handleActivityClick = (activity: Activity) => {
     setSelectedActivity(activity);

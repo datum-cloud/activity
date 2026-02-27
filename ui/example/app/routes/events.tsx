@@ -15,11 +15,12 @@ export default function EventsPage() {
   const [client, setClient] = useState<ActivityApiClient | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<K8sEvent | null>(null);
 
-  const isProduction = typeof window !== "undefined" &&
-    window.location.hostname !== "localhost" &&
-    window.location.hostname !== "127.0.0.1";
-
   useEffect(() => {
+    // Check if in production environment
+    const isProduction = typeof window !== "undefined" &&
+      window.location.hostname !== "localhost" &&
+      window.location.hostname !== "127.0.0.1";
+
     if (isProduction) {
       // In production, use relative URLs (Gateway handles routing)
       setClient(new ActivityApiClient({ baseUrl: "" }));
@@ -36,7 +37,7 @@ export default function EventsPage() {
         })
       );
     }
-  }, [isProduction]);
+  }, []);
 
   const handleEventClick = (event: K8sEvent) => {
     setSelectedEvent(event);
