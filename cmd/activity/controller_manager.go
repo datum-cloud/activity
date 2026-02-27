@@ -26,7 +26,7 @@ type ControllerManagerOptions struct {
 	MetricsAddr     string
 	HealthProbeAddr string
 
-	// Optional: NATS configuration for ReindexJob controller
+	// NATS configuration (required)
 	NATSURL        string
 	NATSTLSEnabled bool
 	NATSTLSCertFile string
@@ -56,9 +56,9 @@ func (o *ControllerManagerOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.HealthProbeAddr, "health-probe-addr", o.HealthProbeAddr,
 		"The address to bind the health probe endpoint.")
 
-	// Optional NATS flags for ReindexJob controller
+	// NATS flags (required)
 	fs.StringVar(&o.NATSURL, "nats-url", o.NATSURL,
-		"NATS server URL (e.g., nats://localhost:4222). Required for ReindexJob controller.")
+		"NATS server URL (e.g., nats://localhost:4222). Required.")
 	fs.BoolVar(&o.NATSTLSEnabled, "nats-tls-enabled", o.NATSTLSEnabled,
 		"Enable TLS for NATS connection.")
 	fs.StringVar(&o.NATSTLSCertFile, "nats-tls-cert-file", o.NATSTLSCertFile,
@@ -94,6 +94,11 @@ and ensuring consistent state across the cluster.`,
 
 // RunControllerManager starts the controller manager.
 func RunControllerManager(options *ControllerManagerOptions) error {
+	// Validate required flags
+	if options.NATSURL == "" {
+		return fmt.Errorf("--nats-url is required")
+	}
+
 	klog.Info("Starting Activity Controller Manager")
 
 	// Build the client configuration
@@ -115,59 +120,54 @@ func RunControllerManager(options *ControllerManagerOptions) error {
 		HealthProbeAddr: options.HealthProbeAddr,
 	}
 
-	// Optional: Initialize NATS JetStream for ReindexJob controller
-	var js nats.JetStreamContext
-	var natsConn *nats.Conn
-	if options.NATSURL != "" {
-		klog.Info("Initializing NATS JetStream for ReindexJob controller")
+	// Initialize NATS JetStream connection
+	klog.Info("Initializing NATS JetStream connection")
 
-		var natsOpts []nats.Option
+	var natsOpts []nats.Option
 
-		// Configure TLS if enabled
-		if options.NATSTLSEnabled {
-			tlsConfig := &tls.Config{
-				MinVersion: tls.VersionTLS12,
-			}
-
-			// Load client cert/key if provided
-			if options.NATSTLSCertFile != "" && options.NATSTLSKeyFile != "" {
-				cert, err := tls.LoadX509KeyPair(options.NATSTLSCertFile, options.NATSTLSKeyFile)
-				if err != nil {
-					return fmt.Errorf("failed to load NATS TLS client cert: %w", err)
-				}
-				tlsConfig.Certificates = []tls.Certificate{cert}
-			}
-
-			// Load CA cert if provided
-			if options.NATSTLSCAFile != "" {
-				caCert, err := os.ReadFile(options.NATSTLSCAFile)
-				if err != nil {
-					return fmt.Errorf("failed to read NATS TLS CA file: %w", err)
-				}
-				caCertPool := x509.NewCertPool()
-				if !caCertPool.AppendCertsFromPEM(caCert) {
-					return fmt.Errorf("failed to parse NATS TLS CA certificate")
-				}
-				tlsConfig.RootCAs = caCertPool
-			}
-
-			natsOpts = append(natsOpts, nats.Secure(tlsConfig))
+	// Configure TLS if enabled
+	if options.NATSTLSEnabled {
+		tlsConfig := &tls.Config{
+			MinVersion: tls.VersionTLS12,
 		}
 
-		var err error
-		natsConn, err = nats.Connect(options.NATSURL, natsOpts...)
-		if err != nil {
-			return fmt.Errorf("failed to connect to NATS: %w", err)
+		// Load client cert/key if provided
+		if options.NATSTLSCertFile != "" && options.NATSTLSKeyFile != "" {
+			cert, err := tls.LoadX509KeyPair(options.NATSTLSCertFile, options.NATSTLSKeyFile)
+			if err != nil {
+				return fmt.Errorf("failed to load NATS TLS client cert: %w", err)
+			}
+			tlsConfig.Certificates = []tls.Certificate{cert}
 		}
 
-		js, err = natsConn.JetStream()
-		if err != nil {
-			natsConn.Close()
-			return fmt.Errorf("failed to get JetStream context: %w", err)
+		// Load CA cert if provided
+		if options.NATSTLSCAFile != "" {
+			caCert, err := os.ReadFile(options.NATSTLSCAFile)
+			if err != nil {
+				return fmt.Errorf("failed to read NATS TLS CA file: %w", err)
+			}
+			caCertPool := x509.NewCertPool()
+			if !caCertPool.AppendCertsFromPEM(caCert) {
+				return fmt.Errorf("failed to parse NATS TLS CA certificate")
+			}
+			tlsConfig.RootCAs = caCertPool
 		}
-		managerOpts.JetStream = js
-		klog.Info("NATS JetStream initialized", "url", options.NATSURL)
+
+		natsOpts = append(natsOpts, nats.Secure(tlsConfig))
 	}
+
+	natsConn, err := nats.Connect(options.NATSURL, natsOpts...)
+	if err != nil {
+		return fmt.Errorf("failed to connect to NATS: %w", err)
+	}
+
+	js, err := natsConn.JetStream()
+	if err != nil {
+		natsConn.Close()
+		return fmt.Errorf("failed to get JetStream context: %w", err)
+	}
+	managerOpts.JetStream = js
+	klog.Info("NATS JetStream initialized", "url", options.NATSURL)
 
 	// Create the controller manager
 	mgr, err := controller.NewManager(config, managerOpts)
@@ -182,10 +182,8 @@ func RunControllerManager(options *ControllerManagerOptions) error {
 	runErr := controller.Run(ctx, mgr)
 
 	// Clean up NATS connection on shutdown
-	if natsConn != nil {
-		klog.Info("Closing NATS connection")
-		natsConn.Close()
-	}
+	klog.Info("Closing NATS connection")
+	natsConn.Close()
 
 	if runErr != nil {
 		return runErr
