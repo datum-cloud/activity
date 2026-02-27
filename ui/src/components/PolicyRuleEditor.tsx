@@ -191,7 +191,7 @@ export function PolicyRuleEditor({
                       <Button
                         type="button"
                         size="sm"
-                        className="px-2 py-0.5 h-auto bg-[#E6F59F] border-none text-[0.625rem] font-medium text-[#0C1D31] uppercase hover:bg-[#d9e88c]"
+                        className="px-2 py-0.5 h-auto bg-[#E6F59F] border-none text-xs font-medium text-[#0C1D31] uppercase hover:bg-[#d9e88c]"
                         onClick={() => insertMatchExample(ex)}
                       >
                         Use
@@ -250,7 +250,7 @@ export function PolicyRuleEditor({
                       <Button
                         type="button"
                         size="sm"
-                        className="px-2 py-0.5 h-auto bg-[#E6F59F] border-none text-[0.625rem] font-medium text-[#0C1D31] uppercase hover:bg-[#d9e88c]"
+                        className="px-2 py-0.5 h-auto bg-[#E6F59F] border-none text-xs font-medium text-[#0C1D31] uppercase hover:bg-[#d9e88c]"
                         onClick={() => insertSummaryExample(ex)}
                       >
                         Use

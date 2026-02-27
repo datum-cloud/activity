@@ -82,7 +82,7 @@ function getActorInitials(name: string): string {
 function getActorAvatarClasses(actorType: string, compact: boolean): string {
   const baseClasses = cn(
     'rounded-full flex items-center justify-center shrink-0 font-semibold',
-    compact ? 'w-3.5 h-3.5 text-[7px]' : 'w-4 h-4 text-[8px]'
+    compact ? 'w-3.5 h-3.5 text-xs' : 'w-4 h-4 text-xs'
   );
   switch (actorType) {
     case 'user':
@@ -256,7 +256,7 @@ export function ActivityFeedItem({
 
             {/* Timestamp */}
             <span
-              className="text-[11px] text-muted-foreground whitespace-nowrap shrink-0"
+              className="text-xs text-muted-foreground whitespace-nowrap shrink-0"
               title={formatTimestampFull(timestamp)}
             >
               {formatTimestamp(timestamp)}
@@ -306,9 +306,9 @@ export function ActivityFeedItem({
           onClick={onActorClick ? handleActorClick : undefined}
         >
           {actor.type === 'controller' ? (
-            <span className={compact ? 'text-[7px]' : 'text-[8px]'}>⚙</span>
+            <span className="text-xs">⚙</span>
           ) : actor.type === 'machine account' ? (
-            <span className={compact ? 'text-[7px]' : 'text-[8px]'}>🤖</span>
+            <span className="text-xs">🤖</span>
           ) : (
             <span className="uppercase">{getActorInitials(actor.name)}</span>
           )}
@@ -334,7 +334,7 @@ export function ActivityFeedItem({
 
         {/* Timestamp */}
         <span
-          className="text-[11px] text-muted-foreground whitespace-nowrap shrink-0"
+          className="text-xs text-muted-foreground whitespace-nowrap shrink-0"
           title={formatTimestampFull(timestamp)}
         >
           {formatTimestamp(timestamp)}

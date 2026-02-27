@@ -457,7 +457,7 @@ export function SimpleQueryBuilder({
           </div>
           {useAdvancedFilter && (
             <div className="mt-3">
-              <p className="m-0 mb-2 text-[13px] text-muted-foreground">
+              <p className="m-0 mb-2 text-sm text-muted-foreground">
                 Write your query using CEL syntax for complex filters
               </p>
               <Textarea

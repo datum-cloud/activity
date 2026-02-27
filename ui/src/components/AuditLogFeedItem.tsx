@@ -53,7 +53,7 @@ function formatTimestampFull(timestamp?: string): string {
  * Get Tailwind classes for verb badge
  */
 function getVerbBadgeClasses(verb?: string): string {
-  const baseClasses = 'text-[9px] h-4 px-1.5 py-0';
+  const baseClasses = 'text-xs h-4 px-1.5 py-0';
   const normalized = verb?.toLowerCase();
 
   switch (normalized) {
