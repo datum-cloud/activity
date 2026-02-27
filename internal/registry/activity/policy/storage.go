@@ -11,6 +11,7 @@ import (
 	genericregistry "k8s.io/apiserver/pkg/registry/generic/registry"
 	"k8s.io/apiserver/pkg/registry/rest"
 
+	"go.miloapis.com/activity/pkg/apis/activity"
 	"go.miloapis.com/activity/pkg/apis/activity/v1alpha1"
 )
 
@@ -26,7 +27,7 @@ type ActivityPolicyStatusStorage struct {
 
 // New creates a new ActivityPolicy object.
 func (s *ActivityPolicyStatusStorage) New() runtime.Object {
-	return &v1alpha1.ActivityPolicy{}
+	return &activity.ActivityPolicy{}
 }
 
 // Destroy cleans up resources on shutdown.
@@ -65,9 +66,9 @@ func (c *policyTableConvertor) ConvertToTable(ctx context.Context, object runtim
 	}
 
 	switch t := object.(type) {
-	case *v1alpha1.ActivityPolicy:
+	case *activity.ActivityPolicy:
 		table.Rows = append(table.Rows, policyToTableRow(t))
-	case *v1alpha1.ActivityPolicyList:
+	case *activity.ActivityPolicyList:
 		for i := range t.Items {
 			table.Rows = append(table.Rows, policyToTableRow(&t.Items[i]))
 		}
@@ -77,7 +78,7 @@ func (c *policyTableConvertor) ConvertToTable(ctx context.Context, object runtim
 }
 
 // policyToTableRow converts an ActivityPolicy to a table row.
-func policyToTableRow(policy *v1alpha1.ActivityPolicy) metav1.TableRow {
+func policyToTableRow(policy *activity.ActivityPolicy) metav1.TableRow {
 	// Format API group - show "(core)" for empty string
 	apiGroup := policy.Spec.Resource.APIGroup
 	if apiGroup == "" {
@@ -117,8 +118,8 @@ func NewStorage(scheme *runtime.Scheme, optsGetter generic.RESTOptionsGetter) (*
 	statusStrategy := NewStatusStrategy(scheme)
 
 	store := &genericregistry.Store{
-		NewFunc:                   func() runtime.Object { return &v1alpha1.ActivityPolicy{} },
-		NewListFunc:               func() runtime.Object { return &v1alpha1.ActivityPolicyList{} },
+		NewFunc:                   func() runtime.Object { return &activity.ActivityPolicy{} },
+		NewListFunc:               func() runtime.Object { return &activity.ActivityPolicyList{} },
 		DefaultQualifiedResource:  v1alpha1.Resource("activitypolicies"),
 		SingularQualifiedResource: v1alpha1.Resource("activitypolicy"),
 

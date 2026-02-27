@@ -22,11 +22,14 @@ type ActivityBuilder struct {
 }
 
 // BuildFromAudit constructs an Activity from an audit event.
+// If resolveKind is provided, it will be used to resolve resource names to Kind in links.
+// Returns error if link conversion fails.
 func (b *ActivityBuilder) BuildFromAudit(
 	audit *auditv1.Event,
 	summary string,
 	links []cel.Link,
-) *v1alpha1.Activity {
+	resolveKind KindResolver,
+) (*v1alpha1.Activity, error) {
 	// Extract timestamps
 	timestamp := audit.RequestReceivedTimestamp.Time
 	if timestamp.IsZero() {
@@ -53,7 +56,10 @@ func (b *ActivityBuilder) BuildFromAudit(
 	activityName := fmt.Sprintf("act-%s", uuid.New().String()[:8])
 
 	// Convert links
-	activityLinks := ConvertLinks(links)
+	activityLinks, err := ConvertLinks(links, resolveKind)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrActivityBuild, err)
+	}
 
 	return &v1alpha1.Activity{
 		TypeMeta: metav1.TypeMeta{
@@ -90,7 +96,7 @@ func (b *ActivityBuilder) BuildFromAudit(
 				ID:   string(audit.AuditID),
 			},
 		},
-	}
+	}, nil
 }
 
 // extractResponseUID extracts the UID from an audit response object's metadata.
@@ -112,11 +118,14 @@ func extractResponseUID(responseObject *runtime.Unknown) string {
 }
 
 // BuildFromEvent constructs an Activity from a Kubernetes event.
+// If resolveKind is provided, it will be used to resolve resource names to Kind in links.
+// Returns error if link conversion fails.
 func (b *ActivityBuilder) BuildFromEvent(
 	eventMap map[string]interface{},
 	summary string,
 	links []cel.Link,
-) *v1alpha1.Activity {
+	resolveKind KindResolver,
+) (*v1alpha1.Activity, error) {
 	regarding, _ := eventMap["regarding"].(map[string]interface{})
 
 	// Extract timestamps
@@ -168,7 +177,10 @@ func (b *ActivityBuilder) BuildFromEvent(
 	activityName := fmt.Sprintf("act-%s", uuid.New().String()[:8])
 
 	// Convert links
-	activityLinks := ConvertLinks(links)
+	activityLinks, err := ConvertLinks(links, resolveKind)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrActivityBuild, err)
+	}
 
 	// Get event UID for origin
 	eventUID := ""
@@ -211,5 +223,5 @@ func (b *ActivityBuilder) BuildFromEvent(
 				ID:   eventUID,
 			},
 		},
-	}
+	}, nil
 }

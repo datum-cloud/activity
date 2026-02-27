@@ -43,23 +43,19 @@ func ResolveActor(user authnv1.UserInfo) v1alpha1.ActivityActor {
 	}
 
 	// Detect actor type based on username pattern
-	switch {
-	case strings.HasPrefix(user.Username, "system:"):
+	if strings.HasPrefix(user.Username, "system:") {
 		// System component (controller, service account, node, etc.)
 		actor.Type = ActorTypeSystem
-		// Remove "system:" prefix for display
 		actor.Name = strings.TrimPrefix(user.Username, "system:")
-
-	case strings.Contains(user.Username, "@"):
-		// Email-based username = human user
+	} else {
+		// Human user
 		actor.Type = ActorTypeUser
-		actor.Name = user.UID
+		actor.Name = user.Username
+	}
+
+	// Populate email field if username looks like an email
+	if strings.Contains(user.Username, "@") {
 		actor.Email = user.Username
-
-	default:
-		// Unknown pattern, treat as user
-		actor.Type = ActorTypeUser
-		actor.Name = user.UID
 	}
 
 	if actor.Name == "" {

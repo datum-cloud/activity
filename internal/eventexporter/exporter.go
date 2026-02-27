@@ -1,18 +1,21 @@
 // Package eventexporter implements a Kubernetes Event exporter that watches for Events
 // and publishes them to NATS JetStream for ingestion into ClickHouse.
 //
-// This exporter ensures format consistency by using the same corev1.Event types
-// for both serialization and deserialization throughout the pipeline.
+// This exporter uses events.k8s.io/v1 Event format for consistency with the
+// EventRecord API and ClickHouse schema.
 package eventexporter
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/nats-io/nats.go"
-	corev1 "k8s.io/api/core/v1"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	eventsv1 "k8s.io/api/events/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -20,7 +23,64 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
+
+var (
+	eventsPublished = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "event_exporter",
+			Name:      "events_published_total",
+			Help:      "Total number of Kubernetes events published to NATS",
+		},
+		[]string{"namespace", "reason"},
+	)
+
+	publishErrors = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: "event_exporter",
+			Name:      "publish_errors_total",
+			Help:      "Total number of errors publishing events to NATS",
+		},
+	)
+
+	informerSynced = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Namespace: "event_exporter",
+			Name:      "informer_synced",
+			Help:      "Informer cache sync status (1 = synced, 0 = not synced)",
+		},
+	)
+
+	natsConnectionStatus = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Namespace: "event_exporter",
+			Name:      "nats_connection_status",
+			Help:      "NATS connection status (1 = connected, 0 = disconnected)",
+		},
+	)
+
+	publishLatency = prometheus.NewHistogram(
+		prometheus.HistogramOpts{
+			Namespace: "event_exporter",
+			Name:      "publish_latency_seconds",
+			Help:      "Latency of NATS publish operations",
+			Buckets:   prometheus.DefBuckets,
+		},
+	)
+)
+
+func init() {
+	// Use controller-runtime's registry so metrics are exposed alongside other metrics.
+	metrics.Registry.MustRegister(
+		eventsPublished,
+		publishErrors,
+		informerSynced,
+		natsConnectionStatus,
+		publishLatency,
+	)
+}
 
 // Config holds the exporter configuration.
 type Config struct {
@@ -39,6 +99,9 @@ type Config struct {
 
 	// Resync period for the informer
 	ResyncPeriod time.Duration
+
+	// Health probe server bind address
+	HealthProbeAddr string
 }
 
 // Run starts the event exporter and blocks until the context is cancelled.
@@ -48,6 +111,7 @@ func Run(ctx context.Context, cfg Config) error {
 		"subjectPrefix", cfg.SubjectPrefix,
 		"scopeType", cfg.ScopeType,
 		"scopeName", cfg.ScopeName,
+		"healthProbeAddr", cfg.HealthProbeAddr,
 	)
 
 	// Create Kubernetes client
@@ -56,22 +120,26 @@ func Run(ctx context.Context, cfg Config) error {
 		return fmt.Errorf("failed to create Kubernetes client: %w", err)
 	}
 
-	// Connect to NATS
+	// Connect to NATS with metrics tracking
+	natsConnectionStatus.Set(0)
 	nc, err := nats.Connect(cfg.NATSUrl,
 		nats.Name("k8s-event-exporter"),
 		nats.ReconnectWait(2*time.Second),
 		nats.MaxReconnects(-1), // Unlimited reconnects
 		nats.DisconnectErrHandler(func(_ *nats.Conn, err error) {
 			klog.ErrorS(err, "NATS disconnected")
+			natsConnectionStatus.Set(0)
 		}),
 		nats.ReconnectHandler(func(_ *nats.Conn) {
 			klog.InfoS("NATS reconnected")
+			natsConnectionStatus.Set(1)
 		}),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to connect to NATS: %w", err)
 	}
 	defer nc.Close()
+	natsConnectionStatus.Set(1)
 
 	// Get JetStream context
 	js, err := nc.JetStream()
@@ -83,6 +151,7 @@ func Run(ctx context.Context, cfg Config) error {
 
 	// Create the event exporter
 	exporter := &Exporter{
+		nc:            nc,
 		js:            js,
 		subjectPrefix: cfg.SubjectPrefix,
 		scopeType:     cfg.ScopeType,
@@ -91,12 +160,12 @@ func Run(ctx context.Context, cfg Config) error {
 
 	// Create informer factory for all namespaces
 	factory := informers.NewSharedInformerFactory(k8sClient, cfg.ResyncPeriod)
-	eventInformer := factory.Core().V1().Events().Informer()
+	eventInformer := factory.Events().V1().Events().Informer()
 
 	// Register event handlers
 	eventInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			event, ok := obj.(*corev1.Event)
+			event, ok := obj.(*eventsv1.Event)
 			if !ok {
 				return
 			}
@@ -108,7 +177,7 @@ func Run(ctx context.Context, cfg Config) error {
 			}
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
-			event, ok := newObj.(*corev1.Event)
+			event, ok := newObj.(*eventsv1.Event)
 			if !ok {
 				return
 			}
@@ -122,14 +191,26 @@ func Run(ctx context.Context, cfg Config) error {
 		// We don't need to handle deletes - events are ephemeral and TTL'd
 	})
 
+	// Start health check server early so Kubernetes can check liveness during initialization
+	healthServer := startHealthServer(cfg.HealthProbeAddr, exporter, eventInformer)
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := healthServer.Shutdown(shutdownCtx); err != nil {
+			klog.ErrorS(err, "Failed to shutdown health server")
+		}
+	}()
+
 	// Start the informer
 	factory.Start(ctx.Done())
 
 	// Wait for cache sync
 	klog.InfoS("Waiting for informer cache to sync")
+	informerSynced.Set(0)
 	if !cache.WaitForCacheSync(ctx.Done(), eventInformer.HasSynced) {
 		return fmt.Errorf("failed to sync informer cache")
 	}
+	informerSynced.Set(1)
 	klog.InfoS("Informer cache synced, watching for events")
 
 	// Wait for shutdown
@@ -140,6 +221,7 @@ func Run(ctx context.Context, cfg Config) error {
 
 // Exporter handles publishing Kubernetes events to NATS.
 type Exporter struct {
+	nc            *nats.Conn
 	js            nats.JetStreamContext
 	subjectPrefix string
 	scopeType     string
@@ -147,7 +229,9 @@ type Exporter struct {
 }
 
 // publishEvent publishes a Kubernetes event to NATS JetStream.
-func (e *Exporter) publishEvent(ctx context.Context, event *corev1.Event, eventType string) error {
+func (e *Exporter) publishEvent(ctx context.Context, event *eventsv1.Event, eventType string) error {
+	start := time.Now()
+
 	// Create a copy to avoid modifying the cached object
 	eventCopy := event.DeepCopy()
 
@@ -158,15 +242,17 @@ func (e *Exporter) publishEvent(ctx context.Context, event *corev1.Event, eventT
 	eventCopy.Annotations["platform.miloapis.com/scope.type"] = e.scopeType
 	eventCopy.Annotations["platform.miloapis.com/scope.name"] = e.scopeName
 
-	// Ensure TypeMeta is set (informer objects don't have it populated)
+	// TypeMeta should be correctly populated by eventsv1.Event marshaling
+	// but we'll set it explicitly to ensure consistency
 	eventCopy.TypeMeta = metav1.TypeMeta{
-		APIVersion: "v1",
+		APIVersion: "events.k8s.io/v1",
 		Kind:       "Event",
 	}
 
 	// Serialize to JSON
 	data, err := json.Marshal(eventCopy)
 	if err != nil {
+		publishErrors.Inc()
 		return fmt.Errorf("failed to marshal event: %w", err)
 	}
 
@@ -185,8 +271,13 @@ func (e *Exporter) publishEvent(ctx context.Context, event *corev1.Event, eventT
 		nats.Context(ctx),
 	)
 	if err != nil {
+		publishErrors.Inc()
 		return fmt.Errorf("failed to publish to NATS: %w", err)
 	}
+
+	// Record metrics
+	publishLatency.Observe(time.Since(start).Seconds())
+	eventsPublished.WithLabelValues(event.Namespace, event.Reason).Inc()
 
 	klog.V(4).InfoS("Published event",
 		"namespace", event.Namespace,
@@ -219,4 +310,66 @@ func createK8sClient(kubeconfig string) (*kubernetes.Clientset, error) {
 	}
 
 	return client, nil
+}
+
+// startHealthServer starts the HTTP health probe server.
+func startHealthServer(addr string, exporter *Exporter, informer cache.SharedIndexInformer) *http.Server {
+	mux := http.NewServeMux()
+
+	// Liveness probe - checks if the exporter is alive and NATS is connected
+	mux.Handle("/healthz", http.StripPrefix("/healthz", &healthz.Handler{
+		Checks: map[string]healthz.Checker{
+			"ping": healthz.Ping,
+			"nats": natsHealthChecker(exporter),
+		},
+	}))
+
+	// Readiness probe - checks if the exporter is ready to process events
+	mux.Handle("/readyz", http.StripPrefix("/readyz", &healthz.Handler{
+		Checks: map[string]healthz.Checker{
+			"ping":           healthz.Ping,
+			"nats":           natsHealthChecker(exporter),
+			"informer-synced": informerSyncedChecker(informer),
+		},
+	}))
+
+	// Metrics endpoint for Prometheus scraping
+	mux.Handle("/metrics", promhttp.HandlerFor(metrics.Registry, promhttp.HandlerOpts{}))
+
+	server := &http.Server{
+		Addr:    addr,
+		Handler: mux,
+	}
+
+	go func() {
+		klog.InfoS("Starting health probe server", "addr", addr)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			klog.ErrorS(err, "Health probe server error")
+		}
+	}()
+
+	return server
+}
+
+// natsHealthChecker returns a health checker for NATS connection status.
+func natsHealthChecker(exporter *Exporter) healthz.Checker {
+	return func(req *http.Request) error {
+		if exporter.nc == nil {
+			return fmt.Errorf("NATS connection not initialized")
+		}
+		if !exporter.nc.IsConnected() {
+			return fmt.Errorf("NATS connection is disconnected")
+		}
+		return nil
+	}
+}
+
+// informerSyncedChecker returns a health checker for informer cache sync status.
+func informerSyncedChecker(informer cache.SharedIndexInformer) healthz.Checker {
+	return func(req *http.Request) error {
+		if !informer.HasSynced() {
+			return fmt.Errorf("informer cache not synced")
+		}
+		return nil
+	}
 }
