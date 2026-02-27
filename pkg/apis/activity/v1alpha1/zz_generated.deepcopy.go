@@ -1133,6 +1133,11 @@ func (in *ReindexJobSpec) DeepCopyInto(out *ReindexJobSpec) {
 		*out = new(ReindexConfig)
 		**out = **in
 	}
+	if in.TTLSecondsAfterFinished != nil {
+		in, out := &in.TTLSecondsAfterFinished, &out.TTLSecondsAfterFinished
+		*out = new(int32)
+		**out = **in
+	}
 	return
 }
 

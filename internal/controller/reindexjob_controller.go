@@ -55,6 +55,14 @@ var (
 			Help:      "Number of ReindexJob resources currently running",
 		},
 	)
+
+	reindexJobsTTLDeletedTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: "activity_controller",
+			Name:      "reindex_jobs_ttl_deleted_total",
+			Help:      "Total number of ReindexJob resources deleted due to TTL expiration",
+		},
+	)
 )
 
 func init() {
@@ -63,6 +71,7 @@ func init() {
 		reindexJobsCompletedTotal,
 		reindexJobDuration,
 		reindexJobsRunning,
+		reindexJobsTTLDeletedTotal,
 	)
 }
 
@@ -84,7 +93,7 @@ type ReindexJobReconciler struct {
 	workerCancel context.CancelFunc
 }
 
-// +kubebuilder:rbac:groups=activity.miloapis.com,resources=reindexjobs,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=activity.miloapis.com,resources=reindexjobs,verbs=get;list;watch;update;patch;delete
 // +kubebuilder:rbac:groups=activity.miloapis.com,resources=reindexjobs/status,verbs=update;patch
 // +kubebuilder:rbac:groups=activity.miloapis.com,resources=auditlogqueries,verbs=create
 // +kubebuilder:rbac:groups=activity.miloapis.com,resources=eventqueries,verbs=create
@@ -105,11 +114,10 @@ func (r *ReindexJobReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, nil
 	}
 
-	// Skip completed or failed jobs
+	// Handle TTL-based cleanup for completed jobs
 	if job.Status.Phase == v1alpha1.ReindexJobSucceeded ||
 		job.Status.Phase == v1alpha1.ReindexJobFailed {
-		logger.V(4).Info("ReindexJob already completed", "phase", job.Status.Phase)
-		return ctrl.Result{}, nil
+		return r.handleTTLCleanup(ctx, &job)
 	}
 
 	// Check if another job is running (mutex-protected)
@@ -147,6 +155,67 @@ func (r *ReindexJobReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
+	return ctrl.Result{}, nil
+}
+
+// handleTTLCleanup checks if a completed job should be deleted based on TTL.
+func (r *ReindexJobReconciler) handleTTLCleanup(ctx context.Context, job *v1alpha1.ReindexJob) (ctrl.Result, error) {
+	logger := klog.FromContext(ctx)
+
+	// TTL not set - retain indefinitely
+	if job.Spec.TTLSecondsAfterFinished == nil {
+		logger.V(4).Info("ReindexJob completed, no TTL set", "phase", job.Status.Phase)
+		return ctrl.Result{}, nil
+	}
+
+	// CompletedAt not set yet - this shouldn't happen for completed jobs, but handle gracefully
+	if job.Status.CompletedAt == nil {
+		logger.V(4).Info("ReindexJob completed but CompletedAt not set, skipping TTL cleanup", "phase", job.Status.Phase)
+		return ctrl.Result{}, nil
+	}
+
+	// Calculate expiration time
+	ttlDuration := time.Duration(*job.Spec.TTLSecondsAfterFinished) * time.Second
+	expirationTime := job.Status.CompletedAt.Add(ttlDuration)
+	now := time.Now()
+
+	// Check if TTL has expired
+	if now.Before(expirationTime) {
+		// Not yet expired - requeue after remaining TTL duration
+		remainingTTL := expirationTime.Sub(now)
+		// Ensure minimum requeue duration to avoid busy-looping
+		if remainingTTL < time.Second {
+			remainingTTL = time.Second
+		}
+		logger.V(4).Info("ReindexJob not yet expired",
+			"phase", job.Status.Phase,
+			"completedAt", job.Status.CompletedAt.Time,
+			"ttlSeconds", *job.Spec.TTLSecondsAfterFinished,
+			"remainingTTL", remainingTTL,
+		)
+		return ctrl.Result{RequeueAfter: remainingTTL}, nil
+	}
+
+	// TTL expired - delete the job
+	logger.Info("Deleting expired ReindexJob",
+		"job", job.Name,
+		"phase", job.Status.Phase,
+		"completedAt", job.Status.CompletedAt.Time,
+		"ttlSeconds", *job.Spec.TTLSecondsAfterFinished,
+	)
+
+	// Emit event before deletion
+	r.Recorder.Event(job, "Normal", "TTLExpired",
+		fmt.Sprintf("ReindexJob deleted after %d seconds TTL", *job.Spec.TTLSecondsAfterFinished))
+
+	// Delete the resource
+	if err := r.Delete(ctx, job); err != nil {
+		logger.Error(err, "failed to delete expired ReindexJob")
+		return ctrl.Result{}, err
+	}
+
+	reindexJobsTTLDeletedTotal.Inc()
+	logger.Info("Successfully deleted expired ReindexJob", "job", job.Name)
 	return ctrl.Result{}, nil
 }
 

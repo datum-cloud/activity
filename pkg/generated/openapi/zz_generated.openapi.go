@@ -2673,6 +2673,13 @@ func schema_pkg_apis_activity_v1alpha1_ReindexJobSpec(ref common.ReferenceCallba
 							Ref:         ref(v1alpha1.ReindexConfig{}.OpenAPIModelName()),
 						},
 					},
+					"ttlSecondsAfterFinished": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TTLSecondsAfterFinished limits the lifetime of a ReindexJob after it finishes execution (either Succeeded or Failed). If set, the controller will delete the ReindexJob resource after it has been in a terminal state for this many seconds.\n\nThis field is optional. If unset, completed jobs are retained indefinitely.\n\nExample: Setting to 3600 (1 hour) allows users to inspect job results for an hour after completion, after which the job is automatically cleaned up.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
 				},
 				Required: []string{"timeRange"},
 			},

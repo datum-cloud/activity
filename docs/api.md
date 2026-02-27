@@ -931,6 +931,7 @@ _Appears in:_
 | `timeRange` _[ReindexTimeRange](#reindextimerange)_ | TimeRange specifies the time window of events to re-index.<br />Events outside this range are not processed. |  |  |
 | `policySelector` _[ReindexPolicySelector](#reindexpolicyselector)_ | PolicySelector optionally limits re-indexing to specific policies.<br />If omitted, all active ActivityPolicies are evaluated. |  |  |
 | `config` _[ReindexConfig](#reindexconfig)_ | Config contains processing configuration options. |  |  |
+| `ttlSecondsAfterFinished` _integer_ | TTLSecondsAfterFinished limits the lifetime of a ReindexJob after it finishes<br />execution (either Succeeded or Failed). If set, the controller will delete the<br />ReindexJob resource after it has been in a terminal state for this many seconds.<br /><br />This field is optional. If unset, completed jobs are retained indefinitely.<br /><br />Example: Setting to 3600 (1 hour) allows users to inspect job results for an<br />hour after completion, after which the job is automatically cleaned up. |  | Minimum: 0 <br /> |
 
 
 #### ReindexJobStatus
