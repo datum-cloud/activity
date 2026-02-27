@@ -396,11 +396,11 @@ export function useActivityFeed({
 
   // Stop watching
   const stopStreaming = useCallback(() => {
+    setIsStreaming(false);
     if (watchStopRef.current) {
       watchStopRef.current();
       watchStopRef.current = null;
     }
-    setIsStreaming(false);
   }, []);
 
   // Execute the feed query using ActivityQuery
@@ -530,6 +530,8 @@ export function useActivityFeed({
       stopStreaming();
     }
 
+    // Set loading FIRST so skeleton loaders appear immediately
+    setIsLoading(true);
     setFilters(newFilters);
     setActivities([]);
     setContinueCursor(undefined);
@@ -554,6 +556,8 @@ export function useActivityFeed({
       stopStreaming();
     }
 
+    // Set loading FIRST so skeleton loaders appear immediately
+    setIsLoading(true);
     setTimeRange(newTimeRange);
     setActivities([]);
     setContinueCursor(undefined);

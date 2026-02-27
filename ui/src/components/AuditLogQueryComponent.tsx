@@ -5,9 +5,8 @@ import { AuditLogFeedItem } from './AuditLogFeedItem';
 import { useAuditLogQuery } from '../hooks/useAuditLogQuery';
 import type { AuditLogQuerySpec, Event } from '../types';
 import type { ActivityApiClient } from '../api/client';
-import type { EffectiveTimeRangeCallback } from '../types/activity';
+import type { ErrorFormatter } from '../types/activity';
 import { Card } from './ui/card';
-import { Button } from './ui/button';
 import { ApiErrorAlert } from './ApiErrorAlert';
 
 // Debounce delay for filter changes (ms)
@@ -16,14 +15,17 @@ const FILTER_DEBOUNCE_MS = 300;
 // Default page size for infinite scroll
 const DEFAULT_PAGE_SIZE = 100;
 
+// Default verbs: show only mutating actions (modify events)
+const DEFAULT_MODIFY_VERBS = ['create', 'update', 'patch', 'delete'];
+
 export interface AuditLogQueryComponentProps {
   client: ActivityApiClient;
   className?: string;
   onEventSelect?: (event: Event) => void;
   initialFilters?: AuditLogFilterState;
   initialTimeRange?: TimeRange;
-  /** Callback invoked when the effective time range is resolved */
-  onEffectiveTimeRangeChange?: EffectiveTimeRangeCallback;
+  /** Custom error formatter for customizing error messages */
+  errorFormatter?: ErrorFormatter;
 }
 
 /**
@@ -38,9 +40,15 @@ export function AuditLogQueryComponent({
     start: formatISO(subDays(new Date(), 1)),
     end: formatISO(new Date()),
   },
-  onEffectiveTimeRangeChange,
+  errorFormatter,
 }: AuditLogQueryComponentProps) {
-  const [filters, setFilters] = useState<AuditLogFilterState>(initialFilters);
+  // Apply default modify-only filter if no verbs are specified in initialFilters
+  const defaultFilters: AuditLogFilterState = {
+    verbs: DEFAULT_MODIFY_VERBS,
+    ...initialFilters,
+  };
+
+  const [filters, setFilters] = useState<AuditLogFilterState>(defaultFilters);
   const [timeRange, setTimeRange] = useState<TimeRange>(initialTimeRange);
 
   const { events, isLoading, error, hasMore, executeQuery, loadMore } =
@@ -179,7 +187,7 @@ export function AuditLogQueryComponent({
   }, []);
 
   return (
-    <Card className={`flex flex-col p-6 ${className}`}>
+    <Card className={`flex flex-col p-3 ${className}`}>
       {/* Filters */}
       <AuditLogFilters
         client={client}
@@ -191,11 +199,11 @@ export function AuditLogQueryComponent({
       />
 
       {/* Error Display */}
-      <ApiErrorAlert error={error} onRetry={refresh} className="mb-4" />
+      <ApiErrorAlert error={error} onRetry={refresh} className="mb-4" errorFormatter={errorFormatter} />
 
       {/* Loading State (initial load) */}
       {isLoading && events.length === 0 && (
-        <div className="flex items-center justify-center gap-3 p-8 text-muted-foreground text-sm">
+        <div className="flex items-center justify-center gap-3 py-8 text-muted-foreground text-sm">
           <div className="w-5 h-5 border-[3px] border-muted border-t-primary rounded-full animate-spin"></div>
           <span>Searching audit logs...</span>
         </div>
@@ -203,7 +211,7 @@ export function AuditLogQueryComponent({
 
       {/* Empty State */}
       {!isLoading && events.length === 0 && !error && (
-        <div className="p-12 text-center text-muted-foreground">
+        <div className="py-12 text-center text-muted-foreground">
           <p className="m-0">No audit events found</p>
           <p className="text-sm text-muted-foreground mt-2 m-0">
             Try adjusting your filters or time range
@@ -213,7 +221,7 @@ export function AuditLogQueryComponent({
 
       {/* Event List with Infinite Scroll */}
       {events.length > 0 && (
-        <div className="max-h-[70vh] overflow-y-auto pr-2" ref={scrollContainerRef}>
+        <div className="max-h-[calc(100vh-200px)] overflow-y-auto pr-2" ref={scrollContainerRef}>
           {events.map((event, index) => (
             <AuditLogFeedItem
               key={event.auditID || `event-${index}`}
@@ -227,7 +235,7 @@ export function AuditLogQueryComponent({
 
           {/* Loading Indicator (pagination) */}
           {isLoading && (
-            <div className="flex items-center justify-center gap-3 p-8 text-muted-foreground text-sm">
+            <div className="flex items-center justify-center gap-3 py-8 text-muted-foreground text-sm">
               <div className="w-5 h-5 border-[3px] border-muted border-t-primary rounded-full animate-spin"></div>
               <span>Loading more events...</span>
             </div>
@@ -235,7 +243,7 @@ export function AuditLogQueryComponent({
 
           {/* End of Results */}
           {!hasMore && events.length > 0 && !isLoading && (
-            <div className="text-center p-8 text-muted-foreground text-sm border-t border-border mt-4">
+            <div className="text-center py-6 text-muted-foreground text-sm border-t border-border mt-4">
               End of results
             </div>
           )}

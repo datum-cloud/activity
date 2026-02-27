@@ -82,7 +82,7 @@ function getActorInitials(name: string): string {
 function getActorAvatarClasses(actorType: string, compact: boolean): string {
   const baseClasses = cn(
     'rounded-full flex items-center justify-center shrink-0 font-semibold',
-    compact ? 'w-5 h-5 text-[9px]' : 'w-6 h-6 text-[10px]'
+    compact ? 'w-3.5 h-3.5 text-[7px]' : 'w-4 h-4 text-[8px]'
   );
   switch (actorType) {
     case 'user':
@@ -229,14 +229,15 @@ export function ActivityFeedItem({
         <div
           className={cn(
             'flex-1 border border-border rounded-lg transition-all duration-200',
-            'hover:border-rose-300 hover:shadow-sm dark:hover:border-rose-600',
-            compact ? 'px-3 py-2 mb-2' : 'px-3 py-2 mb-2',
+            'hover:border-gray-300 hover:shadow-sm hover:-translate-y-px dark:hover:border-gray-600',
+            compact ? 'p-2 mb-2' : 'p-2.5 mb-2',
             isSelected && 'border-rose-300 bg-rose-50/50 dark:border-rose-600 dark:bg-rose-950/30'
           )}
         >
-          {/* Header: Summary + Timestamp */}
-          <div className="flex justify-between items-center gap-4">
-            <div className={cn('leading-snug text-xs')}>
+          {/* Single row layout */}
+          <div className="flex items-center gap-2">
+            {/* Summary - takes remaining space */}
+            <div className="flex-1 min-w-0 text-xs leading-snug">
               <ActivityFeedSummary
                 summary={summary}
                 links={links}
@@ -245,26 +246,32 @@ export function ActivityFeedItem({
                 resourceLinkContext={{ tenant }}
               />
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {tenant && (
-                tenantRenderer ? tenantRenderer(tenant) : <TenantBadge tenant={tenant} tenantLinkResolver={tenantLinkResolver} size="compact" />
-              )}
-              <span
-                className="text-xs text-muted-foreground whitespace-nowrap"
-                title={formatTimestampFull(timestamp)}
-              >
-                {formatTimestamp(timestamp)}
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-5 h-5 p-0 text-2xl text-muted-foreground hover:text-foreground flex items-center justify-center"
-                onClick={toggleExpand}
-                aria-expanded={isExpanded}
-              >
-                {isExpanded ? '▾' : '▸'}
-              </Button>
-            </div>
+
+            {/* Tenant badge */}
+            {tenant && (
+              <div className="shrink-0">
+                {tenantRenderer ? tenantRenderer(tenant) : <TenantBadge tenant={tenant} tenantLinkResolver={tenantLinkResolver} size="compact" />}
+              </div>
+            )}
+
+            {/* Timestamp */}
+            <span
+              className="text-[11px] text-muted-foreground whitespace-nowrap shrink-0"
+              title={formatTimestampFull(timestamp)}
+            >
+              {formatTimestamp(timestamp)}
+            </span>
+
+            {/* Expand button */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-5 py-0 px-1 text-base text-muted-foreground hover:text-foreground shrink-0"
+              onClick={toggleExpand}
+              aria-expanded={isExpanded}
+            >
+              {isExpanded ? '−' : '+'}
+            </Button>
           </div>
 
           {/* Expanded Details */}
@@ -274,20 +281,21 @@ export function ActivityFeedItem({
     );
   }
 
-  // Feed variant (original layout)
+  // Feed variant (single-row layout)
   return (
     <Card
       className={cn(
         'cursor-pointer transition-all duration-200',
-        'hover:border-rose-300 hover:shadow-sm hover:-translate-y-px dark:hover:border-rose-600',
-        compact ? 'px-3 py-2 mb-1' : 'px-3 py-2 mb-2',
+        'hover:border-gray-300 hover:shadow-sm hover:-translate-y-px dark:hover:border-gray-600',
+        compact ? 'p-2 mb-1.5' : 'p-2.5 mb-2',
         isSelected && 'border-rose-300 bg-rose-50 shadow-md dark:border-rose-600 dark:bg-rose-950/50',
         isNew && 'border-l-4 border-l-green-500 bg-green-50/50 dark:border-l-green-400 dark:bg-green-950/30',
         className
       )}
       onClick={handleClick}
     >
-      <div className="flex gap-3 items-center">
+      {/* Single row layout */}
+      <div className="flex items-center gap-2">
         {/* Actor Avatar */}
         <div
           className={cn(
@@ -298,49 +306,50 @@ export function ActivityFeedItem({
           onClick={onActorClick ? handleActorClick : undefined}
         >
           {actor.type === 'controller' ? (
-            <span className={compact ? 'text-xs' : 'text-sm'}>⚙</span>
+            <span className={compact ? 'text-[7px]' : 'text-[8px]'}>⚙</span>
           ) : actor.type === 'machine account' ? (
-            <span className={compact ? 'text-xs' : 'text-sm'}>🤖</span>
+            <span className={compact ? 'text-[7px]' : 'text-[8px]'}>🤖</span>
           ) : (
             <span className="uppercase">{getActorInitials(actor.name)}</span>
           )}
         </div>
 
-        {/* Main Content */}
-        <div className="flex-1 min-w-0">
-          {/* Header: Summary + Timestamp */}
-          <div className="flex justify-between items-center gap-4">
-            <div className={cn('leading-snug text-xs')}>
-              <ActivityFeedSummary
-                summary={summary}
-                links={links}
-                onResourceClick={onResourceClick}
-                resourceLinkResolver={resourceLinkResolver}
-                resourceLinkContext={{ tenant }}
-              />
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {tenant && (
-                tenantRenderer ? tenantRenderer(tenant) : <TenantBadge tenant={tenant} tenantLinkResolver={tenantLinkResolver} size="compact" />
-              )}
-              <span
-                className="text-xs text-muted-foreground whitespace-nowrap"
-                title={formatTimestampFull(timestamp)}
-              >
-                {formatTimestamp(timestamp)}
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-5 h-5 p-0 text-2xl text-muted-foreground hover:text-foreground flex items-center justify-center"
-                onClick={toggleExpand}
-                aria-expanded={isExpanded}
-              >
-                {isExpanded ? '▾' : '▸'}
-              </Button>
-            </div>
-          </div>
+        {/* Summary - takes remaining space */}
+        <div className="flex-1 min-w-0 text-xs leading-snug">
+          <ActivityFeedSummary
+            summary={summary}
+            links={links}
+            onResourceClick={onResourceClick}
+            resourceLinkResolver={resourceLinkResolver}
+            resourceLinkContext={{ tenant }}
+          />
         </div>
+
+        {/* Tenant badge */}
+        {tenant && (
+          <div className="shrink-0">
+            {tenantRenderer ? tenantRenderer(tenant) : <TenantBadge tenant={tenant} tenantLinkResolver={tenantLinkResolver} size="compact" />}
+          </div>
+        )}
+
+        {/* Timestamp */}
+        <span
+          className="text-[11px] text-muted-foreground whitespace-nowrap shrink-0"
+          title={formatTimestampFull(timestamp)}
+        >
+          {formatTimestamp(timestamp)}
+        </span>
+
+        {/* Expand button */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-5 py-0 px-1 text-base text-muted-foreground hover:text-foreground shrink-0"
+          onClick={toggleExpand}
+          aria-expanded={isExpanded}
+        >
+          {isExpanded ? '−' : '+'}
+        </Button>
       </div>
 
       {/* Expanded Details */}

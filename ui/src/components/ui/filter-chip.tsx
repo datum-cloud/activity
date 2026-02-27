@@ -201,7 +201,7 @@ export function FilterChip({
             type="button"
             disabled={disabled}
             className={cn(
-              'flex h-10 items-center gap-1.5 rounded-l-md border border-r-0 border-border bg-secondary px-3 text-sm',
+              'flex h-7 items-center gap-2 rounded-l-md border border-r-0 border-border bg-secondary px-2 text-xs',
               'hover:bg-secondary/80 transition-colors',
               'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
               'disabled:cursor-not-allowed disabled:opacity-50'
@@ -307,7 +307,7 @@ export function FilterChip({
         onClick={handleClearAll}
         disabled={disabled}
         className={cn(
-          'flex h-10 items-center rounded-r-md border border-border bg-secondary px-2',
+          'flex h-7 items-center rounded-r-md border border-border bg-secondary px-2',
           'hover:bg-secondary/80 transition-colors',
           'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
           'disabled:cursor-not-allowed disabled:opacity-50'

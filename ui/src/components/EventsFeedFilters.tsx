@@ -25,6 +25,8 @@ export interface EventsFeedFiltersProps {
   onTimeRangeChange: (timeRange: TimeRange) => void;
   /** Whether the filters are disabled (e.g., during loading) */
   disabled?: boolean;
+  /** Filters that should be locked and hidden from the UI (programmatically set by parent) */
+  hiddenFilters?: Array<'involvedKinds' | 'reasons' | 'namespaces' | 'sourceComponents' | 'involvedName' | 'eventType'>;
   /** Additional CSS class */
   className?: string;
   /** Namespace filter (when scoped to a specific namespace) */
@@ -119,6 +121,7 @@ export function EventsFeedFilters({
   onFiltersChange,
   onTimeRangeChange,
   disabled = false,
+  hiddenFilters = [],
   className = '',
   namespace,
 }: EventsFeedFiltersProps) {
@@ -197,13 +200,13 @@ export function EventsFeedFilters({
   // Get current event type value for toggle
   const eventTypeValue: EventTypeOption = filters.eventType || 'all';
 
-  // Determine which filters are currently active (have values)
+  // Determine which filters are currently active (have values) and not hidden
   const filtersWithValues: FilterId[] = [];
-  if (filters.involvedKinds && filters.involvedKinds.length > 0) filtersWithValues.push('involvedKinds');
-  if (filters.reasons && filters.reasons.length > 0) filtersWithValues.push('reasons');
-  if (!namespace && filters.namespaces && filters.namespaces.length > 0) filtersWithValues.push('namespaces');
-  if (filters.sourceComponents && filters.sourceComponents.length > 0) filtersWithValues.push('sourceComponents');
-  if (filters.involvedName) filtersWithValues.push('involvedName');
+  if (filters.involvedKinds && filters.involvedKinds.length > 0 && !hiddenFilters.includes('involvedKinds')) filtersWithValues.push('involvedKinds');
+  if (filters.reasons && filters.reasons.length > 0 && !hiddenFilters.includes('reasons')) filtersWithValues.push('reasons');
+  if (!namespace && filters.namespaces && filters.namespaces.length > 0 && !hiddenFilters.includes('namespaces')) filtersWithValues.push('namespaces');
+  if (filters.sourceComponents && filters.sourceComponents.length > 0 && !hiddenFilters.includes('sourceComponents')) filtersWithValues.push('sourceComponents');
+  if (filters.involvedName && !hiddenFilters.includes('involvedName')) filtersWithValues.push('involvedName');
 
   // Include pendingFilter (newly added filter awaiting value selection) in the displayed filters
   const activeFilterIds: FilterId[] = pendingFilter && !filtersWithValues.includes(pendingFilter)
@@ -218,14 +221,14 @@ export function EventsFeedFilters({
     }
   }, [pendingFilter, filtersWithValues]);
 
-  // Build available filters list (exclude namespace if scoped)
+  // Build available filters list (exclude namespace if scoped, exclude hidden filters)
   const availableFilters: FilterOption[] = [
     { id: 'involvedKinds', label: 'Kind' },
     { id: 'reasons', label: 'Reason' },
     ...(namespace ? [] : [{ id: 'namespaces' as const, label: 'Namespace' }]),
     { id: 'sourceComponents', label: 'Source' },
     { id: 'involvedName', label: 'Resource Name' },
-  ];
+  ].filter((filter) => !hiddenFilters.includes(filter.id as FilterId));
 
   // Handle adding a filter
   const handleAddFilter = useCallback((filterId: string) => {
@@ -333,25 +336,27 @@ export function EventsFeedFilters({
   );
 
   return (
-    <div className={`mb-3 pb-3 border-b border-border ${className}`}>
+    <div className={`mb-3 pb-3 border-b border-border pr-2 ${className}`}>
       <div className="flex flex-wrap gap-2 items-center">
         {/* Event Type Toggle */}
-        <EventTypeToggle
-          value={eventTypeValue}
-          onChange={handleEventTypeChange}
-          disabled={disabled}
-        />
+        {!hiddenFilters.includes('eventType') && (
+          <EventTypeToggle
+            value={eventTypeValue}
+            onChange={handleEventTypeChange}
+            disabled={disabled}
+          />
+        )}
 
         {/* Search Input */}
         <div className="relative min-w-[200px] flex-1 max-w-xs">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             type="text"
             placeholder="Search events..."
             value={filters.search || ''}
             onChange={handleSearchChange}
             disabled={disabled}
-            className="pl-10 h-10"
+            className="pl-8 h-7 text-xs"
           />
         </div>
 

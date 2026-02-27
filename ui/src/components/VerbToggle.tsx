@@ -1,14 +1,13 @@
 import { Button } from './ui/button';
 import { cn } from '../lib/utils';
-import type { K8sEventType } from '../types/k8s-event';
 
-export type EventTypeOption = K8sEventType | 'all';
+export type VerbOption = 'all' | 'create' | 'update' | 'patch' | 'delete' | 'get' | 'list' | 'watch';
 
-export interface EventTypeToggleProps {
+export interface VerbToggleProps {
   /** Current selected value */
-  value: EventTypeOption;
+  value: VerbOption;
   /** Handler called when selection changes */
-  onChange: (value: EventTypeOption) => void;
+  onChange: (value: VerbOption) => void;
   /** Additional CSS class */
   className?: string;
   /** Whether the toggle is disabled */
@@ -16,40 +15,50 @@ export interface EventTypeToggleProps {
 }
 
 /**
- * Options for the event type toggle
+ * Options for the verb toggle - focusing on most common audit actions
  */
-const OPTIONS: { value: EventTypeOption; label: string; description: string }[] = [
+const OPTIONS: { value: VerbOption; label: string; description: string }[] = [
   {
     value: 'all',
     label: 'All',
-    description: 'Show all events',
+    description: 'Show all actions',
   },
   {
-    value: 'Normal',
-    label: 'Normal',
-    description: 'Show only normal events',
+    value: 'create',
+    label: 'Create',
+    description: 'Show only create actions',
   },
   {
-    value: 'Warning',
-    label: 'Warning',
-    description: 'Show only warning events',
+    value: 'update',
+    label: 'Update',
+    description: 'Show only update actions',
+  },
+  {
+    value: 'patch',
+    label: 'Patch',
+    description: 'Show only patch actions',
+  },
+  {
+    value: 'delete',
+    label: 'Delete',
+    description: 'Show only delete actions',
   },
 ];
 
 /**
- * EventTypeToggle provides a segmented control for filtering by event type
+ * VerbToggle provides a segmented control for filtering by audit action/verb
  */
-export function EventTypeToggle({
+export function VerbToggle({
   value,
   onChange,
   className = '',
   disabled = false,
-}: EventTypeToggleProps) {
+}: VerbToggleProps) {
   return (
     <div
       className={cn('inline-flex border border-input rounded-md overflow-hidden', className)}
       role="group"
-      aria-label="Filter by event type"
+      aria-label="Filter by action"
     >
       {OPTIONS.map((option, index) => (
         <Button

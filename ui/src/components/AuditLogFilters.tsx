@@ -6,6 +6,8 @@ import { useAuditLogFacets, type AuditLogTimeRange } from '../hooks/useAuditLogF
 import { TimeRangeDropdown } from './ui/time-range-dropdown';
 import { FilterChip } from './ui/filter-chip';
 import { AddFilterDropdown, type FilterOption } from './ui/add-filter-dropdown';
+import { ActionMultiSelect } from './ActionMultiSelect';
+import { UserSelect } from './UserSelect';
 
 /**
  * Filter state for audit logs
@@ -300,11 +302,12 @@ export function AuditLogFilters({
   };
 
   // Determine which filters are currently active (have values)
+  // Note: We exclude verbs and usernames from filter chips since they're handled by quick filters
   const filtersWithValues: FilterId[] = [];
-  if (filters.verbs && filters.verbs.length > 0) filtersWithValues.push('verbs');
+  // if (filters.verbs && filters.verbs.length > 0) filtersWithValues.push('verbs'); // Handled by ActionToggle
   if (filters.resourceTypes && filters.resourceTypes.length > 0) filtersWithValues.push('resourceTypes');
   if (filters.namespaces && filters.namespaces.length > 0) filtersWithValues.push('namespaces');
-  if (filters.usernames && filters.usernames.length > 0) filtersWithValues.push('usernames');
+  // if (filters.usernames && filters.usernames.length > 0) filtersWithValues.push('usernames'); // Handled by UserSelect
   if (filters.resourceName) filtersWithValues.push('resourceName');
 
   // Include pendingFilter (newly added filter awaiting value selection) in the displayed filters
@@ -322,11 +325,10 @@ export function AuditLogFilters({
   }, [pendingFilter, filtersWithValues]);
 
   // Build available filters list
+  // Note: Action and User are now quick filters, so they're excluded from the dropdown
   const availableFilters: FilterOption[] = [
-    { id: 'verbs', label: 'Action' },
     { id: 'resourceTypes', label: 'Resource' },
     { id: 'namespaces', label: 'Namespace' },
-    { id: 'usernames', label: 'User' },
     { id: 'resourceName', label: 'Name' },
   ];
 
@@ -423,9 +425,80 @@ export function AuditLogFilters({
     return (value as string[] | undefined) || [];
   };
 
+  // Handle action multi-select change
+  const handleActionChange = useCallback(
+    (selectedVerbs: string[]) => {
+      onFiltersChange({
+        ...filters,
+        verbs: selectedVerbs.length > 0 ? selectedVerbs : undefined,
+      });
+    },
+    [filters, onFiltersChange]
+  );
+
+  // Get current action values for multi-select
+  const getActionValues = (): string[] => {
+    return filters.verbs || [];
+  };
+
+  // Prepare action options from facets
+  const actionOptions = verbs
+    .filter((facet) => facet.value)
+    .map((facet) => ({
+      value: facet.value,
+      label: facet.value.charAt(0).toUpperCase() + facet.value.slice(1), // Capitalize first letter
+      count: facet.count,
+    }));
+
+  // Handle user select change
+  const handleUserChange = useCallback(
+    (username?: string) => {
+      onFiltersChange({
+        ...filters,
+        usernames: username ? [username] : undefined,
+      });
+    },
+    [filters, onFiltersChange]
+  );
+
+  // Get current user value for select (single selection for quick filter)
+  const getCurrentUser = (): string | undefined => {
+    return filters.usernames && filters.usernames.length === 1
+      ? filters.usernames[0]
+      : undefined;
+  };
+
+  // Prepare user options for select
+  const userOptions = usernames
+    .filter((facet) => facet.value)
+    .map((facet) => ({
+      value: facet.value,
+      label: facet.value,
+      count: facet.count,
+    }));
+
   return (
     <div className={`mb-3 pb-3 border-b border-border ${className}`}>
       <div className="flex flex-wrap gap-2 items-center">
+        {/* Action Multi-Select */}
+        <ActionMultiSelect
+          value={getActionValues()}
+          onChange={handleActionChange}
+          options={actionOptions}
+          disabled={disabled}
+          isLoading={!verbs.length && !facetsError}
+          className="h-7 text-xs min-w-[180px]"
+        />
+
+        {/* User Select */}
+        <UserSelect
+          value={getCurrentUser()}
+          options={userOptions}
+          onChange={handleUserChange}
+          disabled={disabled}
+          isLoading={!usernames.length && !facetsError}
+        />
+
         {/* Active Filter Chips */}
         {activeFilterIds.map((filterId) => {
           const config = FILTER_CONFIGS[filterId];

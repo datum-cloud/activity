@@ -1,17 +1,19 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
-import type { Activity, ResourceRef, ResourceLinkResolver, TenantLinkResolver, TenantRenderer, EffectiveTimeRangeCallback } from '../types/activity';
+import type { Activity, ResourceRef, ResourceLinkResolver, TenantLinkResolver, TenantRenderer, EffectiveTimeRangeCallback, ErrorFormatter } from '../types/activity';
 import type {
   ActivityFeedFilters as FilterState,
   TimeRange,
 } from '../hooks/useActivityFeed';
 import { useActivityFeed } from '../hooks/useActivityFeed';
 import { ActivityFeedItem } from './ActivityFeedItem';
+import { ActivityFeedItemSkeleton } from './ActivityFeedItemSkeleton';
 import { ActivityFeedFilters } from './ActivityFeedFilters';
 import { ActivityApiClient } from '../api/client';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import { ApiErrorAlert } from './ApiErrorAlert';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 
 export interface ActivityFeedProps {
   /** API client instance */
@@ -38,6 +40,8 @@ export interface ActivityFeedProps {
   resourceUid?: string;
   /** Whether to show filters */
   showFilters?: boolean;
+  /** Filters that should be locked and hidden from the UI (programmatically set by parent) */
+  hiddenFilters?: Array<'resourceKinds' | 'actorNames' | 'apiGroups' | 'resourceNamespaces' | 'resourceName' | 'changeSource'>;
   /** Additional CSS class */
   className?: string;
   /** Enable infinite scroll (default: true) */
@@ -50,6 +54,8 @@ export interface ActivityFeedProps {
   enableStreaming?: boolean;
   /** Callback invoked when the effective time range is resolved */
   onEffectiveTimeRangeChange?: EffectiveTimeRangeCallback;
+  /** Custom error formatter for customizing error messages */
+  errorFormatter?: ErrorFormatter;
 }
 
 /**
@@ -69,12 +75,14 @@ export function ActivityFeed({
   compact = false,
   resourceUid,
   showFilters = true,
+  hiddenFilters = [],
   className = '',
   infiniteScroll = true,
   loadMoreThreshold = 200,
   onCreatePolicy,
   enableStreaming = false,
   onEffectiveTimeRangeChange,
+  errorFormatter,
 }: ActivityFeedProps) {
   // Merge resourceUid into initial filters if provided
   const mergedInitialFilters: FilterState = {
@@ -208,29 +216,37 @@ export function ActivityFeed({
 
   // Build container classes
   const containerClasses = compact
-    ? `p-4 shadow-none border-border ${className}`
-    : `p-6 ${className}`;
+    ? `p-2 shadow-none border-border ${className}`
+    : `p-3 ${className}`;
 
   // Build list classes
   const listClasses = compact
-    ? 'max-h-[40vh] overflow-y-auto pr-2'
-    : 'max-h-[60vh] overflow-y-auto pr-2';
+    ? 'max-h-[calc(100vh-300px)] overflow-y-auto pr-2'
+    : 'max-h-[calc(100vh-200px)] overflow-y-auto pr-2';
 
   return (
     <Card className={containerClasses}>
       {/* Header with streaming status */}
       {enableStreaming && (
-        <div className="flex items-center justify-between mb-4 pb-3 border-b border-border">
-          <div className="flex items-center gap-3">
-            <h3 className="text-sm font-medium text-foreground m-0">Activity Feed</h3>
+        <div className="flex items-center justify-between mb-1 pb-0.5 border-b border-border">
+          <div className="flex items-center gap-2">
             {isStreaming && (
-              <div className="flex items-center gap-2">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 dark:bg-green-500 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500 dark:bg-green-400"></span>
-                </span>
-                <span className="text-xs text-muted-foreground">Live</span>
-              </div>
+              <TooltipProvider delayDuration={300}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-2">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 dark:bg-green-500 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500 dark:bg-green-400"></span>
+                      </span>
+                      <span className="text-xs text-muted-foreground">Streaming activity...</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent className="text-xs">
+                    <p>New activities will appear automatically</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
             {newActivitiesCount > 0 && (
               <Badge variant="secondary" className="text-xs">
@@ -273,11 +289,12 @@ export function ActivityFeed({
           onFiltersChange={handleFiltersChange}
           onTimeRangeChange={handleTimeRangeChange}
           disabled={isLoading}
+          hiddenFilters={hiddenFilters}
         />
       )}
 
       {/* Error Display */}
-      <ApiErrorAlert error={error} onRetry={refresh} className="mb-4" />
+      <ApiErrorAlert error={error} onRetry={refresh} className="mb-4" errorFormatter={errorFormatter} />
 
       {/* No Policies Empty State */}
       {!policiesLoading && hasPolicies === false && (
@@ -305,7 +322,17 @@ export function ActivityFeed({
 
       {/* Activity List */}
       <div className={listClasses} ref={scrollContainerRef}>
-        {activities.length === 0 && !isLoading && hasPolicies !== false && (
+        {/* Skeleton Loading State - show when loading and no items yet */}
+        {isLoading && activities.length === 0 && (
+          <>
+            {Array.from({ length: 8 }).map((_, index) => (
+              <ActivityFeedItemSkeleton key={index} compact={compact} />
+            ))}
+          </>
+        )}
+
+        {/* Empty State - only show when not loading */}
+        {!isLoading && activities.length === 0 && hasPolicies !== false && (
           <div className="py-12 text-center text-muted-foreground">
             <p className="m-0">No activities found</p>
             <p className="text-sm text-muted-foreground mt-2 m-0">
@@ -332,14 +359,6 @@ export function ActivityFeed({
         {/* Load More Trigger for Infinite Scroll */}
         {infiniteScroll && hasMore && (
           <div ref={loadMoreTriggerRef} className="h-px mt-4" />
-        )}
-
-        {/* Loading Indicator */}
-        {isLoading && (
-          <div className="flex items-center justify-center gap-3 py-8 text-muted-foreground text-sm">
-            <div className="w-5 h-5 border-[3px] border-muted border-t-primary rounded-full animate-spin" />
-            <span>Loading activities...</span>
-          </div>
         )}
 
         {/* Load More Button (when infinite scroll is disabled) */}

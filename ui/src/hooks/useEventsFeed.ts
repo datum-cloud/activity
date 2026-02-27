@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import type { K8sEvent, K8sEventType } from '../types/k8s-event';
+import type { K8sEvent, K8sEventType, EventQuerySpec } from '../types/k8s-event';
 import type { WatchEvent } from '../types/activity';
+import { extractEvent as extractEventFn } from '../types/k8s-event';
 import { ActivityApiClient } from '../api/client';
 
 // Debounce delay for filter changes (ms)
@@ -66,6 +67,8 @@ export interface UseEventsFeedResult {
   events: K8sEvent[];
   /** Whether the feed is loading */
   isLoading: boolean;
+  /** Whether a filter/time change is pending (shows during debounce period) */
+  isRefreshing: boolean;
   /** Error if any occurred */
   error: Error | null;
   /** Whether there are more events to load */
@@ -225,6 +228,7 @@ export function useEventsFeed({
 }: UseEventsFeedOptions): UseEventsFeedResult {
   const [events, setEvents] = useState<K8sEvent[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [continueCursor, setContinueCursor] = useState<string | undefined>();
   const [filters, setFilters] = useState<EventsFeedFilters>(initialFilters);
@@ -243,17 +247,34 @@ export function useEventsFeed({
   // Debounce timer for filter changes
   const filterDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Build query parameters from current state
-  const buildParams = useCallback(
-    (cursor?: string) => {
-      return {
-        namespace,
-        fieldSelector: buildFieldSelector(filters),
+  // Build EventQuery spec from current state
+  const buildQuerySpec = useCallback(
+    (cursor?: string): EventQuerySpec => {
+      const spec: EventQuerySpec = {
+        startTime: timeRange.start,
+        endTime: timeRange.end || 'now',
         limit: pageSize,
-        continue: cursor,
       };
+
+      // Add namespace if specified
+      if (namespace) {
+        spec.namespace = namespace;
+      }
+
+      // Add field selector
+      const fieldSelector = buildFieldSelector(filters);
+      if (fieldSelector) {
+        spec.fieldSelector = fieldSelector;
+      }
+
+      // Add pagination cursor
+      if (cursor) {
+        spec.continue = cursor;
+      }
+
+      return spec;
     },
-    [filters, pageSize, namespace]
+    [filters, timeRange, pageSize, namespace]
   );
 
   // Handle incoming watch events
@@ -307,6 +328,14 @@ export function useEventsFeed({
     }
   }, [filters]);
 
+  // Build watch params (for live streaming, uses field selector without time range)
+  const buildWatchParams = useCallback(() => {
+    return {
+      namespace,
+      fieldSelector: buildFieldSelector(filters),
+    };
+  }, [filters, namespace]);
+
   // Start watching for real-time updates
   const startStreaming = useCallback(() => {
     if (watchStopRef.current) {
@@ -314,7 +343,7 @@ export function useEventsFeed({
       return;
     }
 
-    const params = buildParams();
+    const params = buildWatchParams();
     const { stop } = client.watchEvents(params, {
       resourceVersion: resourceVersionRef.current,
       onEvent: handleWatchEvent,
@@ -333,38 +362,38 @@ export function useEventsFeed({
     watchStopRef.current = stop;
     setIsStreaming(true);
     setNewEventsCount(0);
-  }, [client, buildParams, handleWatchEvent]);
+  }, [client, buildWatchParams, handleWatchEvent]);
 
   // Stop watching
   const stopStreaming = useCallback(() => {
+    setIsStreaming(false);
     if (watchStopRef.current) {
       watchStopRef.current();
       watchStopRef.current = null;
     }
-    setIsStreaming(false);
   }, []);
 
-  // Execute the feed query
+  // Execute the feed query using EventQuery
   const refresh = useCallback(async () => {
     setIsLoading(true);
+    setIsRefreshing(false);
     setError(null);
     setNewEventsCount(0);
 
     try {
-      const params = buildParams();
-      const result = await client.listEvents(params);
+      const spec = buildQuerySpec();
+      const result = await client.createEventQuery(spec);
+
+      // Extract K8sEvent objects from EventRecord results
+      const events = (result.status?.results || []).map(extractEventFn);
 
       // Apply client-side filtering for multi-value filters
-      const filteredEvents = result.items.filter(event => matchesClientFilters(event, filters));
+      const filteredEvents = events.filter(event => matchesClientFilters(event, filters));
 
       setEvents(filteredEvents);
-      setContinueCursor(result.metadata?.continue);
+      setContinueCursor(result.status?.continue);
 
-      // Store resource version for watch resume
-      if (result.metadata?.resourceVersion) {
-        resourceVersionRef.current = result.metadata.resourceVersion;
-      }
-
+      // Note: EventQuery doesn't return resourceVersion, so watch will start from latest
       hasInitialLoadRef.current = true;
 
       // Auto-restart streaming if it was active before filter change
@@ -377,9 +406,9 @@ export function useEventsFeed({
     } finally {
       setIsLoading(false);
     }
-  }, [client, buildParams, filters, enableStreaming]);
+  }, [client, buildQuerySpec, filters, enableStreaming]);
 
-  // Load more events (pagination)
+  // Load more events (pagination) using EventQuery
   const loadMore = useCallback(async () => {
     if (!continueCursor || isLoading) {
       return;
@@ -389,11 +418,14 @@ export function useEventsFeed({
     setError(null);
 
     try {
-      const params = buildParams(continueCursor);
-      const result = await client.listEvents(params);
+      const spec = buildQuerySpec(continueCursor);
+      const result = await client.createEventQuery(spec);
+
+      // Extract K8sEvent objects from EventRecord results
+      const events = (result.status?.results || []).map(extractEventFn);
 
       // Apply client-side filtering
-      const filteredEvents = result.items.filter(event => matchesClientFilters(event, filters));
+      const filteredEvents = events.filter(event => matchesClientFilters(event, filters));
 
       // Deduplicate before appending - use uid as primary key, fallback to name
       setEvents((prev) => {
@@ -417,13 +449,13 @@ export function useEventsFeed({
 
         return [...prev, ...newEvents];
       });
-      setContinueCursor(result.metadata?.continue);
+      setContinueCursor(result.status?.continue);
     } catch (err) {
       setError(err instanceof Error ? err : new Error(String(err)));
     } finally {
       setIsLoading(false);
     }
-  }, [client, buildParams, continueCursor, isLoading, filters]);
+  }, [client, buildQuerySpec, continueCursor, isLoading, filters]);
 
   // Update filters and reset pagination with debounced auto-refresh
   const updateFilters = useCallback((newFilters: EventsFeedFilters) => {
@@ -433,6 +465,8 @@ export function useEventsFeed({
       stopStreaming();
     }
 
+    // Set isRefreshing BEFORE clearing events to prevent empty state flash
+    setIsRefreshing(true);
     setFilters(newFilters);
     setEvents([]);
     setContinueCursor(undefined);
@@ -457,6 +491,8 @@ export function useEventsFeed({
       stopStreaming();
     }
 
+    // Set isRefreshing BEFORE clearing events to prevent empty state flash
+    setIsRefreshing(true);
     setTimeRange(newTimeRange);
     setEvents([]);
     setContinueCursor(undefined);
@@ -549,6 +585,7 @@ export function useEventsFeed({
   return {
     events,
     isLoading,
+    isRefreshing,
     error,
     hasMore,
     filters,

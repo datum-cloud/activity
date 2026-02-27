@@ -1,5 +1,5 @@
 import { useEffect, useCallback, useMemo } from 'react';
-import type { Activity, ResourceLinkResolver } from '../types/activity';
+import type { Activity, ResourceLinkResolver, ErrorFormatter } from '../types/activity';
 import type { ActivityFeedFilters } from '../hooks/useActivityFeed';
 import { useActivityFeed } from '../hooks/useActivityFeed';
 import { ActivityFeedItem } from './ActivityFeedItem';
@@ -49,6 +49,8 @@ export interface ResourceHistoryViewProps {
   onActorClick?: (actorName: string) => void;
   /** Additional CSS class */
   className?: string;
+  /** Custom error formatter for customizing error messages */
+  errorFormatter?: ErrorFormatter;
 }
 
 /**
@@ -96,6 +98,7 @@ export function ResourceHistoryView({
   resourceLinkResolver,
   onActorClick,
   className,
+  errorFormatter,
 }: ResourceHistoryViewProps) {
   // Build the activity feed filters from the resource filter
   const activityFilters = useMemo((): ActivityFeedFilters => {
@@ -212,7 +215,7 @@ export function ResourceHistoryView({
         )}
 
         {/* Error Display */}
-        {hasValidFilter && <ApiErrorAlert error={error} onRetry={refresh} className="mb-4" />}
+        {hasValidFilter && <ApiErrorAlert error={error} onRetry={refresh} className="mb-4" errorFormatter={errorFormatter} />}
 
         {/* Loading state (initial) */}
         {hasValidFilter && isLoading && activities.length === 0 && (

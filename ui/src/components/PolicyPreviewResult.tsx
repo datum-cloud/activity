@@ -1,15 +1,21 @@
-import type { PolicyPreviewStatus, PreviewActivity, PolicyPreviewInputResult } from '../types/policy';
-import type { ResourceRef } from '../types/activity';
+import type { PolicyPreviewStatus, PreviewActivity, PolicyPreviewInputResult, PolicyPreviewInput } from '../types/policy';
+import type { ResourceRef, Activity } from '../types/activity';
+import type { K8sEvent } from '../types/k8s-event';
 import { ActivityFeedSummary } from './ActivityFeedSummary';
+import { ActivityFeedItem } from './ActivityFeedItem';
+import { AuditLogFeedItem } from './AuditLogFeedItem';
+import { EventFeedItem } from './EventFeedItem';
 import { cn } from '../lib/utils';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Alert, AlertDescription } from './ui/alert';
-import { AlertCircle, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 
 export interface PolicyPreviewResultProps {
   /** Preview result status */
   result: PolicyPreviewStatus;
+  /** Input data used for preview */
+  inputs?: PolicyPreviewInput[];
   /** Handler for resource link clicks */
   onResourceClick?: (resource: ResourceRef) => void;
   /** Additional CSS class */
@@ -35,26 +41,76 @@ function getResultStats(results: PolicyPreviewInputResult[] | undefined): {
 }
 
 /**
- * Format actor name for display
+ * Convert PreviewActivity to Activity for ActivityFeedItem
+ * PreviewActivity and Activity are similar but have slightly different actor types
  */
-function formatActorName(actor: PreviewActivity['spec']['actor']): string {
-  if (!actor) return 'Unknown';
-  if (actor.email) return actor.email;
-  if (actor.name) return actor.name;
-  return 'Unknown';
+function previewActivityToActivity(preview: PreviewActivity): Activity {
+  return {
+    apiVersion: 'activity.miloapis.com/v1alpha1',
+    kind: 'Activity',
+    metadata: preview.metadata || {},
+    spec: {
+      summary: preview.spec.summary,
+      changeSource: preview.spec.changeSource as 'human' | 'system',
+      actor: {
+        type: preview.spec.actor.type as 'user' | 'machine account' | 'controller',
+        name: preview.spec.actor.name,
+        uid: preview.spec.actor.uid || '',
+        email: preview.spec.actor.email,
+      },
+      resource: {
+        apiGroup: preview.spec.resource.apiGroup || '',
+        apiVersion: preview.spec.resource.apiVersion,
+        kind: preview.spec.resource.kind || '',
+        name: preview.spec.resource.name || '',
+        namespace: preview.spec.resource.namespace,
+        uid: preview.spec.resource.uid,
+      },
+      links: preview.spec.links,
+      origin: {
+        type: preview.spec.origin.type as 'audit' | 'event',
+        id: preview.spec.origin.id,
+      },
+    },
+  };
 }
 
 /**
- * Format timestamp for display
+ * Convert KubernetesEvent (from policy.ts) to K8sEvent (from k8s-event.ts)
+ * These types are very similar but defined separately in different files
  */
-function formatTimestamp(metadata: PreviewActivity['metadata']): string {
-  if (!metadata?.creationTimestamp) return '';
-  try {
-    const date = new Date(metadata.creationTimestamp);
-    return date.toLocaleTimeString();
-  } catch {
-    return '';
+function policyEventToK8sEvent(policyEvent: PolicyPreviewInput['event']): K8sEvent {
+  if (!policyEvent) {
+    // Return a minimal K8sEvent if no event provided
+    return {
+      apiVersion: 'events.k8s.io/v1',
+      kind: 'Event',
+      metadata: {},
+      regarding: {},
+    };
   }
+
+  return {
+    apiVersion: 'events.k8s.io/v1',
+    kind: 'Event',
+    metadata: policyEvent.metadata || {},
+    regarding: policyEvent.regarding || {},
+    related: policyEvent.regarding,
+    reason: policyEvent.reason,
+    note: policyEvent.note,
+    message: policyEvent.message,
+    type: policyEvent.type as K8sEvent['type'],
+    eventTime: policyEvent.eventTime,
+    action: undefined,
+    reportingController: policyEvent.reportingController,
+    reportingInstance: policyEvent.reportingInstance,
+    series: policyEvent.series,
+    involvedObject: policyEvent.involvedObject,
+    source: policyEvent.source,
+    count: policyEvent.count,
+    firstTimestamp: policyEvent.firstTimestamp,
+    lastTimestamp: policyEvent.lastTimestamp,
+  };
 }
 
 /**
@@ -62,6 +118,7 @@ function formatTimestamp(metadata: PreviewActivity['metadata']): string {
  */
 export function PolicyPreviewResult({
   result,
+  inputs = [],
   onResourceClick,
   className = '',
 }: PolicyPreviewResultProps) {
@@ -164,63 +221,24 @@ export function PolicyPreviewResult({
         </Alert>
       )}
 
-      {/* Activity Stream */}
+      {/* Activity Stream - using ActivityFeedItem for consistency */}
       {activities.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base">Generated Activity Stream</CardTitle>
-              <Badge variant="outline">{activities.length} activities</Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            <ul className="divide-y divide-border">
-              {activities.map((activity, index) => (
-                <li key={activity.metadata?.name || index} className="p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="font-medium text-sm">
-                      {formatActorName(activity.spec.actor)}
-                    </span>
-                    <Badge
-                      variant={activity.spec.changeSource === 'system' ? 'secondary' : 'outline'}
-                      className="text-xs"
-                    >
-                      {activity.spec.changeSource}
-                    </Badge>
-                    {activity.metadata?.creationTimestamp && (
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {formatTimestamp(activity.metadata)}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="mb-2">
-                    <ActivityFeedSummary
-                      summary={activity.spec.summary}
-                      links={activity.spec.links}
-                      onResourceClick={onResourceClick}
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <span>
-                      {activity.spec.resource.kind && (
-                        <>
-                          {activity.spec.resource.namespace && `${activity.spec.resource.namespace}/`}
-                          {activity.spec.resource.name}
-                        </>
-                      )}
-                    </span>
-                    <span>
-                      via {activity.spec.origin.type}
-                    </span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-medium text-foreground">Generated Activity Stream</h3>
+            <Badge variant="outline">{activities.length} activities</Badge>
+          </div>
+          <div className="space-y-0">
+            {activities.map((activity, index) => (
+              <ActivityFeedItem
+                key={activity.metadata?.name || index}
+                activity={previewActivityToActivity(activity)}
+                onResourceClick={onResourceClick}
+                compact={true}
+              />
+            ))}
+          </div>
+        </div>
       )}
 
       {/* Per-Input Results (collapsed by default) */}
@@ -235,28 +253,47 @@ export function PolicyPreviewResult({
           </summary>
           <Card className="mt-2">
             <CardContent className="p-0">
-              <ul className="divide-y divide-border">
+              <div className="divide-y divide-border">
                 {results
                   .filter((r) => !r.matched || r.error)
-                  .map((inputResult) => (
-                    <li
-                      key={inputResult.inputIndex}
-                      className={cn(
-                        'p-3 flex items-center justify-between text-sm',
-                        inputResult.error && 'bg-destructive/10'
-                      )}
-                    >
-                      <span className="text-muted-foreground">Input #{inputResult.inputIndex + 1}</span>
-                      {inputResult.error ? (
-                        <Badge variant="destructive" className="text-xs">
-                          {inputResult.error}
-                        </Badge>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">No matching rule</span>
-                      )}
-                    </li>
-                  ))}
-              </ul>
+                  .map((inputResult) => {
+                    const input = inputs[inputResult.inputIndex];
+
+                    return (
+                      <div
+                        key={inputResult.inputIndex}
+                        className={cn(
+                          'p-3 flex flex-col gap-2',
+                          inputResult.error && 'bg-destructive/10'
+                        )}
+                      >
+                        {/* Render the appropriate feed item component */}
+                        {input?.type === 'audit' && input.audit && (
+                          <AuditLogFeedItem event={input.audit} compact={true} />
+                        )}
+                        {input?.type === 'event' && input.event && (
+                          <EventFeedItem event={policyEventToK8sEvent(input.event)} compact={true} />
+                        )}
+                        {!input && (
+                          <span className="text-muted-foreground text-xs">
+                            Input #{inputResult.inputIndex + 1}
+                          </span>
+                        )}
+
+                        {/* Error or no-match indicator */}
+                        <div className="flex justify-end">
+                          {inputResult.error ? (
+                            <Badge variant="destructive" className="text-xs shrink-0">
+                              {inputResult.error}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground text-xs shrink-0">No matching rule</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
             </CardContent>
           </Card>
         </details>

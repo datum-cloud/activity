@@ -1,25 +1,22 @@
 import { useEffect, useState, useCallback } from 'react';
 import type { ActivityPolicy, Condition } from '../types/policy';
+import type { ErrorFormatter } from '../types/activity';
 import { ActivityApiClient } from '../api/client';
 import { usePolicyList, type UsePolicyListResult } from '../hooks/usePolicyList';
 import { Button } from './ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent, CardHeader } from './ui/card';
 import { Badge } from './ui/badge';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from './ui/dialog';
 import { Separator } from './ui/separator';
+import { Skeleton } from './ui/skeleton';
 import { ApiErrorAlert } from './ApiErrorAlert';
+import { AlertTriangle } from 'lucide-react';
 
 export interface PolicyListProps {
   /** API client instance */
   client: ActivityApiClient;
-  /** Callback when a policy is selected for editing */
+  /** Callback when a policy is selected for viewing */
+  onViewPolicy?: (policyName: string) => void;
+  /** Callback when a policy is selected for editing (deprecated - use onViewPolicy) */
   onEditPolicy?: (policyName: string) => void;
   /** Callback when create new policy is requested */
   onCreatePolicy?: () => void;
@@ -27,35 +24,83 @@ export interface PolicyListProps {
   groupByApiGroup?: boolean;
   /** Additional CSS class */
   className?: string;
+  /** Custom error formatter for customizing error messages */
+  errorFormatter?: ErrorFormatter;
 }
 
 /**
- * Delete confirmation dialog state
+ * Skeleton row for table loading state
  */
-interface DeleteConfirmation {
-  isOpen: boolean;
-  policyName: string;
+function PolicySkeletonRow() {
+  return (
+    <tr>
+      <td className="px-3 py-2 border-b border-border">
+        <div className="flex items-center gap-2">
+          <Skeleton className="w-2 h-2 rounded-full" />
+          <Skeleton className="h-3 w-24" />
+        </div>
+      </td>
+      <td className="px-3 py-2 border-b border-border text-center w-24">
+        <Skeleton className="h-5 w-8 mx-auto rounded-full" />
+      </td>
+      <td className="px-3 py-2 border-b border-border text-center w-24">
+        <Skeleton className="h-5 w-8 mx-auto rounded-full" />
+      </td>
+    </tr>
+  );
 }
 
 /**
- * PolicyList displays all ActivityPolicies with CRUD actions
+ * Skeleton group for loading state
+ */
+function PolicySkeletonGroup() {
+  return (
+    <div className="border border-input rounded-lg overflow-hidden">
+      <div className="w-full flex items-center gap-2.5 px-3 py-2 bg-muted">
+        <Skeleton className="h-3 w-3" />
+        <Skeleton className="h-3 flex-1 max-w-[200px]" />
+        <Skeleton className="h-5 w-8 rounded-full" />
+      </div>
+      <div className="p-1.5">
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr>
+              <th className="text-left px-3 py-2 bg-muted text-muted-foreground font-medium border-b border-input text-xs whitespace-nowrap">Kind</th>
+              <th className="text-left px-3 py-2 bg-muted text-muted-foreground font-medium border-b border-input w-24 text-xs whitespace-nowrap">Audit Rules</th>
+              <th className="text-left px-3 py-2 bg-muted text-muted-foreground font-medium border-b border-input w-24 text-xs whitespace-nowrap">Event Rules</th>
+              <th className="text-left px-3 py-2 bg-muted text-muted-foreground font-medium border-b border-input w-16 text-xs whitespace-nowrap"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <PolicySkeletonRow />
+            <PolicySkeletonRow />
+            <PolicySkeletonRow />
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * PolicyList displays all ActivityPolicies with edit actions
  */
 export function PolicyList({
   client,
+  onViewPolicy,
   onEditPolicy,
   onCreatePolicy,
   groupByApiGroup = true,
   className = '',
+  errorFormatter,
 }: PolicyListProps) {
   const policyList: UsePolicyListResult = usePolicyList({
     client,
     groupByApiGroup,
   });
 
-  const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmation>({
-    isOpen: false,
-    policyName: '',
-  });
+  // Use onViewPolicy if provided, otherwise fall back to onEditPolicy for backwards compatibility
+  const handlePolicyClick = onViewPolicy || onEditPolicy;
 
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
@@ -86,26 +131,6 @@ export function PolicyList({
     });
   }, []);
 
-  // Handle delete
-  const handleDeleteClick = (policyName: string) => {
-    setDeleteConfirm({ isOpen: true, policyName });
-  };
-
-  const handleDeleteConfirm = async () => {
-    const { policyName } = deleteConfirm;
-    setDeleteConfirm({ isOpen: false, policyName: '' });
-
-    try {
-      await policyList.deletePolicy(policyName);
-    } catch (err) {
-      console.error('Failed to delete policy:', err);
-    }
-  };
-
-  const handleDeleteCancel = () => {
-    setDeleteConfirm({ isOpen: false, policyName: '' });
-  };
-
   // Count rules for display
   const countRules = (policy: ActivityPolicy): { audit: number; event: number } => {
     return {
@@ -116,17 +141,17 @@ export function PolicyList({
 
   // Get policy status from conditions
   const getPolicyStatus = (policy: ActivityPolicy): {
-    status: 'ready' | 'error' | 'pending';
+    status: 'ready' | 'error' | 'pending' | 'unknown';
     message?: string;
   } => {
     const conditions = policy.status?.conditions;
     if (!conditions || conditions.length === 0) {
-      return { status: 'pending', message: 'Status not yet available' };
+      return { status: 'unknown', message: 'Status not yet available' };
     }
 
     const readyCondition = conditions.find((c: Condition) => c.type === 'Ready');
     if (!readyCondition) {
-      return { status: 'pending', message: 'Status not yet available' };
+      return { status: 'unknown', message: 'Status not yet available' };
     }
 
     if (readyCondition.status === 'True') {
@@ -141,16 +166,19 @@ export function PolicyList({
   return (
     <Card className={`rounded-xl ${className}`}>
       {/* Header */}
-      <CardHeader className="pb-4">
+      <CardHeader className="pb-1.5">
         <div className="flex justify-between items-center">
-          <CardTitle>Activity Policies</CardTitle>
-          <div className="flex gap-3">
+          <p className="text-sm text-muted-foreground m-0">
+            Turn cryptic audit events into activity timelines your team will actually enjoy reading
+          </p>
+          <div className="flex gap-1.5">
             <Button
               variant="outline"
-              size="icon"
+              size="sm"
               onClick={policyList.refresh}
               disabled={policyList.isLoading}
               title="Refresh policy list"
+              className="h-7 px-2"
             >
               {policyList.isLoading ? (
                 <span className="w-3.5 h-3.5 border-2 border-border border-t-primary rounded-full animate-spin" />
@@ -160,26 +188,27 @@ export function PolicyList({
             </Button>
             {onCreatePolicy && (
               <Button
+                size="sm"
                 onClick={onCreatePolicy}
-                className="bg-[#BF9595] text-[#0C1D31] hover:bg-[#A88080]"
+                className="bg-[#BF9595] text-[#0C1D31] hover:bg-[#A88080] h-7 text-xs"
               >
                 + Create Policy
               </Button>
             )}
           </div>
         </div>
-        <Separator className="mt-4" />
+        <Separator className="mt-1.5" />
       </CardHeader>
 
-      <CardContent>
+      <CardContent className="pt-3">
         {/* Error Display */}
-        <ApiErrorAlert error={policyList.error} onRetry={policyList.refresh} className="mb-4" />
+        <ApiErrorAlert error={policyList.error} onRetry={policyList.refresh} className="mb-3" errorFormatter={errorFormatter} />
 
-        {/* Loading State */}
+        {/* Loading State - Skeleton */}
         {policyList.isLoading && policyList.policies.length === 0 && (
-          <div className="flex items-center justify-center gap-3 py-12 text-muted-foreground">
-            <span className="w-5 h-5 border-[3px] border-border border-t-[#BF9595] rounded-full animate-spin" />
-            Loading policies...
+          <div className="flex flex-col gap-2.5">
+            <PolicySkeletonGroup />
+            <PolicySkeletonGroup />
           </div>
         )}
 
@@ -187,17 +216,18 @@ export function PolicyList({
         {!policyList.isLoading &&
           !policyList.error &&
           policyList.policies.length === 0 && (
-            <div className="text-center py-12 px-8 text-muted-foreground">
-              <div className="text-5xl mb-4">📋</div>
-              <h3 className="m-0 mb-2 text-foreground">No policies found</h3>
-              <p className="m-0 mb-6 max-w-[400px] mx-auto">
+            <div className="text-center py-8 px-6 text-muted-foreground">
+              <div className="text-4xl mb-3">📋</div>
+              <h3 className="m-0 mb-1.5 text-foreground">No policies found</h3>
+              <p className="m-0 mb-4 max-w-[400px] mx-auto">
                 Activity policies define how audit events and Kubernetes events are
                 translated into human-readable activity summaries.
               </p>
               {onCreatePolicy && (
                 <Button
+                  size="sm"
                   onClick={onCreatePolicy}
-                  className="bg-[#BF9595] text-[#0C1D31] hover:bg-[#A88080]"
+                  className="bg-[#BF9595] text-[#0C1D31] hover:bg-[#A88080] h-7 text-xs"
                 >
                   Create your first policy
                 </Button>
@@ -207,12 +237,12 @@ export function PolicyList({
 
         {/* Policy Groups */}
         {policyList.groups.length > 0 && (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2.5">
             {policyList.groups.map((group) => (
               <div key={group.apiGroup} className="border border-input rounded-lg overflow-hidden">
                 <button
                   type="button"
-                  className="w-full flex items-center gap-3 px-4 py-3 bg-muted border-none cursor-pointer text-left text-xs font-medium text-foreground transition-colors duration-200 hover:bg-accent"
+                  className="w-full flex items-center gap-2.5 px-3 py-2 bg-muted border-none cursor-pointer text-left text-xs font-medium text-foreground transition-colors duration-200 hover:bg-accent"
                   onClick={() => toggleGroup(group.apiGroup)}
                 >
                   <span
@@ -229,16 +259,13 @@ export function PolicyList({
                 </button>
 
                 {expandedGroups.has(group.apiGroup) && (
-                  <div className="p-2">
+                  <div className="p-1.5">
                     <table className="w-full border-collapse text-sm">
                       <thead>
                         <tr>
-                          <th className="text-left px-4 py-3 bg-muted text-muted-foreground font-medium border-b border-input">Name</th>
-                          <th className="text-left px-4 py-3 bg-muted text-muted-foreground font-medium border-b border-input">Status</th>
-                          <th className="text-left px-4 py-3 bg-muted text-muted-foreground font-medium border-b border-input">Kind</th>
-                          <th className="text-left px-4 py-3 bg-muted text-muted-foreground font-medium border-b border-input">Audit Rules</th>
-                          <th className="text-left px-4 py-3 bg-muted text-muted-foreground font-medium border-b border-input">Event Rules</th>
-                          <th className="text-left px-4 py-3 bg-muted text-muted-foreground font-medium border-b border-input">Actions</th>
+                          <th className="text-left px-3 py-2 bg-muted text-muted-foreground font-medium border-b border-input text-xs whitespace-nowrap">Kind</th>
+                          <th className="text-left px-3 py-2 bg-muted text-muted-foreground font-medium border-b border-input w-24 text-xs whitespace-nowrap">Audit Rules</th>
+                          <th className="text-left px-3 py-2 bg-muted text-muted-foreground font-medium border-b border-input w-24 text-xs whitespace-nowrap">Event Rules</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -246,46 +273,37 @@ export function PolicyList({
                           const rules = countRules(policy);
                           const policyStatus = getPolicyStatus(policy);
                           return (
-                            <tr key={policy.metadata?.name} className="hover:bg-muted">
-                              <td className="px-4 py-3 border-b border-border last:border-b-0 font-medium text-foreground">
-                                {policy.metadata?.name || 'unnamed'}
-                              </td>
-                              <td className="px-4 py-3 border-b border-border last:border-b-0">
-                                <Badge
-                                  variant={
-                                    policyStatus.status === 'ready'
-                                      ? 'success'
-                                      : policyStatus.status === 'error'
-                                        ? 'destructive'
-                                        : 'secondary'
-                                  }
-                                  className={
-                                    policyStatus.status === 'pending'
-                                      ? 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
-                                      : ''
-                                  }
-                                  title={policyStatus.message}
-                                >
-                                  {policyStatus.status === 'ready'
-                                    ? 'Ready'
-                                    : policyStatus.status === 'error'
-                                      ? 'Error'
-                                      : 'Pending'}
-                                </Badge>
-                              </td>
-                              <td className="px-4 py-3 border-b border-border last:border-b-0">
+                            <tr
+                              key={policy.metadata?.name}
+                              className={`hover:bg-muted transition-colors ${handlePolicyClick ? 'cursor-pointer' : ''}`}
+                              onClick={() => handlePolicyClick?.(policy.metadata?.name || '')}
+                            >
+                              <td className="px-3 py-2 border-b border-border last:border-b-0">
                                 <div className="flex items-center gap-2">
-                                  <Badge className="bg-[#E6F59F] text-[#0C1D31] hover:bg-[#E6F59F]">
-                                    {policy.spec.resource.kind}
-                                  </Badge>
-                                  {policy.spec.resource.kindLabel && (
-                                    <span className="text-muted-foreground text-xs">
-                                      ({policy.spec.resource.kindLabel})
-                                    </span>
+                                  {policyStatus.status === 'ready' ? (
+                                    <div
+                                      className="w-2 h-2 rounded-full bg-green-500"
+                                      title={policyStatus.message}
+                                    />
+                                  ) : (
+                                    <div title={policyStatus.message}>
+                                      <AlertTriangle
+                                        className={`w-4 h-4 ${
+                                          policyStatus.status === 'error'
+                                            ? 'text-red-500 dark:text-red-400'
+                                            : policyStatus.status === 'pending'
+                                            ? 'text-amber-600 dark:text-amber-400'
+                                            : 'text-gray-400'
+                                        }`}
+                                      />
+                                    </div>
                                   )}
+                                  <span className="text-xs font-medium">
+                                    {policy.spec.resource.kind}
+                                  </span>
                                 </div>
                               </td>
-                              <td className="px-4 py-3 border-b border-border last:border-b-0 text-center">
+                              <td className="px-3 py-2 border-b border-border last:border-b-0 text-center w-24">
                                 <Badge
                                   variant={rules.audit > 0 ? 'success' : 'secondary'}
                                   className={rules.audit === 0 ? 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500' : ''}
@@ -293,41 +311,13 @@ export function PolicyList({
                                   {rules.audit}
                                 </Badge>
                               </td>
-                              <td className="px-4 py-3 border-b border-border last:border-b-0 text-center">
+                              <td className="px-3 py-2 border-b border-border last:border-b-0 text-center w-24">
                                 <Badge
                                   variant={rules.event > 0 ? 'success' : 'secondary'}
                                   className={rules.event === 0 ? 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500' : ''}
                                 >
                                   {rules.event}
                                 </Badge>
-                              </td>
-                              <td className="px-4 py-3 border-b border-border last:border-b-0">
-                                <div className="flex gap-2">
-                                  {onEditPolicy && (
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() =>
-                                        onEditPolicy(policy.metadata?.name || '')
-                                      }
-                                      title="Edit policy"
-                                    >
-                                      Edit
-                                    </Button>
-                                  )}
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() =>
-                                      handleDeleteClick(policy.metadata?.name || '')
-                                    }
-                                    disabled={policyList.isDeleting}
-                                    title="Delete policy"
-                                    className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-400 hover:text-red-600 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-950/50 dark:hover:border-red-600 dark:hover:text-red-400"
-                                  >
-                                    Delete
-                                  </Button>
-                                </div>
                               </td>
                             </tr>
                           );
@@ -341,37 +331,6 @@ export function PolicyList({
           </div>
         )}
       </CardContent>
-
-      {/* Delete Confirmation Modal */}
-      <Dialog open={deleteConfirm.isOpen} onOpenChange={(open) => !open && handleDeleteCancel()}>
-        <DialogContent className="max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle>Delete Policy</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete the policy{' '}
-              <strong>{deleteConfirm.policyName}</strong>?
-            </DialogDescription>
-          </DialogHeader>
-          <p className="text-sm text-red-700 bg-red-50 dark:text-red-200 dark:bg-red-950/50 p-3 rounded-md">
-            This action cannot be undone. Activities already generated by this
-            policy will remain, but no new activities will be created.
-          </p>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={handleDeleteCancel}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDeleteConfirm}
-            >
-              Delete Policy
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </Card>
   );
 }

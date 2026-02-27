@@ -18,7 +18,7 @@ import type {
   PolicyPreview,
   PolicyPreviewSpec,
 } from '../types/policy';
-import { parseApiError } from '../lib/errors';
+import { parseApiError, NetworkError } from '../lib/errors';
 import type {
   K8sEvent,
   K8sEventList,
@@ -884,17 +884,33 @@ export class ActivityApiClient {
       headers['Authorization'] = `Bearer ${this.config.token}`;
     }
 
-    const response = await this.config.fetch!(url, {
-      ...init,
-      headers,
-    });
+    try {
+      const response = await this.config.fetch!(url, {
+        ...init,
+        headers,
+      });
 
-    if (!response.ok) {
-      const errorBody = await response.text();
-      throw parseApiError(response.status, errorBody);
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw parseApiError(response.status, errorBody);
+      }
+
+      return response;
+    } catch (error) {
+      // If it's already an ApiError, re-throw it
+      if (error instanceof Error && error.name === 'ApiError') {
+        throw error;
+      }
+
+      // Network errors (connection refused, DNS failure, CORS, etc.)
+      // These are thrown by fetch as TypeError
+      if (error instanceof TypeError) {
+        throw new NetworkError(error.message);
+      }
+
+      // Re-throw other errors as-is
+      throw error;
     }
-
-    return response;
   }
 
   /**

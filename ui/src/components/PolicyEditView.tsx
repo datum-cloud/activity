@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState } from 'react';
+import { useEffect, useCallback, useState, useRef } from 'react';
 import type { PolicyPreviewPolicySpec, Condition } from '../types/policy';
 import type { ResourceRef, ErrorFormatter } from '../types/activity';
 import { ActivityApiClient } from '../api/client';
@@ -7,13 +7,11 @@ import { usePolicyPreview, type UsePolicyPreviewResult } from '../hooks/usePolic
 import { PolicyResourceForm } from './PolicyResourceForm';
 import { PolicyRuleList } from './PolicyRuleList';
 import { PolicyPreviewPanel } from './PolicyPreviewPanel';
-import { PolicyActivityView } from './PolicyActivityView';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { Card, CardHeader, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Label } from './ui/label';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
 import { ApiErrorAlert } from './ApiErrorAlert';
 import { Alert, AlertDescription } from './ui/alert';
 import { AlertTriangle, AlertCircle, Trash2, Copy, Check } from 'lucide-react';
@@ -32,7 +30,7 @@ import {
   TooltipTrigger,
 } from './ui/tooltip';
 
-export interface PolicyEditorProps {
+export interface PolicyEditViewProps {
   /** API client instance */
   client: ActivityApiClient;
   /** Policy name to edit (undefined for new policy) */
@@ -50,10 +48,10 @@ export interface PolicyEditorProps {
 }
 
 /**
- * PolicyEditor provides a full editor for creating/editing ActivityPolicies
- * with a preview panel for testing
+ * PolicyEditView provides an editor for creating/editing ActivityPolicies
+ * with Editor and Preview tabs (Activity tab is in the separate detail view)
  */
-export function PolicyEditor({
+export function PolicyEditView({
   client,
   policyName,
   onSaveSuccess,
@@ -61,7 +59,7 @@ export function PolicyEditor({
   onResourceClick,
   className = '',
   errorFormatter,
-}: PolicyEditorProps) {
+}: PolicyEditViewProps) {
   // Editor state
   const editor: UsePolicyEditorResult = usePolicyEditor({
     client,
@@ -79,7 +77,19 @@ export function PolicyEditor({
   const [isCopied, setIsCopied] = useState(false);
 
   // Track active tab
-  const [activeTab, setActiveTab] = useState<string>('activity');
+  const [activeTab, setActiveTab] = useState<string>('preview');
+
+  // Track if we've auto-loaded audit logs and auto-previewed for the current resource
+  const autoLoadedResourceRef = useRef<string>('');
+  const autoPreviewedInputsRef = useRef<number>(0);
+
+  // Track audit log loading state
+  const [isLoadingAuditLogs, setIsLoadingAuditLogs] = useState(false);
+
+  // Track pagination state for audit logs
+  const [continueAfter, setContinueAfter] = useState<string | null>(null);
+  const [hasMoreInputs, setHasMoreInputs] = useState(false);
+  const [isLoadingMoreInputs, setIsLoadingMoreInputs] = useState(false);
 
   // Load existing policy on mount
   useEffect(() => {
@@ -90,6 +100,184 @@ export function PolicyEditor({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [policyName]);
+
+  // Auto-load audit logs when resource apiGroup and kind are available
+  useEffect(() => {
+    const apiGroup = editor.spec.resource.apiGroup;
+    const kind = editor.spec.resource.kind;
+
+    // Check if we have enough info to query (apiGroup can be empty string for core resources)
+    if (kind.trim() === '') {
+      return; // Need at least a kind
+    }
+
+    // Create a resource key to track whether we've already loaded for this resource
+    const resourceKey = `${apiGroup}:${kind}`;
+
+    // Skip if we've already auto-loaded for this resource
+    if (autoLoadedResourceRef.current === resourceKey) {
+      return;
+    }
+
+    // Build CEL filter for the resource type
+    const filters: string[] = [];
+
+    // Filter by API group if present (empty string means core API group)
+    if (apiGroup !== '') {
+      filters.push(`objectRef.apiGroup == '${apiGroup}'`);
+    }
+
+    // Use a contains match on the resource name to handle pluralization
+    // e.g., "httpproxy" would match "httpproxies"
+    const kindLower = kind.toLowerCase();
+    filters.push(`objectRef.resource.contains('${kindLower}')`);
+
+    const filter = filters.join(' && ');
+
+    // Execute query to fetch audit logs
+    const fetchAuditLogs = async () => {
+      setIsLoadingAuditLogs(true);
+      try {
+        const queryName = `policy-preview-${Date.now()}`;
+
+        // Calculate time range - last 24 hours
+        const endTime = new Date();
+        const startTime = new Date(endTime.getTime() - 24 * 60 * 60 * 1000);
+
+        const spec = {
+          filter,
+          limit: 10, // Get a reasonable sample for preview
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+        };
+
+        const result = await client.createQuery(queryName, spec);
+        const events = result.status?.results || [];
+        const cursor = result.status?.continueAfter;
+
+        if (events.length > 0) {
+          preview.setAuditInputs(events);
+          autoLoadedResourceRef.current = resourceKey;
+          setContinueAfter(cursor || null);
+          setHasMoreInputs(!!cursor);
+        } else {
+          console.log('No audit logs found matching filter:', filter);
+          setContinueAfter(null);
+          setHasMoreInputs(false);
+        }
+      } catch (err) {
+        console.error('Failed to load audit logs for preview:', err);
+        // Don't show error to user - this is an automatic background operation
+      } finally {
+        setIsLoadingAuditLogs(false);
+      }
+    };
+
+    fetchAuditLogs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor.spec.resource.apiGroup, editor.spec.resource.kind]);
+
+  // Load more audit logs using pagination cursor
+  const loadMoreInputs = useCallback(async () => {
+    if (!continueAfter || isLoadingMoreInputs) {
+      return;
+    }
+
+    const apiGroup = editor.spec.resource.apiGroup;
+    const kind = editor.spec.resource.kind;
+
+    if (kind.trim() === '') {
+      return;
+    }
+
+    // Build the same filter as the initial load
+    const filters: string[] = [];
+    if (apiGroup !== '') {
+      filters.push(`objectRef.apiGroup == '${apiGroup}'`);
+    }
+    const kindLower = kind.toLowerCase();
+    filters.push(`objectRef.resource.contains('${kindLower}')`);
+    const filter = filters.join(' && ');
+
+    setIsLoadingMoreInputs(true);
+    try {
+      const queryName = `policy-preview-more-${Date.now()}`;
+
+      // Calculate time range - last 24 hours
+      const endTime = new Date();
+      const startTime = new Date(endTime.getTime() - 24 * 60 * 60 * 1000);
+
+      const spec = {
+        filter,
+        limit: 10,
+        startTime: startTime.toISOString(),
+        endTime: endTime.toISOString(),
+        continueAfter, // Use the cursor from the previous query
+      };
+
+      const result = await client.createQuery(queryName, spec);
+      const events = result.status?.results || [];
+      const cursor = result.status?.continueAfter;
+
+      if (events.length > 0) {
+        // Append new events to existing inputs
+        events.forEach((event) => {
+          preview.addInput({ type: 'audit', audit: event });
+        });
+        setContinueAfter(cursor || null);
+        setHasMoreInputs(!!cursor);
+      } else {
+        setContinueAfter(null);
+        setHasMoreInputs(false);
+      }
+    } catch (err) {
+      console.error('Failed to load more audit logs:', err);
+    } finally {
+      setIsLoadingMoreInputs(false);
+    }
+  }, [continueAfter, isLoadingMoreInputs, editor.spec.resource.apiGroup, editor.spec.resource.kind, client, preview]);
+
+  // Auto-run preview when preview inputs are loaded
+  useEffect(() => {
+    // Only auto-run if we have inputs and a valid policy spec
+    if (preview.inputs.length === 0) {
+      return;
+    }
+
+    // Skip if we've already auto-previewed for the current number of inputs
+    // This prevents re-running when the same inputs are selected/deselected
+    if (autoPreviewedInputsRef.current === preview.inputs.length) {
+      return;
+    }
+
+    // Check if we have a valid policy to preview
+    if (!editor.spec.resource.kind.trim()) {
+      return;
+    }
+
+    // Check if we have at least one rule to preview
+    const hasRules = (editor.spec.auditRules?.length || 0) > 0 || (editor.spec.eventRules?.length || 0) > 0;
+    if (!hasRules) {
+      console.log('Skipping auto-preview - no rules defined yet');
+      return;
+    }
+
+    // Auto-run preview
+    const policySpec: PolicyPreviewPolicySpec = {
+      resource: editor.spec.resource,
+      auditRules: editor.spec.auditRules,
+      eventRules: editor.spec.eventRules,
+    };
+
+    console.log('Auto-running preview with', preview.inputs.length, 'inputs');
+    preview.runPreview(policySpec).then(() => {
+      autoPreviewedInputsRef.current = preview.inputs.length;
+    }).catch((err) => {
+      console.error('Auto-preview failed:', err);
+      // Don't show error to user - this is an automatic background operation
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preview.inputs, editor.spec.auditRules, editor.spec.eventRules]);
 
   // Handle save
   const handleSave = useCallback(
@@ -169,14 +357,12 @@ export function PolicyEditor({
 
     const conditions = editor.policy.status?.conditions;
     if (!conditions || conditions.length === 0) {
-      // Default to ready if no conditions exist (policy is healthy by default)
-      return { status: 'ready', message: 'Policy is active' };
+      return null;
     }
 
     const readyCondition = conditions.find((c: Condition) => c.type === 'Ready');
     if (!readyCondition) {
-      // No Ready condition means policy is healthy (default state)
-      return { status: 'ready', message: 'Policy is active' };
+      return null;
     }
 
     if (readyCondition.status === 'True') {
@@ -189,6 +375,7 @@ export function PolicyEditor({
   };
 
   const policyStatus = getPolicyStatus();
+  const isUnhealthy = policyStatus && policyStatus.status !== 'ready';
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -212,30 +399,9 @@ export function PolicyEditor({
               </div>
             ) : (
               <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-2">
-                  {policyStatus && (
-                    <Tooltip delayDuration={300}>
-                      <TooltipTrigger asChild>
-                        <span
-                          className={`w-2 h-2 rounded-full ${
-                            policyStatus.status === 'ready'
-                              ? 'bg-green-500'
-                              : policyStatus.status === 'error'
-                              ? 'bg-red-500'
-                              : 'bg-yellow-500'
-                          }`}
-                          aria-label={`Policy status: ${policyStatus.status}`}
-                        />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p className="text-xs">{policyStatus.message}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-                  <h2 className="m-0 text-xl font-semibold text-foreground leading-tight">
-                    {editor.spec.resource.kind || 'Untitled Policy'}
-                  </h2>
-                </div>
+                <h2 className="m-0 text-xl font-semibold text-foreground leading-tight">
+                  {editor.spec.resource.kind || 'Untitled Policy'}
+                </h2>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   {editor.spec.resource.apiGroup && (
                     <>
@@ -318,6 +484,26 @@ export function PolicyEditor({
       {/* Error Display */}
       <ApiErrorAlert error={editor.error} className="mx-6 mt-4" errorFormatter={errorFormatter} />
 
+      {/* Policy Health Status Banner */}
+      {isUnhealthy && policyStatus && (
+        <Alert
+          variant={policyStatus.status === 'error' ? 'destructive' : 'warning'}
+          className="mx-6 mt-4"
+        >
+          {policyStatus.status === 'error' ? (
+            <AlertCircle className="h-4 w-4" />
+          ) : (
+            <AlertTriangle className="h-4 w-4" />
+          )}
+          <AlertDescription>
+            <strong>
+              {policyStatus.status === 'error' ? 'Policy Error: ' : 'Policy Pending: '}
+            </strong>
+            {policyStatus.message}
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Loading State */}
       {editor.isLoading && (
         <div className="flex items-center justify-center gap-3 py-12 text-muted-foreground">
@@ -329,87 +515,99 @@ export function PolicyEditor({
       {/* Main Content */}
       {!editor.isLoading && (
         <CardContent className="p-6">
-          <Tabs defaultValue="activity" value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-6">
-              <TabsTrigger value="activity">Activity</TabsTrigger>
-              <TabsTrigger value="editor">Editor</TabsTrigger>
-              <TabsTrigger value="preview">Preview</TabsTrigger>
-            </TabsList>
+          {/* Menu bar navigation */}
+          <div className="flex items-center gap-4 mb-6 text-sm">
+            <button
+              onClick={() => setActiveTab('editor')}
+              className={`px-0 py-1 transition-colors ${
+                activeTab === 'editor'
+                  ? 'text-foreground border-b-2 border-[#BF9595] font-medium'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Editor
+            </button>
+            <span className="text-muted-foreground/30">|</span>
+            <button
+              onClick={() => setActiveTab('preview')}
+              className={`px-0 py-1 transition-colors ${
+                activeTab === 'preview'
+                  ? 'text-foreground border-b-2 border-[#BF9595] font-medium'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Preview
+            </button>
+          </div>
 
-            {/* Activity Tab */}
-            <TabsContent value="activity" className="mt-0">
-              <PolicyActivityView
+          {/* Editor View */}
+          {activeTab === 'editor' && (
+            <div className="flex flex-col gap-6">
+              <PolicyResourceForm
+                resource={editor.spec.resource}
+                onChange={editor.setResource}
                 client={client}
-                policyResource={editor.spec.resource}
-                onResourceClick={onResourceClick}
-                errorFormatter={errorFormatter}
+                isEditMode={!editor.isNew}
               />
-            </TabsContent>
 
-            {/* Editor Tab */}
-            <TabsContent value="editor" className="mt-0">
-              <div className="flex flex-col gap-6">
-                <PolicyResourceForm
-                  resource={editor.spec.resource}
-                  onChange={editor.setResource}
-                  client={client}
-                  isEditMode={!editor.isNew}
-                />
+              <PolicyRuleList
+                auditRules={editor.spec.auditRules || []}
+                eventRules={editor.spec.eventRules || []}
+                previewResult={preview.result}
+                onAuditRulesChange={editor.setAuditRules}
+                onEventRulesChange={editor.setEventRules}
+                onAddAuditRule={editor.addAuditRule}
+                onAddEventRule={editor.addEventRule}
+              />
 
-                <PolicyRuleList
-                  auditRules={editor.spec.auditRules || []}
-                  eventRules={editor.spec.eventRules || []}
-                  previewResult={preview.result}
-                  onAuditRulesChange={editor.setAuditRules}
-                  onEventRulesChange={editor.setEventRules}
-                  onAddAuditRule={editor.addAuditRule}
-                  onAddEventRule={editor.addEventRule}
-                />
-
-                {/* Danger Zone - Delete Policy (only for existing policies) */}
-                {!editor.isNew && (
-                  <div className="mt-8 pt-6 border-t border-border">
-                    <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-6">
-                      <div className="flex items-start gap-4">
-                        <div className="flex-1">
-                          <h3 className="text-base font-semibold text-foreground mb-2 flex items-center gap-2">
-                            <AlertTriangle className="h-5 w-5 text-destructive" />
-                            Danger Zone
-                          </h3>
-                          <p className="text-sm text-muted-foreground mb-4">
-                            Deleting this policy will stop translating audit logs and events for{' '}
-                            <strong className="text-foreground">
-                              {editor.spec.resource.kind}
-                            </strong>{' '}
-                            resources. Existing activities will be preserved, but no new activities will be generated.
-                          </p>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => setShowDeleteDialog(true)}
-                            className="h-8 text-xs"
-                          >
-                            <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-                            Delete Policy
-                          </Button>
-                        </div>
+              {/* Danger Zone - Delete Policy (only for existing policies) */}
+              {!editor.isNew && (
+                <div className="mt-8 pt-6 border-t border-border">
+                  <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-6">
+                    <div className="flex items-start gap-4">
+                      <div className="flex-1">
+                        <h3 className="text-base font-semibold text-foreground mb-2 flex items-center gap-2">
+                          <AlertTriangle className="h-5 w-5 text-destructive" />
+                          Danger Zone
+                        </h3>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Deleting this policy will stop translating audit logs and events for{' '}
+                          <strong className="text-foreground">
+                            {editor.spec.resource.kind}
+                          </strong>{' '}
+                          resources. Existing activities will be preserved, but no new activities will be generated.
+                        </p>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => setShowDeleteDialog(true)}
+                          className="h-8 text-xs"
+                        >
+                          <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                          Delete Policy
+                        </Button>
                       </div>
                     </div>
                   </div>
-                )}
-              </div>
-            </TabsContent>
+                </div>
+              )}
+            </div>
+          )}
 
-            {/* Preview Tab */}
-            <TabsContent value="preview" className="mt-0">
-              <PolicyPreviewPanel
-                result={preview.result}
-                isLoading={preview.isLoading}
-                error={preview.error}
-                onResourceClick={onResourceClick}
-              />
-            </TabsContent>
-          </Tabs>
+          {/* Preview View */}
+          {activeTab === 'preview' && (
+            <PolicyPreviewPanel
+              result={preview.result}
+              inputs={preview.inputs}
+              isLoading={preview.isLoading}
+              error={preview.error}
+              onResourceClick={onResourceClick}
+              isLoadingInputs={isLoadingAuditLogs}
+              hasMoreInputs={hasMoreInputs}
+              isLoadingMoreInputs={isLoadingMoreInputs}
+              onLoadMore={loadMoreInputs}
+            />
+          )}
         </CardContent>
       )}
 

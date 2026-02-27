@@ -50,59 +50,10 @@ function formatTimestampFull(timestamp?: string): string {
 }
 
 /**
- * Get actor initials from username
- */
-function getActorInitials(username?: string): string {
-  if (!username) return '?';
-
-  // Handle system accounts
-  if (username.startsWith('system:')) {
-    return 'SYS';
-  }
-
-  const parts = username.split(/[@\s.:-]+/).filter(Boolean);
-  if (parts.length === 0) return '?';
-  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
-  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
-}
-
-/**
- * Determine user type from username
- */
-function getUserType(username?: string): 'user' | 'service-account' | 'system' {
-  if (!username) return 'system';
-  if (username.startsWith('system:')) return 'system';
-  if (username.includes('serviceaccount') || username.startsWith('system:serviceaccount:')) return 'service-account';
-  return 'user';
-}
-
-/**
- * Get Tailwind classes for actor avatar based on user type
- */
-function getActorAvatarClasses(username?: string, compact?: boolean): string {
-  const userType = getUserType(username);
-  const baseClasses = cn(
-    'rounded-full flex items-center justify-center shrink-0 font-semibold',
-    compact ? 'w-8 h-8 text-xs' : 'w-10 h-10 text-sm'
-  );
-
-  switch (userType) {
-    case 'user':
-      return cn(baseClasses, 'bg-lime-200 text-slate-900 dark:bg-lime-800 dark:text-lime-100');
-    case 'service-account':
-      return cn(baseClasses, 'bg-muted text-muted-foreground');
-    case 'system':
-      return cn(baseClasses, 'bg-rose-300 text-slate-900 dark:bg-rose-800 dark:text-rose-100');
-    default:
-      return cn(baseClasses, 'bg-muted text-muted-foreground');
-  }
-}
-
-/**
  * Get Tailwind classes for verb badge
  */
 function getVerbBadgeClasses(verb?: string): string {
-  const baseClasses = 'text-xs h-5';
+  const baseClasses = 'text-[9px] h-4 px-1.5 py-0';
   const normalized = verb?.toLowerCase();
 
   switch (normalized) {
@@ -185,57 +136,54 @@ export function AuditLogFeedItem({
     <Card
       className={cn(
         'cursor-pointer transition-all duration-200',
-        'hover:border-rose-300 hover:shadow-sm hover:-translate-y-px dark:hover:border-rose-600',
-        compact ? 'p-3 mb-2' : 'p-4 mb-3',
+        'hover:border-gray-300 hover:shadow-sm hover:-translate-y-px dark:hover:border-gray-600',
+        compact ? 'p-2 mb-1.5' : 'p-2.5 mb-2',
         isSelected && 'border-rose-300 bg-rose-50 shadow-md dark:border-rose-600 dark:bg-rose-950/50',
         isNew && 'border-l-4 border-l-green-500 bg-green-50/50 dark:border-l-green-400 dark:bg-green-950/30',
         className
       )}
       onClick={handleClick}
     >
-      <div className="flex gap-4">
-        {/* Actor Avatar */}
-        <div
-          className={getActorAvatarClasses(event.user?.username, compact)}
-          title={event.user?.username || 'Unknown'}
-        >
-          <span className="uppercase">{getActorInitials(event.user?.username)}</span>
-        </div>
-
+      <div className="flex gap-2">
         {/* Main Content */}
         <div className="flex-1 min-w-0">
-          {/* Header: Summary + Timestamp */}
-          <div className="flex justify-between items-start gap-4 mb-2">
-            <div className={cn('leading-relaxed text-xs')}>
+          {/* Single row layout: Summary + Metadata + Timestamp + Expand */}
+          <div className="flex items-center gap-2">
+            {/* Summary - takes remaining space */}
+            <div className="text-xs text-muted-foreground leading-snug flex-1 min-w-0 truncate" title={summary}>
               {summary}
             </div>
-            <span
-              className="text-xs text-muted-foreground whitespace-nowrap"
-              title={formatTimestampFull(timestamp)}
-            >
-              {formatTimestamp(timestamp)}
-            </span>
-          </div>
 
-          {/* Meta info row: Verb badge, Response status, Expand button */}
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            {/* Verb badge */}
             <Badge className={getVerbBadgeClasses(event.verb)}>
               {event.verb?.toUpperCase() || 'UNKNOWN'}
             </Badge>
-            <span className={cn('inline-flex items-center gap-1', statusIndicator.className)}>
+
+            {/* Response status */}
+            <span className={cn('inline-flex items-center gap-1 text-xs shrink-0', statusIndicator.className)}>
               <span className="font-semibold">{statusIndicator.icon}</span>
               {event.responseStatus?.code && (
                 <span>{event.responseStatus.code}</span>
               )}
             </span>
+
+            {/* Timestamp */}
+            <span
+              className="text-[11px] text-muted-foreground whitespace-nowrap shrink-0"
+              title={formatTimestampFull(timestamp)}
+            >
+              {formatTimestamp(timestamp)}
+            </span>
+
+            {/* Expand button */}
             <Button
               variant="ghost"
               size="sm"
-              className="ml-auto h-auto py-0 px-1 text-xs text-muted-foreground hover:text-foreground"
+              className="h-5 py-0 px-1 text-base text-muted-foreground hover:text-foreground shrink-0"
               onClick={toggleExpand}
               aria-expanded={isExpanded}
             >
-              {isExpanded ? '▾ Less' : '▸ More'}
+              {isExpanded ? '−' : '+'}
             </Button>
           </div>
         </div>

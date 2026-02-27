@@ -64,6 +64,7 @@ export interface K8sEvent {
   series?: EventSeries;
 
   // Deprecated fields from core/v1.Event (for backward compatibility during migration)
+  // Note: These fields are prefixed with "deprecated" in events.k8s.io/v1 JSON
   /** @deprecated Use regarding instead */
   involvedObject?: ObjectReference;
   /** @deprecated Use note instead */
@@ -75,10 +76,13 @@ export interface K8sEvent {
   };
   /** @deprecated Use series.count instead */
   count?: number;
+  deprecatedCount?: number;
   /** @deprecated Use eventTime instead */
   firstTimestamp?: string;
+  deprecatedFirstTimestamp?: string;
   /** @deprecated Use series.lastObservedTime instead */
   lastTimestamp?: string;
+  deprecatedLastTimestamp?: string;
   /** @deprecated Use reportingController instead */
   reportingComponent?: string;
 }

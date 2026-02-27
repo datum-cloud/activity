@@ -1,72 +1,61 @@
-import { useState } from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { AlertCircle, AlertTriangle, RotateCw } from 'lucide-react';
 import { Alert, AlertDescription } from './ui/alert';
 import { Button } from './ui/button';
-import { ApiError } from '../lib/errors';
+import { defaultErrorFormatter } from '../lib/errors';
+import type { ErrorFormatter } from '../types/activity';
 
 export interface ApiErrorAlertProps {
   error: Error | null;
   onRetry?: () => void;
   className?: string;
+  /** Custom error formatter for customizing error messages */
+  errorFormatter?: ErrorFormatter;
 }
 
-export function ApiErrorAlert({ error, onRetry, className }: ApiErrorAlertProps) {
-  const [showDetails, setShowDetails] = useState(false);
+type FriendlyError = {
+  friendlyTitle: string;
+  friendlyMessage: string;
+  suggestion?: string | null;
+  severity: 'warning' | 'error';
+};
 
+function isFriendlyError(error: Error): error is Error & FriendlyError {
+  return 'friendlyTitle' in error && 'friendlyMessage' in error && 'severity' in error;
+}
+
+export function ApiErrorAlert({ error, onRetry, className, errorFormatter }: ApiErrorAlertProps) {
   if (!error) return null;
 
-  const isApiError = error instanceof ApiError;
-  const title = isApiError ? error.friendlyTitle : 'Error';
-  const message = isApiError ? error.friendlyMessage : error.message;
-  const hasDetails = isApiError && (error.requestId || error.path || error.code);
+  // Use custom formatter if provided, otherwise use default
+  const formatter = errorFormatter || defaultErrorFormatter;
+  const formatted = formatter(error);
+
+  // Determine error details
+  const isFriendly = isFriendlyError(error);
+  const message = formatted.message;
+  const severity = isFriendly ? error.severity : 'error';
+
+  // Choose alert variant and icon based on severity
+  const alertVariant = severity === 'warning' ? 'warning' : 'destructive';
+  const Icon = severity === 'warning' ? AlertTriangle : AlertCircle;
 
   return (
-    <Alert variant="destructive" className={className}>
-      <AlertDescription>
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1 min-w-0">
-            <h4 className="font-medium mb-1">{title}</h4>
-            <p className="text-sm opacity-90">{message}</p>
-            {hasDetails && (
-              <button
-                type="button"
-                onClick={() => setShowDetails(!showDetails)}
-                className="text-xs mt-2 flex items-center gap-1 opacity-70 hover:opacity-100 transition-opacity"
-              >
-                {showDetails ? (
-                  <ChevronDown className="h-3 w-3" />
-                ) : (
-                  <ChevronRight className="h-3 w-3" />
-                )}
-                Technical details
-              </button>
-            )}
-            {showDetails && isApiError && (
-              <div className="text-xs mt-2 opacity-70 font-mono space-y-1">
-                {error.requestId && (
-                  <div>
-                    <span className="opacity-50">Request ID:</span> {error.requestId}
-                  </div>
-                )}
-                {error.path && (
-                  <div>
-                    <span className="opacity-50">Path:</span> {error.path}
-                  </div>
-                )}
-                {error.code && (
-                  <div>
-                    <span className="opacity-50">Code:</span> {error.code}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-          {onRetry && (
-            <Button variant="outline" size="sm" onClick={onRetry}>
-              Retry
-            </Button>
-          )}
-        </div>
+    <Alert variant={alertVariant} className={`py-2 px-3 [&>svg]:top-2.5 [&>svg]:left-3 ${className || ''}`}>
+      <Icon className="h-4 w-4" />
+      <AlertDescription className="flex items-center gap-2">
+        <span className="text-sm flex-1 min-w-0 leading-tight">{message}</span>
+        {onRetry && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onRetry}
+            className="shrink-0 h-6 w-6 p-0 -my-1"
+            title="Retry"
+            aria-label="Retry"
+          >
+            <RotateCw className="h-4 w-4" />
+          </Button>
+        )}
       </AlertDescription>
     </Alert>
   );

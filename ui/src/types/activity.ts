@@ -417,6 +417,23 @@ export interface EffectiveTimeRange {
  */
 export type EffectiveTimeRangeCallback = (timeRange: EffectiveTimeRange) => void;
 
+/**
+ * Formatted error for display to users
+ * Contains a user-friendly message and optional technical details
+ */
+export interface FormattedError {
+  /** User-friendly error message */
+  message: string;
+  /** Technical details for advanced users */
+  technical?: string;
+}
+
+/**
+ * Function that formats errors for display
+ * Allows clients to customize error messaging
+ */
+export type ErrorFormatter = (error: Error) => FormattedError;
+
 export const ACTIVITY_FILTER_FIELDS: ActivityFilterField[] = [
   {
     name: 'spec.changeSource',

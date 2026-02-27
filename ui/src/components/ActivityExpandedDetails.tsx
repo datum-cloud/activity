@@ -39,10 +39,10 @@ export function ActivityExpandedDetails({ activity, tenantLinkResolver }: Activi
   const timestamp = metadata?.creationTimestamp;
 
   return (
-    <div className="mt-4 pt-4 border-t border-border space-y-4">
+    <div className="mt-4 pt-4 border-t border-border">
       {/* Field Changes - Most actionable, shown first */}
       {changes && changes.length > 0 && (
-        <div>
+        <div className="mb-3">
           <h4 className="m-0 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
             Changes
           </h4>
@@ -70,92 +70,101 @@ export function ActivityExpandedDetails({ activity, tenantLinkResolver }: Activi
         </div>
       )}
 
-      {/* Timestamp */}
-      <div>
-        <h4 className="m-0 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-          Timestamp
-        </h4>
-        <p className="m-0 text-foreground text-xs">
-          {formatTimestampFull(timestamp)}
-        </p>
-      </div>
-
-      {/* Tenant Information */}
-      {tenant && (
-        <div>
-          <h4 className="m-0 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-            Tenant
-          </h4>
-          <TenantBadge tenant={tenant} tenantLinkResolver={tenantLinkResolver} />
+      {/* Compact multi-column grid layout for metadata fields */}
+      <dl className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2 m-0 text-xs">
+        {/* Timestamp - Primary info, shown first */}
+        <div className="contents">
+          <dt className="text-muted-foreground font-semibold">Timestamp:</dt>
+          <dd className="m-0 text-foreground md:col-span-1 lg:col-span-2">
+            {formatTimestampFull(timestamp)}
+          </dd>
         </div>
-      )}
 
-      {/* Actor Information */}
-      <div>
-        <h4 className="m-0 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-          Actor
-        </h4>
-        <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 m-0 text-sm">
-          <dt className="text-muted-foreground text-xs">Name:</dt>
-          <dd className="m-0 text-foreground text-xs break-all">{actor.name}</dd>
-          <dt className="text-muted-foreground text-xs">Type:</dt>
-          <dd className="m-0 text-foreground text-xs">{actor.type}</dd>
-          {actor.email && (
-            <>
-              <dt className="text-muted-foreground text-xs">Email:</dt>
-              <dd className="m-0 text-foreground text-xs break-all">{actor.email}</dd>
-            </>
-          )}
-          <dt className="text-muted-foreground text-xs">UID:</dt>
-          <dd className="m-0 font-mono text-xs text-muted-foreground break-all">{actor.uid}</dd>
-        </dl>
-      </div>
+        {/* Tenant - If present, show prominently */}
+        {tenant && (
+          <div className="contents">
+            <dt className="text-muted-foreground font-semibold">Tenant:</dt>
+            <dd className="m-0 md:col-span-1 lg:col-span-2">
+              <TenantBadge tenant={tenant} tenantLinkResolver={tenantLinkResolver} />
+            </dd>
+          </div>
+        )}
 
-      {/* Resource Information */}
-      <div>
-        <h4 className="m-0 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-          Resource
-        </h4>
-        <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 m-0 text-sm">
-          <dt className="text-muted-foreground text-xs">Kind:</dt>
-          <dd className="m-0 text-foreground text-xs">{resource.kind}</dd>
-          <dt className="text-muted-foreground text-xs">Name:</dt>
-          <dd className="m-0 text-foreground text-xs">{resource.name}</dd>
-          {resource.namespace && (
-            <>
-              <dt className="text-muted-foreground text-xs">Namespace:</dt>
-              <dd className="m-0 text-foreground text-xs">{resource.namespace}</dd>
-            </>
-          )}
-          {resource.apiGroup && (
-            <>
-              <dt className="text-muted-foreground text-xs">API Group:</dt>
-              <dd className="m-0 text-foreground text-xs">{resource.apiGroup}</dd>
-            </>
-          )}
-          {resource.uid && (
-            <>
-              <dt className="text-muted-foreground text-xs">UID:</dt>
-              <dd className="m-0 font-mono text-xs text-muted-foreground break-all">{resource.uid}</dd>
-            </>
-          )}
-        </dl>
-      </div>
+        {/* Actor Information - Grouped together */}
+        <div className="contents">
+          <dt className="text-muted-foreground font-semibold">Actor:</dt>
+          <dd className="m-0 text-foreground break-all">{actor.name}</dd>
+        </div>
 
-      {/* Origin Information */}
-      <div>
-        <h4 className="m-0 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-          Origin
-        </h4>
-        <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 m-0 text-sm">
-          <dt className="text-muted-foreground text-xs">Type:</dt>
-          <dd className="m-0 text-foreground text-xs">{origin.type}</dd>
-          <dt className="text-muted-foreground text-xs">ID:</dt>
-          <dd className="m-0 font-mono text-xs text-muted-foreground break-all">
+        <div className="contents">
+          <dt className="text-muted-foreground">Actor Type:</dt>
+          <dd className="m-0 text-foreground">{actor.type}</dd>
+        </div>
+
+        {actor.email && (
+          <div className="contents">
+            <dt className="text-muted-foreground">Actor Email:</dt>
+            <dd className="m-0 text-foreground break-all">{actor.email}</dd>
+          </div>
+        )}
+
+        {/* Resource Information - Grouped together */}
+        <div className="contents">
+          <dt className="text-muted-foreground font-semibold">Resource:</dt>
+          <dd className="m-0 text-foreground">{resource.kind}</dd>
+        </div>
+
+        <div className="contents">
+          <dt className="text-muted-foreground">Resource Name:</dt>
+          <dd className="m-0 text-foreground">{resource.name}</dd>
+        </div>
+
+        {resource.namespace && (
+          <div className="contents">
+            <dt className="text-muted-foreground">Namespace:</dt>
+            <dd className="m-0 text-foreground">{resource.namespace}</dd>
+          </div>
+        )}
+
+        {resource.apiGroup && (
+          <div className="contents">
+            <dt className="text-muted-foreground">API Group:</dt>
+            <dd className="m-0 text-foreground">{resource.apiGroup}</dd>
+          </div>
+        )}
+
+        {/* Origin Information */}
+        <div className="contents">
+          <dt className="text-muted-foreground font-semibold">Origin Type:</dt>
+          <dd className="m-0 text-foreground">{origin.type}</dd>
+        </div>
+
+        {/* UIDs and IDs - Less prominent, monospace */}
+        {actor.uid && (
+          <div className="contents">
+            <dt className="text-muted-foreground">Actor UID:</dt>
+            <dd className="m-0 font-mono text-muted-foreground break-all md:col-span-1 lg:col-span-2">
+              {actor.uid}
+            </dd>
+          </div>
+        )}
+
+        {resource.uid && (
+          <div className="contents">
+            <dt className="text-muted-foreground">Resource UID:</dt>
+            <dd className="m-0 font-mono text-muted-foreground break-all md:col-span-1 lg:col-span-2">
+              {resource.uid}
+            </dd>
+          </div>
+        )}
+
+        <div className="contents">
+          <dt className="text-muted-foreground">Origin ID:</dt>
+          <dd className="m-0 font-mono text-muted-foreground break-all md:col-span-1 lg:col-span-2">
             {origin.id}
           </dd>
-        </dl>
-      </div>
+        </div>
+      </dl>
     </div>
   );
 }

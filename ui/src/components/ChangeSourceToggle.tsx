@@ -57,7 +57,7 @@ export function ChangeSourceToggle({
           type="button"
           variant="ghost"
           className={cn(
-            'rounded-none px-3 py-1 text-xs font-medium transition-all duration-200',
+            'rounded-none px-2 h-7 text-xs font-medium transition-all duration-200',
             index < OPTIONS.length - 1 && 'border-r border-input',
             value === option.value
               ? 'bg-[#BF9595] text-[#0C1D31] hover:bg-[#BF9595]/90'

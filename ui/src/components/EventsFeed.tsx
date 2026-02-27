@@ -1,12 +1,13 @@
 import { useEffect, useRef, useCallback } from 'react';
 import type { K8sEvent } from '../types/k8s-event';
-import type { EffectiveTimeRangeCallback } from '../types/activity';
+import type { EffectiveTimeRangeCallback, ErrorFormatter } from '../types/activity';
 import type {
   EventsFeedFilters as FilterState,
   TimeRange,
 } from '../hooks/useEventsFeed';
 import { useEventsFeed } from '../hooks/useEventsFeed';
 import { EventFeedItem } from './EventFeedItem';
+import { EventFeedItemSkeleton } from './EventFeedItemSkeleton';
 import { EventsFeedFilters } from './EventsFeedFilters';
 import { ActivityApiClient } from '../api/client';
 import { Button } from './ui/button';
@@ -25,12 +26,21 @@ export interface EventsFeedProps {
   pageSize?: number;
   /** Handler called when an event is clicked */
   onEventClick?: (event: K8sEvent) => void;
+  /** Handler called when a resource name is clicked. If provided, resource names become clickable. */
+  onResourceClick?: (resource: {
+    kind: string;
+    name: string;
+    namespace?: string;
+    uid?: string;
+  }) => void;
   /** Whether to show in compact mode (for resource detail tabs) */
   compact?: boolean;
   /** Filter to a specific namespace */
   namespace?: string;
   /** Whether to show filters */
   showFilters?: boolean;
+  /** Filters that should be locked and hidden from the UI (programmatically set by parent) */
+  hiddenFilters?: Array<'involvedKinds' | 'reasons' | 'namespaces' | 'sourceComponents' | 'involvedName' | 'eventType'>;
   /** Additional CSS class */
   className?: string;
   /** Enable infinite scroll (default: true) */
@@ -41,6 +51,8 @@ export interface EventsFeedProps {
   enableStreaming?: boolean;
   /** Callback invoked when the effective time range is resolved */
   onEffectiveTimeRangeChange?: EffectiveTimeRangeCallback;
+  /** Custom error formatter for customizing error messages */
+  errorFormatter?: ErrorFormatter;
 }
 
 /**
@@ -53,14 +65,17 @@ export function EventsFeed({
   initialTimeRange = { start: 'now-24h' },
   pageSize = 50,
   onEventClick,
+  onResourceClick,
   compact = false,
   namespace,
   showFilters = true,
+  hiddenFilters = [],
   className = '',
   infiniteScroll = true,
   loadMoreThreshold = 200,
   enableStreaming = false,
   onEffectiveTimeRangeChange,
+  errorFormatter,
 }: EventsFeedProps) {
   // Merge namespace into initial filters if provided
   const mergedInitialFilters: FilterState = {
@@ -70,6 +85,7 @@ export function EventsFeed({
   const {
     events,
     isLoading,
+    isRefreshing,
     error,
     hasMore,
     filters,
@@ -165,28 +181,27 @@ export function EventsFeed({
 
   // Build container classes
   const containerClasses = compact
-    ? `p-3 shadow-none border-border ${className}`
-    : `p-4 ${className}`;
+    ? `p-2 shadow-none border-border ${className}`
+    : `p-3 ${className}`;
 
   // Build list classes
   const listClasses = compact
-    ? 'max-h-[40vh] overflow-y-auto pr-2'
-    : 'max-h-[70vh] overflow-y-auto pr-2';
+    ? 'max-h-[calc(100vh-300px)] overflow-y-auto pr-2'
+    : 'max-h-[calc(100vh-200px)] overflow-y-auto pr-2';
 
   return (
     <Card className={containerClasses}>
       {/* Header with streaming status */}
       {enableStreaming && (
-        <div className="flex items-center justify-between mb-2 pb-2 border-b border-border">
+        <div className="flex items-center justify-between mb-1 pb-0.5 border-b border-border">
           <div className="flex items-center gap-2">
-            <h3 className="text-sm font-medium text-foreground m-0">Events Feed</h3>
             {isStreaming && (
               <div className="flex items-center gap-1.5">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 dark:bg-green-500 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500 dark:bg-green-400"></span>
                 </span>
-                <span className="text-xs text-muted-foreground">Live</span>
+                <span className="text-xs text-muted-foreground">Streaming events...</span>
               </div>
             )}
             {newEventsCount > 0 && (
@@ -231,18 +246,29 @@ export function EventsFeed({
           onTimeRangeChange={handleTimeRangeChange}
           disabled={isLoading}
           namespace={namespace}
+          hiddenFilters={hiddenFilters}
         />
       )}
 
       {/* Error Display */}
-      <ApiErrorAlert error={error} onRetry={refresh} className="mb-2" />
+      <ApiErrorAlert error={error} onRetry={refresh} className="mb-4" errorFormatter={errorFormatter} />
 
       {/* Event List */}
       <div className={listClasses} ref={scrollContainerRef}>
-        {events.length === 0 && !isLoading && (
-          <div className="py-8 text-center text-muted-foreground">
+        {/* Skeleton Loading State - show when loading/refreshing and no items yet */}
+        {(isLoading || isRefreshing) && events.length === 0 && (
+          <>
+            {Array.from({ length: 8 }).map((_, index) => (
+              <EventFeedItemSkeleton key={index} compact={compact} />
+            ))}
+          </>
+        )}
+
+        {/* Empty State - only show when not loading/refreshing */}
+        {!isLoading && !isRefreshing && events.length === 0 && (
+          <div className="py-12 text-center text-muted-foreground">
             <p className="m-0">No events found</p>
-            <p className="text-sm text-muted-foreground mt-1 m-0">
+            <p className="text-sm text-muted-foreground mt-2 m-0">
               Try adjusting your filters or time range
             </p>
           </div>
@@ -253,6 +279,7 @@ export function EventsFeed({
             key={event.metadata?.uid || event.metadata?.name}
             event={event}
             onEventClick={onEventClick}
+            onResourceClick={onResourceClick}
             compact={compact}
             isNew={enableStreaming && index < newEventsCount}
           />
@@ -260,20 +287,12 @@ export function EventsFeed({
 
         {/* Load More Trigger for Infinite Scroll */}
         {infiniteScroll && hasMore && (
-          <div ref={loadMoreTriggerRef} className="h-px mt-2" />
-        )}
-
-        {/* Loading Indicator */}
-        {isLoading && (
-          <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground text-sm">
-            <div className="w-4 h-4 border-[3px] border-muted border-t-primary rounded-full animate-spin" />
-            <span>Loading events...</span>
-          </div>
+          <div ref={loadMoreTriggerRef} className="h-px mt-4" />
         )}
 
         {/* Load More Button (when infinite scroll is disabled) */}
         {!infiniteScroll && hasMore && !isLoading && (
-          <div className="flex justify-center p-2 mt-2">
+          <div className="flex justify-center p-4 mt-4">
             <Button onClick={handleLoadMoreClick}>
               Load more
             </Button>
@@ -282,7 +301,7 @@ export function EventsFeed({
 
         {/* End of Results */}
         {!hasMore && events.length > 0 && !isLoading && (
-          <div className="text-center py-3 text-muted-foreground text-sm border-t border-border mt-2">
+          <div className="text-center py-6 text-muted-foreground text-sm border-t border-border mt-4">
             No more events to load
           </div>
         )}

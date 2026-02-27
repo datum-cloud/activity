@@ -59,7 +59,7 @@ export function AddFilterDropdown({
           type="button"
           disabled={disabled}
           className={cn(
-            'flex h-8 items-center gap-1.5 rounded-md border border-dashed border-border bg-background px-2 text-xs',
+            'flex h-7 items-center gap-2 rounded-md border border-dashed border-border bg-background px-2 text-xs',
             'text-muted-foreground hover:text-foreground hover:border-foreground/50 transition-colors',
             'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
             'disabled:cursor-not-allowed disabled:opacity-50',

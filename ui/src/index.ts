@@ -12,12 +12,20 @@ export { DateTimeRangePicker } from './components/DateTimeRangePicker';
 export type { DateTimeRange, DateTimeRangePickerProps } from './components/DateTimeRangePicker';
 export { AuditLogFilters, buildAuditLogCEL } from './components/AuditLogFilters';
 export type { AuditLogFiltersProps, AuditLogFilterState } from './components/AuditLogFilters';
+export { ActionToggle } from './components/ActionToggle';
+export type { ActionToggleProps, ActionOption } from './components/ActionToggle';
+export { ActionMultiSelect } from './components/ActionMultiSelect';
+export type { ActionMultiSelectProps } from './components/ActionMultiSelect';
+export { UserSelect } from './components/UserSelect';
+export type { UserSelectProps, UserOption } from './components/UserSelect';
 
 // Components - Activity Feed (new)
 export { ActivityFeed } from './components/ActivityFeed';
 export type { ActivityFeedProps } from './components/ActivityFeed';
 export { ActivityFeedItem } from './components/ActivityFeedItem';
 export type { ActivityFeedItemProps } from './components/ActivityFeedItem';
+export { ActivityFeedItemSkeleton } from './components/ActivityFeedItemSkeleton';
+export type { ActivityFeedItemSkeletonProps } from './components/ActivityFeedItemSkeleton';
 export { ActivityFeedSummary } from './components/ActivityFeedSummary';
 export type { ActivityFeedSummaryProps, ResourceLinkClickHandler } from './components/ActivityFeedSummary';
 export { ActivityFeedFilters } from './components/ActivityFeedFilters';
@@ -36,6 +44,8 @@ export { EventsFeed } from './components/EventsFeed';
 export type { EventsFeedProps } from './components/EventsFeed';
 export { EventFeedItem } from './components/EventFeedItem';
 export type { EventFeedItemProps } from './components/EventFeedItem';
+export { EventFeedItemSkeleton } from './components/EventFeedItemSkeleton';
+export type { EventFeedItemSkeletonProps } from './components/EventFeedItemSkeleton';
 export { EventsFeedFilters } from './components/EventsFeedFilters';
 export type { EventsFeedFiltersProps } from './components/EventsFeedFilters';
 export { EventTypeToggle } from './components/EventTypeToggle';
@@ -48,6 +58,12 @@ export { PolicyList } from './components/PolicyList';
 export type { PolicyListProps } from './components/PolicyList';
 export { PolicyEditor } from './components/PolicyEditor';
 export type { PolicyEditorProps } from './components/PolicyEditor';
+export { PolicyDetailView } from './components/PolicyDetailView';
+export type { PolicyDetailViewProps } from './components/PolicyDetailView';
+export { PolicyEditView } from './components/PolicyEditView';
+export type { PolicyEditViewProps } from './components/PolicyEditView';
+export { PolicyActivityView } from './components/PolicyActivityView';
+export type { PolicyActivityViewProps } from './components/PolicyActivityView';
 export { PolicyPreviewPanel } from './components/PolicyPreviewPanel';
 export type { PolicyPreviewPanelProps } from './components/PolicyPreviewPanel';
 export { PolicyPreviewResult } from './components/PolicyPreviewResult';
@@ -121,6 +137,15 @@ export { Tabs, TabsList, TabsTrigger, TabsContent } from './components/ui/tabs';
 
 export { Separator } from './components/ui/separator';
 
+export {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider,
+} from './components/ui/tooltip';
+
+export { Skeleton } from './components/ui/skeleton';
+
 export { Combobox } from './components/ui/combobox';
 export type { ComboboxProps, ComboboxOption } from './components/ui/combobox';
 
@@ -132,7 +157,7 @@ export type { TimeRangeDropdownProps, TimeRangePreset } from './components/ui/ti
 
 // Utilities
 export { cn } from './lib/utils';
-export { ApiError, parseApiError } from './lib/errors';
+export { ApiError, parseApiError, NetworkError, defaultErrorFormatter } from './lib/errors';
 export type { ApiErrorResponse } from './lib/errors';
 
 // Hooks - Audit Log Query (existing)
@@ -229,6 +254,10 @@ export type {
   ResourceLinkResolver,
   TenantLinkResolver,
   TenantRenderer,
+  FormattedError,
+  ErrorFormatter,
+  EffectiveTimeRange,
+  EffectiveTimeRangeCallback,
 } from './types/activity';
 
 export { ACTIVITY_FILTER_FIELDS, defaultResourceLinkResolver } from './types/activity';

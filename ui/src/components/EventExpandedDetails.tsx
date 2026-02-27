@@ -53,12 +53,13 @@ export function EventExpandedDetails({ event }: EventExpandedDetailsProps) {
   const regarding = getRegarding(event);
   const reportingController = getReportingController(event);
   const reportingInstance = getReportingInstance(event);
-  const { eventTime, action, metadata, related, series } = event;
+  const { eventTime, action, metadata, related } = event;
 
   // For backward compatibility, also check deprecated fields
-  const firstTimestamp = event.firstTimestamp;
-  const lastTimestamp = event.lastTimestamp || event.series?.lastObservedTime;
-  const count = event.series?.count || event.count;
+  // Note: events.k8s.io/v1 uses "deprecatedFirstTimestamp" and "deprecatedLastTimestamp"
+  const firstTimestamp = event.firstTimestamp || event.deprecatedFirstTimestamp;
+  const lastTimestamp = event.lastTimestamp || event.deprecatedLastTimestamp || event.series?.lastObservedTime;
+  const count = event.series?.count || event.count || event.deprecatedCount;
 
   return (
     <div className="mt-2 pt-2 border-t border-border space-y-2">

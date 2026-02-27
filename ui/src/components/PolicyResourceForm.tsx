@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { ActivityPolicyResource } from '../types/policy';
 import type { ActivityApiClient } from '../api/client';
 import {
@@ -19,46 +19,10 @@ export interface PolicyResourceFormProps {
   onChange: (resource: ActivityPolicyResource) => void;
   /** Optional API client for fetching discovered resources */
   client?: ActivityApiClient;
+  /** Whether this is editing an existing policy (makes API group and kind read-only) */
+  isEditMode?: boolean;
   /** Additional CSS class */
   className?: string;
-}
-
-/**
- * Derive a default kind label from the kind name
- * e.g., "HTTPProxy" -> "HTTP Proxy", "NetworkEndpointGroup" -> "Network Endpoint Group"
- */
-function deriveKindLabel(kind: string): string {
-  if (!kind) return '';
-  // Insert space before each capital letter (except the first) and handle acronyms
-  return kind
-    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2') // Split acronyms from following words
-    .replace(/([a-z])([A-Z])/g, '$1 $2') // Split lowercase from uppercase
-    .trim();
-}
-
-/**
- * Derive plural form from singular label
- * Basic pluralization - handles common cases
- */
-function derivePluralLabel(label: string): string {
-  if (!label) return '';
-  const trimmed = label.trim();
-  if (trimmed.endsWith('y')) {
-    // e.g., "Policy" -> "Policies"
-    return trimmed.slice(0, -1) + 'ies';
-  } else if (
-    trimmed.endsWith('s') ||
-    trimmed.endsWith('x') ||
-    trimmed.endsWith('z') ||
-    trimmed.endsWith('ch') ||
-    trimmed.endsWith('sh')
-  ) {
-    // e.g., "Class" -> "Classes"
-    return trimmed + 'es';
-  } else {
-    // Default: add 's'
-    return trimmed + 's';
-  }
 }
 
 /**
@@ -89,6 +53,7 @@ export function PolicyResourceForm({
   resource,
   onChange,
   client,
+  isEditMode = false,
   className = '',
 }: PolicyResourceFormProps) {
   // State for discovered API groups and resources
@@ -101,12 +66,6 @@ export function PolicyResourceForm({
   const [customApiGroup, setCustomApiGroup] = useState(false);
   const [customKind, setCustomKind] = useState(false);
 
-  // Compute derived labels
-  const derivedKindLabel = useMemo(() => deriveKindLabel(resource.kind), [resource.kind]);
-  const derivedPluralLabel = useMemo(
-    () => derivePluralLabel(resource.kindLabel || derivedKindLabel),
-    [resource.kindLabel, derivedKindLabel]
-  );
 
   // Load API groups that have audit events
   const loadApiGroups = useCallback(async () => {
@@ -220,14 +179,6 @@ export function PolicyResourceForm({
     onChange({ ...resource, kind: e.target.value });
   };
 
-  const handleKindLabelChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onChange({ ...resource, kindLabel: e.target.value || undefined });
-  };
-
-  const handleKindLabelPluralChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onChange({ ...resource, kindLabelPlural: e.target.value || undefined });
-  };
-
   const handleBackToSelect = (field: 'apiGroup' | 'kind') => {
     if (field === 'apiGroup') {
       setCustomApiGroup(false);
@@ -243,6 +194,11 @@ export function PolicyResourceForm({
 
   // Find matching resource for current kind
   const currentResourceName = resources.find((r) => r.kind === resource.kind)?.name || '';
+
+  // Hide entire section in edit mode since these fields are already shown in the header
+  if (isEditMode) {
+    return null;
+  }
 
   return (
     <div className={`rounded-lg bg-muted p-6 ${className}`}>
@@ -325,7 +281,7 @@ export function PolicyResourceForm({
               onValueChange={handleKindSelectChange}
               disabled={isLoadingResources || !resource.apiGroup}
             >
-              <SelectTrigger className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm transition-all duration-200 focus:border-[#BF9595] focus:outline-none focus:ring-[3px] focus:ring-[#BF9595]/10 disabled:cursor-not-allowed disabled:opacity-50">
+              <SelectTrigger className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm transition-all duration-200 focus:border-[#BF9595] focus:outline-none focus:ring-[#BF9595]/10 disabled:cursor-not-allowed disabled:opacity-50">
                 <SelectValue
                   placeholder={
                     !resource.apiGroup
@@ -379,46 +335,6 @@ export function PolicyResourceForm({
         )}
         <div className="mt-1.5 text-xs text-muted-foreground">
           The Kubernetes resource kind (e.g., HTTPProxy, Gateway, Deployment)
-        </div>
-      </div>
-
-      {/* Kind Label (optional) */}
-      <div className="mb-5 last:mb-0">
-        <Label htmlFor="resource-kindLabel" className="mb-1.5 block text-foreground/80">
-          Kind Label
-        </Label>
-        <Input
-          id="resource-kindLabel"
-          type="text"
-          value={resource.kindLabel || ''}
-          onChange={handleKindLabelChange}
-          placeholder={derivedKindLabel || 'Auto-derived from Kind'}
-        />
-        <div className="mt-1.5 text-xs text-muted-foreground">
-          Human-readable label for the kind. Used in activity summaries.
-          {derivedKindLabel && !resource.kindLabel && (
-            <span className="font-medium text-emerald-600"> Default: &quot;{derivedKindLabel}&quot;</span>
-          )}
-        </div>
-      </div>
-
-      {/* Kind Label Plural (optional) */}
-      <div className="mb-5 last:mb-0">
-        <Label htmlFor="resource-kindLabelPlural" className="mb-1.5 block text-foreground/80">
-          Kind Label (Plural)
-        </Label>
-        <Input
-          id="resource-kindLabelPlural"
-          type="text"
-          value={resource.kindLabelPlural || ''}
-          onChange={handleKindLabelPluralChange}
-          placeholder={derivedPluralLabel || 'Auto-derived from Kind Label'}
-        />
-        <div className="mt-1.5 text-xs text-muted-foreground">
-          Plural form of the kind label.
-          {derivedPluralLabel && !resource.kindLabelPlural && (
-            <span className="font-medium text-emerald-600"> Default: &quot;{derivedPluralLabel}&quot;</span>
-          )}
         </div>
       </div>
     </div>
