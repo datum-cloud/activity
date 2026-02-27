@@ -53,7 +53,7 @@ function formatTimestampFull(timestamp?: string): string {
  * Get Tailwind classes for verb badge
  */
 function getVerbBadgeClasses(verb?: string): string {
-  const baseClasses = 'text-xs h-4 px-1.5 py-0';
+  const baseClasses = 'text-xs h-3 px-1 py-0 leading-3';
   const normalized = verb?.toLowerCase();
 
   switch (normalized) {
@@ -150,7 +150,7 @@ export function AuditLogFeedItem({
           {/* Single row layout: Summary + Metadata + Timestamp + Expand */}
           <div className="flex items-center gap-2">
             {/* Summary - takes remaining space */}
-            <div className="text-xs text-muted-foreground leading-snug flex-1 min-w-0 truncate" title={summary}>
+            <div className="text-xs text-foreground leading-snug flex-1 min-w-0 truncate" title={summary}>
               {summary}
             </div>
 
@@ -169,7 +169,7 @@ export function AuditLogFeedItem({
 
             {/* Timestamp */}
             <span
-              className="text-xs text-muted-foreground whitespace-nowrap shrink-0"
+              className="text-xs text-secondary whitespace-nowrap shrink-0"
               title={formatTimestampFull(timestamp)}
             >
               {formatTimestamp(timestamp)}
