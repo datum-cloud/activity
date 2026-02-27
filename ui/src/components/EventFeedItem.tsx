@@ -189,7 +189,36 @@ export function EventFeedItem({
         <div className="flex gap-2">
           {/* Main Content */}
           <div className="flex-1 min-w-0">
-            {/* Single row layout: Message + Object + Timestamp + Expand */}
+            {/* Header row: Type badge + Reason + Kind */}
+            <div className="flex items-center gap-1.5 mb-1">
+              {/* Type badge */}
+              <span
+                className={cn(
+                  "inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium whitespace-nowrap",
+                  isWarning
+                    ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+                    : "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+                )}
+              >
+                {type || 'Unknown'}
+              </span>
+
+              {/* Reason */}
+              {reason && (
+                <span className="text-xs font-medium text-foreground">
+                  {reason}
+                </span>
+              )}
+
+              {/* Involved Kind */}
+              {regarding.kind && (
+                <span className="text-xs text-muted-foreground">
+                  {regarding.kind}
+                </span>
+              )}
+            </div>
+
+            {/* Content row: Message + Object + Timestamp + Expand */}
             <div className="flex items-center gap-2">
               {/* Note with count - takes remaining space */}
               {note && (
