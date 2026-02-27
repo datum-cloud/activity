@@ -64,6 +64,8 @@ export { PolicyEditView } from './components/PolicyEditView';
 export type { PolicyEditViewProps } from './components/PolicyEditView';
 export { PolicyActivityView } from './components/PolicyActivityView';
 export type { PolicyActivityViewProps } from './components/PolicyActivityView';
+export { PolicyActivityViewSkeleton } from './components/PolicyActivityViewSkeleton';
+export type { PolicyActivityViewSkeletonProps } from './components/PolicyActivityViewSkeleton';
 export { PolicyPreviewPanel } from './components/PolicyPreviewPanel';
 export type { PolicyPreviewPanelProps } from './components/PolicyPreviewPanel';
 export { PolicyPreviewResult } from './components/PolicyPreviewResult';

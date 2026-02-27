@@ -3,12 +3,14 @@ import type { ActivityPolicy, Condition } from '../types/policy';
 import type { ResourceRef, ErrorFormatter } from '../types/activity';
 import { ActivityApiClient } from '../api/client';
 import { PolicyActivityView } from './PolicyActivityView';
+import { PolicyActivityViewSkeleton } from './PolicyActivityViewSkeleton';
 import { Button } from './ui/button';
 import { Card, CardHeader, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { ApiErrorAlert } from './ApiErrorAlert';
 import { Alert, AlertDescription } from './ui/alert';
 import { AlertTriangle, AlertCircle, Copy, Check, Edit } from 'lucide-react';
+import { Skeleton } from './ui/skeleton';
 import {
   Tooltip,
   TooltipContent,
@@ -129,7 +131,19 @@ export function PolicyDetailView({
         {/* Header */}
         <CardHeader className="flex flex-row justify-between items-center p-6 border-b border-border space-y-0">
           <div className="flex items-center gap-4">
-            {policy && (
+            {isLoading && (
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <Skeleton className="w-2 h-2 rounded-full" />
+                  <Skeleton className="h-6 w-32" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-3 w-24" />
+                  <Skeleton className="h-3 w-32" />
+                </div>
+              </div>
+            )}
+            {!isLoading && policy && (
               <div className="flex flex-col gap-1">
                 <h2 className="m-0 text-xl font-semibold text-foreground leading-tight flex items-center gap-2">
                   <Tooltip delayDuration={500}>
@@ -225,10 +239,9 @@ export function PolicyDetailView({
 
         {/* Loading State */}
         {isLoading && (
-          <div className="flex items-center justify-center gap-3 py-12 text-muted-foreground">
-            <span className="w-5 h-5 border-[3px] border-border border-t-[#BF9595] rounded-full animate-spin" />
-            Loading policy...
-          </div>
+          <CardContent className="p-6">
+            <PolicyActivityViewSkeleton />
+          </CardContent>
         )}
 
         {/* Main Content */}
@@ -237,6 +250,7 @@ export function PolicyDetailView({
             <PolicyActivityView
               client={client}
               policyResource={policy.spec.resource}
+              policyName={policyName}
               onResourceClick={onResourceClick}
               errorFormatter={errorFormatter}
             />

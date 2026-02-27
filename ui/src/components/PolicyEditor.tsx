@@ -341,6 +341,7 @@ export function PolicyEditor({
               <PolicyActivityView
                 client={client}
                 policyResource={editor.spec.resource}
+                policyName={editor.name}
                 onResourceClick={onResourceClick}
                 errorFormatter={errorFormatter}
               />
