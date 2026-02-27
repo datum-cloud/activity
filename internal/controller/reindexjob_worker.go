@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
@@ -36,8 +37,18 @@ func (r *ReindexJobReconciler) updateJobStatusWithRetry(ctx context.Context, job
 		// Fetch latest version to avoid conflicts
 		var latestJob v1alpha1.ReindexJob
 		if err := r.Get(ctx, client.ObjectKeyFromObject(job), &latestJob); err != nil {
+			if apierrors.IsNotFound(err) {
+				// Job was deleted, no point retrying
+				return nil
+			}
 			lastErr = fmt.Errorf("failed to fetch latest ReindexJob: %w", err)
-			time.Sleep(statusUpdateRetryDelay)
+
+			// Wait before retry, respecting context cancellation
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(statusUpdateRetryDelay):
+			}
 			continue
 		}
 
@@ -46,8 +57,23 @@ func (r *ReindexJobReconciler) updateJobStatusWithRetry(ctx context.Context, job
 
 		// Try to update status
 		if err := r.Status().Update(ctx, &latestJob); err != nil {
-			lastErr = fmt.Errorf("failed to update ReindexJob status: %w", err)
-			time.Sleep(statusUpdateRetryDelay)
+			if apierrors.IsConflict(err) {
+				// Conflict means someone else updated the resource, retry with fresh version
+				lastErr = fmt.Errorf("resource version conflict: %w", err)
+			} else if apierrors.IsNotFound(err) {
+				// Job was deleted, no point retrying
+				return nil
+			} else {
+				// Other error (possibly transient network issue), log and retry
+				lastErr = fmt.Errorf("failed to update ReindexJob status: %w", err)
+			}
+
+			// Wait before retry, respecting context cancellation
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(statusUpdateRetryDelay):
+			}
 			continue
 		}
 
@@ -115,30 +141,26 @@ func (r *ReindexJobReconciler) runReindexWorker(ctx context.Context, job *v1alph
 
 	startTime, err := timeutil.ParseFlexibleTime(job.Spec.TimeRange.StartTime, now)
 	if err != nil {
-		// Update job with failure status
-		var failJob v1alpha1.ReindexJob
-		if getErr := r.Get(ctx, client.ObjectKeyFromObject(job), &failJob); getErr != nil {
-			logger.Error(getErr, "failed to fetch ReindexJob for error status update")
-			return
-		}
+		// Update job with failure status using retry logic
+		updateErr := r.updateJobStatusWithRetry(ctx, job, func(failJob *v1alpha1.ReindexJob) {
+			failJob.Status.Phase = v1alpha1.ReindexJobFailed
+			failJob.Status.Message = fmt.Sprintf("Invalid startTime: %v", err)
+			nowTime := metav1.Now()
+			failJob.Status.CompletedAt = &nowTime
 
-		failJob.Status.Phase = v1alpha1.ReindexJobFailed
-		failJob.Status.Message = fmt.Sprintf("Invalid startTime: %v", err)
-		nowTime := metav1.Now()
-		failJob.Status.CompletedAt = &nowTime
-
-		meta.SetStatusCondition(&failJob.Status.Conditions, metav1.Condition{
-			Type:               "Ready",
-			Status:             metav1.ConditionFalse,
-			Reason:             "InvalidStartTime",
-			Message:            err.Error(),
-			ObservedGeneration: failJob.Generation,
+			meta.SetStatusCondition(&failJob.Status.Conditions, metav1.Condition{
+				Type:               "Ready",
+				Status:             metav1.ConditionFalse,
+				Reason:             "InvalidStartTime",
+				Message:            err.Error(),
+				ObservedGeneration: failJob.Generation,
+			})
 		})
 
-		if statusErr := r.Status().Update(ctx, &failJob); statusErr != nil {
-			logger.Error(statusErr, "failed to update ReindexJob status after startTime parse error")
+		if updateErr != nil {
+			logger.Error(updateErr, "failed to update ReindexJob status after startTime parse error")
 		}
-		r.Recorder.Event(&failJob, "Warning", "InvalidStartTime", err.Error())
+		r.Recorder.Event(job, "Warning", "InvalidStartTime", err.Error())
 		reindexJobsCompletedTotal.WithLabelValues("failed").Inc()
 		return
 	}
@@ -151,30 +173,26 @@ func (r *ReindexJobReconciler) runReindexWorker(ctx context.Context, job *v1alph
 
 	endTime, err := timeutil.ParseFlexibleTime(endTimeStr, now)
 	if err != nil {
-		// Update job with failure status
-		var failJob v1alpha1.ReindexJob
-		if getErr := r.Get(ctx, client.ObjectKeyFromObject(job), &failJob); getErr != nil {
-			logger.Error(getErr, "failed to fetch ReindexJob for error status update")
-			return
-		}
+		// Update job with failure status using retry logic
+		updateErr := r.updateJobStatusWithRetry(ctx, job, func(failJob *v1alpha1.ReindexJob) {
+			failJob.Status.Phase = v1alpha1.ReindexJobFailed
+			failJob.Status.Message = fmt.Sprintf("Invalid endTime: %v", err)
+			nowTime := metav1.Now()
+			failJob.Status.CompletedAt = &nowTime
 
-		failJob.Status.Phase = v1alpha1.ReindexJobFailed
-		failJob.Status.Message = fmt.Sprintf("Invalid endTime: %v", err)
-		nowTime := metav1.Now()
-		failJob.Status.CompletedAt = &nowTime
-
-		meta.SetStatusCondition(&failJob.Status.Conditions, metav1.Condition{
-			Type:               "Ready",
-			Status:             metav1.ConditionFalse,
-			Reason:             "InvalidEndTime",
-			Message:            err.Error(),
-			ObservedGeneration: failJob.Generation,
+			meta.SetStatusCondition(&failJob.Status.Conditions, metav1.Condition{
+				Type:               "Ready",
+				Status:             metav1.ConditionFalse,
+				Reason:             "InvalidEndTime",
+				Message:            err.Error(),
+				ObservedGeneration: failJob.Generation,
+			})
 		})
 
-		if statusErr := r.Status().Update(ctx, &failJob); statusErr != nil {
-			logger.Error(statusErr, "failed to update ReindexJob status after endTime parse error")
+		if updateErr != nil {
+			logger.Error(updateErr, "failed to update ReindexJob status after endTime parse error")
 		}
-		r.Recorder.Event(&failJob, "Warning", "InvalidEndTime", err.Error())
+		r.Recorder.Event(job, "Warning", "InvalidEndTime", err.Error())
 		reindexJobsCompletedTotal.WithLabelValues("failed").Inc()
 		return
 	}
