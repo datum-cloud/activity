@@ -3,7 +3,6 @@ package v1alpha1
 import (
 	"fmt"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -17,7 +16,7 @@ var SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: "v1alpha
 
 var (
 	// SchemeBuilder is the scheme builder for this API group
-	SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
+	SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes, RegisterConversions)
 	// AddToScheme adds the types in this group-version to the given scheme
 	AddToScheme = SchemeBuilder.AddToScheme
 )
@@ -42,28 +41,14 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&EventQuery{},
 		&EventQueryList{},
 		&PolicyPreview{},
-		// Kubernetes Events (core/v1.Event) - stored in ClickHouse for multi-tenant access
-		&corev1.Event{},
-		&corev1.EventList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 
-	// Register field label conversions for Events
-	// This enables field selectors like type=Warning, reason=FailedMount, etc.
-	// We need to register the conversion for both:
-	// 1. core/v1 Event (for internal serialization)
-	// 2. activity.miloapis.com/v1alpha1 Event (for API server field selector validation)
-	coreV1GVK := schema.GroupVersion{Group: "", Version: "v1"}.WithKind("Event")
-	if err := scheme.AddFieldLabelConversionFunc(coreV1GVK,
-		EventFieldLabelConversionFunc); err != nil {
-		return err
-	}
-
-	// Register for activity API group - this is the GVK used when serving Events
-	// through the activity.miloapis.com/v1alpha1 API
-	activityEventGVK := SchemeGroupVersion.WithKind("Event")
-	if err := scheme.AddFieldLabelConversionFunc(activityEventGVK,
-		EventFieldLabelConversionFunc); err != nil {
+	// Register field label conversions for Activity
+	// This enables field selectors like spec.changeSource=human, spec.resource.kind=HTTPProxy, etc.
+	activityGVK := SchemeGroupVersion.WithKind("Activity")
+	if err := scheme.AddFieldLabelConversionFunc(activityGVK,
+		ActivityFieldLabelConversionFunc); err != nil {
 		return err
 	}
 
@@ -127,4 +112,54 @@ var SupportedEventFieldSelectors = []string{
 	"source.host",
 	"reportingComponent",
 	"reportingInstance",
+}
+
+// ActivityFieldLabelConversionFunc converts field selectors for Activity resources.
+// This allows filtering activities by fields beyond the default metadata.name and metadata.namespace.
+func ActivityFieldLabelConversionFunc(label, value string) (string, string, error) {
+	switch label {
+	// Metadata fields
+	case "metadata.name",
+		"metadata.namespace":
+		return label, value, nil
+
+	// Change source (human vs system)
+	case "spec.changeSource":
+		return label, value, nil
+
+	// Resource fields
+	case "spec.resource.apiGroup",
+		"spec.resource.kind",
+		"spec.resource.name",
+		"spec.resource.namespace",
+		"spec.resource.uid":
+		return label, value, nil
+
+	// Actor fields
+	case "spec.actor.name",
+		"spec.actor.type",
+		"spec.actor.uid",
+		"spec.actor.email":
+		return label, value, nil
+
+	default:
+		return "", "", fmt.Errorf("%q is not a known field selector: only %q",
+			label, SupportedActivityFieldSelectors)
+	}
+}
+
+// SupportedActivityFieldSelectors lists all supported field selectors for Activities
+var SupportedActivityFieldSelectors = []string{
+	"metadata.name",
+	"metadata.namespace",
+	"spec.changeSource",
+	"spec.resource.apiGroup",
+	"spec.resource.kind",
+	"spec.resource.name",
+	"spec.resource.namespace",
+	"spec.resource.uid",
+	"spec.actor.name",
+	"spec.actor.type",
+	"spec.actor.uid",
+	"spec.actor.email",
 }
