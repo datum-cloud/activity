@@ -13,7 +13,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
-	corev1 "k8s.io/api/core/v1"
+	eventsv1 "k8s.io/api/events/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -25,9 +25,10 @@ import (
 
 // ClickHouseEventsBackend implements the EventsBackend interface using ClickHouse.
 type ClickHouseEventsBackend struct {
-	conn     driver.Conn
-	config   ClickHouseEventsConfig
-	natsConn NATSConnection // Optional NATS connection for watch support
+	conn      driver.Conn
+	config    ClickHouseEventsConfig
+	natsConn  NATSConnection   // Optional NATS connection for watch support
+	publisher *EventsPublisher // Optional NATS publisher for event ingestion
 }
 
 // NATSConnection defines the interface for NATS operations needed by the events backend.
@@ -61,8 +62,15 @@ func NewClickHouseEventsBackend(conn driver.Conn, config ClickHouseEventsConfig)
 	}
 }
 
+// SetPublisher sets the NATS publisher for publishing events to the data pipeline.
+// When a publisher is set, Create/Update operations will publish to NATS instead of
+// writing directly to ClickHouse. Vector will consume from NATS and write to ClickHouse.
+func (b *ClickHouseEventsBackend) SetPublisher(publisher *EventsPublisher) {
+	b.publisher = publisher
+}
+
 // Create stores a new event in ClickHouse.
-func (b *ClickHouseEventsBackend) Create(ctx context.Context, event *corev1.Event, scope ScopeContext) (*corev1.Event, error) {
+func (b *ClickHouseEventsBackend) Create(ctx context.Context, event *eventsv1.Event, scope ScopeContext) (*eventsv1.Event, error) {
 	ctx, span := tracer.Start(ctx, "clickhouse.events.create",
 		trace.WithSpanKind(trace.SpanKindClient),
 		trace.WithAttributes(
@@ -82,14 +90,19 @@ func (b *ClickHouseEventsBackend) Create(ctx context.Context, event *corev1.Even
 
 	// Set timestamps if not set
 	now := metav1.Now()
-	if event.FirstTimestamp.IsZero() {
-		event.FirstTimestamp = now
+	nowMicro := metav1.NewMicroTime(now.Time)
+	if event.EventTime.Time.IsZero() {
+		event.EventTime = nowMicro
 	}
-	if event.LastTimestamp.IsZero() {
-		event.LastTimestamp = now
+	// Initialize deprecated timestamps for compatibility
+	if event.DeprecatedFirstTimestamp.IsZero() {
+		event.DeprecatedFirstTimestamp = now
 	}
-	if event.Count == 0 {
-		event.Count = 1
+	if event.DeprecatedLastTimestamp.IsZero() {
+		event.DeprecatedLastTimestamp = now
+	}
+	if event.DeprecatedCount == 0 {
+		event.DeprecatedCount = 1
 	}
 
 	// Set scope annotations
@@ -101,6 +114,32 @@ func (b *ClickHouseEventsBackend) Create(ctx context.Context, event *corev1.Even
 		event.Annotations["platform.miloapis.com/scope.name"] = scope.Name
 	}
 
+	// If NATS publisher is configured, publish to NATS instead of writing to ClickHouse
+	// Vector will consume from NATS and write to ClickHouse
+	if b.publisher != nil {
+		if err := b.publisher.Publish(ctx, event); err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, "failed to publish event to NATS")
+			return nil, fmt.Errorf("failed to publish event to NATS: %w", err)
+		}
+
+		// Set ResourceVersion to a temporary value
+		// The actual ResourceVersion will be set by Vector when it writes to ClickHouse
+		insertTime := time.Now()
+		event.ResourceVersion = strconv.FormatInt(insertTime.UnixNano(), 10)
+
+		span.SetStatus(codes.Ok, "event published to NATS")
+		klog.V(4).InfoS("Published event to NATS",
+			"namespace", event.Namespace,
+			"name", event.Name,
+			"uid", event.UID,
+			"resourceVersion", event.ResourceVersion,
+		)
+
+		return event, nil
+	}
+
+	// Fallback: Write directly to ClickHouse if no publisher configured
 	// Serialize event to JSON
 	eventJSON, err := json.Marshal(event)
 	if err != nil {
@@ -140,7 +179,7 @@ func (b *ClickHouseEventsBackend) Create(ctx context.Context, event *corev1.Even
 }
 
 // Get retrieves a single event by namespace and name.
-func (b *ClickHouseEventsBackend) Get(ctx context.Context, namespace, name string, scope ScopeContext) (*corev1.Event, error) {
+func (b *ClickHouseEventsBackend) Get(ctx context.Context, namespace, name string, scope ScopeContext) (*eventsv1.Event, error) {
 	ctx, span := tracer.Start(ctx, "clickhouse.events.get",
 		trace.WithSpanKind(trace.SpanKindClient),
 		trace.WithAttributes(
@@ -174,14 +213,14 @@ func (b *ClickHouseEventsBackend) Get(ctx context.Context, namespace, name strin
 	var insertedAt time.Time
 	if err := row.Scan(&eventJSON, &insertedAt); err != nil {
 		if strings.Contains(err.Error(), "no rows") {
-			return nil, errors.NewNotFound(corev1.Resource("events"), name)
+			return nil, errors.NewNotFound(eventsv1.Resource("events"), name)
 		}
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "query failed")
 		return nil, fmt.Errorf("failed to get event: %w", err)
 	}
 
-	var event corev1.Event
+	var event eventsv1.Event
 	if err := json.Unmarshal([]byte(eventJSON), &event); err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "unmarshal failed")
@@ -196,7 +235,7 @@ func (b *ClickHouseEventsBackend) Get(ctx context.Context, namespace, name strin
 }
 
 // List retrieves events matching the given namespace and options.
-func (b *ClickHouseEventsBackend) List(ctx context.Context, namespace string, opts metav1.ListOptions, scope ScopeContext) (*corev1.EventList, error) {
+func (b *ClickHouseEventsBackend) List(ctx context.Context, namespace string, opts metav1.ListOptions, scope ScopeContext) (*eventsv1.EventList, error) {
 	ctx, span := tracer.Start(ctx, "clickhouse.events.list",
 		trace.WithSpanKind(trace.SpanKindClient),
 		trace.WithAttributes(
@@ -241,13 +280,15 @@ func (b *ClickHouseEventsBackend) List(ctx context.Context, namespace string, op
 		args = append(args, fieldArgs...)
 	}
 
-	// ResourceVersion filter for continuation
-	if opts.ResourceVersion != "" && opts.ResourceVersion != "0" {
-		rv, err := strconv.ParseInt(opts.ResourceVersion, 10, 64)
+	// Continue token for pagination
+	// The continue token is the ResourceVersion (inserted_at in nanoseconds) of the last item from the previous page
+	if opts.Continue != "" {
+		rv, err := strconv.ParseInt(opts.Continue, 10, 64)
 		if err == nil {
-			// For list, get events newer than the resource version
+			// For pagination, get events with inserted_at less than the continue token
+			// We order by inserted_at DESC for consistent pagination
 			rvTime := time.Unix(0, rv)
-			conditions = append(conditions, "inserted_at > ?")
+			conditions = append(conditions, "inserted_at < ?")
 			args = append(args, rvTime)
 		}
 	}
@@ -264,8 +305,10 @@ func (b *ClickHouseEventsBackend) List(ctx context.Context, namespace string, op
 		limit = opts.Limit
 	}
 
+	// Order by inserted_at DESC for consistent pagination with continue token
+	// inserted_at is the ResourceVersion, so this maintains chronological order
 	query := fmt.Sprintf(
-		"SELECT event_json, inserted_at FROM %s.%s %s ORDER BY last_timestamp DESC, namespace, name LIMIT %d",
+		"SELECT event_json, inserted_at FROM %s.%s %s ORDER BY inserted_at DESC LIMIT %d",
 		b.config.Database, "k8s_events", whereClause, limit+1)
 
 	klog.V(4).InfoS("Executing events list query",
@@ -282,7 +325,7 @@ func (b *ClickHouseEventsBackend) List(ctx context.Context, namespace string, op
 	}
 	defer rows.Close()
 
-	var events []corev1.Event
+	var events []eventsv1.Event
 	var lastRV string
 	for rows.Next() {
 		var eventJSON string
@@ -292,7 +335,7 @@ func (b *ClickHouseEventsBackend) List(ctx context.Context, namespace string, op
 			return nil, fmt.Errorf("failed to scan event: %w", err)
 		}
 
-		var event corev1.Event
+		var event eventsv1.Event
 		if err := json.Unmarshal([]byte(eventJSON), &event); err != nil {
 			klog.ErrorS(err, "Failed to unmarshal event, skipping", "json", eventJSON[:min(len(eventJSON), 200)])
 			continue
@@ -317,9 +360,9 @@ func (b *ClickHouseEventsBackend) List(ctx context.Context, namespace string, op
 		}
 	}
 
-	result := &corev1.EventList{
+	result := &eventsv1.EventList{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "v1",
+			APIVersion: "events.k8s.io/v1",
 			Kind:       "EventList",
 		},
 		ListMeta: metav1.ListMeta{
@@ -335,7 +378,7 @@ func (b *ClickHouseEventsBackend) List(ctx context.Context, namespace string, op
 }
 
 // Update modifies an existing event.
-func (b *ClickHouseEventsBackend) Update(ctx context.Context, event *corev1.Event, scope ScopeContext) (*corev1.Event, error) {
+func (b *ClickHouseEventsBackend) Update(ctx context.Context, event *eventsv1.Event, scope ScopeContext) (*eventsv1.Event, error) {
 	ctx, span := tracer.Start(ctx, "clickhouse.events.update",
 		trace.WithSpanKind(trace.SpanKindClient),
 		trace.WithAttributes(
@@ -359,17 +402,26 @@ func (b *ClickHouseEventsBackend) Update(ctx context.Context, event *corev1.Even
 		event.UID = existing.UID
 	}
 
-	// Update lastTimestamp
-	event.LastTimestamp = metav1.Now()
+	// Update timestamps
+	now := metav1.Now()
+	nowMicro := metav1.NewMicroTime(now.Time)
+	event.EventTime = nowMicro
+	event.DeprecatedLastTimestamp = now
 
-	// Increment count if this is an event aggregation update
-	if event.Count == 0 {
-		event.Count = existing.Count + 1
+	// Update series for event aggregation
+	if event.Series == nil {
+		event.Series = &eventsv1.EventSeries{
+			Count:            1,
+			LastObservedTime: nowMicro,
+		}
 	}
+	event.Series.Count = existing.Series.Count + 1
+	event.Series.LastObservedTime = nowMicro
+	event.DeprecatedCount = event.Series.Count
 
 	// Preserve firstTimestamp from original
-	if event.FirstTimestamp.IsZero() {
-		event.FirstTimestamp = existing.FirstTimestamp
+	if event.DeprecatedFirstTimestamp.IsZero() {
+		event.DeprecatedFirstTimestamp = existing.DeprecatedFirstTimestamp
 	}
 
 	// Set scope annotations
@@ -381,6 +433,33 @@ func (b *ClickHouseEventsBackend) Update(ctx context.Context, event *corev1.Even
 		event.Annotations["platform.miloapis.com/scope.name"] = scope.Name
 	}
 
+	// If NATS publisher is configured, publish to NATS instead of writing to ClickHouse
+	// Vector will consume from NATS and write to ClickHouse
+	if b.publisher != nil {
+		if err := b.publisher.Publish(ctx, event); err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, "failed to publish event update to NATS")
+			return nil, fmt.Errorf("failed to publish event update to NATS: %w", err)
+		}
+
+		// Set ResourceVersion to a temporary value
+		// The actual ResourceVersion will be set by Vector when it writes to ClickHouse
+		insertTime := time.Now()
+		event.ResourceVersion = strconv.FormatInt(insertTime.UnixNano(), 10)
+
+		span.SetStatus(codes.Ok, "event update published to NATS")
+		klog.V(4).InfoS("Published event update to NATS",
+			"namespace", event.Namespace,
+			"name", event.Name,
+			"uid", event.UID,
+			"count", event.Series.Count,
+			"resourceVersion", event.ResourceVersion,
+		)
+
+		return event, nil
+	}
+
+	// Fallback: Write directly to ClickHouse if no publisher configured
 	// Serialize event to JSON
 	eventJSON, err := json.Marshal(event)
 	if err != nil {
@@ -409,7 +488,7 @@ func (b *ClickHouseEventsBackend) Update(ctx context.Context, event *corev1.Even
 		"namespace", event.Namespace,
 		"name", event.Name,
 		"uid", event.UID,
-		"count", event.Count,
+		"count", event.Series.Count,
 		"resourceVersion", event.ResourceVersion,
 	)
 
@@ -484,7 +563,7 @@ func (b *ClickHouseEventsBackend) Delete(ctx context.Context, namespace, name st
 // The REST layer uses EventsNATSWatcher (internal/watch/events_watcher.go) for
 // real-time event streaming via NATS JetStream subscriptions.
 func (b *ClickHouseEventsBackend) Watch(ctx context.Context, namespace string, opts metav1.ListOptions, scope ScopeContext) (watch.Interface, error) {
-	return nil, errors.NewMethodNotSupported(corev1.Resource("events"), "watch")
+	return nil, errors.NewMethodNotSupported(eventsv1.Resource("events"), "watch")
 }
 
 // buildScopeConditions creates SQL conditions for scope filtering.
