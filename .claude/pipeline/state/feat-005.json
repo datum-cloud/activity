@@ -3,7 +3,7 @@
   "slug": "event-reindexing-policy-updates",
   "current_stage": "implementation",
   "created": "2026-02-27T01:47:28Z",
-  "updated": "2026-02-27T05:30:00Z",
+  "updated": "2026-02-27T12:30:00Z",
   "gates": {
     "architecture": "approved"
   },
@@ -16,10 +16,13 @@
     "Overwrite existing activities via ClickHouse ReplacingMergeTree deduplication",
     "Schema migration: change ORDER BY to use origin_id instead of resource_uid",
     "Manual operator-initiated re-indexing (not automatic on policy update)",
-    "API-driven: ReindexJob CRD with controller in activity-controller-manager",
-    "Direct ClickHouse INSERT (bypasses NATS/Vector for isolation)",
+    "API-driven: ReindexJob CRD (cluster-scoped) with controller in activity-controller-manager",
+    "Publish to NATS JetStream ACTIVITIES_REINDEX stream (Vector routes to ClickHouse)",
     "Single concurrent job (additional jobs queue in Pending state)",
-    "Rate limit default: 100 events/sec"
+    "Rate limit default: 100 events/sec",
+    "ReindexJob and ActivityPolicy are cluster-scoped (multi-tenancy at control plane level)",
+    "NATS connection required for controller-manager",
+    "TTL-based cleanup for completed ReindexJob resources (ttlSecondsAfterFinished)"
   ],
   "history": [
     {
@@ -60,6 +63,20 @@
       "actor": "user",
       "action": "approved",
       "notes": "Architecture design approved - clarified origin_id usage for audit logs and events"
+    },
+    {
+      "stage": "implementation",
+      "timestamp": "2026-02-27T12:00:00Z",
+      "actor": "user",
+      "action": "revision",
+      "notes": "Changed ReindexJob to cluster-scoped (multi-tenancy at control plane level)"
+    },
+    {
+      "stage": "implementation",
+      "timestamp": "2026-02-27T12:30:00Z",
+      "actor": "api-dev",
+      "action": "completed",
+      "notes": "Added TTL-based cleanup for ReindexJob resources"
     }
   ]
 }

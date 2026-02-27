@@ -493,6 +493,15 @@ type ReindexJobSpec struct {
     //
     // +optional
     Config *ReindexConfig `json:"config,omitempty"`
+
+    // TTLSecondsAfterFinished specifies how long to retain the ReindexJob
+    // after it completes (Succeeded or Failed). After this duration, the
+    // controller automatically deletes the resource. If not set, the job
+    // is retained indefinitely until manually deleted.
+    //
+    // +optional
+    // +kubebuilder:validation:Minimum=0
+    TTLSecondsAfterFinished *int32 `json:"ttlSecondsAfterFinished,omitempty"`
 }
 
 // ReindexTimeRange specifies the time window for re-indexing.
@@ -637,6 +646,7 @@ spec:
     startTime: "2026-02-25T00:00:00Z"
   policySelector:
     names: ["httpproxy-policy"]
+  ttlSecondsAfterFinished: 3600  # Auto-delete 1 hour after completion
 ```
 
 ```bash
