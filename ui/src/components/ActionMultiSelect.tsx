@@ -63,7 +63,7 @@ export function ActionMultiSelect({
           type="button"
           disabled={disabled || isLoading}
           className={cn(
-            'flex h-7 items-center gap-1.5 rounded-md border border-input bg-background px-2 text-xs',
+            'flex h-7 items-center justify-between gap-2 rounded-md border border-input bg-background px-2 text-xs min-w-[100px]',
             'hover:bg-accent hover:text-accent-foreground transition-colors',
             'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
             'disabled:cursor-not-allowed disabled:opacity-50',
@@ -71,7 +71,7 @@ export function ActionMultiSelect({
           )}
         >
           <span className="font-medium">{displayText}</span>
-          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+          <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
         </button>
       </Popover.Trigger>
       <Popover.Portal>
