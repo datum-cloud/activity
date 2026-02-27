@@ -39,7 +39,8 @@ WORKDIR /app
 # Copy built server and client assets
 COPY --from=builder /app/example/build ./build
 COPY --from=builder /app/example/package.json ./
-COPY --from=builder /app/example/node_modules ./node_modules
+# pnpm hoists dependencies to root node_modules
+COPY --from=builder /app/node_modules ./node_modules
 
 # Expose port 3000
 EXPOSE 3000
