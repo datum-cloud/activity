@@ -160,10 +160,10 @@ export function AuditLogFeedItem({
             </Badge>
 
             {/* Response status */}
-            <span className={cn('inline-flex items-center gap-0.5 text-xs shrink-0', statusIndicator.className)}>
-              <span className="font-bold text-sm leading-none">{statusIndicator.icon}</span>
+            <span className={cn('inline-flex items-center gap-1 text-xs shrink-0', statusIndicator.className)}>
+              <span className="font-bold text-xs">{statusIndicator.icon}</span>
               {event.responseStatus?.code && (
-                <span className="leading-tight">{event.responseStatus.code}</span>
+                <span className="text-xs">{event.responseStatus.code}</span>
               )}
             </span>
 
