@@ -51,7 +51,7 @@ export function ActionMultiSelect({
   );
 
   const displayText = React.useMemo(() => {
-    if (value.length === 0) return 'All actions';
+    if (value.length === 0) return 'Actions';
     if (value.length === 1) return '1 action';
     return `${value.length} actions`;
   }, [value.length]);
