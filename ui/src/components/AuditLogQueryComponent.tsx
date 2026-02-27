@@ -179,7 +179,7 @@ export function AuditLogQueryComponent({
   }, []);
 
   return (
-    <Card className={`flex flex-col p-3 ${className}`}>
+    <Card className={`flex-1 min-h-0 flex flex-col p-3 ${className}`}>
       {/* Filters */}
       <AuditLogFilters
         client={client}

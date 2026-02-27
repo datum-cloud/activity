@@ -35,8 +35,8 @@ export function AppLayout({ children }: AppLayoutProps) {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-muted to-muted/80">
-      <header className="bg-transparent px-6 py-3 border-b border-border/40">
+    <div className="flex-1 min-h-0 flex flex-col bg-gradient-to-b from-muted to-muted/80 overflow-hidden">
+      <header className="bg-transparent px-6 py-3 border-b border-border/40 shrink-0">
         <div className="flex items-center justify-between max-w-7xl mx-auto gap-6">
           <div className="flex-shrink-0">
             <img
@@ -90,7 +90,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         </div>
       </header>
 
-      <main className="flex-1 px-6 py-4 max-w-7xl mx-auto w-full">
+      <main className="flex-1 min-h-0 px-6 py-4 max-w-7xl mx-auto w-full flex flex-col overflow-hidden">
         {children}
       </main>
     </div>

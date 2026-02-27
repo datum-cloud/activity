@@ -180,11 +180,12 @@ export function EventsFeed({
   }, [isStreaming, startStreaming, stopStreaming]);
 
   // Build container classes - use flex layout to properly fill available space
+  // flex-1 min-h-0 allows the Card to fill parent flex container and enable child scrolling
   const containerClasses = compact
-    ? `flex flex-col p-2 shadow-none border-border ${className}`
-    : `flex flex-col p-3 ${className}`;
+    ? `flex-1 min-h-0 flex flex-col p-2 shadow-none border-border ${className}`
+    : `flex-1 min-h-0 flex flex-col p-3 ${className}`;
 
-  // Build list classes - use flex-1 min-h-0 to take remaining space and enable scrolling
+  // Build list classes - use flex-1 min-h-0 for flex-based scrolling
   const listClasses = 'flex-1 min-h-0 overflow-y-auto pr-2';
 
   return (
