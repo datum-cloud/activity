@@ -1,8 +1,8 @@
 // Package eventexporter implements a Kubernetes Event exporter that watches for Events
 // and publishes them to NATS JetStream for ingestion into ClickHouse.
 //
-// This exporter ensures format consistency by using the same corev1.Event types
-// for both serialization and deserialization throughout the pipeline.
+// This exporter uses events.k8s.io/v1 Event format for consistency with the
+// EventRecord API and ClickHouse schema.
 package eventexporter
 
 import (
@@ -15,7 +15,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	corev1 "k8s.io/api/core/v1"
+	eventsv1 "k8s.io/api/events/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -160,12 +160,12 @@ func Run(ctx context.Context, cfg Config) error {
 
 	// Create informer factory for all namespaces
 	factory := informers.NewSharedInformerFactory(k8sClient, cfg.ResyncPeriod)
-	eventInformer := factory.Core().V1().Events().Informer()
+	eventInformer := factory.Events().V1().Events().Informer()
 
 	// Register event handlers
 	eventInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			event, ok := obj.(*corev1.Event)
+			event, ok := obj.(*eventsv1.Event)
 			if !ok {
 				return
 			}
@@ -177,7 +177,7 @@ func Run(ctx context.Context, cfg Config) error {
 			}
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
-			event, ok := newObj.(*corev1.Event)
+			event, ok := newObj.(*eventsv1.Event)
 			if !ok {
 				return
 			}
@@ -229,7 +229,7 @@ type Exporter struct {
 }
 
 // publishEvent publishes a Kubernetes event to NATS JetStream.
-func (e *Exporter) publishEvent(ctx context.Context, event *corev1.Event, eventType string) error {
+func (e *Exporter) publishEvent(ctx context.Context, event *eventsv1.Event, eventType string) error {
 	start := time.Now()
 
 	// Create a copy to avoid modifying the cached object
@@ -242,9 +242,10 @@ func (e *Exporter) publishEvent(ctx context.Context, event *corev1.Event, eventT
 	eventCopy.Annotations["platform.miloapis.com/scope.type"] = e.scopeType
 	eventCopy.Annotations["platform.miloapis.com/scope.name"] = e.scopeName
 
-	// Ensure TypeMeta is set (informer objects don't have it populated)
+	// TypeMeta should be correctly populated by eventsv1.Event marshaling
+	// but we'll set it explicitly to ensure consistency
 	eventCopy.TypeMeta = metav1.TypeMeta{
-		APIVersion: "v1",
+		APIVersion: "events.k8s.io/v1",
 		Kind:       "Event",
 	}
 

@@ -11,7 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
-	corev1 "k8s.io/api/core/v1"
+	eventsv1 "k8s.io/api/events/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/klog/v2"
 
@@ -268,7 +268,7 @@ func (w *eventsWatch) processMessages() {
 			}
 
 			// Parse the event from the message
-			var event corev1.Event
+			var event eventsv1.Event
 			if err := json.Unmarshal(msg.Data, &event); err != nil {
 				klog.ErrorS(err, "Failed to unmarshal event from JetStream message")
 				msg.Nak()
@@ -305,14 +305,14 @@ func (w *eventsWatch) processMessages() {
 }
 
 // matchesFilter checks if an event matches the additional filter criteria.
-func (w *eventsWatch) matchesFilter(event *corev1.Event) bool {
-	// InvolvedObject name
-	if w.filter.InvolvedObjectName != "" && event.InvolvedObject.Name != w.filter.InvolvedObjectName {
+func (w *eventsWatch) matchesFilter(event *eventsv1.Event) bool {
+	// InvolvedObject name (now "Regarding" in eventsv1)
+	if w.filter.InvolvedObjectName != "" && event.Regarding.Name != w.filter.InvolvedObjectName {
 		return false
 	}
 
-	// InvolvedObject UID
-	if w.filter.InvolvedObjectUID != "" && string(event.InvolvedObject.UID) != w.filter.InvolvedObjectUID {
+	// InvolvedObject UID (now "Regarding" in eventsv1)
+	if w.filter.InvolvedObjectUID != "" && string(event.Regarding.UID) != w.filter.InvolvedObjectUID {
 		return false
 	}
 
@@ -326,8 +326,8 @@ func (w *eventsWatch) matchesFilter(event *corev1.Event) bool {
 		return false
 	}
 
-	// Source component
-	if w.filter.Source != "" && event.Source.Component != w.filter.Source {
+	// Source component (now "ReportingController" in eventsv1)
+	if w.filter.Source != "" && event.ReportingController != w.filter.Source {
 		return false
 	}
 

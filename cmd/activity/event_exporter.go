@@ -24,9 +24,8 @@ func NewEventExporterCommand() *cobra.Command {
 		Use:   "event-exporter",
 		Short: "Export Kubernetes Events to NATS JetStream",
 		Long: `Watch Kubernetes Events and publish them to NATS JetStream for ingestion
-into ClickHouse. This exporter ensures format consistency by using the same
-corev1.Event types for both serialization and deserialization throughout
-the pipeline.
+into ClickHouse. This exporter uses events.k8s.io/v1 Event format for
+consistency with the EventRecord API and ClickHouse schema.
 
 Events are published with scope annotations for multi-tenant isolation.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
