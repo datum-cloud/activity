@@ -32,6 +32,9 @@ importers:
       '@remix-run/node':
         specifier: ^2.17.4
         version: 2.17.4(typescript@5.9.3)
+      '@remix-run/react':
+        specifier: ^2.17.4
+        version: 2.17.4(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
       '@remix-run/serve':
         specifier: ^2.17.4
         version: 2.17.4(typescript@5.9.3)
@@ -47,6 +50,9 @@ importers:
       date-fns:
         specifier: ^3.0.6
         version: 3.6.0
+      isbot:
+        specifier: ^5.1.35
+        version: 5.1.35
       lucide-react:
         specifier: ^0.563.0
         version: 0.563.0(react@19.2.4)
@@ -5515,6 +5521,18 @@ snapshots:
     optionalDependencies:
       typescript: 5.9.3
 
+  '@remix-run/react@2.17.4(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)':
+    dependencies:
+      '@remix-run/router': 1.23.2
+      '@remix-run/server-runtime': 2.17.4(typescript@5.9.3)
+      react: 19.2.4
+      react-dom: 19.2.4(react@19.2.4)
+      react-router: 6.30.3(react@19.2.4)
+      react-router-dom: 6.30.3(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      turbo-stream: 2.4.1
+    optionalDependencies:
+      typescript: 5.9.3
+
   '@remix-run/router@1.23.2': {}
 
   '@remix-run/serve@2.17.4(typescript@5.9.3)':
@@ -8570,10 +8588,22 @@ snapshots:
       react-dom: 18.3.1(react@18.3.1)
       react-router: 6.30.3(react@18.3.1)
 
+  react-router-dom@6.30.3(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
+    dependencies:
+      '@remix-run/router': 1.23.2
+      react: 19.2.4
+      react-dom: 19.2.4(react@19.2.4)
+      react-router: 6.30.3(react@19.2.4)
+
   react-router@6.30.3(react@18.3.1):
     dependencies:
       '@remix-run/router': 1.23.2
       react: 18.3.1
+
+  react-router@6.30.3(react@19.2.4):
+    dependencies:
+      '@remix-run/router': 1.23.2
+      react: 19.2.4
 
   react-style-singleton@2.2.3(@types/react@18.3.28)(react@19.2.4):
     dependencies:
