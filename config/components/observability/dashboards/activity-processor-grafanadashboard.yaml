@@ -1,7 +1,7 @@
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaDashboard
 metadata:
-  name: activity-apiserver-dashboard
+  name: activity-processor-dashboard
   labels:
     dashboards: grafana
 spec:
@@ -12,5 +12,5 @@ spec:
       dashboards: grafana
   resyncPeriod: 30s
   configMapRef:
-    name: activity-apiserver-dashboard
-    key: activity-apiserver.json
+    name: activity-processor-dashboard
+    key: activity-processor.json

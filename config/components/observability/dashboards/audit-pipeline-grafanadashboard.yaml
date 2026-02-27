@@ -5,6 +5,7 @@ metadata:
   labels:
     dashboards: grafana
 spec:
+  folder: "Platform / Activity"
   allowCrossNamespaceImport: true
   instanceSelector:
     matchLabels:

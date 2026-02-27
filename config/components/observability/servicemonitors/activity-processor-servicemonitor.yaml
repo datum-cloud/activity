@@ -1,0 +1,36 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: activity-processor
+  namespace: activity-system
+  labels:
+    app: activity-processor
+    app.kubernetes.io/name: activity-processor
+    app.kubernetes.io/component: processor
+    monitoring: "true"
+spec:
+  selector:
+    matchLabels:
+      app: activity-processor
+  endpoints:
+    - port: health
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
+      scheme: http
+      relabelings:
+        # Add pod name label
+        - sourceLabels: [__meta_kubernetes_pod_name]
+          targetLabel: pod
+        # Add node name label
+        - sourceLabels: [__meta_kubernetes_pod_node_name]
+          targetLabel: node
+        # Add namespace label
+        - sourceLabels: [__meta_kubernetes_namespace]
+          targetLabel: namespace
+        # Add service name label
+        - sourceLabels: [__meta_kubernetes_service_name]
+          targetLabel: service
+  namespaceSelector:
+    matchNames:
+      - activity-system

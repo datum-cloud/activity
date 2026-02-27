@@ -1,5 +1,5 @@
 {
-   "description": "Concise, single-screen overview for rapid issue identification. End-to-end monitoring: K8s API → Vector → NATS → ClickHouse → Activity API",
+   "description": "Concise, single-screen overview for rapid issue identification. End-to-end monitoring: K8s API → Vector → NATS → ClickHouse → Activity API. For K8s Events pipeline, see Events Pipeline dashboard.",
    "editable": true,
    "graphTooltip": 1,
    "panels": [
@@ -65,7 +65,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(rate(vector_component_sent_events_total{component_id=\"parse_webhook_batch\",namespace=\"activity-system\",pod=~\"vector-sidecar.*\"}[5m]))",
+               "expr": "sum(rate(vector_component_sent_events_total{component_id=\"nats_jetstream\",namespace=\"activity-system\",pod=~\"vector-sidecar.*\"}[5m]))",
                "legendFormat": "Events/sec"
             }
          ],
@@ -179,7 +179,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "activity:nats_consumer_lag",
+               "expr": "sum(activity:nats_consumer_lag)",
                "legendFormat": "Pending"
             }
          ],
@@ -236,7 +236,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(rate(vector_component_errors_total{namespace=\"activity-system\"}[5m])) + sum(rate(activity_clickhouse_query_errors_total[5m]))",
+               "expr": "(sum(rate(vector_component_errors_total{namespace=\"activity-system\"}[5m])) or vector(0)) + (sum(rate(activity_clickhouse_query_errors_total[5m])) or vector(0))",
                "legendFormat": "Errors/sec"
             }
          ],
@@ -297,7 +297,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(rate(chi_clickhouse_event_InsertQueryTimeMicroseconds{chi=\"activity-clickhouse\"}[5m]) / rate(chi_clickhouse_event_InsertQuery{chi=\"activity-clickhouse\"}[5m]) / 1000000)",
+               "expr": "sum(rate(chi_clickhouse_event_InsertQueryTimeMicroseconds{chi=\"activity-clickhouse\"}[5m])) / clamp_min(sum(rate(chi_clickhouse_event_InsertQuery{chi=\"activity-clickhouse\"}[5m])), 0.001) / 1000000",
                "legendFormat": "Insert Latency"
             }
          ],
@@ -309,7 +309,7 @@
             "type": "prometheus",
             "uid": "$datasource"
          },
-         "description": "All pipeline components UP",
+         "description": "Activity components UP (apiserver, processor, event-exporter). Vector/NATS health monitored via functional metrics.",
          "fieldConfig": {
             "defaults": {
                "mappings": [
@@ -369,7 +369,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "min(up{job=~\"vector|nats-system/nats|clickhouse-activity-clickhouse|activity-apiserver\",namespace=~\"activity-system|nats-system\"})",
+               "expr": "min(up{namespace=\"activity-system\",pod=~\"activity-.*|k8s-event-exporter-.*\"})",
                "legendFormat": "Status"
             }
          ],
@@ -491,8 +491,8 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(rate(vector_component_sent_events_total{component_id=\"parse_webhook_batch\",namespace=\"activity-system\",pod=~\"vector-sidecar.*\"}[5m]))",
-               "legendFormat": "Vector Ingested"
+               "expr": "sum(rate(vector_component_sent_events_total{component_id=\"nats_jetstream\",namespace=\"activity-system\",pod=~\"vector-sidecar.*\"}[5m]))",
+               "legendFormat": "Vector Sidecar → NATS"
             }
          ],
          "title": "Audit Event Generation vs Ingestion",
@@ -540,7 +540,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(rate(apiserver_audit_error_total{job=~\".*apiserver.*\"}[5m])) by (plugin)",
+               "expr": "sum(rate(apiserver_audit_error_total{job=~\".*apiserver.*\"}[5m])) by (plugin) or vector(0)",
                "legendFormat": "{{plugin}} errors"
             }
          ],
@@ -652,16 +652,8 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(rate(vector_component_sent_events_total{component_id=\"parse_webhook_batch\",namespace=\"activity-system\",pod=~\"vector-sidecar.*\"}[5m]))",
-               "legendFormat": "1. Webhook Ingress"
-            },
-            {
-               "datasource": {
-                  "type": "prometheus",
-                  "uid": "$datasource"
-               },
-               "expr": "sum(rate(vector_component_sent_events_total{component_id=\"nats_jetstream\",pod=~\"vector-sidecar.*\"}[5m]))",
-               "legendFormat": "2. Published to NATS"
+               "expr": "sum(rate(vector_component_sent_events_total{component_id=\"nats_jetstream\",namespace=\"activity-system\",pod=~\"vector-sidecar.*\"}[5m]))",
+               "legendFormat": "1. Sidecar → NATS"
             },
             {
                "datasource": {
@@ -669,7 +661,7 @@
                   "uid": "$datasource"
                },
                "expr": "activity:vector_throughput:5m",
-               "legendFormat": "3. Consumed from NATS"
+               "legendFormat": "2. Aggregator ← NATS"
             },
             {
                "datasource": {
@@ -677,15 +669,15 @@
                   "uid": "$datasource"
                },
                "expr": "activity:vector_writes:5m",
-               "legendFormat": "4. Sent to ClickHouse"
+               "legendFormat": "3. Aggregator → ClickHouse"
             },
             {
                "datasource": {
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "avg(rate(chi_clickhouse_table_parts_rows{chi=\"activity-clickhouse\", database=\"audit\", table=\"events\", active=\"1\"}[5m]))",
-               "legendFormat": "5. ClickHouse Writes"
+               "expr": "avg(rate(chi_clickhouse_table_parts_rows{chi=\"activity-clickhouse\", database=\"audit\", table=\"audit_logs\", active=\"1\"}[5m]))",
+               "legendFormat": "4. ClickHouse Inserts"
             }
          ],
          "title": "Event Flow Through Pipeline Stages",
@@ -733,16 +725,16 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(rate(vector_component_sent_events_total{component_id=\"parse_webhook_batch\",namespace=\"activity-system\",pod=~\"vector-sidecar.*\"}[5m]))",
-               "legendFormat": "Ingress (API Servers)"
+               "expr": "sum(rate(vector_component_sent_events_total{component_id=\"nats_jetstream\",namespace=\"activity-system\",pod=~\"vector-sidecar.*\"}[5m]))",
+               "legendFormat": "Ingress (Sidecar → NATS)"
             },
             {
                "datasource": {
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "avg(rate(chi_clickhouse_table_parts_rows{chi=\"activity-clickhouse\", database=\"audit\", table=\"events\", active=\"1\"}[5m]))",
-               "legendFormat": "Egress (ClickHouse)"
+               "expr": "avg(rate(chi_clickhouse_table_parts_rows{chi=\"activity-clickhouse\", database=\"audit\", table=\"audit_logs\", active=\"1\"}[5m]))",
+               "legendFormat": "Egress (ClickHouse Writes)"
             }
          ],
          "title": "Ingress vs Egress Comparison",
@@ -867,7 +859,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "activity:nats_consumer_lag",
+               "expr": "sum(activity:nats_consumer_lag)",
                "legendFormat": "Pending Messages"
             },
             {
@@ -875,7 +867,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "nats_consumer_num_ack_pending{consumer_name=\"clickhouse-ingest\"}",
+               "expr": "sum(nats_consumer_num_ack_pending{consumer_name=\"clickhouse-ingest\"})",
                "legendFormat": "Unacknowledged"
             }
          ],
@@ -924,7 +916,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(vector_buffer_events{component_id=\"clickhouse\",namespace=\"activity-system\"})",
+               "expr": "sum(vector_buffer_events{component_id=~\"clickhouse_.*\",namespace=\"activity-system\"})",
                "legendFormat": "Buffered Events"
             }
          ],
@@ -972,7 +964,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "avg(rate(chi_clickhouse_table_parts_rows{chi=\"activity-clickhouse\", database=\"audit\", table=\"events\", active=\"1\"}[5m]))",
+               "expr": "avg(rate(chi_clickhouse_table_parts_rows{chi=\"activity-clickhouse\", database=\"audit\", table=\"audit_logs\", active=\"1\"}[5m]))",
                "legendFormat": "Rows Inserted/sec"
             },
             {
@@ -980,7 +972,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(chi_clickhouse_metric_InsertQuery{chi=\"activity-clickhouse\"})",
+               "expr": "sum(chi_clickhouse_metric_Query{chi=\"activity-clickhouse\"}) or vector(0)",
                "legendFormat": "Active Insert Queries"
             }
          ],
@@ -1044,7 +1036,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(chi_clickhouse_metric_InsertQuery{chi=\"activity-clickhouse\"})",
+               "expr": "sum(chi_clickhouse_metric_Query{chi=\"activity-clickhouse\"}) or vector(0)",
                "legendFormat": "Inserts"
             },
             {
@@ -1052,7 +1044,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(chi_clickhouse_metric_Query{chi=\"activity-clickhouse\"})",
+               "expr": "sum(chi_clickhouse_metric_Query{chi=\"activity-clickhouse\"}) or vector(0)",
                "legendFormat": "Queries"
             },
             {
@@ -1060,7 +1052,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(chi_clickhouse_metric_Merge{chi=\"activity-clickhouse\"})",
+               "expr": "sum(chi_clickhouse_metric_Merge{chi=\"activity-clickhouse\"}) or vector(0)",
                "legendFormat": "Merges"
             }
          ],
@@ -1109,7 +1101,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "avg(rate(chi_clickhouse_table_parts_rows{chi=\"activity-clickhouse\", database=\"audit\", table=\"events\", active=\"1\"}[5m]))",
+               "expr": "avg(rate(chi_clickhouse_table_parts_rows{chi=\"activity-clickhouse\", database=\"audit\", table=\"audit_logs\", active=\"1\"}[5m]))",
                "legendFormat": "Insert Rate"
             },
             {
@@ -1166,7 +1158,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "avg(chi_clickhouse_table_parts{chi=\"activity-clickhouse\",database=\"audit\",table=\"events\"})",
+               "expr": "avg(chi_clickhouse_table_parts{chi=\"activity-clickhouse\",database=\"audit\",table=\"audit_logs\"})",
                "legendFormat": "Total Parts"
             }
          ],
@@ -1228,7 +1220,7 @@
                         "type": "prometheus",
                         "uid": "$datasource"
                      },
-                     "expr": "sum(rate(vector_component_errors_total{namespace=\"activity-system\",pod=~\"vector-sidecar.*\"}[5m])) by (component_id)",
+                     "expr": "sum(rate(vector_component_errors_total{namespace=\"activity-system\",pod=~\"vector-sidecar.*\"}[5m])) by (component_id) or vector(0)",
                      "legendFormat": "Sidecar: {{component_id}}"
                   },
                   {
@@ -1236,7 +1228,7 @@
                         "type": "prometheus",
                         "uid": "$datasource"
                      },
-                     "expr": "sum(rate(vector_component_errors_total{namespace=\"activity-system\",pod=~\"vector-aggregator.*\"}[5m])) by (component_id)",
+                     "expr": "sum(rate(vector_component_errors_total{namespace=\"activity-system\",pod=~\"vector-aggregator.*\"}[5m])) by (component_id) or vector(0)",
                      "legendFormat": "Aggregator: {{component_id}}"
                   },
                   {
@@ -1244,7 +1236,7 @@
                         "type": "prometheus",
                         "uid": "$datasource"
                      },
-                     "expr": "activity:clickhouse_error_rate:5m",
+                     "expr": "sum(rate(apiserver_request_total{job=\"activity-apiserver\",code=~\"[45]..\"}[5m])) by (code) or vector(0)",
                      "legendFormat": "Activity: {{error_type}}"
                   },
                   {
@@ -1252,7 +1244,7 @@
                         "type": "prometheus",
                         "uid": "$datasource"
                      },
-                     "expr": "sum(rate(activity_cel_filter_errors_total[5m])) by (error_type)",
+                     "expr": "vector(0)",
                      "legendFormat": "CEL: {{error_type}}"
                   }
                ],
@@ -1301,7 +1293,7 @@
                         "type": "prometheus",
                         "uid": "$datasource"
                      },
-                     "expr": "sum(rate(vector_http_client_errors_total{component_id=\"clickhouse\",namespace=\"activity-system\"}[5m]))",
+                     "expr": "sum(rate(vector_http_client_errors_total{component_id=~\"clickhouse_.*\",namespace=\"activity-system\"}[5m])) or vector(0)",
                      "legendFormat": "HTTP Client Errors"
                   },
                   {
@@ -1309,7 +1301,7 @@
                         "type": "prometheus",
                         "uid": "$datasource"
                      },
-                     "expr": "sum(rate(vector_component_errors_total{component_id=\"clickhouse\",namespace=\"activity-system\"}[5m]))",
+                     "expr": "sum(rate(vector_component_errors_total{component_id=~\"clickhouse_.*\",namespace=\"activity-system\"}[5m])) or vector(0)",
                      "legendFormat": "Component Errors"
                   }
                ],
@@ -1372,7 +1364,7 @@
                         "type": "prometheus",
                         "uid": "$datasource"
                      },
-                     "expr": "activity:query_duration:p50",
+                     "expr": "activity:apiserver_request_duration:p50",
                      "legendFormat": "p50"
                   },
                   {
@@ -1380,7 +1372,7 @@
                         "type": "prometheus",
                         "uid": "$datasource"
                      },
-                     "expr": "activity:query_duration:p95",
+                     "expr": "activity:apiserver_request_duration:p95",
                      "legendFormat": "p95"
                   },
                   {
@@ -1388,7 +1380,7 @@
                         "type": "prometheus",
                         "uid": "$datasource"
                      },
-                     "expr": "activity:query_duration:p99",
+                     "expr": "activity:apiserver_request_duration:p99",
                      "legendFormat": "p99"
                   }
                ],
@@ -1436,7 +1428,7 @@
                         "type": "prometheus",
                         "uid": "$datasource"
                      },
-                     "expr": "sum(rate(activity_clickhouse_query_total{status=\"success\"}[5m]))",
+                     "expr": "sum(rate(apiserver_request_total{job=\"activity-apiserver\",code=~\"2..\"}[5m])) or vector(0)",
                      "legendFormat": "Successful Queries"
                   },
                   {
@@ -1444,7 +1436,7 @@
                         "type": "prometheus",
                         "uid": "$datasource"
                      },
-                     "expr": "sum(rate(activity_clickhouse_query_errors_total[5m]))",
+                     "expr": "sum(rate(apiserver_request_total{job=\"activity-apiserver\",code=~\"5..\"}[5m])) or vector(0)",
                      "legendFormat": "Failed Queries"
                   }
                ],
@@ -1495,7 +1487,7 @@
                         "type": "prometheus",
                         "uid": "$datasource"
                      },
-                     "expr": "rate(activity_auditlog_queries_by_scope_total[5m])",
+                     "expr": "sum(rate(apiserver_request_total{job=\"activity-apiserver\",resource=~\"auditlogqueries|activityqueries|eventqueries\"}[5m])) by (resource) or vector(0)",
                      "legendFormat": "{{scope_type}}"
                   }
                ],
@@ -1521,7 +1513,7 @@
             "label": "Prometheus Datasource",
             "name": "datasource",
             "query": "prometheus",
-            "regex": "Service Metrics",
+            "regex": "",
             "type": "datasource"
          }
       ]

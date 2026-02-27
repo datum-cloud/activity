@@ -1,0 +1,898 @@
+{
+   "description": "Activity Processor metrics for event processing, policy evaluation, and NATS health",
+   "editable": true,
+   "graphTooltip": 1,
+   "panels": [
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Rate of events received from NATS per second",
+         "fieldConfig": {
+            "defaults": {
+               "decimals": 1,
+               "unit": "ops"
+            }
+         },
+         "gridPos": {
+            "h": 5,
+            "w": 6,
+            "x": 0,
+            "y": 0
+         },
+         "id": 1,
+         "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "reduceOptions": {
+               "calcs": [
+                  "lastNotNull"
+               ]
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(activity_processor_events_received_total[5m]))",
+               "legendFormat": "Events/s"
+            }
+         ],
+         "title": "Event Processing Rate",
+         "type": "stat"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Rate of activities generated and published to NATS",
+         "fieldConfig": {
+            "defaults": {
+               "decimals": 1,
+               "unit": "ops"
+            }
+         },
+         "gridPos": {
+            "h": 5,
+            "w": 6,
+            "x": 6,
+            "y": 0
+         },
+         "id": 2,
+         "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "reduceOptions": {
+               "calcs": [
+                  "lastNotNull"
+               ]
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(activity_processor_activities_generated_total[5m]))",
+               "legendFormat": "Activities/s"
+            }
+         ],
+         "title": "Activity Generation Rate",
+         "type": "stat"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Percentage of events that resulted in errors during processing",
+         "fieldConfig": {
+            "defaults": {
+               "decimals": 2,
+               "thresholds": {
+                  "steps": [
+                     {
+                        "color": "green",
+                        "value": null
+                     },
+                     {
+                        "color": "yellow",
+                        "value": 1
+                     },
+                     {
+                        "color": "red",
+                        "value": 5
+                     }
+                  ]
+               },
+               "unit": "percent"
+            }
+         },
+         "gridPos": {
+            "h": 5,
+            "w": 6,
+            "x": 12,
+            "y": 0
+         },
+         "id": 3,
+         "options": {
+            "colorMode": "background",
+            "graphMode": "area",
+            "reduceOptions": {
+               "calcs": [
+                  "lastNotNull"
+               ]
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "(sum(rate(activity_processor_events_errored_total[5m])) or vector(0)) / (sum(rate(activity_processor_events_received_total[5m])) or vector(1)) * 100",
+               "legendFormat": "Error %"
+            }
+         ],
+         "title": "Error Rate",
+         "type": "stat"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Number of ActivityPolicies currently loaded",
+         "fieldConfig": {
+            "defaults": {
+               "unit": "short"
+            }
+         },
+         "gridPos": {
+            "h": 5,
+            "w": 6,
+            "x": 18,
+            "y": 0
+         },
+         "id": 4,
+         "options": {
+            "colorMode": "value",
+            "graphMode": "none",
+            "reduceOptions": {
+               "calcs": [
+                  "lastNotNull"
+               ]
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "activity_processor_active_policies",
+               "instant": true,
+               "legendFormat": "Policies"
+            }
+         ],
+         "title": "Active Policies",
+         "type": "stat"
+      },
+      {
+         "collapsed": false,
+         "gridPos": {
+            "h": 1,
+            "w": 0,
+            "x": 24,
+            "y": 5
+         },
+         "id": 5,
+         "panels": [ ],
+         "title": "Event Processing",
+         "type": "row"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Event processing rate by Kubernetes API group",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10,
+                  "lineWidth": 2,
+                  "showPoints": "never",
+                  "stacking": {
+                     "mode": "normal"
+                  }
+               },
+               "unit": "ops"
+            }
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 6
+         },
+         "id": 6,
+         "options": {
+            "legend": {
+               "calcs": [
+                  "lastNotNull",
+                  "mean"
+               ],
+               "displayMode": "table",
+               "placement": "bottom",
+               "showLegend": true
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(activity_processor_events_received_total[5m])) by (api_group)",
+               "legendFormat": "{{api_group}}"
+            }
+         ],
+         "title": "Events by API Group",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Events evaluated against policies vs activities generated (conversion rate)",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10,
+                  "lineWidth": 2,
+                  "showPoints": "never"
+               },
+               "unit": "ops"
+            }
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 6
+         },
+         "id": 7,
+         "options": {
+            "legend": {
+               "calcs": [
+                  "lastNotNull",
+                  "mean"
+               ],
+               "displayMode": "table",
+               "placement": "bottom",
+               "showLegend": true
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(activity_processor_events_evaluated_total[5m]))",
+               "legendFormat": "Evaluated"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(activity_processor_activities_generated_total[5m]))",
+               "legendFormat": "Generated"
+            }
+         ],
+         "title": "Events Evaluated vs Generated",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Events skipped during processing, grouped by skip reason",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 30,
+                  "showPoints": "never",
+                  "stacking": {
+                     "mode": "normal"
+                  }
+               },
+               "unit": "ops"
+            }
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 14
+         },
+         "id": 8,
+         "options": {
+            "legend": {
+               "calcs": [
+                  "lastNotNull",
+                  "mean"
+               ],
+               "displayMode": "table",
+               "placement": "bottom",
+               "showLegend": true
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(activity_processor_events_skipped_total[5m])) by (reason)",
+               "legendFormat": "{{reason}}"
+            }
+         ],
+         "title": "Skipped Events by Reason",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "99th percentile processing duration per policy",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10,
+                  "showPoints": "never"
+               },
+               "unit": "s"
+            }
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 14
+         },
+         "id": 9,
+         "options": {
+            "legend": {
+               "calcs": [
+                  "lastNotNull",
+                  "mean",
+                  "max"
+               ],
+               "displayMode": "table",
+               "placement": "bottom",
+               "showLegend": true
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "histogram_quantile(0.99, sum(rate(activity_processor_event_processing_duration_seconds_bucket[5m])) by (policy, le))",
+               "legendFormat": "{{policy}}"
+            }
+         ],
+         "title": "Processing Duration p99 by Policy",
+         "type": "timeseries"
+      },
+      {
+         "collapsed": false,
+         "gridPos": {
+            "h": 1,
+            "w": 0,
+            "x": 24,
+            "y": 22
+         },
+         "id": 10,
+         "panels": [ ],
+         "title": "NATS Health",
+         "type": "row"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Current NATS connection status (shows Disconnected if any instance is disconnected)",
+         "fieldConfig": {
+            "defaults": {
+               "mappings": [
+                  {
+                     "options": {
+                        "0": {
+                           "color": "red",
+                           "text": "Disconnected"
+                        },
+                        "1": {
+                           "color": "green",
+                           "text": "Connected"
+                        }
+                     },
+                     "type": "value"
+                  }
+               ]
+            }
+         },
+         "gridPos": {
+            "h": 5,
+            "w": 6,
+            "x": 0,
+            "y": 23
+         },
+         "id": 11,
+         "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "reduceOptions": {
+               "calcs": [
+                  "lastNotNull"
+               ]
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "min(activity_processor_nats_connection_status{job=\"activity-processor\"})",
+               "instant": true,
+               "legendFormat": "Connected"
+            }
+         ],
+         "title": "NATS Connection Status",
+         "type": "stat"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Total number of NATS disconnection events across all instances",
+         "fieldConfig": {
+            "defaults": {
+               "thresholds": {
+                  "steps": [
+                     {
+                        "color": "green",
+                        "value": null
+                     },
+                     {
+                        "color": "yellow",
+                        "value": 1
+                     },
+                     {
+                        "color": "red",
+                        "value": 5
+                     }
+                  ]
+               },
+               "unit": "short"
+            }
+         },
+         "gridPos": {
+            "h": 5,
+            "w": 6,
+            "x": 6,
+            "y": 23
+         },
+         "id": 12,
+         "options": {
+            "colorMode": "background",
+            "graphMode": "area",
+            "reduceOptions": {
+               "calcs": [
+                  "lastNotNull"
+               ]
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(activity_processor_nats_disconnects_total)",
+               "legendFormat": "Disconnects"
+            }
+         ],
+         "title": "NATS Disconnects",
+         "type": "stat"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "99th percentile latency for NATS message publishing",
+         "fieldConfig": {
+            "defaults": {
+               "decimals": 3,
+               "thresholds": {
+                  "steps": [
+                     {
+                        "color": "green",
+                        "value": null
+                     },
+                     {
+                        "color": "yellow",
+                        "value": 0.10000000000000001
+                     },
+                     {
+                        "color": "red",
+                        "value": 0.5
+                     }
+                  ]
+               },
+               "unit": "s"
+            }
+         },
+         "gridPos": {
+            "h": 5,
+            "w": 6,
+            "x": 12,
+            "y": 23
+         },
+         "id": 13,
+         "options": {
+            "colorMode": "background",
+            "graphMode": "area",
+            "reduceOptions": {
+               "calcs": [
+                  "lastNotNull"
+               ]
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "histogram_quantile(0.99, sum(rate(activity_processor_nats_publish_latency_seconds_bucket[5m])) by (le))",
+               "legendFormat": "p99"
+            }
+         ],
+         "title": "NATS Publish Latency p99",
+         "type": "stat"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Rate of messages published to NATS per second",
+         "fieldConfig": {
+            "defaults": {
+               "decimals": 1,
+               "unit": "ops"
+            }
+         },
+         "gridPos": {
+            "h": 5,
+            "w": 6,
+            "x": 18,
+            "y": 23
+         },
+         "id": 14,
+         "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "reduceOptions": {
+               "calcs": [
+                  "lastNotNull"
+               ]
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(activity_processor_nats_messages_published_total[5m]))",
+               "legendFormat": "Messages/s"
+            }
+         ],
+         "title": "Messages Published Rate",
+         "type": "stat"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "NATS connection events over time (aggregated across all instances)",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 30,
+                  "showPoints": "never",
+                  "stacking": {
+                     "mode": "normal"
+                  }
+               },
+               "unit": "ops"
+            }
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 31
+         },
+         "id": 15,
+         "options": {
+            "legend": {
+               "calcs": [
+                  "lastNotNull",
+                  "mean"
+               ],
+               "displayMode": "table",
+               "placement": "bottom",
+               "showLegend": true
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(activity_processor_nats_disconnects_total[5m]))",
+               "legendFormat": "Disconnects"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(activity_processor_nats_reconnects_total[5m]))",
+               "legendFormat": "Reconnects"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(activity_processor_nats_errors_total[5m]))",
+               "legendFormat": "Errors"
+            }
+         ],
+         "title": "NATS Connection Events",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "NATS publish latency distribution",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10,
+                  "showPoints": "never"
+               },
+               "unit": "s"
+            }
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 31
+         },
+         "id": 16,
+         "options": {
+            "legend": {
+               "calcs": [
+                  "lastNotNull",
+                  "mean",
+                  "max"
+               ],
+               "displayMode": "table",
+               "placement": "bottom",
+               "showLegend": true
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "histogram_quantile(0.99, sum(rate(activity_processor_nats_publish_latency_seconds_bucket[5m])) by (le))",
+               "legendFormat": "p99"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "histogram_quantile(0.95, sum(rate(activity_processor_nats_publish_latency_seconds_bucket[5m])) by (le))",
+               "legendFormat": "p95"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "histogram_quantile(0.50, sum(rate(activity_processor_nats_publish_latency_seconds_bucket[5m])) by (le))",
+               "legendFormat": "p50"
+            }
+         ],
+         "title": "NATS Publish Latency Percentiles",
+         "type": "timeseries"
+      },
+      {
+         "collapsed": false,
+         "gridPos": {
+            "h": 1,
+            "w": 0,
+            "x": 24,
+            "y": 39
+         },
+         "id": 17,
+         "panels": [ ],
+         "title": "Worker Health",
+         "type": "row"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Total number of active worker goroutines across all processor instances",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10,
+                  "lineWidth": 2,
+                  "showPoints": "never"
+               },
+               "unit": "short"
+            }
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 40
+         },
+         "id": 18,
+         "options": {
+            "legend": {
+               "displayMode": "list",
+               "placement": "bottom",
+               "showLegend": true
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(activity_processor_active_workers)",
+               "legendFormat": "Total Workers"
+            }
+         ],
+         "title": "Active Workers",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Processing errors broken down by error type",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 30,
+                  "showPoints": "never",
+                  "stacking": {
+                     "mode": "normal"
+                  }
+               },
+               "unit": "ops"
+            }
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 40
+         },
+         "id": 19,
+         "options": {
+            "legend": {
+               "calcs": [
+                  "lastNotNull",
+                  "mean"
+               ],
+               "displayMode": "table",
+               "placement": "bottom",
+               "showLegend": true
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(activity_processor_events_errored_total[5m])) by (error_type) or vector(0)",
+               "legendFormat": "{{error_type}}"
+            }
+         ],
+         "title": "Error Types Breakdown",
+         "type": "timeseries"
+      }
+   ],
+   "refresh": "30s",
+   "schemaVersion": 39,
+   "tags": [
+      "activity",
+      "processor",
+      "pipeline",
+      "nats"
+   ],
+   "templating": {
+      "list": [
+         {
+            "label": "Prometheus Datasource",
+            "name": "datasource",
+            "query": "prometheus",
+            "regex": "",
+            "type": "datasource"
+         }
+      ]
+   },
+   "time": {
+      "from": "now-24h",
+      "to": "now"
+   },
+   "timezone": "utc",
+   "title": "Activity Processor - Event Pipeline",
+   "uid": "activity-processor"
+}

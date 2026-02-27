@@ -134,19 +134,19 @@
           // Pipeline Throughput Recordings
           // =========================================================================
 
-          // Vector throughput rate (events/sec from NATS consumer)
+          // Vector throughput rate (events/sec from NATS audit consumer)
           {
             record: 'activity:vector_throughput:5m',
             expr: |||
-              sum(rate(vector_component_received_events_total{component_id="nats_consumer",namespace="activity-system"}[5m]))
+              sum(rate(vector_component_received_events_total{component_id="nats_audit_consumer",namespace="activity-system"}[5m]))
             |||,
           },
 
-          // Vector to ClickHouse write rate
+          // Vector to ClickHouse write rate (audit events)
           {
             record: 'activity:vector_writes:5m',
             expr: |||
-              sum(rate(vector_component_sent_events_total{component_id="clickhouse",namespace="activity-system"}[5m]))
+              sum(rate(vector_component_sent_events_total{component_id="clickhouse_audit_events",namespace="activity-system"}[5m]))
             |||,
           },
 
@@ -154,9 +154,9 @@
           {
             record: 'activity:pipeline_lag:5m',
             expr: |||
-              sum(rate(vector_component_received_events_total{component_id="nats_consumer",namespace="activity-system"}[5m]))
+              sum(rate(vector_component_received_events_total{component_id="nats_audit_consumer",namespace="activity-system"}[5m]))
               -
-              sum(rate(vector_component_sent_events_total{component_id="clickhouse",namespace="activity-system"}[5m]))
+              sum(rate(vector_component_sent_events_total{component_id="clickhouse_audit_events",namespace="activity-system"}[5m]))
             |||,
           },
 
@@ -205,6 +205,48 @@
               /
               sum(container_spec_memory_limit_bytes{namespace="activity-system"})
               by (pod)
+            |||,
+          },
+
+          // =========================================================================
+          // Events Pipeline Recordings
+          // =========================================================================
+
+          // Events pipeline throughput (Vector events component)
+          {
+            record: 'activity:vector_writes_events:5m',
+            expr: |||
+              sum(rate(vector_component_sent_events_total{component_id="clickhouse_k8s_events",namespace="activity-system"}[5m]))
+            |||,
+          },
+
+          // Events pipeline insert rate to ClickHouse
+          {
+            record: 'activity:clickhouse_events_insert_rate:5m',
+            expr: |||
+              avg(rate(chi_clickhouse_table_parts_rows{chi="activity-clickhouse", database="audit", table="k8s_events", active="1"}[5m]))
+            |||,
+          },
+
+          // Events pipeline ClickHouse insert latency
+          // Note: chi_clickhouse_event_* metrics are cluster-wide (no table labels)
+          // so this shows overall ClickHouse insert latency, not per-table
+          // Uses clamp_min to avoid divide-by-zero when there are no insert queries
+          {
+            record: 'activity:clickhouse_events_insert_latency',
+            expr: |||
+              sum(rate(chi_clickhouse_event_InsertQueryTimeMicroseconds{chi="activity-clickhouse"}[5m]))
+              /
+              clamp_min(sum(rate(chi_clickhouse_event_InsertQuery{chi="activity-clickhouse"}[5m])), 0.001)
+              / 1000000
+            |||,
+          },
+
+          // Total event exporter throughput
+          {
+            record: 'activity:event_exporter_throughput:5m',
+            expr: |||
+              sum(rate(event_exporter_events_published_total[5m]))
             |||,
           },
         ],
