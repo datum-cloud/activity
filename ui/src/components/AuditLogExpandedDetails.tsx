@@ -7,12 +7,12 @@ export interface AuditLogExpandedDetailsProps {
 }
 
 /**
- * Format timestamp for display
+ * Format timestamp for display (with timezone)
  */
 function formatTimestampFull(timestamp?: string): string {
   if (!timestamp) return 'Unknown time';
   try {
-    return format(new Date(timestamp), 'yyyy-MM-dd HH:mm:ss');
+    return format(new Date(timestamp), 'yyyy-MM-dd HH:mm:ss \'UTC\'');
   } catch {
     return timestamp;
   }

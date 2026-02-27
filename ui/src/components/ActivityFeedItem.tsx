@@ -55,12 +55,12 @@ function formatTimestamp(timestamp?: string): string {
 }
 
 /**
- * Format timestamp for tooltip
+ * Format timestamp for tooltip (with timezone)
  */
 function formatTimestampFull(timestamp?: string): string {
   if (!timestamp) return 'Unknown time';
   try {
-    return format(new Date(timestamp), 'yyyy-MM-dd HH:mm:ss');
+    return format(new Date(timestamp), 'yyyy-MM-dd HH:mm:ss \'UTC\'');
   } catch {
     return timestamp;
   }
@@ -82,7 +82,7 @@ function getActorInitials(name: string): string {
 function getActorAvatarClasses(actorType: string, compact: boolean): string {
   const baseClasses = cn(
     'rounded-full flex items-center justify-center shrink-0 font-semibold',
-    compact ? 'w-3.5 h-3.5 text-xs' : 'w-4 h-4 text-xs'
+    compact ? 'w-5 h-5 text-xs' : 'w-6 h-6 text-xs'
   );
   switch (actorType) {
     case 'user':
@@ -295,7 +295,7 @@ export function ActivityFeedItem({
       onClick={handleClick}
     >
       {/* Single row layout */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5">
         {/* Actor Avatar */}
         <div
           className={cn(

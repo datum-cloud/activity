@@ -11,6 +11,7 @@ export default {
       file: 'dist/index.js',
       format: 'cjs',
       sourcemap: true,
+      exports: 'named',
     },
     {
       file: 'dist/index.esm.js',
@@ -20,12 +21,19 @@ export default {
   ],
   plugins: [
     peerDepsExternal(),
-    resolve(),
-    commonjs(),
+    resolve({
+      extensions: ['.ts', '.tsx', '.js', '.jsx'],
+    }),
+    commonjs({
+      include: /node_modules/,
+      // Don't try to convert React to CommonJS
+      ignore: ['react', 'react-dom', 'react/jsx-runtime'],
+    }),
     typescript({
       tsconfig: './tsconfig.json',
       declaration: true,
       declarationDir: 'dist',
+      noEmitOnError: false,
     }),
     postcss({
       modules: true,
@@ -33,5 +41,12 @@ export default {
       minimize: true,
     }),
   ],
-  external: ['react', 'react-dom'],
+  external: [
+    'react',
+    'react-dom',
+    'react/jsx-runtime',
+    /^react\//,
+    /^react-dom\//,
+    /^@radix-ui\//,
+  ],
 };

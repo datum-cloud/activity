@@ -38,12 +38,12 @@ function formatTimestamp(timestamp?: string): string {
 }
 
 /**
- * Format timestamp for tooltip
+ * Format timestamp for tooltip (with timezone)
  */
 function formatTimestampFull(timestamp?: string): string {
   if (!timestamp) return 'Unknown time';
   try {
-    return format(new Date(timestamp), 'yyyy-MM-dd HH:mm:ss');
+    return format(new Date(timestamp), 'yyyy-MM-dd HH:mm:ss \'UTC\'');
   } catch {
     return timestamp;
   }
@@ -53,7 +53,7 @@ function formatTimestampFull(timestamp?: string): string {
  * Get Tailwind classes for verb badge
  */
 function getVerbBadgeClasses(verb?: string): string {
-  const baseClasses = 'text-[0.6rem] h-4 px-1.5 py-0.5 leading-3';
+  const baseClasses = 'text-xs h-4 px-1.5 py-0.5 leading-3';
   const normalized = verb?.toLowerCase();
 
   switch (normalized) {

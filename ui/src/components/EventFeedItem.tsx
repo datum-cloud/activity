@@ -100,12 +100,13 @@ function formatTimestamp(timestamp?: string): string {
 }
 
 /**
- * Format timestamp for tooltip
+ * Format timestamp for tooltip (human-friendly UTC format with timezone)
  */
 function formatTimestampFull(timestamp?: string): string {
   if (!timestamp) return 'Unknown time';
   try {
-    return format(new Date(timestamp), 'yyyy-MM-dd HH:mm:ss');
+    const date = new Date(timestamp);
+    return format(date, "MMMM d, yyyy 'at' h:mm:ss a 'UTC'");
   } catch {
     return timestamp;
   }
@@ -189,7 +190,7 @@ export function EventFeedItem({
         <div className="flex gap-2">
           {/* Main Content */}
           <div className="flex-1 min-w-0">
-            {/* Header row: Type badge + Reason + Kind */}
+            {/* Header row: Type badge + Reason + Kind + Timestamp */}
             <div className="flex items-center gap-1.5 mb-1">
               {/* Type badge */}
               <span
@@ -216,6 +217,21 @@ export function EventFeedItem({
                   {regarding.kind}
                 </span>
               )}
+
+              {/* Spacer to push timestamp to the right */}
+              <span className="flex-1" />
+
+              {/* Timestamp with tooltip */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="text-xs text-muted-foreground whitespace-nowrap cursor-default">
+                    {formatTimestamp(timestamp)}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs">{formatTimestampFull(timestamp)}</p>
+                </TooltipContent>
+              </Tooltip>
             </div>
 
             {/* Content row: Message + Object + Timestamp + Expand */}
@@ -268,14 +284,6 @@ export function EventFeedItem({
                   </TooltipContent>
                 </Tooltip>
               </div>
-
-              {/* Timestamp */}
-              <span
-                className="text-xs text-muted-foreground whitespace-nowrap shrink-0"
-                title={formatTimestampFull(timestamp)}
-              >
-                {formatTimestamp(timestamp)}
-              </span>
 
               {/* Expand button - larger and positioned at the end */}
               <Button
