@@ -24,29 +24,24 @@ local queries = {
   //
   // Metrics support both production (apiserver) and dev (k8s-event-exporter) environments.
   // Queries use `or` to combine both sources - whichever is running provides the data.
-  //
-  // TODO: Add apiserver events publishing metrics when instrumented:
-  //   - activity_apiserver_events_published_total
-  //   - activity_apiserver_events_publish_latency_seconds
 
   // Event ingestion rate (from either apiserver or k8s-event-exporter)
-  // Once apiserver metrics are instrumented, add: sum(rate(activity_apiserver_events_published_total[5m])) or
-  eventsPublishedRate: 'sum(rate(event_exporter_events_published_total[5m])) or vector(0)',
-  eventsPublishedByNamespace: 'sum(rate(event_exporter_events_published_total[5m])) by (namespace)',
-  eventsPublishedByReason: 'sum(rate(event_exporter_events_published_total[5m])) by (reason)',
+  eventsPublishedRate: '(sum(rate(activity_apiserver_events_published_total[5m])) or vector(0)) + (sum(rate(event_exporter_events_published_total[5m])) or vector(0))',
+  eventsPublishedByNamespace: 'sum(rate(activity_apiserver_events_published_total[5m])) by (namespace) or sum(rate(event_exporter_events_published_total[5m])) by (namespace)',
+  eventsPublishedByReason: 'sum(rate(activity_apiserver_events_published_total[5m])) by (reason) or sum(rate(event_exporter_events_published_total[5m])) by (reason)',
 
   // Publish latency (from either apiserver or k8s-event-exporter)
-  publishLatencyP99: 'histogram_quantile(0.99, sum(rate(event_exporter_publish_latency_seconds_bucket[5m])) by (le))',
-  publishLatencyP95: 'histogram_quantile(0.95, sum(rate(event_exporter_publish_latency_seconds_bucket[5m])) by (le))',
-  publishLatencyP50: 'histogram_quantile(0.50, sum(rate(event_exporter_publish_latency_seconds_bucket[5m])) by (le))',
+  publishLatencyP99: 'histogram_quantile(0.99, sum(rate(activity_apiserver_events_publish_latency_seconds_bucket[5m])) by (le)) or histogram_quantile(0.99, sum(rate(event_exporter_publish_latency_seconds_bucket[5m])) by (le))',
+  publishLatencyP95: 'histogram_quantile(0.95, sum(rate(activity_apiserver_events_publish_latency_seconds_bucket[5m])) by (le)) or histogram_quantile(0.95, sum(rate(event_exporter_publish_latency_seconds_bucket[5m])) by (le))',
+  publishLatencyP50: 'histogram_quantile(0.50, sum(rate(activity_apiserver_events_publish_latency_seconds_bucket[5m])) by (le)) or histogram_quantile(0.50, sum(rate(event_exporter_publish_latency_seconds_bucket[5m])) by (le))',
 
   // Ingestion errors (from either source)
-  publishErrors: 'sum(rate(event_exporter_publish_errors_total[5m])) or vector(0)',
+  publishErrors: '(sum(rate(activity_apiserver_events_publish_errors_total[5m])) or vector(0)) + (sum(rate(event_exporter_publish_errors_total[5m])) or vector(0))',
 
   // Ingestion source health (shows status from whichever source is active)
-  // In dev: k8s-event-exporter NATS connection
-  // In prod: will show apiserver health once metrics are added
-  ingestionSourceStatus: '(min(event_exporter_nats_connection_status{job="k8s-event-exporter"}) or min(up{job="activity-apiserver"}))',
+  // In dev: k8s-event-exporter NATS connection status
+  // In prod: activity-apiserver events NATS connection status
+  ingestionSourceStatus: 'min(activity_apiserver_events_nats_connection_status) or min(event_exporter_nats_connection_status{job="k8s-event-exporter"})',
   exporterConnectionStatus: 'min(event_exporter_nats_connection_status{job="k8s-event-exporter"})',
   informerSyncStatus: 'min(event_exporter_informer_synced{job="k8s-event-exporter"})',
 
@@ -73,7 +68,7 @@ local queries = {
   eventQueryErrors: 'sum(rate(apiserver_request_total{job="activity-apiserver",resource="eventqueries",code=~"5.."}[5m])) or vector(0)',
 
   // Combined pipeline health
-  pipelineErrorRate: '(sum(rate(event_exporter_publish_errors_total[5m])) or vector(0)) + (sum(rate(vector_component_errors_total{component_id="clickhouse_k8s_events",namespace="activity-system"}[5m])) or vector(0))',
+  pipelineErrorRate: '(sum(rate(activity_apiserver_events_publish_errors_total[5m])) or vector(0)) + (sum(rate(event_exporter_publish_errors_total[5m])) or vector(0)) + (sum(rate(vector_component_errors_total{component_id="clickhouse_k8s_events",namespace="activity-system"}[5m])) or vector(0))',
 };
 
 // Build all panels

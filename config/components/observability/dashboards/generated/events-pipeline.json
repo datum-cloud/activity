@@ -65,7 +65,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(rate(event_exporter_events_published_total[5m])) or vector(0)",
+               "expr": "(sum(rate(activity_apiserver_events_published_total[5m])) or vector(0)) + (sum(rate(event_exporter_events_published_total[5m])) or vector(0))",
                "legendFormat": "Events/sec"
             }
          ],
@@ -236,7 +236,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "(sum(rate(event_exporter_publish_errors_total[5m])) or vector(0)) + (sum(rate(vector_component_errors_total{component_id=\"clickhouse_k8s_events\",namespace=\"activity-system\"}[5m])) or vector(0))",
+               "expr": "(sum(rate(activity_apiserver_events_publish_errors_total[5m])) or vector(0)) + (sum(rate(event_exporter_publish_errors_total[5m])) or vector(0)) + (sum(rate(vector_component_errors_total{component_id=\"clickhouse_k8s_events\",namespace=\"activity-system\"}[5m])) or vector(0))",
                "legendFormat": "Errors/sec"
             }
          ],
@@ -308,7 +308,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "(min(event_exporter_nats_connection_status{job=\"k8s-event-exporter\"}) or min(up{job=\"activity-apiserver\"}))",
+               "expr": "min(activity_apiserver_events_nats_connection_status) or min(event_exporter_nats_connection_status{job=\"k8s-event-exporter\"})",
                "legendFormat": "Status"
             }
          ],
@@ -490,7 +490,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "topk(10, sum(rate(event_exporter_events_published_total[5m])) by (namespace))",
+               "expr": "topk(10, sum(rate(activity_apiserver_events_published_total[5m])) by (namespace) or sum(rate(event_exporter_events_published_total[5m])) by (namespace))",
                "legendFormat": "{{namespace}}"
             }
          ],
@@ -542,7 +542,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(rate(event_exporter_events_published_total[5m])) by (reason)",
+               "expr": "sum(rate(activity_apiserver_events_published_total[5m])) by (reason) or sum(rate(event_exporter_events_published_total[5m])) by (reason)",
                "legendFormat": "{{reason}}"
             }
          ],
@@ -591,7 +591,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "histogram_quantile(0.99, sum(rate(event_exporter_publish_latency_seconds_bucket[5m])) by (le))",
+               "expr": "histogram_quantile(0.99, sum(rate(activity_apiserver_events_publish_latency_seconds_bucket[5m])) by (le)) or histogram_quantile(0.99, sum(rate(event_exporter_publish_latency_seconds_bucket[5m])) by (le))",
                "legendFormat": "p99"
             },
             {
@@ -599,7 +599,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "histogram_quantile(0.95, sum(rate(event_exporter_publish_latency_seconds_bucket[5m])) by (le))",
+               "expr": "histogram_quantile(0.95, sum(rate(activity_apiserver_events_publish_latency_seconds_bucket[5m])) by (le)) or histogram_quantile(0.95, sum(rate(event_exporter_publish_latency_seconds_bucket[5m])) by (le))",
                "legendFormat": "p95"
             },
             {
@@ -607,7 +607,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "histogram_quantile(0.50, sum(rate(event_exporter_publish_latency_seconds_bucket[5m])) by (le))",
+               "expr": "histogram_quantile(0.50, sum(rate(activity_apiserver_events_publish_latency_seconds_bucket[5m])) by (le)) or histogram_quantile(0.50, sum(rate(event_exporter_publish_latency_seconds_bucket[5m])) by (le))",
                "legendFormat": "p50"
             }
          ],
@@ -668,7 +668,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(rate(event_exporter_events_published_total[5m])) or vector(0)",
+               "expr": "(sum(rate(activity_apiserver_events_published_total[5m])) or vector(0)) + (sum(rate(event_exporter_events_published_total[5m])) or vector(0))",
                "legendFormat": "1. Published to NATS"
             },
             {
@@ -741,7 +741,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(rate(event_exporter_events_published_total[5m])) or vector(0)",
+               "expr": "(sum(rate(activity_apiserver_events_published_total[5m])) or vector(0)) + (sum(rate(event_exporter_events_published_total[5m])) or vector(0))",
                "legendFormat": "Ingress (Published)"
             },
             {
@@ -956,7 +956,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(rate(event_exporter_publish_errors_total[5m])) or vector(0)",
+               "expr": "(sum(rate(activity_apiserver_events_publish_errors_total[5m])) or vector(0)) + (sum(rate(event_exporter_publish_errors_total[5m])) or vector(0))",
                "legendFormat": "Publish Errors"
             }
          ],
@@ -1018,7 +1018,7 @@
                         "type": "prometheus",
                         "uid": "$datasource"
                      },
-                     "expr": "sum(rate(event_exporter_publish_errors_total[5m])) or vector(0)",
+                     "expr": "(sum(rate(activity_apiserver_events_publish_errors_total[5m])) or vector(0)) + (sum(rate(event_exporter_publish_errors_total[5m])) or vector(0))",
                      "legendFormat": "Ingestion Errors"
                   },
                   {
