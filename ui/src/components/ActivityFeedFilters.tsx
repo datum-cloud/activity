@@ -344,7 +344,7 @@ export function ActivityFeedFilters({
             value={filters.search || ''}
             onChange={handleSearchChange}
             disabled={disabled}
-            className="h-10" style={{ paddingLeft: '2.5rem' }}
+            className="pl-10 h-10"
           />
         </div>
 
