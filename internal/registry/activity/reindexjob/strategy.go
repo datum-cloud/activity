@@ -14,6 +14,7 @@ import (
 	"k8s.io/apiserver/pkg/storage/names"
 	"sigs.k8s.io/structured-merge-diff/v6/fieldpath"
 
+	"go.miloapis.com/activity/internal/timeutil"
 	"go.miloapis.com/activity/pkg/apis/activity"
 )
 
@@ -55,6 +56,12 @@ func (s reindexJobStrategy) PrepareForCreate(ctx context.Context, obj runtime.Ob
 	job := obj.(*activity.ReindexJob)
 	// Clear status on creation - it will be set by the controller
 	job.Status = activity.ReindexJobStatus{}
+
+	// Default endTime to "now" if not specified
+	// This ensures the time range defaults to "up to job start time"
+	if job.Spec.TimeRange.EndTime == "" {
+		job.Spec.TimeRange.EndTime = "now"
+	}
 
 	// Set defaults for config if not provided
 	if job.Spec.Config == nil {
@@ -142,26 +149,55 @@ func ValidateReindexJob(job *activity.ReindexJob) field.ErrorList {
 func ValidateReindexJobSpec(spec *activity.ReindexJobSpec, specPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
+	// Use a single reference time for all time parsing to prevent sub-second drift
+	now := time.Now()
+
 	// Validate required fields
 	timeRangePath := specPath.Child("timeRange")
-	if spec.TimeRange.StartTime.IsZero() {
+	if spec.TimeRange.StartTime == "" {
 		allErrs = append(allErrs, field.Required(timeRangePath.Child("startTime"),
 			"startTime is required"))
 	}
 
-	// Validate time range logic
-	endTime := spec.TimeRange.EndTime
-	if endTime != nil {
-		if !spec.TimeRange.StartTime.Before(endTime) {
+	// Parse and validate startTime format
+	var startTime time.Time
+	if spec.TimeRange.StartTime != "" {
+		parsedStart, err := timeutil.ParseFlexibleTime(spec.TimeRange.StartTime, now)
+		if err != nil {
+			allErrs = append(allErrs, field.Invalid(timeRangePath.Child("startTime"),
+				spec.TimeRange.StartTime,
+				fmt.Sprintf("invalid time format: %v (use RFC3339 like '2026-02-01T00:00:00Z' or relative like 'now-7d')", err)))
+		} else {
+			startTime = parsedStart
+		}
+	}
+
+	// Parse and validate endTime format if specified
+	var endTime time.Time
+	endTimeSpecified := spec.TimeRange.EndTime != ""
+	if endTimeSpecified {
+		parsedEnd, err := timeutil.ParseFlexibleTime(spec.TimeRange.EndTime, now)
+		if err != nil {
+			allErrs = append(allErrs, field.Invalid(timeRangePath.Child("endTime"),
+				spec.TimeRange.EndTime,
+				fmt.Sprintf("invalid time format: %v (use RFC3339 like '2026-02-01T00:00:00Z' or relative like 'now')", err)))
+		} else {
+			endTime = parsedEnd
+		}
+	}
+
+	// Validate time range logic (only if both times parsed successfully)
+	if !startTime.IsZero() && endTimeSpecified && !endTime.IsZero() {
+		if !startTime.Before(endTime) {
 			allErrs = append(allErrs, field.Invalid(timeRangePath, spec.TimeRange,
 				"startTime must be before endTime"))
 		}
 	}
 
 	// Validate retention window (60 days)
-	if !spec.TimeRange.StartTime.IsZero() {
+	if !startTime.IsZero() {
 		retentionWindow := 60 * 24 * time.Hour
-		if time.Since(spec.TimeRange.StartTime.Time) > retentionWindow {
+		if time.Since(startTime) > retentionWindow {
 			allErrs = append(allErrs, field.Invalid(timeRangePath.Child("startTime"),
 				spec.TimeRange.StartTime,
 				"startTime exceeds ClickHouse retention window (60 days)"))
@@ -207,19 +243,28 @@ func ValidateReindexJobSpec(spec *activity.ReindexJobSpec, specPath *field.Path)
 func warningsForJob(job *activity.ReindexJob) []string {
 	var warnings []string
 
-	// Warn if time range is very large
-	if !job.Spec.TimeRange.StartTime.IsZero() {
-		rangeStart := job.Spec.TimeRange.StartTime.Time
-		rangeEnd := time.Now()
-		if job.Spec.TimeRange.EndTime != nil {
-			rangeEnd = job.Spec.TimeRange.EndTime.Time
-		}
+	// Use a consistent reference time for parsing
+	now := time.Now()
 
-		rangeDuration := rangeEnd.Sub(rangeStart)
-		if rangeDuration > 7*24*time.Hour {
-			warnings = append(warnings, fmt.Sprintf(
-				"time range is large (%s) - consider using smaller batches or running during off-hours",
-				rangeDuration.String()))
+	// Warn if time range is very large
+	if job.Spec.TimeRange.StartTime != "" {
+		rangeStart, err := timeutil.ParseFlexibleTime(job.Spec.TimeRange.StartTime, now)
+		if err == nil {
+			// Default endTime to "now" if not specified
+			endTimeStr := job.Spec.TimeRange.EndTime
+			if endTimeStr == "" {
+				endTimeStr = "now"
+			}
+
+			rangeEnd, err := timeutil.ParseFlexibleTime(endTimeStr, now)
+			if err == nil {
+				rangeDuration := rangeEnd.Sub(rangeStart)
+				if rangeDuration > 7*24*time.Hour {
+					warnings = append(warnings, fmt.Sprintf(
+						"time range is large (%s) - consider using smaller batches or running during off-hours",
+						rangeDuration.String()))
+				}
+			}
 		}
 	}
 

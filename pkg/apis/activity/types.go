@@ -68,15 +68,16 @@ type ReindexJob struct {
 
 // ReindexJobSpec defines the parameters for a re-indexing operation.
 type ReindexJobSpec struct {
-	TimeRange      ReindexTimeRange
-	PolicySelector *ReindexPolicySelector
-	Config         *ReindexConfig
+	TimeRange               ReindexTimeRange
+	PolicySelector          *ReindexPolicySelector
+	Config                  *ReindexConfig
+	TTLSecondsAfterFinished *int32
 }
 
 // ReindexTimeRange specifies the time window for re-indexing.
 type ReindexTimeRange struct {
-	StartTime metav1.Time
-	EndTime   *metav1.Time
+	StartTime string
+	EndTime   string
 }
 
 // ReindexPolicySelector specifies which policies to include in re-indexing.

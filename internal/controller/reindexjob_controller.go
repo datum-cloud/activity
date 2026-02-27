@@ -275,9 +275,12 @@ func (r *ReindexJobReconciler) startJob(ctx context.Context, job *v1alpha1.Reind
 	reindexJobsRunning.Inc()
 
 	// Emit Started event
+	endTimeDisplay := job.Spec.TimeRange.EndTime
+	if endTimeDisplay == "" {
+		endTimeDisplay = "now"
+	}
 	r.Recorder.Event(job, "Normal", "Started", fmt.Sprintf("Started re-indexing from %s to %s",
-		job.Spec.TimeRange.StartTime.Format(time.RFC3339),
-		formatEndTime(job.Spec.TimeRange.EndTime)))
+		job.Spec.TimeRange.StartTime, endTimeDisplay))
 
 	// Start worker goroutine with cancellable context for graceful shutdown
 	go r.runReindexWorker(r.workerCtx, job)
@@ -312,13 +315,7 @@ func (r *ReindexJobReconciler) SetupWithManager(mgr ctrl.Manager, maxConcurrentR
 }
 
 // Helper functions
-
-func formatEndTime(endTime *metav1.Time) string {
-	if endTime == nil {
-		return "now"
-	}
-	return endTime.Format(time.RFC3339)
-}
+// (removed formatEndTime - no longer needed with string-based time fields)
 
 // managerRunnable implements manager.Runnable to cancel worker context on shutdown.
 type managerRunnable struct {

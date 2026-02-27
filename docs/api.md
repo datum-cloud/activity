@@ -874,7 +874,8 @@ Example:
 	  name: fix-policy-bug-2026-02-27
 	spec:
 	  timeRange:
-	    startTime: "2026-02-25T00:00:00Z"
+	    startTime: "now-7d"       # last 7 days (or use absolute: "2026-02-25T00:00:00Z")
+	    endTime: "now"            # defaults to "now" if omitted
 	  policySelector:
 	    names: ["httpproxy-policy"]
 	EOF
@@ -1006,7 +1007,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `startTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#time-v1-meta)_ | StartTime is the beginning of the time range (inclusive).<br />Must be within the ClickHouse retention window (60 days). |  |  |
-| `endTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#time-v1-meta)_ | EndTime is the end of the time range (exclusive).<br />Defaults to the current time if omitted. |  |  |
+| `startTime` _string_ | StartTime is the beginning of the time range (inclusive).<br />Must be within the ClickHouse retention window (60 days).<br /><br />Format Options:<br />- Relative: "now-30d", "now-2h", "now-30m" (units: s, m, h, d, w)<br />  Use for recent time windows - they adjust automatically at job start.<br />- Absolute: "2026-02-01T00:00:00Z" (RFC3339 with timezone)<br />  Use for specific historical time periods.<br /><br />Examples:<br />  "now-7d"                      → 7 days before job starts<br />  "2026-02-25T00:00:00Z"        → specific time with UTC<br />  "2026-02-25T00:00:00-08:00"   → specific time with timezone offset<br /><br />Note: Relative times are resolved when the job STARTS processing,<br />not when the resource is created. This ensures consistent time ranges<br />even if the job is queued. |  |  |
+| `endTime` _string_ | EndTime is the end of the time range (exclusive).<br />Defaults to "now" (job start time) if omitted.<br /><br />Uses the same formats as StartTime.<br />Must be greater than StartTime.<br /><br />Examples:<br />  "now"                  → current time when job starts<br />  "2026-03-01T00:00:00Z" → specific end point<br />  "now-1h"               → 1 hour before job starts |  |  |
 
 

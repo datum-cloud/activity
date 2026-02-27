@@ -2554,7 +2554,7 @@ func schema_pkg_apis_activity_v1alpha1_ReindexJob(ref common.ReferenceCallback) 
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "ReindexJob triggers re-processing of historical audit logs and events through current ActivityPolicy rules. Use this to fix policy bugs retroactively, add coverage for new policies, or refine activity summaries after policy improvements.\n\nReindexJob is a one-shot resource: once completed or failed, it cannot be re-run. Create a new ReindexJob for subsequent re-indexing operations.\n\nKUBERNETES EVENT LIMITATION:\n\nWhen a Kubernetes Event is updated (e.g., count incremented from 1 to 5), it retains the same UID. Re-indexing will produce ONE activity per Event UID, reflecting the Event's final state. Historical activity occurrences from earlier Event states are lost.\n\nExample: Event \"pod-oom\" fires 5 times (count=5) → Re-indexing produces 1 activity (not 5)\n\nMitigation: Scope re-indexing to audit logs only via spec.policySelector to preserve activities from earlier Event occurrences.\n\nExample:\n\n\tkubectl apply -f - <<EOF\n\tapiVersion: activity.miloapis.com/v1alpha1\n\tkind: ReindexJob\n\tmetadata:\n\t  name: fix-policy-bug-2026-02-27\n\tspec:\n\t  timeRange:\n\t    startTime: \"2026-02-25T00:00:00Z\"\n\t  policySelector:\n\t    names: [\"httpproxy-policy\"]\n\tEOF\n\n\tkubectl get reindexjobs -w  # Watch progress",
+				Description: "ReindexJob triggers re-processing of historical audit logs and events through current ActivityPolicy rules. Use this to fix policy bugs retroactively, add coverage for new policies, or refine activity summaries after policy improvements.\n\nReindexJob is a one-shot resource: once completed or failed, it cannot be re-run. Create a new ReindexJob for subsequent re-indexing operations.\n\nKUBERNETES EVENT LIMITATION:\n\nWhen a Kubernetes Event is updated (e.g., count incremented from 1 to 5), it retains the same UID. Re-indexing will produce ONE activity per Event UID, reflecting the Event's final state. Historical activity occurrences from earlier Event states are lost.\n\nExample: Event \"pod-oom\" fires 5 times (count=5) → Re-indexing produces 1 activity (not 5)\n\nMitigation: Scope re-indexing to audit logs only via spec.policySelector to preserve activities from earlier Event occurrences.\n\nExample:\n\n\tkubectl apply -f - <<EOF\n\tapiVersion: activity.miloapis.com/v1alpha1\n\tkind: ReindexJob\n\tmetadata:\n\t  name: fix-policy-bug-2026-02-27\n\tspec:\n\t  timeRange:\n\t    startTime: \"now-7d\"       # last 7 days (or use absolute: \"2026-02-25T00:00:00Z\")\n\t    endTime: \"now\"            # defaults to \"now\" if omitted\n\t  policySelector:\n\t    names: [\"httpproxy-policy\"]\n\tEOF\n\n\tkubectl get reindexjobs -w  # Watch progress",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -2866,22 +2866,23 @@ func schema_pkg_apis_activity_v1alpha1_ReindexTimeRange(ref common.ReferenceCall
 				Properties: map[string]spec.Schema{
 					"startTime": {
 						SchemaProps: spec.SchemaProps{
-							Description: "StartTime is the beginning of the time range (inclusive). Must be within the ClickHouse retention window (60 days).",
-							Ref:         ref(metav1.Time{}.OpenAPIModelName()),
+							Description: "StartTime is the beginning of the time range (inclusive). Must be within the ClickHouse retention window (60 days).\n\nFormat Options: - Relative: \"now-30d\", \"now-2h\", \"now-30m\" (units: s, m, h, d, w)\n  Use for recent time windows - they adjust automatically at job start.\n- Absolute: \"2026-02-01T00:00:00Z\" (RFC3339 with timezone)\n  Use for specific historical time periods.\n\nExamples:\n  \"now-7d\"                      → 7 days before job starts\n  \"2026-02-25T00:00:00Z\"        → specific time with UTC\n  \"2026-02-25T00:00:00-08:00\"   → specific time with timezone offset\n\nNote: Relative times are resolved when the job STARTS processing, not when the resource is created. This ensures consistent time ranges even if the job is queued.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"endTime": {
 						SchemaProps: spec.SchemaProps{
-							Description: "EndTime is the end of the time range (exclusive). Defaults to the current time if omitted.",
-							Ref:         ref(metav1.Time{}.OpenAPIModelName()),
+							Description: "EndTime is the end of the time range (exclusive). Defaults to \"now\" (job start time) if omitted.\n\nUses the same formats as StartTime. Must be greater than StartTime.\n\nExamples:\n  \"now\"                  → current time when job starts\n  \"2026-03-01T00:00:00Z\" → specific end point\n  \"now-1h\"               → 1 hour before job starts",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
 				Required: []string{"startTime"},
 			},
 		},
-		Dependencies: []string{
-			metav1.Time{}.OpenAPIModelName()},
 	}
 }
 

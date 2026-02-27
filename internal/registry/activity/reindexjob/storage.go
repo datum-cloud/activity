@@ -76,10 +76,10 @@ func (c *reindexJobTableConvertor) ConvertToTable(ctx context.Context, object ru
 
 // reindexJobToTableRow converts a ReindexJob to a table row.
 func reindexJobToTableRow(job *activity.ReindexJob) metav1.TableRow {
-	// Format time range
-	timeRange := job.Spec.TimeRange.StartTime.Format("2006-01-02 15:04")
-	if job.Spec.TimeRange.EndTime != nil {
-		timeRange = fmt.Sprintf("%s to %s", timeRange, job.Spec.TimeRange.EndTime.Format("2006-01-02 15:04"))
+	// Format time range (now using string-based time fields)
+	timeRange := job.Spec.TimeRange.StartTime
+	if job.Spec.TimeRange.EndTime != "" {
+		timeRange = fmt.Sprintf("%s to %s", timeRange, job.Spec.TimeRange.EndTime)
 	} else {
 		timeRange = fmt.Sprintf("%s to now", timeRange)
 	}

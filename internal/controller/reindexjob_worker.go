@@ -11,13 +11,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"go.miloapis.com/activity/internal/reindex"
+	"go.miloapis.com/activity/internal/timeutil"
 	"go.miloapis.com/activity/pkg/apis/activity/v1alpha1"
 )
 
 // runReindexWorker is the background goroutine that processes a ReindexJob.
 // It runs in the background and updates the job status as it progresses.
 func (r *ReindexJobReconciler) runReindexWorker(ctx context.Context, job *v1alpha1.ReindexJob) {
-	startTime := time.Now()
+	jobStartedAt := time.Now()
 
 	// Always release the job slot when done
 	defer func() {
@@ -27,7 +28,7 @@ func (r *ReindexJobReconciler) runReindexWorker(ctx context.Context, job *v1alph
 		reindexJobsRunning.Dec()
 
 		// Record job duration
-		reindexJobDuration.Observe(time.Since(startTime).Seconds())
+		reindexJobDuration.Observe(time.Since(jobStartedAt).Seconds())
 	}()
 
 	logger := klog.LoggerWithValues(klog.Background(),
@@ -64,9 +65,75 @@ func (r *ReindexJobReconciler) runReindexWorker(ctx context.Context, job *v1alph
 	}
 
 	// Build reindex options from job spec
-	endTime := time.Now()
-	if job.Spec.TimeRange.EndTime != nil {
-		endTime = job.Spec.TimeRange.EndTime.Time
+	// Parse effective timestamps using a single reference time for consistency.
+	// This ensures relative times like "now-7d" and "now" are resolved at job start,
+	// preventing sub-second drift between startTime and endTime calculations.
+	now := time.Now()
+
+	startTime, err := timeutil.ParseFlexibleTime(job.Spec.TimeRange.StartTime, now)
+	if err != nil {
+		// Update job with failure status
+		var failJob v1alpha1.ReindexJob
+		if getErr := r.Get(ctx, client.ObjectKeyFromObject(job), &failJob); getErr != nil {
+			logger.Error(getErr, "failed to fetch ReindexJob for error status update")
+			return
+		}
+
+		failJob.Status.Phase = v1alpha1.ReindexJobFailed
+		failJob.Status.Message = fmt.Sprintf("Invalid startTime: %v", err)
+		nowTime := metav1.Now()
+		failJob.Status.CompletedAt = &nowTime
+
+		meta.SetStatusCondition(&failJob.Status.Conditions, metav1.Condition{
+			Type:               "Ready",
+			Status:             metav1.ConditionFalse,
+			Reason:             "InvalidStartTime",
+			Message:            err.Error(),
+			ObservedGeneration: failJob.Generation,
+		})
+
+		if statusErr := r.Status().Update(ctx, &failJob); statusErr != nil {
+			logger.Error(statusErr, "failed to update ReindexJob status after startTime parse error")
+		}
+		r.Recorder.Event(&failJob, "Warning", "InvalidStartTime", err.Error())
+		reindexJobsCompletedTotal.WithLabelValues("failed").Inc()
+		return
+	}
+
+	// Default endTime to "now" if not specified
+	endTimeStr := job.Spec.TimeRange.EndTime
+	if endTimeStr == "" {
+		endTimeStr = "now"
+	}
+
+	endTime, err := timeutil.ParseFlexibleTime(endTimeStr, now)
+	if err != nil {
+		// Update job with failure status
+		var failJob v1alpha1.ReindexJob
+		if getErr := r.Get(ctx, client.ObjectKeyFromObject(job), &failJob); getErr != nil {
+			logger.Error(getErr, "failed to fetch ReindexJob for error status update")
+			return
+		}
+
+		failJob.Status.Phase = v1alpha1.ReindexJobFailed
+		failJob.Status.Message = fmt.Sprintf("Invalid endTime: %v", err)
+		nowTime := metav1.Now()
+		failJob.Status.CompletedAt = &nowTime
+
+		meta.SetStatusCondition(&failJob.Status.Conditions, metav1.Condition{
+			Type:               "Ready",
+			Status:             metav1.ConditionFalse,
+			Reason:             "InvalidEndTime",
+			Message:            err.Error(),
+			ObservedGeneration: failJob.Generation,
+		})
+
+		if statusErr := r.Status().Update(ctx, &failJob); statusErr != nil {
+			logger.Error(statusErr, "failed to update ReindexJob status after endTime parse error")
+		}
+		r.Recorder.Event(&failJob, "Warning", "InvalidEndTime", err.Error())
+		reindexJobsCompletedTotal.WithLabelValues("failed").Inc()
+		return
 	}
 
 	batchSize := int32(1000)
@@ -96,7 +163,7 @@ func (r *ReindexJobReconciler) runReindexWorker(ctx context.Context, job *v1alph
 	}
 
 	opts := reindex.Options{
-		StartTime:   job.Spec.TimeRange.StartTime.Time,
+		StartTime:   startTime,
 		EndTime:     endTime,
 		BatchSize:   batchSize,
 		RateLimit:   rateLimit,
@@ -125,8 +192,8 @@ func (r *ReindexJobReconciler) runReindexWorker(ctx context.Context, job *v1alph
 		return
 	}
 
-	now := metav1.Now()
-	finalJob.Status.CompletedAt = &now
+	completedAt := metav1.Now()
+	finalJob.Status.CompletedAt = &completedAt
 
 	if runErr != nil {
 		// Job failed
@@ -169,7 +236,7 @@ func (r *ReindexJobReconciler) runReindexWorker(ctx context.Context, job *v1alph
 
 		logger.Info("ReindexJob completed successfully",
 			"activitiesGenerated", activitiesGenerated,
-			"duration", time.Since(startTime),
+			"duration", time.Since(jobStartedAt),
 		)
 		r.Recorder.Event(&finalJob, "Normal", "Completed", finalJob.Status.Message)
 		reindexJobsCompletedTotal.WithLabelValues("succeeded").Inc()

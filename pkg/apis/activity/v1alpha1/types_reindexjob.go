@@ -37,7 +37,8 @@ import (
 //	  name: fix-policy-bug-2026-02-27
 //	spec:
 //	  timeRange:
-//	    startTime: "2026-02-25T00:00:00Z"
+//	    startTime: "now-7d"       # last 7 days (or use absolute: "2026-02-25T00:00:00Z")
+//	    endTime: "now"            # defaults to "now" if omitted
 //	  policySelector:
 //	    names: ["httpproxy-policy"]
 //	EOF
@@ -89,14 +90,37 @@ type ReindexTimeRange struct {
 	// StartTime is the beginning of the time range (inclusive).
 	// Must be within the ClickHouse retention window (60 days).
 	//
+	// Format Options:
+	// - Relative: "now-30d", "now-2h", "now-30m" (units: s, m, h, d, w)
+	//   Use for recent time windows - they adjust automatically at job start.
+	// - Absolute: "2026-02-01T00:00:00Z" (RFC3339 with timezone)
+	//   Use for specific historical time periods.
+	//
+	// Examples:
+	//   "now-7d"                      → 7 days before job starts
+	//   "2026-02-25T00:00:00Z"        → specific time with UTC
+	//   "2026-02-25T00:00:00-08:00"   → specific time with timezone offset
+	//
+	// Note: Relative times are resolved when the job STARTS processing,
+	// not when the resource is created. This ensures consistent time ranges
+	// even if the job is queued.
+	//
 	// +required
-	StartTime metav1.Time `json:"startTime"`
+	StartTime string `json:"startTime"`
 
 	// EndTime is the end of the time range (exclusive).
-	// Defaults to the current time if omitted.
+	// Defaults to "now" (job start time) if omitted.
+	//
+	// Uses the same formats as StartTime.
+	// Must be greater than StartTime.
+	//
+	// Examples:
+	//   "now"                  → current time when job starts
+	//   "2026-03-01T00:00:00Z" → specific end point
+	//   "now-1h"               → 1 hour before job starts
 	//
 	// +optional
-	EndTime *metav1.Time `json:"endTime,omitempty"`
+	EndTime string `json:"endTime,omitempty"`
 }
 
 // ReindexPolicySelector specifies which policies to include in re-indexing.
