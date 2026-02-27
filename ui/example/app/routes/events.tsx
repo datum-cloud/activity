@@ -6,7 +6,6 @@ import {
 } from "@miloapis/activity-ui";
 import { EventDetailModal } from "~/components/EventDetailModal";
 import { AppLayout } from "~/components/AppLayout";
-import { NavigationToolbar } from "~/components/NavigationToolbar";
 
 /**
  * Events page - displays Kubernetes events with filtering and real-time updates.
@@ -45,8 +44,6 @@ export default function EventsPage() {
 
   return (
     <AppLayout>
-      <NavigationToolbar />
-
       {client && (
         <EventsFeed
           client={client}

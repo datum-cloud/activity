@@ -15,8 +15,8 @@ const TABS: TabConfig[] = [
 ];
 
 /**
- * Navigation toolbar with tabs.
- * Replaces custom CSS classes: .toolbar, .tabs, .tab, .tab.active
+ * Compact navigation toolbar with tabs.
+ * Optimized for minimal vertical space while maintaining usability.
  */
 export function NavigationToolbar() {
   const location = useLocation();
@@ -29,22 +29,22 @@ export function NavigationToolbar() {
   };
 
   return (
-    <div className="flex justify-between items-center mb-6 pb-4 border-b">
-      <div className="flex gap-2">
+    <nav className="flex items-center mb-4 pb-2 border-b border-border/60">
+      <div className="flex gap-1">
         {TABS.map((tab) => (
           <Link
             key={tab.path}
             to={tab.path}
-            className={`px-5 py-3 rounded-lg text-sm font-medium border transition-all no-underline ${
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-all no-underline ${
               isActive(tab)
-                ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                : "bg-muted text-muted-foreground border-border hover:bg-muted/80 hover:border-muted-foreground/30"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
             }`}
           >
             {tab.label}
           </Link>
         ))}
       </div>
-    </div>
+    </nav>
   );
 }

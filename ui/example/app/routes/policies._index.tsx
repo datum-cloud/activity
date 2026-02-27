@@ -6,7 +6,7 @@ interface OutletContext {
 }
 
 /**
- * Policy list view - displays all policies with edit/delete actions.
+ * Policy list view - displays all policies with view/edit actions.
  */
 export default function PoliciesIndex() {
   const { client } = useOutletContext<OutletContext>();
@@ -16,14 +16,14 @@ export default function PoliciesIndex() {
     navigate("/policies/new");
   };
 
-  const handleEditPolicy = (policyName: string) => {
-    navigate(`/policies/${encodeURIComponent(policyName)}/edit`);
+  const handleViewPolicy = (policyName: string) => {
+    navigate(`/policies/${encodeURIComponent(policyName)}`);
   };
 
   return (
     <PolicyList
       client={client}
-      onEditPolicy={handleEditPolicy}
+      onViewPolicy={handleViewPolicy}
       onCreatePolicy={handleCreatePolicy}
     />
   );

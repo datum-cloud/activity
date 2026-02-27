@@ -1,12 +1,12 @@
 import { useNavigate, useOutletContext } from "@remix-run/react";
-import { PolicyEditor, type ActivityApiClient, type ResourceRef } from "@miloapis/activity-ui";
+import { PolicyEditView, type ActivityApiClient, type ResourceRef } from "@miloapis/activity-ui";
 
 interface OutletContext {
   client: ActivityApiClient;
 }
 
 /**
- * Create new policy view.
+ * Create new policy view - shows Editor and Preview tabs.
  */
 export default function PoliciesNew() {
   const { client } = useOutletContext<OutletContext>();
@@ -14,7 +14,8 @@ export default function PoliciesNew() {
 
   const handleSaveSuccess = (policyName: string) => {
     console.log("Policy created:", policyName);
-    navigate("/policies");
+    // Navigate to detail view after successful creation
+    navigate(`/policies/${encodeURIComponent(policyName)}`);
   };
 
   const handleCancel = () => {
@@ -28,7 +29,7 @@ export default function PoliciesNew() {
   };
 
   return (
-    <PolicyEditor
+    <PolicyEditView
       client={client}
       onSaveSuccess={handleSaveSuccess}
       onCancel={handleCancel}

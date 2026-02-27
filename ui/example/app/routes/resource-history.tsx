@@ -19,7 +19,6 @@ import {
   type ActivityFeedFilterState,
 } from "@miloapis/activity-ui";
 import { AppLayout } from "~/components/AppLayout";
-import { NavigationToolbar } from "~/components/NavigationToolbar";
 import { EventDetailModal } from "~/components/EventDetailModal";
 
 /**
@@ -212,8 +211,6 @@ export default function ResourceHistoryPage() {
 
   return (
     <AppLayout>
-      <NavigationToolbar />
-
       {!submittedFilter ? (
         <Card className="max-w-2xl mx-auto">
           <CardHeader>

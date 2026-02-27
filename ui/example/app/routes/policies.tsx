@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { Outlet } from "@remix-run/react";
 import { ActivityApiClient } from "@miloapis/activity-ui";
 import { AppLayout } from "~/components/AppLayout";
-import { NavigationToolbar } from "~/components/NavigationToolbar";
 
 /**
  * Policy Management layout - provides shared header/footer and API client context.
@@ -32,8 +31,6 @@ export default function PoliciesLayout() {
 
   return (
     <AppLayout>
-      <NavigationToolbar />
-
       <div>{client && <Outlet context={{ client }} />}</div>
     </AppLayout>
   );

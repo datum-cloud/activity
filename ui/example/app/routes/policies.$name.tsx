@@ -1,28 +1,31 @@
+import { useCallback } from "react";
 import { useNavigate, useOutletContext, useParams } from "@remix-run/react";
-import { PolicyEditor, type ActivityApiClient, type ResourceRef } from "@miloapis/activity-ui";
+import { PolicyDetailView, type ActivityApiClient, type ResourceRef } from "@miloapis/activity-ui";
 
 interface OutletContext {
   client: ActivityApiClient;
 }
 
 /**
- * Edit existing policy view.
+ * Policy detail view - displays read-only policy information with Activity/Events tabs.
  */
-export default function PoliciesEdit() {
+export default function PolicyDetail() {
   const { client } = useOutletContext<OutletContext>();
   const { name } = useParams();
   const navigate = useNavigate();
 
   const policyName = name ? decodeURIComponent(name) : undefined;
 
-  const handleSaveSuccess = (savedPolicyName: string) => {
-    console.log("Policy updated:", savedPolicyName);
-    navigate("/policies");
-  };
-
-  const handleCancel = () => {
-    navigate("/policies");
-  };
+  const handleEdit = useCallback(() => {
+    console.log('handleEdit called, policyName:', policyName);
+    if (policyName) {
+      const targetPath = `/policies/${encodeURIComponent(policyName)}/edit`;
+      console.log('Navigating to:', targetPath);
+      navigate(targetPath);
+    } else {
+      console.error('No policyName available for edit navigation');
+    }
+  }, [policyName, navigate]);
 
   const handleResourceClick = (resource: ResourceRef) => {
     alert(
@@ -35,11 +38,10 @@ export default function PoliciesEdit() {
   }
 
   return (
-    <PolicyEditor
+    <PolicyDetailView
       client={client}
       policyName={policyName}
-      onSaveSuccess={handleSaveSuccess}
-      onCancel={handleCancel}
+      onEdit={handleEdit}
       onResourceClick={handleResourceClick}
     />
   );

@@ -6,7 +6,6 @@ import {
 } from "@miloapis/activity-ui";
 import { EventDetailModal } from "~/components/EventDetailModal";
 import { AppLayout } from "~/components/AppLayout";
-import { NavigationToolbar } from "~/components/NavigationToolbar";
 
 /**
  * Audit Logs page - displays detailed audit event query interface.
@@ -45,8 +44,6 @@ export default function AuditLogsPage() {
 
   return (
     <AppLayout>
-      <NavigationToolbar />
-
       {client && (
         <AuditLogQueryComponent
           client={client}
