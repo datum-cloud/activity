@@ -13,8 +13,8 @@
       name: '$datasource',
 
       // Regex filter for datasource selection dropdown
-      // Only show datasources matching this pattern
-      regex: 'Service Metrics',
+      // Empty string disables filtering (shows all Prometheus datasources)
+      regex: '',
 
       // Datasource type
       type: 'prometheus',
@@ -38,6 +38,12 @@
   jobs: {
     // Activity API server
     apiserver: 'activity-apiserver',
+
+    // Activity processor (event pipeline)
+    processor: 'activity-processor',
+
+    // Activity controller manager
+    controllerManager: 'activity-controller-manager',
 
     // ClickHouse database
     clickhouse: 'clickhouse-activity-clickhouse',
