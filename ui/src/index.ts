@@ -15,7 +15,7 @@ export type { AuditLogFiltersProps, AuditLogFilterState } from './components/Aud
 export { ActionToggle } from './components/ActionToggle';
 export type { ActionToggleProps, ActionOption } from './components/ActionToggle';
 export { ActionMultiSelect } from './components/ActionMultiSelect';
-export type { ActionMultiSelectProps } from './components/ActionMultiSelect';
+export type { ActionMultiSelectProps, ActionMultiSelectOption } from './components/ActionMultiSelect';
 export { UserSelect } from './components/UserSelect';
 export type { UserSelectProps, UserOption } from './components/UserSelect';
 
