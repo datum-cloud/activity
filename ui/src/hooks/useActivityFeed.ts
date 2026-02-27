@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { Activity, ActivityListParams, ActivityQuerySpec, ChangeSource, WatchEvent, EffectiveTimeRange } from '../types/activity';
 import { ActivityApiClient } from '../api/client';
+import { StreamError } from '../lib/errors';
 
 // Debounce delay for filter changes (ms)
 const FILTER_DEBOUNCE_MS = 300;
@@ -71,6 +72,8 @@ export interface UseActivityFeedResult {
   isLoading: boolean;
   /** Error if any occurred */
   error: Error | null;
+  /** Watch stream error if any occurred */
+  watchError: Error | null;
   /** Whether there are more activities to load */
   hasMore: boolean;
   /** Current filter settings */
@@ -181,6 +184,7 @@ export function useActivityFeed({
   const [activities, setActivities] = useState<Activity[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const [watchError, setWatchError] = useState<Error | null>(null);
   const [continueCursor, setContinueCursor] = useState<string | undefined>();
   const [filters, setFilters] = useState<ActivityFeedFilters>(initialFilters);
   const [timeRange, setTimeRange] = useState<TimeRange>(initialTimeRange);
@@ -375,13 +379,18 @@ export function useActivityFeed({
       return;
     }
 
+    // Clear any previous watch error when starting a new stream
+    setWatchError(null);
+
     const params = buildWatchParams();
     const { stop } = client.watchActivities(params, {
       resourceVersion: resourceVersionRef.current,
       onEvent: handleWatchEvent,
       onError: (err) => {
         console.error('Watch stream error:', err);
-        setError(err);
+        // Wrap the error in a StreamError for user-friendly messaging
+        const streamError = new StreamError(err.message, err);
+        setWatchError(streamError);
         setIsStreaming(false);
         watchStopRef.current = null;
       },
@@ -581,6 +590,7 @@ export function useActivityFeed({
     stopStreaming();
     setActivities([]);
     setError(null);
+    setWatchError(null);
     setContinueCursor(undefined);
     setFilters(initialFilters);
     setTimeRange(initialTimeRange);
@@ -653,6 +663,7 @@ export function useActivityFeed({
     activities,
     isLoading,
     error,
+    watchError,
     hasMore,
     filters,
     timeRange,

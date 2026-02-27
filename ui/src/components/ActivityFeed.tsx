@@ -94,6 +94,7 @@ export function ActivityFeed({
     activities,
     isLoading,
     error,
+    watchError,
     hasMore,
     filters,
     timeRange,
@@ -230,7 +231,7 @@ export function ActivityFeed({
       {enableStreaming && (
         <div className="flex items-center justify-between mb-1 pb-0.5 border-b border-border">
           <div className="flex items-center gap-2">
-            {isStreaming && (
+            {isStreaming && !watchError && (
               <TooltipProvider delayDuration={300}>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -248,7 +249,24 @@ export function ActivityFeed({
                 </Tooltip>
               </TooltipProvider>
             )}
-            {newActivitiesCount > 0 && (
+            {watchError && (
+              <TooltipProvider delayDuration={300}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-2">
+                      <span className="relative flex h-2 w-2">
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500 dark:bg-red-400"></span>
+                      </span>
+                      <span className="text-xs text-destructive">Connection error</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent className="text-xs">
+                    <p>Stream connection lost</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            {newActivitiesCount > 0 && !watchError && (
               <Badge variant="secondary" className="text-xs">
                 +{newActivitiesCount} new
               </Badge>
@@ -260,7 +278,15 @@ export function ActivityFeed({
             onClick={handleStreamingToggle}
             className="text-xs"
           >
-            {isStreaming ? (
+            {watchError ? (
+              <>
+                <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                  <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+                Retry
+              </>
+            ) : isStreaming ? (
               <>
                 <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <rect x="6" y="4" width="4" height="16" />
@@ -293,8 +319,11 @@ export function ActivityFeed({
         />
       )}
 
-      {/* Error Display */}
+      {/* Query Error Display */}
       <ApiErrorAlert error={error} onRetry={refresh} className="mb-4" errorFormatter={errorFormatter} />
+
+      {/* Watch Stream Error Display */}
+      <ApiErrorAlert error={watchError} onRetry={startStreaming} className="mb-4" errorFormatter={errorFormatter} />
 
       {/* No Policies Empty State */}
       {!policiesLoading && hasPolicies === false && (

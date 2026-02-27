@@ -919,16 +919,12 @@ export class ActivityApiClient {
    */
   private async parseJson<T>(response: Response): Promise<T> {
     const json = await response.json();
-    console.log('[ActivityApiClient] parseJson - raw JSON:', json);
-    console.log('[ActivityApiClient] Has transformer?', !!this.config.responseTransformer);
 
     if (this.config.responseTransformer) {
       const transformed = this.config.responseTransformer(json);
-      console.log('[ActivityApiClient] parseJson - transformed:', transformed);
       return transformed as T;
     }
 
-    console.log('[ActivityApiClient] parseJson - no transformer, returning as-is');
     return json as T;
   }
 }

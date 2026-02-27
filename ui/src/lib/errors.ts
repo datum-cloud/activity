@@ -129,6 +129,32 @@ export function parseApiError(status: number, body: string): ApiError {
 }
 
 /**
+ * Represents a watch stream error (connection lost, stream closed, etc.)
+ */
+export class StreamError extends Error {
+  constructor(message?: string, public cause?: Error) {
+    super(message || 'Stream error');
+    this.name = 'StreamError';
+  }
+
+  get friendlyTitle(): string {
+    return 'Connection lost 📡';
+  }
+
+  get friendlyMessage(): string {
+    return "Lost connection to the activity stream. No worries — hit Retry to reconnect.";
+  }
+
+  get suggestion(): string | null {
+    return null;
+  }
+
+  get severity(): 'warning' | 'error' {
+    return 'warning';
+  }
+}
+
+/**
  * Default error formatter that uses the friendly error properties if available,
  * otherwise falls back to the error message.
  */
