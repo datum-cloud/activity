@@ -161,9 +161,9 @@ export function AuditLogFeedItem({
 
             {/* Response status */}
             <span className={cn('inline-flex items-center gap-0.5 text-xs shrink-0', statusIndicator.className)}>
-              <span className="font-semibold text-sm leading-none">{statusIndicator.icon}</span>
+              <span className="font-bold text-sm leading-none">{statusIndicator.icon}</span>
               {event.responseStatus?.code && (
-                <span className="text-xs">{event.responseStatus.code}</span>
+                <span className="leading-tight">{event.responseStatus.code}</span>
               )}
             </span>
 
