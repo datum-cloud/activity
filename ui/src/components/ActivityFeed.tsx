@@ -56,6 +56,13 @@ export interface ActivityFeedProps {
   onEffectiveTimeRangeChange?: EffectiveTimeRangeCallback;
   /** Custom error formatter for customizing error messages */
   errorFormatter?: ErrorFormatter;
+  /**
+   * Maximum height for the scroll container (CSS value like '500px' or 'calc(100vh - 300px)').
+   * By default, the component uses flex layout (flex-1 min-h-0) which adapts to parent container constraints.
+   * Only set this if your parent container doesn't have proper height constraints.
+   * Set to 'none' to explicitly disable any max-height constraint.
+   */
+  maxHeight?: string;
 }
 
 /**
@@ -83,6 +90,7 @@ export function ActivityFeed({
   enableStreaming = false,
   onEffectiveTimeRangeChange,
   errorFormatter,
+  maxHeight,
 }: ActivityFeedProps) {
   // Merge resourceUid into initial filters if provided
   const mergedInitialFilters: FilterState = {
@@ -215,15 +223,15 @@ export function ActivityFeed({
     });
   }, [filters, setFilters]);
 
-  // Build container classes
+  // Build container classes - use flex layout to properly fill available space
   const containerClasses = compact
-    ? `p-2 shadow-none border-border ${className}`
-    : `p-3 ${className}`;
+    ? `flex flex-col p-2 shadow-none border-border ${className}`
+    : `flex flex-col p-3 ${className}`;
 
-  // Build list classes
-  const listClasses = compact
-    ? 'max-h-[calc(100vh-300px)] overflow-y-auto pr-2'
-    : 'max-h-[calc(100vh-200px)] overflow-y-auto pr-2';
+  // Build list classes - use flex-1 min-h-0 to take remaining space and enable scrolling
+  // min-h-0 is critical: flex items default to min-height:auto which prevents shrinking
+  const effectiveMaxHeight = maxHeight === 'none' ? undefined : maxHeight;
+  const listClasses = 'flex-1 min-h-0 overflow-y-auto pr-2';
 
   return (
     <Card className={containerClasses}>
@@ -350,7 +358,7 @@ export function ActivityFeed({
       )}
 
       {/* Activity List */}
-      <div className={listClasses} ref={scrollContainerRef}>
+      <div className={listClasses} ref={scrollContainerRef} style={{ maxHeight: effectiveMaxHeight }}>
         {/* Skeleton Loading State - show when loading and no items yet */}
         {isLoading && activities.length === 0 && (
           <>

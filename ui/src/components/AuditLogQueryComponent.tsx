@@ -194,7 +194,7 @@ export function AuditLogQueryComponent({
       <ApiErrorAlert error={error} onRetry={refresh} className="mb-4" errorFormatter={errorFormatter} />
 
       {/* Event List with Infinite Scroll */}
-      <div className="max-h-[calc(100vh-200px)] overflow-y-auto pr-2" ref={scrollContainerRef}>
+      <div className="flex-1 min-h-0 overflow-y-auto pr-2" ref={scrollContainerRef}>
         {/* Loading State (initial load) */}
         {isLoading && events.length === 0 && (
           <div className="flex items-center justify-center gap-3 py-8 text-muted-foreground text-sm">

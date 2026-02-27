@@ -179,15 +179,13 @@ export function EventsFeed({
     }
   }, [isStreaming, startStreaming, stopStreaming]);
 
-  // Build container classes
+  // Build container classes - use flex layout to properly fill available space
   const containerClasses = compact
-    ? `p-2 shadow-none border-border ${className}`
-    : `p-3 ${className}`;
+    ? `flex flex-col p-2 shadow-none border-border ${className}`
+    : `flex flex-col p-3 ${className}`;
 
-  // Build list classes
-  const listClasses = compact
-    ? 'max-h-[calc(100vh-300px)] overflow-y-auto pr-2'
-    : 'max-h-[calc(100vh-200px)] overflow-y-auto pr-2';
+  // Build list classes - use flex-1 min-h-0 to take remaining space and enable scrolling
+  const listClasses = 'flex-1 min-h-0 overflow-y-auto pr-2';
 
   return (
     <Card className={containerClasses}>
