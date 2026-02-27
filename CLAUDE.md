@@ -18,7 +18,7 @@ When working on this codebase, automatically use specialized agents based on the
 |-----------|-------|-------------|
 | UI/Frontend | `datum-platform:frontend-dev` | React, TypeScript, CSS, anything in `ui/` directory |
 | Go Backend | `datum-platform:api-dev` | Go code in `cmd/`, `internal/`, `pkg/` directories |
-| Infrastructure | `datum-platform:sre` | Kustomize, Dockerfile, CI/CD, `config/` directory |
+| Infrastructure | `datum-platform:sre` | Kustomize, Dockerfile, CI/CD, `config/` directory, `.infra/` for deployment |
 | Tests | `datum-platform:test-engineer` | Writing or fixing Go tests |
 | Code Review | `datum-platform:code-reviewer` | After implementation, before committing |
 | Documentation | `datum-platform:tech-writer` | README, docs/, guides, API documentation |
@@ -159,6 +159,34 @@ task ui:example:dev                      # Run example app in dev mode
 - `pkg/mcp/` - MCP (Model Context Protocol) server implementation
 - `config/` - Kustomize deployment manifests
 - `migrations/` - ClickHouse schema migrations
+- `.infra/` - Cloned infra repo for deployment configuration (see Infrastructure Management below)
+
+### Infrastructure Management
+
+The `.infra/` directory contains a clone of the `datum-cloud/infra` repository. **Always use this folder for managing Activity's deployment infrastructure**, including:
+
+- Flux Kustomizations
+- Environment-specific patches (staging/production)
+- Secret configurations
+- Dependencies and deployment ordering
+
+**Key paths in `.infra/`:**
+
+| Path | Purpose |
+|------|---------|
+| `.infra/apps/activity-system/base/` | Base Flux Kustomizations for all Activity components |
+| `.infra/apps/activity-system/overlays/staging/` | Staging-specific patches and resources |
+| `.infra/apps/activity-system/overlays/production/` | Production-specific patches |
+| `.infra/clusters/staging/apps/activity-system.yaml` | Staging cluster entry point |
+| `.infra/clusters/production/apps/activity-system.yaml` | Production cluster entry point |
+
+**Workflow for infrastructure changes:**
+
+1. Make changes in `.infra/apps/activity-system/`
+2. Commit and push to `datum-cloud/infra` repo (not this repo)
+3. FluxCD will reconcile changes to the cluster
+
+**Important:** The `.infra/` folder is gitignored from this repo. Changes must be committed to the infra repo separately.
 
 ## Development Environment <!-- reference -->
 
