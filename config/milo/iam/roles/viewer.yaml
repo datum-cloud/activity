@@ -1,0 +1,17 @@
+apiVersion: iam.miloapis.com/v1alpha1
+kind: Role
+metadata:
+  name: activity.miloapis.com-viewer
+  namespace: milo-system
+  labels:
+    app.kubernetes.io/name: viewer
+    app.kubernetes.io/part-of: activity.miloapis.com
+spec:
+  launchStage: Beta
+  inheritedRoles:
+    - name: activity.miloapis.com-activity-viewer
+      namespace: milo-system
+    - name: activity.miloapis.com-event-viewer
+      namespace: milo-system
+    - name: activity.miloapis.com-audit-log-querier
+      namespace: milo-system

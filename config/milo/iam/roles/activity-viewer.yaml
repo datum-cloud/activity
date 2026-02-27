@@ -1,0 +1,17 @@
+apiVersion: iam.miloapis.com/v1alpha1
+kind: Role
+metadata:
+  name: activity.miloapis.com-activity-viewer
+  namespace: milo-system
+  labels:
+    app.kubernetes.io/name: activity-viewer
+    app.kubernetes.io/part-of: activity.miloapis.com
+spec:
+  launchStage: Beta
+  includedPermissions:
+    # Activity feed - list and watch for real-time streaming
+    - activity.miloapis.com/activities.list
+    - activity.miloapis.com/activities.watch
+    # Activity queries - search historical activities
+    - activity.miloapis.com/activityqueries.create
+    - activity.miloapis.com/activityfacetqueries.create

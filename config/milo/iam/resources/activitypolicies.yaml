@@ -1,0 +1,18 @@
+apiVersion: iam.miloapis.com/v1alpha1
+kind: ProtectedResource
+metadata:
+  name: activity.miloapis.com-activitypolicies
+spec:
+  serviceRef:
+    name: "activity.miloapis.com"
+  kind: ActivityPolicy
+  plural: activitypolicies
+  singular: activitypolicies
+  permissions:
+    - create
+    - list
+    - get
+    - update
+    - patch
+    - delete
+    - watch

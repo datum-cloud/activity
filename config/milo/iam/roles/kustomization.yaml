@@ -3,3 +3,7 @@ kind: Component
 
 resources:
   - audit-log-querier.yaml
+  - activity-viewer.yaml
+  - event-viewer.yaml
+  - policy-manager.yaml
+  - viewer.yaml
