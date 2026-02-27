@@ -89,7 +89,7 @@ export function TimeRangeDropdown({
           type="button"
           disabled={disabled}
           className={cn(
-            'flex h-10 items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background',
+            'flex h-8 items-center gap-2 rounded-md border border-input bg-background px-2 py-1 text-xs ring-offset-background',
             'hover:bg-accent hover:text-accent-foreground',
             'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
             'disabled:cursor-not-allowed disabled:opacity-50',

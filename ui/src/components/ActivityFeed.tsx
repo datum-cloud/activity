@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
-import type { Activity, ResourceRef, ResourceLinkResolver, TenantLinkResolver, EffectiveTimeRangeCallback } from '../types/activity';
+import type { Activity, ResourceRef, ResourceLinkResolver, TenantLinkResolver, TenantRenderer, EffectiveTimeRangeCallback } from '../types/activity';
 import type {
   ActivityFeedFilters as FilterState,
   TimeRange,
@@ -28,6 +28,8 @@ export interface ActivityFeedProps {
   resourceLinkResolver?: ResourceLinkResolver;
   /** Function that resolves tenant references to URLs */
   tenantLinkResolver?: TenantLinkResolver;
+  /** Custom renderer for tenant badges (overrides default TenantBadge) */
+  tenantRenderer?: TenantRenderer;
   /** Handler called when an activity is clicked */
   onActivityClick?: (activity: Activity) => void;
   /** Whether to show in compact mode (for resource detail tabs) */
@@ -62,6 +64,7 @@ export function ActivityFeed({
   onResourceClick,
   resourceLinkResolver,
   tenantLinkResolver,
+  tenantRenderer,
   onActivityClick,
   compact = false,
   resourceUid,
@@ -318,6 +321,7 @@ export function ActivityFeed({
             onResourceClick={onResourceClick}
             resourceLinkResolver={resourceLinkResolver}
             tenantLinkResolver={tenantLinkResolver}
+            tenantRenderer={tenantRenderer}
             onActorClick={handleActorClick}
             onActivityClick={onActivityClick}
             compact={compact}

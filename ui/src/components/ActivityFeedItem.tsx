@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { format, formatDistanceToNow } from 'date-fns';
-import type { Activity, ResourceLinkResolver, TenantLinkResolver } from '../types/activity';
+import type { Activity, ResourceLinkResolver, TenantLinkResolver, TenantRenderer } from '../types/activity';
 import { ActivityFeedSummary, ResourceLinkClickHandler } from './ActivityFeedSummary';
 import { ActivityExpandedDetails } from './ActivityExpandedDetails';
 import { TenantBadge } from './TenantBadge';
@@ -17,6 +17,8 @@ export interface ActivityFeedItemProps {
   resourceLinkResolver?: ResourceLinkResolver;
   /** Function that resolves tenant references to URLs */
   tenantLinkResolver?: TenantLinkResolver;
+  /** Custom renderer for tenant badges (overrides default TenantBadge) */
+  tenantRenderer?: TenantRenderer;
   /** Handler called when the actor name or avatar is clicked */
   onActorClick?: (actorName: string) => void;
   /** Handler called when the item is clicked */
@@ -80,7 +82,7 @@ function getActorInitials(name: string): string {
 function getActorAvatarClasses(actorType: string, compact: boolean): string {
   const baseClasses = cn(
     'rounded-full flex items-center justify-center shrink-0 font-semibold',
-    compact ? 'w-8 h-8 text-xs' : 'w-10 h-10 text-sm'
+    compact ? 'w-5 h-5 text-[9px]' : 'w-6 h-6 text-[10px]'
   );
   switch (actorType) {
     case 'user':
@@ -141,6 +143,7 @@ export function ActivityFeedItem({
   onResourceClick,
   resourceLinkResolver,
   tenantLinkResolver,
+  tenantRenderer,
   onActorClick,
   onActivityClick,
   isSelected = false,
@@ -155,7 +158,7 @@ export function ActivityFeedItem({
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
   const { spec, metadata } = activity;
-  const { actor, summary, changeSource, links, tenant } = spec;
+  const { actor, summary, links, tenant } = spec;
 
   const handleClick = () => {
     onActivityClick?.(activity);
@@ -227,13 +230,13 @@ export function ActivityFeedItem({
           className={cn(
             'flex-1 border border-border rounded-lg transition-all duration-200',
             'hover:border-rose-300 hover:shadow-sm dark:hover:border-rose-600',
-            compact ? 'p-3 mb-3' : 'p-4 mb-4',
+            compact ? 'px-3 py-2 mb-2' : 'px-3 py-2 mb-2',
             isSelected && 'border-rose-300 bg-rose-50/50 dark:border-rose-600 dark:bg-rose-950/30'
           )}
         >
           {/* Header: Summary + Timestamp */}
-          <div className="flex justify-between items-start gap-4 mb-2">
-            <div className={cn('leading-relaxed text-xs')}>
+          <div className="flex justify-between items-center gap-4">
+            <div className={cn('leading-snug text-xs')}>
               <ActivityFeedSummary
                 summary={summary}
                 links={links}
@@ -242,58 +245,26 @@ export function ActivityFeedItem({
                 resourceLinkContext={{ tenant }}
               />
             </div>
-            <span
-              className="text-xs text-muted-foreground whitespace-nowrap"
-              title={formatTimestampFull(timestamp)}
-            >
-              {formatTimestamp(timestamp)}
-            </span>
-          </div>
-
-          {/* Meta info row */}
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <span className={cn(
-              'inline-flex items-center gap-1',
-              changeSource === 'human'
-                ? 'text-green-600 dark:text-green-400'
-                : 'text-muted-foreground'
-            )}>
-              {changeSource === 'human' ? (
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-              ) : (
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
+            <div className="flex items-center gap-2 shrink-0">
+              {tenant && (
+                tenantRenderer ? tenantRenderer(tenant) : <TenantBadge tenant={tenant} tenantLinkResolver={tenantLinkResolver} size="compact" />
               )}
-              {changeSource}
-            </span>
-            {onActorClick ? (
-              <button
-                type="button"
-                className="bg-transparent border-none p-0 cursor-pointer text-xs text-muted-foreground hover:text-foreground hover:underline"
-                onClick={handleActorClick}
-                title="Filter by this actor"
+              <span
+                className="text-xs text-muted-foreground whitespace-nowrap"
+                title={formatTimestampFull(timestamp)}
               >
-                by {actor.name}
-              </button>
-            ) : (
-              <span className="text-xs">by {actor.name}</span>
-            )}
-            {tenant && (
-              <TenantBadge tenant={tenant} tenantLinkResolver={tenantLinkResolver} size="compact" />
-            )}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="ml-auto h-auto py-0 px-1 text-xs text-muted-foreground hover:text-foreground"
-              onClick={toggleExpand}
-              aria-expanded={isExpanded}
-            >
-              {isExpanded ? '▾ Less' : '▸ More'}
-            </Button>
+                {formatTimestamp(timestamp)}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-5 h-5 p-0 text-2xl text-muted-foreground hover:text-foreground flex items-center justify-center"
+                onClick={toggleExpand}
+                aria-expanded={isExpanded}
+              >
+                {isExpanded ? '▾' : '▸'}
+              </Button>
+            </div>
           </div>
 
           {/* Expanded Details */}
@@ -309,14 +280,14 @@ export function ActivityFeedItem({
       className={cn(
         'cursor-pointer transition-all duration-200',
         'hover:border-rose-300 hover:shadow-sm hover:-translate-y-px dark:hover:border-rose-600',
-        compact ? 'p-3 mb-2' : 'p-4 mb-3',
+        compact ? 'px-3 py-2 mb-1' : 'px-3 py-2 mb-2',
         isSelected && 'border-rose-300 bg-rose-50 shadow-md dark:border-rose-600 dark:bg-rose-950/50',
         isNew && 'border-l-4 border-l-green-500 bg-green-50/50 dark:border-l-green-400 dark:bg-green-950/30',
         className
       )}
       onClick={handleClick}
     >
-      <div className="flex gap-4">
+      <div className="flex gap-3 items-center">
         {/* Actor Avatar */}
         <div
           className={cn(
@@ -327,9 +298,9 @@ export function ActivityFeedItem({
           onClick={onActorClick ? handleActorClick : undefined}
         >
           {actor.type === 'controller' ? (
-            <span className={compact ? 'text-base' : 'text-xl'}>⚙</span>
+            <span className={compact ? 'text-xs' : 'text-sm'}>⚙</span>
           ) : actor.type === 'machine account' ? (
-            <span className={compact ? 'text-base' : 'text-xl'}>🤖</span>
+            <span className={compact ? 'text-xs' : 'text-sm'}>🤖</span>
           ) : (
             <span className="uppercase">{getActorInitials(actor.name)}</span>
           )}
@@ -338,8 +309,8 @@ export function ActivityFeedItem({
         {/* Main Content */}
         <div className="flex-1 min-w-0">
           {/* Header: Summary + Timestamp */}
-          <div className="flex justify-between items-start gap-4 mb-2">
-            <div className={cn('leading-relaxed text-xs')}>
+          <div className="flex justify-between items-center gap-4">
+            <div className={cn('leading-snug text-xs')}>
               <ActivityFeedSummary
                 summary={summary}
                 links={links}
@@ -348,58 +319,26 @@ export function ActivityFeedItem({
                 resourceLinkContext={{ tenant }}
               />
             </div>
-            <span
-              className="text-xs text-muted-foreground whitespace-nowrap"
-              title={formatTimestampFull(timestamp)}
-            >
-              {formatTimestamp(timestamp)}
-            </span>
-          </div>
-
-          {/* Meta info row */}
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <span className={cn(
-              'inline-flex items-center gap-1',
-              changeSource === 'human'
-                ? 'text-green-600 dark:text-green-400'
-                : 'text-muted-foreground'
-            )}>
-              {changeSource === 'human' ? (
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-              ) : (
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
+            <div className="flex items-center gap-2 shrink-0">
+              {tenant && (
+                tenantRenderer ? tenantRenderer(tenant) : <TenantBadge tenant={tenant} tenantLinkResolver={tenantLinkResolver} size="compact" />
               )}
-              {changeSource}
-            </span>
-            {onActorClick ? (
-              <button
-                type="button"
-                className="bg-transparent border-none p-0 cursor-pointer text-xs text-muted-foreground hover:text-foreground hover:underline"
-                onClick={handleActorClick}
-                title="Filter by this actor"
+              <span
+                className="text-xs text-muted-foreground whitespace-nowrap"
+                title={formatTimestampFull(timestamp)}
               >
-                by {actor.name}
-              </button>
-            ) : (
-              <span className="text-xs">by {actor.name}</span>
-            )}
-            {tenant && (
-              <TenantBadge tenant={tenant} tenantLinkResolver={tenantLinkResolver} size="compact" />
-            )}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="ml-auto h-auto py-0 px-1 text-xs text-muted-foreground hover:text-foreground"
-              onClick={toggleExpand}
-              aria-expanded={isExpanded}
-            >
-              {isExpanded ? '▾ Less' : '▸ More'}
-            </Button>
+                {formatTimestamp(timestamp)}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-5 h-5 p-0 text-2xl text-muted-foreground hover:text-foreground flex items-center justify-center"
+                onClick={toggleExpand}
+                aria-expanded={isExpanded}
+              >
+                {isExpanded ? '▾' : '▸'}
+              </Button>
+            </div>
           </div>
         </div>
       </div>

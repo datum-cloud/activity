@@ -228,6 +228,7 @@ export type {
   WatchErrorStatus,
   ResourceLinkResolver,
   TenantLinkResolver,
+  TenantRenderer,
 } from './types/activity';
 
 export { ACTIVITY_FILTER_FIELDS, defaultResourceLinkResolver } from './types/activity';

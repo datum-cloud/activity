@@ -3,6 +3,7 @@
  * Based on the Activity Stream System enhancement specification
  */
 
+import type { ReactNode } from 'react';
 import type { ObjectMeta } from './index';
 
 /**
@@ -392,6 +393,12 @@ export function defaultResourceLinkResolver(resource: ResourceRef, context: Reso
  * Returns a URL string to navigate to when the tenant link is clicked, or undefined to not render as a link
  */
 export type TenantLinkResolver = (tenant: Tenant) => string | undefined;
+
+/**
+ * Custom renderer for tenant badges
+ * Allows full customization of how tenants are displayed in the activity feed
+ */
+export type TenantRenderer = (tenant: Tenant) => ReactNode;
 
 /**
  * Effective time range after query resolution

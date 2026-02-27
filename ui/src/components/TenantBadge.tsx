@@ -91,8 +91,12 @@ export function TenantBadge({
     >
       {icon}
       <span className="font-medium">{tenant.type}</span>
-      <span className="text-muted-foreground">/</span>
-      <span>{tenant.name}</span>
+      {tenant.type !== 'platform' && (
+        <>
+          <span className="text-muted-foreground">/</span>
+          <span>{tenant.name}</span>
+        </>
+      )}
     </Badge>
   );
 
