@@ -21,6 +21,7 @@ COPY src/ ./src/
 # Copy example app files
 COPY example/package.json ./example/
 COPY example/app/ ./example/app/
+COPY example/public/ ./example/public/
 COPY example/tsconfig.json ./example/
 COPY example/vite.config.ts ./example/
 COPY example/tailwind.config.js ./example/
