@@ -31,7 +31,8 @@ COPY example/postcss.config.js ./example/
 RUN pnpm install --frozen-lockfile && \
     pnpm --filter @miloapis/activity-ui build && \
     pnpm --filter activity-ui-example build && \
-    pnpm deploy --filter activity-ui-example --prod --legacy /deploy
+    pnpm deploy --filter activity-ui-example --prod --legacy /deploy && \
+    cp -r example/build /deploy/build
 
 # Runtime stage - Node.js for Remix server
 FROM node:20-alpine AS runtime

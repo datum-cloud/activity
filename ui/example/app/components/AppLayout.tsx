@@ -42,12 +42,12 @@ export function AppLayout({ children }: AppLayoutProps) {
             <img
               src="/logos/datum-logo-dark.svg"
               alt="Datum"
-              className="h-6 hidden dark:block"
+              className="h-4 hidden dark:block"
             />
             <img
               src="/logos/datum-logo-light.svg"
               alt="Datum"
-              className="h-6 dark:hidden"
+              className="h-4 dark:hidden"
             />
           </div>
 
