@@ -91,6 +91,12 @@ func (s *QueryStorage) Create(ctx context.Context, obj runtime.Object, createVal
 		"endTime", query.Spec.EndTime,
 		"namespace", query.Spec.Namespace,
 		"changeSource", query.Spec.ChangeSource,
+		"apiGroup", query.Spec.APIGroup,
+		"resourceKind", query.Spec.ResourceKind,
+		"actorName", query.Spec.ActorName,
+		"resourceUID", query.Spec.ResourceUID,
+		"search", query.Spec.Search,
+		"filter", query.Spec.Filter,
 	)
 
 	// Validate query spec

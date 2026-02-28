@@ -7,6 +7,7 @@ namespace: activity-system
 resources:
   - ../../base
   - anonymous-rbac.yaml     # Dev-only: anonymous access for Gateway
+  - ../../../examples/basic-kubernetes  # Example ActivityPolicies for testing
 
 components:
   - ../../components/namespace
@@ -23,6 +24,7 @@ components:
   - ../../components/k8s-event-exporter            # Kubernetes events → NATS
   - ../../components/tracing
   - ../../components/observability            # ServiceMonitors, alerts, dashboards
+  - ../../components/ui                       # Activity UI web application with Envoy Gateway routing
 
 # Note: The following HA components are excluded for dev environments:
 # - clickhouse-keeper       # Replaced by clickhouse-keeper-standalone (1 replica)
@@ -34,6 +36,9 @@ images:
   - name: ghcr.io/datum-cloud/activity
     newName: ghcr.io/datum-cloud/activity
     newTag: dev
+  - name: ghcr.io/datum-cloud/activity-ui
+    newName: ghcr.io/datum-cloud/activity-ui
+    newTag: dev
 
 # Patches specific to dev environment
 patches:
@@ -44,6 +49,29 @@ patches:
   - path: patches/migration-job-patch.yaml
   - path: patches/vector-sidecar-patch.yaml
   - path: patches/vector-aggregator-patch.yaml
+  # UI patch: Use in-cluster ServiceAccount auth instead of mTLS client certs
+  - target:
+      kind: Deployment
+      name: activity-ui
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Never
+      - op: replace
+        path: /spec/template/spec/containers/0/env
+        value:
+          - name: NODE_ENV
+            value: "production"
+      - op: replace
+        path: /spec/template/spec/containers/0/volumeMounts
+        value:
+          - name: tmp
+            mountPath: /tmp
+      - op: replace
+        path: /spec/template/spec/volumes
+        value:
+          - name: tmp
+            emptyDir: {}
 
 labels:
   # Note: includeSelectors is false because operators (ClickHouse, etcd) create pods

@@ -55,7 +55,15 @@ go run k8s.io/kube-openapi/cmd/openapi-gen \
   "k8s.io/apiserver/pkg/apis/audit/v1" \
   "k8s.io/api/authentication/v1" \
   "k8s.io/api/authorization/v1" \
-  "k8s.io/api/core/v1"
+  "k8s.io/api/core/v1" \
+  "k8s.io/api/events/v1"
+
+# Generate OpenAPIModelName methods for our types
+# Note: The upstream --output-model-name-file flag doesn't work well when processing
+# external k8s.io packages (tries to write to read-only module cache), so we use a
+# custom script that parses the generated OpenAPI file and creates methods for our types only.
+echo "Generating OpenAPIModelName methods..."
+"${SCRIPT_ROOT}/hack/generate-model-names.sh"
 
 echo ""
 echo "Code generation complete!"
@@ -66,3 +74,4 @@ echo "  - Clientset: pkg/client/clientset/versioned/"
 echo "  - Listers: pkg/client/listers/"
 echo "  - Informers: pkg/client/informers/"
 echo "  - OpenAPI: pkg/generated/openapi/"
+echo "  - OpenAPI model names: pkg/apis/activity/v1alpha1/zz_generated.model_name.go"

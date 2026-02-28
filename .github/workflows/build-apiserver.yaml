@@ -24,6 +24,22 @@ jobs:
       image-name: activity
     secrets: inherit
 
+  publish-ui-container-image:
+    # Build and publish the Activity UI container image
+    needs:
+      - validate-kustomize
+    permissions:
+      id-token: write
+      contents: read
+      packages: write
+      attestations: write
+    uses: datum-cloud/actions/.github/workflows/publish-docker.yaml@v1.9.0
+    with:
+      image-name: activity-ui
+      context: ui
+      dockerfile-path: ui/Dockerfile
+    secrets: inherit
+
   publish-kustomize-bundles:
     # Ensure the kustomize manifests are valid and the container is published
     # before we publish the kustomize manifests. We expect publishing the
@@ -41,4 +57,21 @@ jobs:
       bundle-path: config
       image-overlays: config/base
       image-name: ghcr.io/datum-cloud/activity
+    secrets: inherit
+
+  publish-ui-kustomize-bundle:
+    # Publish the UI kustomize bundle separately
+    needs:
+      - validate-kustomize
+      - publish-ui-container-image
+    permissions:
+      id-token: write
+      contents: read
+      packages: write
+    uses: datum-cloud/actions/.github/workflows/publish-kustomize-bundle.yaml@v1.9.0
+    with:
+      bundle-name: ghcr.io/datum-cloud/activity-ui-kustomize
+      bundle-path: config/components/ui
+      image-overlays: config/components/ui
+      image-name: ghcr.io/datum-cloud/activity-ui
     secrets: inherit

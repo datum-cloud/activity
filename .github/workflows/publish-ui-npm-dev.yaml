@@ -1,0 +1,100 @@
+name: Publish UI Dev Build to GitHub Packages
+
+on:
+  push:
+    branches:
+      - "**"
+      - "!main"
+    paths:
+      - "ui/**"
+      - "!ui/example/**"
+  pull_request:
+    paths:
+      - "ui/**"
+      - "!ui/example/**"
+
+jobs:
+  publish-dev:
+    name: Publish dev build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          package_json_file: ui/package.json
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: ui/pnpm-lock.yaml
+          registry-url: https://npm.pkg.github.com
+          scope: "@datum-cloud"
+
+      - name: Install dependencies
+        working-directory: ui
+        run: pnpm install --frozen-lockfile
+
+      - name: Build package
+        run: pnpm --filter @miloapis/activity-ui build
+
+      - name: Set dev version and package name
+        working-directory: ui
+        run: |
+          # Get current version from package.json
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          # Create dev version with short SHA
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          DEV_VERSION="${CURRENT_VERSION}-dev.${SHORT_SHA}"
+
+          # Update package.json for GitHub Packages:
+          # - Change name to @datum-cloud scope (required for GitHub Packages)
+          # - Set dev version
+          node -e "
+            const fs = require('fs');
+            const pkg = require('./package.json');
+            pkg.name = '@datum-cloud/activity-ui';
+            pkg.version = '${DEV_VERSION}';
+            pkg.publishConfig = { registry: 'https://npm.pkg.github.com' };
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          "
+
+          echo "DEV_VERSION=${DEV_VERSION}" >> "$GITHUB_ENV"
+          echo "Publishing @datum-cloud/activity-ui@${DEV_VERSION} to GitHub Packages"
+
+      - name: Publish to GitHub Packages
+        working-directory: ui
+        run: pnpm publish --no-git-checks --access public --tag dev
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Summary
+        run: |
+          {
+            echo "### Published dev build to GitHub Packages"
+            echo ""
+            echo "Package: \`@datum-cloud/activity-ui\`"
+            echo "Version: \`${DEV_VERSION}\`"
+            echo ""
+            echo "#### Installation"
+            echo ""
+            echo "Configure npm to use GitHub Packages for @datum-cloud scope:"
+            echo "\`\`\`"
+            echo "echo '@datum-cloud:registry=https://npm.pkg.github.com' >> .npmrc"
+            echo "\`\`\`"
+            echo ""
+            echo "Then install:"
+            echo "\`\`\`"
+            echo "npm install @datum-cloud/activity-ui@dev"
+            echo "# or specific version:"
+            echo "npm install @datum-cloud/activity-ui@${DEV_VERSION}"
+            echo "\`\`\`"
+          } >> "$GITHUB_STEP_SUMMARY"

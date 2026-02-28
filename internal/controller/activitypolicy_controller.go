@@ -3,7 +3,9 @@ package controller
 import (
 	"context"
 	"fmt"
+	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,11 +17,60 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"go.miloapis.com/activity/internal/cel"
 	"go.miloapis.com/activity/pkg/apis/activity/v1alpha1"
 )
+
+var (
+	policiesValidatedTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "activity_controller",
+			Name:      "policies_validated_total",
+			Help:      "Total number of ActivityPolicy validations performed",
+		},
+		[]string{"result"}, // success, failed, resource_not_found
+	)
+
+	policyValidationErrorsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "activity_controller",
+			Name:      "policy_validation_errors_total",
+			Help:      "Total number of ActivityPolicy validation errors",
+		},
+		[]string{"error_type"}, // cel_compilation, resource_lookup, rule_validation
+	)
+
+	policyReady = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: "activity_controller",
+			Name:      "policy_ready",
+			Help:      "ActivityPolicy ready status (1 = ready, 0 = not ready)",
+		},
+		[]string{"policy", "reason"},
+	)
+
+	reconcileDuration = prometheus.NewHistogram(
+		prometheus.HistogramOpts{
+			Namespace: "activity_controller",
+			Name:      "reconcile_duration_seconds",
+			Help:      "Time spent reconciling ActivityPolicy resources",
+			Buckets:   prometheus.DefBuckets,
+		},
+	)
+)
+
+func init() {
+	// Register metrics with controller-runtime's registry so they're exposed alongside controller metrics.
+	metrics.Registry.MustRegister(
+		policiesValidatedTotal,
+		policyValidationErrorsTotal,
+		policyReady,
+		reconcileDuration,
+	)
+}
 
 // ActivityPolicyReconciler reconciles ActivityPolicy resources.
 type ActivityPolicyReconciler struct {
@@ -35,6 +86,12 @@ type ActivityPolicyReconciler struct {
 
 // Reconcile handles the reconciliation of an ActivityPolicy resource.
 func (r *ActivityPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	// Record reconcile duration
+	start := time.Now()
+	defer func() {
+		reconcileDuration.Observe(time.Since(start).Seconds())
+	}()
+
 	logger := log.FromContext(ctx)
 
 	// Fetch the ActivityPolicy
@@ -44,7 +101,10 @@ func (r *ActivityPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			logger.Error(err, "unable to fetch ActivityPolicy")
 			return ctrl.Result{}, err
 		}
-		// Object was deleted, nothing to do
+		// Object was deleted, clean up metrics
+		policyReady.DeleteLabelValues(req.Name, "Valid")
+		policyReady.DeleteLabelValues(req.Name, "ValidationFailed")
+		policyReady.DeleteLabelValues(req.Name, "ResourceNotFound")
 		return ctrl.Result{}, nil
 	}
 
@@ -62,6 +122,10 @@ func (r *ActivityPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		condition.Message = validationErr.Error()
 		logger.V(2).Info("ActivityPolicy targets non-existent resource", "error", validationErr)
 
+		// Record validation failure due to resource not found
+		policiesValidatedTotal.WithLabelValues("resource_not_found").Inc()
+		policyValidationErrorsTotal.WithLabelValues("resource_lookup").Inc()
+
 		if err := r.updatePolicyStatus(ctx, &policy, condition); err != nil {
 			return ctrl.Result{}, fmt.Errorf("error updating policy status: %w", err)
 		}
@@ -74,11 +138,18 @@ func (r *ActivityPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		condition.Reason = "ValidationFailed"
 		condition.Message = validationErr.Error()
 		logger.V(2).Info("ActivityPolicy failed validation", "error", validationErr)
+
+		// Record validation failure
+		policiesValidatedTotal.WithLabelValues("failed").Inc()
+		policyValidationErrorsTotal.WithLabelValues("cel_compilation").Inc()
 	} else {
 		condition.Status = metav1.ConditionTrue
 		condition.Reason = "Valid"
 		condition.Message = "All rules validated successfully"
 		logger.V(2).Info("ActivityPolicy validated successfully")
+
+		// Record successful validation
+		policiesValidatedTotal.WithLabelValues("success").Inc()
 	}
 
 	// Update status
@@ -172,6 +243,19 @@ func (r *ActivityPolicyReconciler) updatePolicyStatus(ctx context.Context, polic
 	// Update via the status subresource
 	if err := r.Status().Update(ctx, policy); err != nil {
 		return fmt.Errorf("failed to update status: %w", err)
+	}
+
+	// Update policy ready gauge based on condition
+	// Clear previous gauge values for this policy
+	policyReady.DeleteLabelValues(policy.Name, "Valid")
+	policyReady.DeleteLabelValues(policy.Name, "ValidationFailed")
+	policyReady.DeleteLabelValues(policy.Name, "ResourceNotFound")
+
+	// Set the gauge for the current condition
+	if condition.Status == metav1.ConditionTrue {
+		policyReady.WithLabelValues(policy.Name, condition.Reason).Set(1)
+	} else {
+		policyReady.WithLabelValues(policy.Name, condition.Reason).Set(0)
 	}
 
 	logger.V(4).Info("Updated ActivityPolicy status", "ready", condition.Status)

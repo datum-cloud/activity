@@ -162,6 +162,12 @@ type WatchFilter struct {
 	APIGroup string
 	// ResourceKind filters by resource kind
 	ResourceKind string
+	// ActorName filters by actor name
+	ActorName string
+	// ResourceUID filters by resource UID
+	ResourceUID string
+	// ResourceNamespace filters by the resource's namespace (not the activity's namespace)
+	ResourceNamespace string
 	// CELFilter is a CEL expression for advanced filtering
 	CELFilter string
 }
@@ -229,7 +235,8 @@ func (w *NATSWatcher) Watch(ctx context.Context, scope storage.ScopeContext, fil
 	// Add consumer to stream
 	_, err := w.js.AddConsumer(w.streamName, consumerConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create JetStream consumer: %w", err)
+		klog.ErrorS(err, "Failed to create NATS consumer for watch", "stream", w.streamName, "consumer", consumerName)
+		return nil, fmt.Errorf("watch service temporarily unavailable, please try again later")
 	}
 
 	// Subscribe to the consumer's delivery subject
@@ -237,7 +244,8 @@ func (w *NATSWatcher) Watch(ctx context.Context, scope storage.ScopeContext, fil
 	if err != nil {
 		// Clean up consumer on failure
 		w.js.DeleteConsumer(w.streamName, consumerName)
-		return nil, fmt.Errorf("failed to subscribe to consumer inbox: %w", err)
+		klog.ErrorS(err, "Failed to subscribe to NATS consumer for watch", "consumer", consumerName)
+		return nil, fmt.Errorf("watch service temporarily unavailable, please try again later")
 	}
 
 	watchCtx, cancel := context.WithCancel(ctx)
@@ -424,6 +432,21 @@ func (w *ActivityWatch) processMessages() {
 func (w *ActivityWatch) matchesFilter(activity *v1alpha1.Activity) bool {
 	// Simple field checks
 	if w.filter.ChangeSource != "" && activity.Spec.ChangeSource != w.filter.ChangeSource {
+		return false
+	}
+
+	// Actor name filter
+	if w.filter.ActorName != "" && activity.Spec.Actor.Name != w.filter.ActorName {
+		return false
+	}
+
+	// Resource UID filter
+	if w.filter.ResourceUID != "" && activity.Spec.Resource.UID != w.filter.ResourceUID {
+		return false
+	}
+
+	// Resource namespace filter (the resource's namespace, not the activity's)
+	if w.filter.ResourceNamespace != "" && activity.Spec.Resource.Namespace != w.filter.ResourceNamespace {
 		return false
 	}
 

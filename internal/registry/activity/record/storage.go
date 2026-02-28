@@ -188,6 +188,15 @@ func (s *ActivityStorage) Watch(ctx context.Context, options *metainternalversio
 		if value, found := options.FieldSelector.RequiresExactMatch("spec.resource.kind"); found {
 			filter.ResourceKind = value
 		}
+		if value, found := options.FieldSelector.RequiresExactMatch("spec.actor.name"); found {
+			filter.ActorName = value
+		}
+		if value, found := options.FieldSelector.RequiresExactMatch("spec.resource.uid"); found {
+			filter.ResourceUID = value
+		}
+		if value, found := options.FieldSelector.RequiresExactMatch("spec.resource.namespace"); found {
+			filter.ResourceNamespace = value
+		}
 	}
 
 	klog.V(4).InfoS("Starting activity watch",
