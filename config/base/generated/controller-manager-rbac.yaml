@@ -40,13 +40,6 @@ rules:
 - apiGroups:
   - activity.miloapis.com
   resources:
-  - auditlogqueries
-  - eventqueries
-  verbs:
-  - create
-- apiGroups:
-  - activity.miloapis.com
-  resources:
   - reindexjobs
   verbs:
   - delete
@@ -69,4 +62,16 @@ rules:
   verbs:
   - get
   - list
+  - watch
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
   - watch

@@ -10,6 +10,7 @@ import (
 
 // RegisterConversions registers conversion functions with the scheme.
 func RegisterConversions(s *runtime.Scheme) error {
+	// ActivityPolicy conversions
 	if err := s.AddGeneratedConversionFunc((*ActivityPolicy)(nil), (*activity.ActivityPolicy)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_ActivityPolicy_To_activity_ActivityPolicy(a.(*ActivityPolicy), b.(*activity.ActivityPolicy), scope)
 	}); err != nil {
@@ -30,6 +31,29 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+
+	// ReindexJob conversions
+	if err := s.AddGeneratedConversionFunc((*ReindexJob)(nil), (*activity.ReindexJob)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_ReindexJob_To_activity_ReindexJob(a.(*ReindexJob), b.(*activity.ReindexJob), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*activity.ReindexJob)(nil), (*ReindexJob)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_activity_ReindexJob_To_v1alpha1_ReindexJob(a.(*activity.ReindexJob), b.(*ReindexJob), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*ReindexJobList)(nil), (*activity.ReindexJobList)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_ReindexJobList_To_activity_ReindexJobList(a.(*ReindexJobList), b.(*activity.ReindexJobList), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*activity.ReindexJobList)(nil), (*ReindexJobList)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_activity_ReindexJobList_To_v1alpha1_ReindexJobList(a.(*activity.ReindexJobList), b.(*ReindexJobList), scope)
+	}); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -111,6 +135,132 @@ func Convert_activity_ActivityPolicyList_To_v1alpha1_ActivityPolicyList(in *acti
 	out.Items = make([]ActivityPolicy, len(in.Items))
 	for i := range in.Items {
 		if err := Convert_activity_ActivityPolicy_To_v1alpha1_ActivityPolicy(&in.Items[i], &out.Items[i], s); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Convert_v1alpha1_ReindexJob_To_activity_ReindexJob converts from v1alpha1 to internal
+func Convert_v1alpha1_ReindexJob_To_activity_ReindexJob(in *ReindexJob, out *activity.ReindexJob, s conversion.Scope) error {
+	out.ObjectMeta = in.ObjectMeta
+
+	// Convert Spec
+	out.Spec.TimeRange.StartTime = in.Spec.TimeRange.StartTime
+	out.Spec.TimeRange.EndTime = in.Spec.TimeRange.EndTime
+
+	if in.Spec.PolicySelector != nil {
+		out.Spec.PolicySelector = &activity.ReindexPolicySelector{
+			Names:       in.Spec.PolicySelector.Names,
+			MatchLabels: in.Spec.PolicySelector.MatchLabels,
+		}
+	}
+
+	if in.Spec.Config != nil {
+		out.Spec.Config = &activity.ReindexConfig{
+			BatchSize: in.Spec.Config.BatchSize,
+			RateLimit: in.Spec.Config.RateLimit,
+			DryRun:    in.Spec.Config.DryRun,
+		}
+	}
+
+	out.Spec.TTLSecondsAfterFinished = in.Spec.TTLSecondsAfterFinished
+
+	// Convert Status
+	out.Status.Phase = activity.ReindexJobPhase(in.Status.Phase)
+	out.Status.Message = in.Status.Message
+
+	if in.Status.Progress != nil {
+		out.Status.Progress = &activity.ReindexProgress{
+			TotalEvents:         in.Status.Progress.TotalEvents,
+			ProcessedEvents:     in.Status.Progress.ProcessedEvents,
+			ActivitiesGenerated: in.Status.Progress.ActivitiesGenerated,
+			Errors:              in.Status.Progress.Errors,
+			CurrentBatch:        in.Status.Progress.CurrentBatch,
+			TotalBatches:        in.Status.Progress.TotalBatches,
+		}
+	}
+
+	out.Status.StartedAt = in.Status.StartedAt
+	out.Status.CompletedAt = in.Status.CompletedAt
+
+	if in.Status.Conditions != nil {
+		out.Status.Conditions = make([]activity.Condition, len(in.Status.Conditions))
+		copy(out.Status.Conditions, in.Status.Conditions)
+	}
+
+	return nil
+}
+
+// Convert_activity_ReindexJob_To_v1alpha1_ReindexJob converts from internal to v1alpha1
+func Convert_activity_ReindexJob_To_v1alpha1_ReindexJob(in *activity.ReindexJob, out *ReindexJob, s conversion.Scope) error {
+	out.ObjectMeta = in.ObjectMeta
+
+	// Convert Spec
+	out.Spec.TimeRange.StartTime = in.Spec.TimeRange.StartTime
+	out.Spec.TimeRange.EndTime = in.Spec.TimeRange.EndTime
+
+	if in.Spec.PolicySelector != nil {
+		out.Spec.PolicySelector = &ReindexPolicySelector{
+			Names:       in.Spec.PolicySelector.Names,
+			MatchLabels: in.Spec.PolicySelector.MatchLabels,
+		}
+	}
+
+	if in.Spec.Config != nil {
+		out.Spec.Config = &ReindexConfig{
+			BatchSize: in.Spec.Config.BatchSize,
+			RateLimit: in.Spec.Config.RateLimit,
+			DryRun:    in.Spec.Config.DryRun,
+		}
+	}
+
+	out.Spec.TTLSecondsAfterFinished = in.Spec.TTLSecondsAfterFinished
+
+	// Convert Status
+	out.Status.Phase = ReindexJobPhase(in.Status.Phase)
+	out.Status.Message = in.Status.Message
+
+	if in.Status.Progress != nil {
+		out.Status.Progress = &ReindexProgress{
+			TotalEvents:         in.Status.Progress.TotalEvents,
+			ProcessedEvents:     in.Status.Progress.ProcessedEvents,
+			ActivitiesGenerated: in.Status.Progress.ActivitiesGenerated,
+			Errors:              in.Status.Progress.Errors,
+			CurrentBatch:        in.Status.Progress.CurrentBatch,
+			TotalBatches:        in.Status.Progress.TotalBatches,
+		}
+	}
+
+	out.Status.StartedAt = in.Status.StartedAt
+	out.Status.CompletedAt = in.Status.CompletedAt
+
+	if in.Status.Conditions != nil {
+		out.Status.Conditions = make([]metav1.Condition, len(in.Status.Conditions))
+		copy(out.Status.Conditions, in.Status.Conditions)
+	}
+
+	return nil
+}
+
+// Convert_v1alpha1_ReindexJobList_To_activity_ReindexJobList converts from v1alpha1 to internal
+func Convert_v1alpha1_ReindexJobList_To_activity_ReindexJobList(in *ReindexJobList, out *activity.ReindexJobList, s conversion.Scope) error {
+	out.ListMeta = in.ListMeta
+	out.Items = make([]activity.ReindexJob, len(in.Items))
+	for i := range in.Items {
+		if err := Convert_v1alpha1_ReindexJob_To_activity_ReindexJob(&in.Items[i], &out.Items[i], s); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Convert_activity_ReindexJobList_To_v1alpha1_ReindexJobList converts from internal to v1alpha1
+func Convert_activity_ReindexJobList_To_v1alpha1_ReindexJobList(in *activity.ReindexJobList, out *ReindexJobList, s conversion.Scope) error {
+	out.ListMeta = in.ListMeta
+	out.Items = make([]ReindexJob, len(in.Items))
+	for i := range in.Items {
+		if err := Convert_activity_ReindexJob_To_v1alpha1_ReindexJob(&in.Items[i], &out.Items[i], s); err != nil {
 			return err
 		}
 	}

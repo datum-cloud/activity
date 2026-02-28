@@ -3,16 +3,19 @@ package controller
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/nats-io/nats.go"
 	"github.com/prometheus/client_golang/prometheus"
+	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -82,22 +85,23 @@ type ReindexJobReconciler struct {
 	JetStream nats.JetStreamContext
 	Recorder  record.EventRecorder
 
-	// Concurrency control - only one job can run at a time.
-	// Since ReindexJob is cluster-scoped, we only track the job name (not namespace).
-	// Empty string means no job is currently running.
-	runningJob string
-	mu         sync.Mutex
-
-	// Context for graceful shutdown of worker goroutines
-	workerCtx    context.Context
-	workerCancel context.CancelFunc
+	// Configuration for Kubernetes Jobs
+	JobNamespace         string
+	ActivityImage        string
+	ReindexServiceAccount string
+	ReindexMemoryLimit   string
+	ReindexCPULimit      string
+	MaxConcurrentJobs    int
+	NATSURL              string
+	NATSTLSEnabled       bool
+	NATSTLSCertFile      string
+	NATSTLSKeyFile       string
+	NATSTLSCAFile        string
 }
 
 // +kubebuilder:rbac:groups=activity.miloapis.com,resources=reindexjobs,verbs=get;list;watch;update;patch;delete
 // +kubebuilder:rbac:groups=activity.miloapis.com,resources=reindexjobs/status,verbs=update;patch
-// +kubebuilder:rbac:groups=activity.miloapis.com,resources=auditlogqueries,verbs=create
-// +kubebuilder:rbac:groups=activity.miloapis.com,resources=eventqueries,verbs=create
-// +kubebuilder:rbac:groups=activity.miloapis.com,resources=activitypolicies,verbs=get;list
+// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 // Reconcile handles the reconciliation of a ReindexJob resource.
@@ -114,20 +118,38 @@ func (r *ReindexJobReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, nil
 	}
 
+	// Handle deletion - cleanup the associated Job
+	if !job.DeletionTimestamp.IsZero() {
+		return r.handleDeletion(ctx, &job)
+	}
+
 	// Handle TTL-based cleanup for completed jobs
 	if job.Status.Phase == v1alpha1.ReindexJobSucceeded ||
 		job.Status.Phase == v1alpha1.ReindexJobFailed {
 		return r.handleTTLCleanup(ctx, &job)
 	}
 
-	// Check if another job is running (mutex-protected)
-	r.mu.Lock()
-	if r.runningJob != "" && r.runningJob != req.Name {
-		r.mu.Unlock()
-		// Queue this job
+	// Check concurrency limit
+	runningCount, err := r.countRunningJobs(ctx)
+	if err != nil {
+		logger.Error(err, "failed to count running jobs")
+		return ctrl.Result{}, err
+	}
+
+	// Check if we're already running this job
+	existingJob, err := r.getJobForReindexJob(ctx, &job)
+	if err != nil && client.IgnoreNotFound(err) != nil {
+		logger.Error(err, "failed to check for existing Job")
+		return ctrl.Result{}, err
+	}
+
+	isRunning := existingJob != nil && existingJob.Status.CompletionTime == nil
+
+	// If concurrency limit reached and this job isn't one of the running jobs, queue it
+	if runningCount >= r.MaxConcurrentJobs && !isRunning {
 		if job.Status.Phase != v1alpha1.ReindexJobPending {
 			job.Status.Phase = v1alpha1.ReindexJobPending
-			job.Status.Message = fmt.Sprintf("Waiting for %s to complete", r.runningJob)
+			job.Status.Message = fmt.Sprintf("Waiting for slot (running: %d/%d)", runningCount, r.MaxConcurrentJobs)
 			meta.SetStatusCondition(&job.Status.Conditions, metav1.Condition{
 				Type:               "Ready",
 				Status:             metav1.ConditionFalse,
@@ -143,16 +165,14 @@ func (r *ReindexJobReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		}
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
-	r.mu.Unlock()
 
-	// Start or continue processing
+	// Start or check job status
 	switch job.Status.Phase {
 	case "", v1alpha1.ReindexJobPending:
 		return r.startJob(ctx, &job)
 	case v1alpha1.ReindexJobRunning:
-		// Job already running, check progress
-		logger.V(4).Info("ReindexJob already running", "job", req.NamespacedName)
-		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+		// Check if Job completed
+		return r.checkJobStatus(ctx, &job, existingJob)
 	}
 
 	return ctrl.Result{}, nil
@@ -219,25 +239,34 @@ func (r *ReindexJobReconciler) handleTTLCleanup(ctx context.Context, job *v1alph
 	return ctrl.Result{}, nil
 }
 
-// startJob claims the job slot and starts the worker goroutine.
+// startJob creates a Kubernetes Job to execute the re-indexing work.
 func (r *ReindexJobReconciler) startJob(ctx context.Context, job *v1alpha1.ReindexJob) (ctrl.Result, error) {
 	logger := klog.FromContext(ctx)
 
-	// Claim the job slot under mutex protection
-	r.mu.Lock()
-	if r.runningJob != "" {
-		r.mu.Unlock()
-		// Another job claimed the slot, requeue
-		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	// Build the Job spec
+	k8sJob, err := r.buildJobForReindexJob(job)
+	if err != nil {
+		logger.Error(err, "failed to build Job spec")
+		return ctrl.Result{}, err
 	}
-	r.runningJob = job.Name
-	r.mu.Unlock()
+
+	// Note: We do NOT set an OwnerReference here because ReindexJob is cluster-scoped
+	// while Jobs are namespaced. Cross-namespace owner references are not allowed in Kubernetes.
+	// Cleanup is handled by:
+	// 1. handleDeletion() which deletes Jobs by label when ReindexJob is deleted
+	// 2. Job TTL (TTLSecondsAfterFinished: 300) for automatic cleanup of completed Jobs
+
+	// Create the Job
+	if err := r.Create(ctx, k8sJob); err != nil {
+		logger.Error(err, "failed to create Job")
+		return ctrl.Result{}, err
+	}
 
 	// Update status to Running
 	job.Status.Phase = v1alpha1.ReindexJobRunning
 	now := metav1.Now()
 	job.Status.StartedAt = &now
-	job.Status.Message = "Starting re-indexing operation"
+	job.Status.Message = "Job created, waiting for execution"
 	meta.SetStatusCondition(&job.Status.Conditions, metav1.Condition{
 		Type:               "Ready",
 		Status:             metav1.ConditionFalse,
@@ -248,22 +277,19 @@ func (r *ReindexJobReconciler) startJob(ctx context.Context, job *v1alpha1.Reind
 
 	if err := r.Status().Update(ctx, job); err != nil {
 		logger.Error(err, "failed to update ReindexJob status to Running")
-		// Release the slot on error
-		r.mu.Lock()
-		r.runningJob = ""
-		r.mu.Unlock()
 		return ctrl.Result{}, err
 	}
 
-	// Log job details with nil-safe config access
-	batchSize := int32(1000) // default
+	// Log job details
+	batchSize := int32(1000)
 	dryRun := false
 	if job.Spec.Config != nil {
 		batchSize = job.Spec.Config.BatchSize
 		dryRun = job.Spec.Config.DryRun
 	}
-	logger.Info("Starting ReindexJob",
-		"job", job.Name,
+	logger.Info("Created Job for ReindexJob",
+		"reindexJob", job.Name,
+		"jobName", k8sJob.Name,
 		"startTime", job.Spec.TimeRange.StartTime,
 		"endTime", job.Spec.TimeRange.EndTime,
 		"batchSize", batchSize,
@@ -282,23 +308,189 @@ func (r *ReindexJobReconciler) startJob(ctx context.Context, job *v1alpha1.Reind
 	r.Recorder.Event(job, "Normal", "Started", fmt.Sprintf("Started re-indexing from %s to %s",
 		job.Spec.TimeRange.StartTime, endTimeDisplay))
 
-	// Start worker goroutine with cancellable context for graceful shutdown
-	go r.runReindexWorker(r.workerCtx, job)
-
 	return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+}
+
+// buildJobForReindexJob creates a Kubernetes Job spec for executing the ReindexJob.
+func (r *ReindexJobReconciler) buildJobForReindexJob(reindexJob *v1alpha1.ReindexJob) (*batchv1.Job, error) {
+	// Build worker command arguments
+	args := []string{
+		"reindex-worker",
+		reindexJob.Name,
+		"--nats-url=" + r.NATSURL,
+	}
+
+	if r.NATSTLSEnabled {
+		args = append(args, "--nats-tls-enabled=true")
+		if r.NATSTLSCertFile != "" {
+			args = append(args, "--nats-tls-cert-file="+r.NATSTLSCertFile)
+		}
+		if r.NATSTLSKeyFile != "" {
+			args = append(args, "--nats-tls-key-file="+r.NATSTLSKeyFile)
+		}
+		if r.NATSTLSCAFile != "" {
+			args = append(args, "--nats-tls-ca-file="+r.NATSTLSCAFile)
+		}
+
+		// TODO: Add volume mounts for TLS certificates when TLS is enabled.
+		// This requires mounting the same volumes used by the controller-manager
+		// (typically a Secret for cert/key and ConfigMap for CA).
+		// The simplest approach: Add fields to ReindexJobReconciler for the
+		// secret/configmap names, or require that TLS files be baked into the
+		// container image.
+		// Note: Current dev/staging environments do not use NATS TLS, so this
+		// is not blocking for initial deployment.
+	}
+
+	// Build resource requirements
+	resourceRequirements := corev1.ResourceRequirements{
+		Limits:   corev1.ResourceList{},
+		Requests: corev1.ResourceList{},
+	}
+
+	if r.ReindexMemoryLimit != "" {
+		memQty := resource.MustParse(r.ReindexMemoryLimit)
+		resourceRequirements.Limits[corev1.ResourceMemory] = memQty
+		resourceRequirements.Requests[corev1.ResourceMemory] = memQty
+	}
+
+	if r.ReindexCPULimit != "" {
+		cpuQty := resource.MustParse(r.ReindexCPULimit)
+		resourceRequirements.Limits[corev1.ResourceCPU] = cpuQty
+	}
+
+	job := &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-job", reindexJob.Name),
+			Namespace: r.JobNamespace,
+			Labels: map[string]string{
+				"app":                                  "activity-reindex",
+				"reindex.activity.miloapis.com/job":    reindexJob.Name,
+			},
+		},
+		Spec: batchv1.JobSpec{
+			BackoffLimit:            ptr.To(int32(3)),
+			TTLSecondsAfterFinished: ptr.To(int32(300)),
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"app":                               "activity-reindex",
+						"reindex.activity.miloapis.com/job": reindexJob.Name,
+					},
+				},
+				Spec: corev1.PodSpec{
+					RestartPolicy:      corev1.RestartPolicyOnFailure,
+					ServiceAccountName: r.ReindexServiceAccount,
+					SecurityContext: &corev1.PodSecurityContext{
+						RunAsNonRoot: ptr.To(true),
+						RunAsUser:    ptr.To(int64(65532)),
+						RunAsGroup:   ptr.To(int64(65532)),
+						FSGroup:      ptr.To(int64(65532)),
+						SeccompProfile: &corev1.SeccompProfile{
+							Type: corev1.SeccompProfileTypeRuntimeDefault,
+						},
+					},
+					Containers: []corev1.Container{
+						{
+							Name:      "reindex",
+							Image:     r.ActivityImage,
+							Args:      args,
+							Resources: resourceRequirements,
+							SecurityContext: &corev1.SecurityContext{
+								AllowPrivilegeEscalation: ptr.To(false),
+								ReadOnlyRootFilesystem:   ptr.To(true),
+								RunAsNonRoot:             ptr.To(true),
+								Capabilities: &corev1.Capabilities{
+									Drop: []corev1.Capability{"ALL"},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	return job, nil
+}
+
+// getJobForReindexJob fetches the Job associated with a ReindexJob.
+func (r *ReindexJobReconciler) getJobForReindexJob(ctx context.Context, reindexJob *v1alpha1.ReindexJob) (*batchv1.Job, error) {
+	jobName := fmt.Sprintf("%s-job", reindexJob.Name)
+	var job batchv1.Job
+	err := r.Get(ctx, client.ObjectKey{Namespace: r.JobNamespace, Name: jobName}, &job)
+	return &job, err
+}
+
+// countRunningJobs returns the number of currently running reindex Jobs.
+func (r *ReindexJobReconciler) countRunningJobs(ctx context.Context) (int, error) {
+	var jobList batchv1.JobList
+	if err := r.List(ctx, &jobList, client.InNamespace(r.JobNamespace), client.MatchingLabels{
+		"app": "activity-reindex",
+	}); err != nil {
+		return 0, err
+	}
+
+	count := 0
+	for _, job := range jobList.Items {
+		// Count jobs that haven't completed yet
+		if job.Status.CompletionTime == nil {
+			count++
+		}
+	}
+	return count, nil
+}
+
+// checkJobStatus checks the status of the Kubernetes Job and updates the ReindexJob accordingly.
+func (r *ReindexJobReconciler) checkJobStatus(ctx context.Context, reindexJob *v1alpha1.ReindexJob, job *batchv1.Job) (ctrl.Result, error) {
+	logger := klog.FromContext(ctx)
+
+	if job == nil {
+		// Job was deleted or doesn't exist - this is unexpected
+		logger.Info("Job not found for running ReindexJob", "reindexJob", reindexJob.Name)
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+
+	// Check if Job completed
+	if job.Status.CompletionTime != nil {
+		logger.Info("Job completed", "reindexJob", reindexJob.Name, "succeeded", job.Status.Succeeded, "failed", job.Status.Failed)
+
+		// Note: The worker updates the ReindexJob status directly, so we mainly just need to
+		// ensure metrics are recorded. The status should already be set by the worker.
+
+		// Record completion metrics
+		reindexJobsRunning.Dec()
+		if job.Status.Succeeded > 0 {
+			reindexJobsCompletedTotal.WithLabelValues("succeeded").Inc()
+		} else {
+			reindexJobsCompletedTotal.WithLabelValues("failed").Inc()
+		}
+
+		return ctrl.Result{}, nil
+	}
+
+	// Job still running
+	return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+}
+
+// handleDeletion handles cleanup when a ReindexJob is being deleted.
+func (r *ReindexJobReconciler) handleDeletion(ctx context.Context, reindexJob *v1alpha1.ReindexJob) (ctrl.Result, error) {
+	logger := klog.FromContext(ctx)
+
+	// Delete the associated Job if it exists
+	job, err := r.getJobForReindexJob(ctx, reindexJob)
+	if err == nil {
+		logger.Info("Deleting Job for deleted ReindexJob", "reindexJob", reindexJob.Name, "job", job.Name)
+		if err := r.Delete(ctx, job); client.IgnoreNotFound(err) != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ReindexJobReconciler) SetupWithManager(mgr ctrl.Manager, maxConcurrentReconciles int) error {
-	// Initialize worker context for graceful shutdown
-	// The context is cancelled when the manager stops
-	r.workerCtx, r.workerCancel = context.WithCancel(context.Background())
-
-	// Register cleanup when manager stops
-	if err := mgr.Add(&managerRunnable{cancel: r.workerCancel}); err != nil {
-		return fmt.Errorf("failed to register shutdown handler: %w", err)
-	}
-
 	// Verify NATS ACTIVITIES_REINDEX stream exists at startup
 	stream, err := r.JetStream.StreamInfo("ACTIVITIES_REINDEX")
 	if err != nil {
@@ -308,24 +500,10 @@ func (r *ReindexJobReconciler) SetupWithManager(mgr ctrl.Manager, maxConcurrentR
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.ReindexJob{}).
+		Owns(&batchv1.Job{}).
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: maxConcurrentReconciles,
 		}).
 		Complete(r)
 }
 
-// Helper functions
-// (removed formatEndTime - no longer needed with string-based time fields)
-
-// managerRunnable implements manager.Runnable to cancel worker context on shutdown.
-type managerRunnable struct {
-	cancel context.CancelFunc
-}
-
-func (r *managerRunnable) Start(ctx context.Context) error {
-	// Wait for context cancellation (manager shutdown)
-	<-ctx.Done()
-	// Cancel worker context to stop any running workers
-	r.cancel()
-	return nil
-}

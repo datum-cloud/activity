@@ -13,6 +13,9 @@ resources:
   - secret.yaml
   - rbac-auth-reader.yaml
   - rbac-cluster.yaml
+  - rbac/reindex-worker-sa.yaml
+  - rbac/reindex-worker-role.yaml
+  - rbac/reindex-worker-rolebinding.yaml
 
 labels:
   - includeSelectors: true

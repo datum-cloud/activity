@@ -8,9 +8,9 @@ spec:
   name: ACTIVITIES_REINDEX
 
   # Subjects for reindex activities
-  # Format: activities.reindex.<tenant_type>.<api_group>.<kind>
+  # Format: reindex.activities.<tenant_type>.<api_group>.<kind>
   subjects:
-    - activities.reindex.>
+    - reindex.activities.>
 
   # Retention policy: limits-based (time + size)
   retention: limits

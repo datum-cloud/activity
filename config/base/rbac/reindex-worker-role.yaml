@@ -1,0 +1,24 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: activity-reindex-worker
+rules:
+# Read ReindexJob spec
+- apiGroups: ["activity.miloapis.com"]
+  resources: ["reindexjobs"]
+  verbs: ["get"]
+
+# Update ReindexJob status
+- apiGroups: ["activity.miloapis.com"]
+  resources: ["reindexjobs/status"]
+  verbs: ["update", "patch"]
+
+# List ActivityPolicy resources
+- apiGroups: ["activity.miloapis.com"]
+  resources: ["activitypolicies"]
+  verbs: ["get", "list"]
+
+# Query audit logs and events via API
+- apiGroups: ["activity.miloapis.com"]
+  resources: ["auditlogqueries", "eventqueries"]
+  verbs: ["create"]

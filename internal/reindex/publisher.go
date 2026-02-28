@@ -17,7 +17,7 @@ const (
 	ReindexStreamName = "ACTIVITIES_REINDEX"
 
 	// ReindexSubjectPrefix is the subject prefix for reindexed activities
-	ReindexSubjectPrefix = "activities.reindex"
+	ReindexSubjectPrefix = "reindex.activities"
 
 	// Default retry configuration
 	defaultMaxRetries     = 3
@@ -119,7 +119,7 @@ func (p *Publisher) publishWithRetry(ctx context.Context, activity *v1alpha1.Act
 }
 
 // buildReindexSubject constructs the NATS subject for a reindexed activity.
-// Format: activities.reindex.<tenant_type>.<api_group>.<kind>
+// Format: reindex.activities.<tenant_type>.<api_group>.<kind>
 func buildReindexSubject(activity *v1alpha1.Activity) string {
 	// Handle nil activity or spec defensively
 	if activity == nil {

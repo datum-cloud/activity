@@ -27,19 +27,33 @@ type ControllerManagerOptions struct {
 	HealthProbeAddr string
 
 	// NATS configuration (required)
-	NATSURL        string
-	NATSTLSEnabled bool
+	NATSURL         string
+	NATSTLSEnabled  bool
 	NATSTLSCertFile string
 	NATSTLSKeyFile  string
 	NATSTLSCAFile   string
+
+	// ReindexJob configuration
+	ReindexJobNamespace      string
+	ReindexServiceAccount    string
+	ReindexMemoryLimit       string
+	ReindexCPULimit          string
+	MaxConcurrentReindexJobs int
+	ActivityImage            string
 }
 
 // NewControllerManagerOptions creates options with default values.
 func NewControllerManagerOptions() *ControllerManagerOptions {
 	return &ControllerManagerOptions{
-		Workers:         2,
-		MetricsAddr:     ":8080",
-		HealthProbeAddr: ":8081",
+		Workers:                  2,
+		MetricsAddr:              ":8080",
+		HealthProbeAddr:          ":8081",
+		ReindexJobNamespace:      "activity-system",
+		ReindexServiceAccount:    "activity-reindex-worker",
+		ReindexMemoryLimit:       "2Gi",
+		ReindexCPULimit:          "1000m",
+		MaxConcurrentReindexJobs: 1,
+		ActivityImage:            "ghcr.io/datum-cloud/activity:latest",
 	}
 }
 
@@ -67,6 +81,20 @@ func (o *ControllerManagerOptions) AddFlags(fs *pflag.FlagSet) {
 		"Path to client private key file for NATS TLS.")
 	fs.StringVar(&o.NATSTLSCAFile, "nats-tls-ca-file", o.NATSTLSCAFile,
 		"Path to CA certificate file for NATS TLS.")
+
+	// ReindexJob flags
+	fs.StringVar(&o.ReindexJobNamespace, "reindex-job-namespace", o.ReindexJobNamespace,
+		"Namespace where ReindexJob worker Jobs are created.")
+	fs.StringVar(&o.ReindexServiceAccount, "reindex-service-account", o.ReindexServiceAccount,
+		"ServiceAccount for ReindexJob worker pods.")
+	fs.StringVar(&o.ReindexMemoryLimit, "reindex-memory-limit", o.ReindexMemoryLimit,
+		"Memory limit for ReindexJob worker pods (e.g., 2Gi).")
+	fs.StringVar(&o.ReindexCPULimit, "reindex-cpu-limit", o.ReindexCPULimit,
+		"CPU limit for ReindexJob worker pods (e.g., 1000m).")
+	fs.IntVar(&o.MaxConcurrentReindexJobs, "max-concurrent-reindex-jobs", o.MaxConcurrentReindexJobs,
+		"Maximum number of concurrent ReindexJobs allowed.")
+	fs.StringVar(&o.ActivityImage, "activity-image", o.ActivityImage,
+		"Container image for activity binary used by ReindexJob workers.")
 }
 
 // NewControllerManagerCommand creates the controller-manager subcommand.
@@ -115,9 +143,20 @@ func RunControllerManager(options *ControllerManagerOptions) error {
 	}
 
 	managerOpts := controller.ManagerOptions{
-		Workers:         options.Workers,
-		MetricsAddr:     options.MetricsAddr,
-		HealthProbeAddr: options.HealthProbeAddr,
+		Workers:                  options.Workers,
+		MetricsAddr:              options.MetricsAddr,
+		HealthProbeAddr:          options.HealthProbeAddr,
+		ReindexJobNamespace:      options.ReindexJobNamespace,
+		ReindexServiceAccount:    options.ReindexServiceAccount,
+		ReindexMemoryLimit:       options.ReindexMemoryLimit,
+		ReindexCPULimit:          options.ReindexCPULimit,
+		MaxConcurrentReindexJobs: options.MaxConcurrentReindexJobs,
+		ActivityImage:            options.ActivityImage,
+		NATSURL:                  options.NATSURL,
+		NATSTLSEnabled:           options.NATSTLSEnabled,
+		NATSTLSCertFile:          options.NATSTLSCertFile,
+		NATSTLSKeyFile:           options.NATSTLSKeyFile,
+		NATSTLSCAFile:            options.NATSTLSCAFile,
 	}
 
 	// Initialize NATS JetStream connection

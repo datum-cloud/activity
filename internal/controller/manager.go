@@ -40,6 +40,19 @@ type ManagerOptions struct {
 	HealthProbeAddr string
 	// JetStream is the NATS JetStream context for publishing activities (required)
 	JetStream nats.JetStreamContext
+
+	// ReindexJob configuration
+	ReindexJobNamespace      string
+	ReindexServiceAccount    string
+	ReindexMemoryLimit       string
+	ReindexCPULimit          string
+	MaxConcurrentReindexJobs int
+	ActivityImage            string
+	NATSURL                  string
+	NATSTLSEnabled           bool
+	NATSTLSCertFile          string
+	NATSTLSKeyFile           string
+	NATSTLSCAFile            string
 }
 
 // ActivityPolicyGVR is the GroupVersionResource for ActivityPolicy.
@@ -83,10 +96,21 @@ func NewManager(config *rest.Config, options ManagerOptions) (ctrl.Manager, erro
 
 	// Create and register the ReindexJob reconciler
 	reindexReconciler := &ReindexJobReconciler{
-		Client:    mgr.GetClient(),
-		Scheme:    mgr.GetScheme(),
-		JetStream: options.JetStream,
-		Recorder:  mgr.GetEventRecorderFor("reindexjob-controller"),
+		Client:                mgr.GetClient(),
+		Scheme:                mgr.GetScheme(),
+		JetStream:             options.JetStream,
+		Recorder:              mgr.GetEventRecorderFor("reindexjob-controller"),
+		JobNamespace:          options.ReindexJobNamespace,
+		ActivityImage:         options.ActivityImage,
+		ReindexServiceAccount: options.ReindexServiceAccount,
+		ReindexMemoryLimit:    options.ReindexMemoryLimit,
+		ReindexCPULimit:       options.ReindexCPULimit,
+		MaxConcurrentJobs:     options.MaxConcurrentReindexJobs,
+		NATSURL:               options.NATSURL,
+		NATSTLSEnabled:        options.NATSTLSEnabled,
+		NATSTLSCertFile:       options.NATSTLSCertFile,
+		NATSTLSKeyFile:        options.NATSTLSKeyFile,
+		NATSTLSCAFile:         options.NATSTLSCAFile,
 	}
 
 	if err := reindexReconciler.SetupWithManager(mgr, options.Workers); err != nil {
