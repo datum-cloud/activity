@@ -1,0 +1,8 @@
+packages:
+  - .
+  - example
+
+onlyBuiltDependencies:
+  - '@tailwindcss/oxide'
+  - esbuild
+  - lightningcss
