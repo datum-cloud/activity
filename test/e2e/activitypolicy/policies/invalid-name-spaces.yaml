@@ -1,0 +1,12 @@
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: test-invalid-name-spaces
+spec:
+  resource:
+    apiGroup: apps
+    kind: Deployment
+  auditRules:
+    - name: "rule with spaces"
+      match: "verb == 'create'"
+      summary: "{{ actor }} created deployment"

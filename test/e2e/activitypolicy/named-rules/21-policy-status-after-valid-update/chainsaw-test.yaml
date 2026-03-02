@@ -1,0 +1,88 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: policy-status-after-valid-update
+spec:
+  description: |
+    Test that policy status updates correctly after modifications.
+    Verifies that valid policies with named rules show Ready=True status,
+    and that status remains correct after updates.
+  steps:
+  - name: create-valid-policy-with-named-rules
+    try:
+    - apply:
+        resource:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          metadata:
+            name: test-policy-status
+          spec:
+            resource:
+              apiGroup: apps
+              kind: Deployment
+            auditRules:
+            - name: create-rule
+              match: "verb == 'create'"
+              summary: "{{ actor }} created {{ objectRef.name }}"
+            - name: delete-rule
+              match: "verb == 'delete'"
+              summary: "{{ actor }} deleted {{ objectRef.name }}"
+    - assert:
+        resource:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          metadata:
+            name: test-policy-status
+          status:
+            conditions:
+            - type: Ready
+              status: "True"
+              reason: Valid
+    - script:
+        content: |
+          echo "Verified that valid policy shows Ready=True status"
+
+  - name: update-rule-and-verify-status-remains-ready
+    try:
+    - apply:
+        resource:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          metadata:
+            name: test-policy-status
+          spec:
+            resource:
+              apiGroup: apps
+              kind: Deployment
+            auditRules:
+            - name: create-rule
+              match: "verb == 'create'"
+              summary: "{{ actor }} created {{ objectRef.name }} successfully"
+            - name: delete-rule
+              match: "verb == 'delete'"
+              summary: "{{ actor }} deleted {{ objectRef.name }}"
+            - name: update-rule
+              match: "verb in ['update', 'patch']"
+              summary: "{{ actor }} modified {{ objectRef.name }}"
+    - assert:
+        resource:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          metadata:
+            name: test-policy-status
+          status:
+            conditions:
+            - type: Ready
+              status: "True"
+              reason: Valid
+    - script:
+        content: |
+          echo "Verified that status remains Ready=True after valid update"
+
+  - name: cleanup
+    try:
+    - delete:
+        ref:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          name: test-policy-status

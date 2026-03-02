@@ -1,0 +1,65 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: create-policy-with-named-rules
+spec:
+  description: |
+    Test successful creation of an ActivityPolicy with properly named rules.
+    Verifies that rules with unique valid names are created and stored correctly.
+  steps:
+  - name: create-policy-with-three-named-rules
+    try:
+    - apply:
+        resource:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          metadata:
+            name: test-named-rules
+          spec:
+            resource:
+              apiGroup: apps
+              kind: Deployment
+            auditRules:
+              - name: create-rule
+                match: "verb == 'create'"
+                summary: "{{ actor }} created deployment {{ objectRef.name }}"
+              - name: update-rule
+                match: "verb in ['update', 'patch']"
+                summary: "{{ actor }} updated deployment {{ objectRef.name }}"
+              - name: delete-rule
+                match: "verb == 'delete'"
+                summary: "{{ actor }} deleted deployment {{ objectRef.name }}"
+    - assert:
+        resource:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          metadata:
+            name: test-named-rules
+          spec:
+            resource:
+              apiGroup: apps
+              kind: Deployment
+            auditRules:
+              - name: create-rule
+                match: "verb == 'create'"
+                summary: "{{ actor }} created deployment {{ objectRef.name }}"
+              - name: update-rule
+                match: "verb in ['update', 'patch']"
+                summary: "{{ actor }} updated deployment {{ objectRef.name }}"
+              - name: delete-rule
+                match: "verb == 'delete'"
+                summary: "{{ actor }} deleted deployment {{ objectRef.name }}"
+          status:
+            conditions:
+              - type: Ready
+                status: "True"
+    catch:
+    - describe:
+        apiVersion: activity.miloapis.com/v1alpha1
+        kind: ActivityPolicy
+    finally:
+    - delete:
+        ref:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          name: test-named-rules

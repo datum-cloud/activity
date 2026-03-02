@@ -1,0 +1,66 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: delete-rule-by-name
+spec:
+  description: |
+    Test removing a specific rule by name from an existing policy.
+    Verifies that rules can be selectively removed without affecting others.
+  steps:
+  - name: create-policy-with-three-rules
+    try:
+    - apply:
+        resource:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          metadata:
+            name: test-delete-rule
+          spec:
+            resource:
+              apiGroup: ""
+              kind: Secret
+            auditRules:
+              - name: create-secret
+                match: "verb == 'create'"
+                summary: "{{ actor }} created secret {{ objectRef.name }}"
+              - name: update-secret
+                match: "verb in ['update', 'patch']"
+                summary: "{{ actor }} updated secret {{ objectRef.name }}"
+              - name: delete-secret
+                match: "verb == 'delete'"
+                summary: "{{ actor }} deleted secret {{ objectRef.name }}"
+    - assert:
+        resource:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          metadata:
+            name: test-delete-rule
+          status:
+            conditions:
+              - type: Ready
+                status: "True"
+  - name: remove-update-rule
+    try:
+    - script:
+        content: |
+          kubectl patch activitypolicy test-delete-rule --type=json -p '[{"op":"remove","path":"/spec/auditRules/1"}]'
+    - assert:
+        resource:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          metadata:
+            name: test-delete-rule
+          spec:
+            auditRules:
+              - name: create-secret
+              - name: delete-secret
+    catch:
+    - describe:
+        apiVersion: activity.miloapis.com/v1alpha1
+        kind: ActivityPolicy
+    finally:
+    - delete:
+        ref:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          name: test-delete-rule

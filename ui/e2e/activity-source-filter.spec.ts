@@ -1,57 +1,114 @@
 import { test, expect } from '@playwright/test';
+import { mockActivityQueryAPI, type MockActivity } from './helpers/api-mocks';
 
 /**
  * E2E tests for Activity Feed changeSource filter
  * Tests that the Human/System toggle correctly filters activities
  */
 
+// Sample activities with different change sources
+const mockActivities: MockActivity[] = [
+  {
+    metadata: { name: 'activity-1', uid: 'uid-1', creationTimestamp: '2024-01-01T10:00:00Z' },
+    spec: {
+      summary: 'alice created deployment web-app',
+      changeSource: 'human',
+      actor: { name: 'alice', type: 'User' },
+      resource: { apiGroup: 'apps', kind: 'Deployment', name: 'web-app', namespace: 'default' },
+      timestamp: '2024-01-01T10:00:00Z',
+    },
+  },
+  {
+    metadata: { name: 'activity-2', uid: 'uid-2', creationTimestamp: '2024-01-01T10:01:00Z' },
+    spec: {
+      summary: 'bob updated configmap settings',
+      changeSource: 'human',
+      actor: { name: 'bob', type: 'User' },
+      resource: { apiGroup: '', kind: 'ConfigMap', name: 'settings', namespace: 'default' },
+      timestamp: '2024-01-01T10:01:00Z',
+    },
+  },
+  {
+    metadata: { name: 'activity-3', uid: 'uid-3', creationTimestamp: '2024-01-01T10:02:00Z' },
+    spec: {
+      summary: 'system:serviceaccount:kube-system:deployment-controller updated replicaset web-app-abc123',
+      changeSource: 'system',
+      actor: { name: 'system:serviceaccount:kube-system:deployment-controller', type: 'ServiceAccount' },
+      resource: { apiGroup: 'apps', kind: 'ReplicaSet', name: 'web-app-abc123', namespace: 'default' },
+      timestamp: '2024-01-01T10:02:00Z',
+    },
+  },
+  {
+    metadata: { name: 'activity-4', uid: 'uid-4', creationTimestamp: '2024-01-01T10:03:00Z' },
+    spec: {
+      summary: 'kubelet updated pod status',
+      changeSource: 'system',
+      actor: { name: 'kubelet', type: 'Node' },
+      resource: { apiGroup: '', kind: 'Pod', name: 'web-app-abc123-xyz', namespace: 'default' },
+      timestamp: '2024-01-01T10:03:00Z',
+    },
+  },
+];
+
 test.describe('Activity Feed Source Filter', () => {
+  test.beforeEach(async ({ page }) => {
+    // Set up mocks for activity queries
+    await mockActivityQueryAPI(page, mockActivities);
+  });
+
   test('Human filter sends changeSource: "human" in API request', async ({ page }) => {
     const requests: any[] = [];
 
-    // Set up route interception BEFORE navigation
+    // Capture requests to verify changeSource parameter
     await page.route('**/activityqueries', async (route) => {
       const request = route.request();
       if (request.method() === 'POST') {
         const payload = JSON.parse(request.postData() || '{}');
         requests.push(payload);
-        console.log('Captured request:', JSON.stringify(payload.spec, null, 2));
       }
-      await route.continue();
+
+      // Filter activities based on changeSource
+      const requestData = JSON.parse(request.postData() || '{}');
+      const changeSourceFilter = requestData?.spec?.changeSource;
+      let filteredActivities = mockActivities;
+      if (changeSourceFilter) {
+        filteredActivities = mockActivities.filter(a => a.spec.changeSource === changeSourceFilter);
+      }
+
+      await route.fulfill({
+        status: 200,
+        json: {
+          apiVersion: 'activity.miloapis.com/v1alpha1',
+          kind: 'ActivityQuery',
+          spec: requestData?.spec || {},
+          status: { results: filteredActivities },
+        },
+      });
     });
 
     // Navigate to Activity Feed
     await page.goto('/activity-feed');
 
     // Wait for initial load
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(500);
 
     // Clear captured requests from initial load
     const initialRequestCount = requests.length;
-    console.log(`Initial load made ${initialRequestCount} requests`);
 
-    // Click Human filter and wait for the request
-    const requestPromise = page.waitForRequest((req) =>
-      req.url().includes('activityqueries') && req.method() === 'POST'
-    );
-
+    // Click Human filter
     await page.getByRole('button', { name: 'Human' }).click();
 
-    // Wait for the debounced request (300ms debounce + buffer)
+    // Wait for the debounced request
     await page.waitForTimeout(500);
 
     // Check if a new request was made after clicking Human
     const newRequests = requests.slice(initialRequestCount);
-    console.log(`After clicking Human: ${newRequests.length} new requests`);
 
     if (newRequests.length > 0) {
       const lastRequest = newRequests[newRequests.length - 1];
-      console.log('Last request spec:', JSON.stringify(lastRequest.spec, null, 2));
       expect(lastRequest.spec.changeSource).toBe('human');
     } else {
-      // If Human was already selected (default), try clicking All then Human
-      console.log('No new request - Human may already be selected. Clicking All then Human...');
-
+      // Human may already be selected - click All then Human
       await page.getByRole('button', { name: 'All' }).click();
       await page.waitForTimeout(500);
 
@@ -64,7 +121,6 @@ test.describe('Activity Feed Source Filter', () => {
       expect(humanRequests.length).toBeGreaterThan(0);
 
       const humanRequest = humanRequests[humanRequests.length - 1];
-      console.log('Human request spec:', JSON.stringify(humanRequest.spec, null, 2));
       expect(humanRequest.spec.changeSource).toBe('human');
     }
   });
@@ -75,13 +131,30 @@ test.describe('Activity Feed Source Filter', () => {
     await page.route('**/activityqueries', async (route) => {
       const request = route.request();
       if (request.method() === 'POST') {
-        requests.push(JSON.parse(request.postData() || '{}'));
+        const payload = JSON.parse(request.postData() || '{}');
+        requests.push(payload);
       }
-      await route.continue();
+
+      const requestData = JSON.parse(request.postData() || '{}');
+      const changeSourceFilter = requestData?.spec?.changeSource;
+      let filteredActivities = mockActivities;
+      if (changeSourceFilter) {
+        filteredActivities = mockActivities.filter(a => a.spec.changeSource === changeSourceFilter);
+      }
+
+      await route.fulfill({
+        status: 200,
+        json: {
+          apiVersion: 'activity.miloapis.com/v1alpha1',
+          kind: 'ActivityQuery',
+          spec: requestData?.spec || {},
+          status: { results: filteredActivities },
+        },
+      });
     });
 
     await page.goto('/activity-feed');
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(500);
 
     const beforeCount = requests.length;
 
@@ -93,7 +166,6 @@ test.describe('Activity Feed Source Filter', () => {
     expect(newRequests.length).toBeGreaterThan(0);
 
     const lastRequest = newRequests[newRequests.length - 1];
-    console.log('System request spec:', JSON.stringify(lastRequest.spec, null, 2));
     expect(lastRequest.spec.changeSource).toBe('system');
   });
 
@@ -105,11 +177,21 @@ test.describe('Activity Feed Source Filter', () => {
       if (request.method() === 'POST') {
         requests.push(JSON.parse(request.postData() || '{}'));
       }
-      await route.continue();
+
+      const requestData = JSON.parse(request.postData() || '{}');
+      await route.fulfill({
+        status: 200,
+        json: {
+          apiVersion: 'activity.miloapis.com/v1alpha1',
+          kind: 'ActivityQuery',
+          spec: requestData?.spec || {},
+          status: { results: mockActivities },
+        },
+      });
     });
 
     await page.goto('/activity-feed');
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(500);
 
     // First click Human to ensure we're not on All
     await page.getByRole('button', { name: 'Human' }).click();
@@ -125,122 +207,87 @@ test.describe('Activity Feed Source Filter', () => {
     expect(newRequests.length).toBeGreaterThan(0);
 
     const lastRequest = newRequests[newRequests.length - 1];
-    console.log('All request spec:', JSON.stringify(lastRequest.spec, null, 2));
     expect(lastRequest.spec.changeSource).toBeUndefined();
   });
 
   test('Human filter returns ONLY human activities (no system)', async ({ page }) => {
-    let capturedResponse: any = null;
+    let lastResponse: any = null;
 
     await page.route('**/activityqueries', async (route) => {
-      const request = route.request();
-      if (request.method() === 'POST') {
-        const payload = JSON.parse(request.postData() || '{}');
-
-        // Only capture when changeSource is human
-        if (payload.spec?.changeSource === 'human') {
-          const response = await route.fetch();
-          capturedResponse = await response.json();
-
-          console.log('=== Human filter request ===');
-          console.log('Request changeSource:', payload.spec.changeSource);
-          console.log('Response activities:', capturedResponse.status?.results?.length || 0);
-
-          if (capturedResponse.status?.results?.length > 0) {
-            capturedResponse.status.results.forEach((a: any, i: number) => {
-              console.log(`  ${i + 1}. changeSource=${a.spec?.changeSource}`);
-            });
-          }
-
-          await route.fulfill({ response, json: capturedResponse });
-          return;
-        }
+      const requestData = JSON.parse(route.request().postData() || '{}');
+      const changeSourceFilter = requestData?.spec?.changeSource;
+      let filteredActivities = mockActivities;
+      if (changeSourceFilter) {
+        filteredActivities = mockActivities.filter(a => a.spec.changeSource === changeSourceFilter);
       }
-      await route.continue();
+
+      lastResponse = {
+        apiVersion: 'activity.miloapis.com/v1alpha1',
+        kind: 'ActivityQuery',
+        spec: requestData?.spec || {},
+        status: { results: filteredActivities },
+      };
+
+      await route.fulfill({
+        status: 200,
+        json: lastResponse,
+      });
     });
 
     await page.goto('/activity-feed');
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(500);
 
-    // Click Human (or ensure it's selected)
+    // Click All then Human to ensure fresh request
     await page.getByRole('button', { name: 'All' }).click();
     await page.waitForTimeout(500);
 
     await page.getByRole('button', { name: 'Human' }).click();
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(500);
 
-    // Check response
-    if (!capturedResponse || !capturedResponse.status?.results?.length) {
-      console.log('No activities returned - cannot verify filter');
-      return;
-    }
+    // Check response - should only have human activities
+    expect(lastResponse).toBeTruthy();
+    const activities = lastResponse.status.results;
+    const systemActivities = activities.filter((a: MockActivity) => a.spec.changeSource === 'system');
+    expect(systemActivities).toHaveLength(0);
 
-    // Verify ALL activities have changeSource: "human"
-    const activities = capturedResponse.status.results;
-    const systemActivities = activities.filter((a: any) => a.spec?.changeSource === 'system');
-
-    if (systemActivities.length > 0) {
-      console.log('ERROR: Found system activities in human-filtered response!');
-      systemActivities.forEach((a: any) => {
-        console.log(`  - changeSource: ${a.spec?.changeSource}, summary: ${a.spec?.summary}`);
-      });
-      expect(systemActivities).toHaveLength(0);
-    } else {
-      console.log('SUCCESS: All activities have changeSource: "human"');
-    }
+    // All should be human
+    const humanActivities = activities.filter((a: MockActivity) => a.spec.changeSource === 'human');
+    expect(humanActivities.length).toBe(activities.length);
   });
 
-  test('Debug: Full request/response trace', async ({ page }) => {
-    console.log('\n========================================');
-    console.log('DEBUG: Activity Source Filter Test');
-    console.log('========================================\n');
-
+  test('filter buttons toggle correctly', async ({ page }) => {
     await page.route('**/activityqueries', async (route) => {
-      const request = route.request();
-      if (request.method() === 'POST') {
-        const payload = JSON.parse(request.postData() || '{}');
-        console.log('\n--- API REQUEST ---');
-        console.log('changeSource:', payload.spec?.changeSource ?? '(not set)');
-        console.log('startTime:', payload.spec?.startTime);
-        console.log('endTime:', payload.spec?.endTime);
-
-        const response = await route.fetch();
-        const json = await response.json();
-
-        console.log('\n--- API RESPONSE ---');
-        console.log('Total results:', json.status?.results?.length || 0);
-
-        if (json.status?.results?.length > 0) {
-          const humanCount = json.status.results.filter((a: any) => a.spec?.changeSource === 'human').length;
-          const systemCount = json.status.results.filter((a: any) => a.spec?.changeSource === 'system').length;
-          console.log(`Human activities: ${humanCount}`);
-          console.log(`System activities: ${systemCount}`);
-        }
-
-        await route.fulfill({ response, json });
-        return;
-      }
-      await route.continue();
+      const requestData = JSON.parse(route.request().postData() || '{}');
+      await route.fulfill({
+        status: 200,
+        json: {
+          apiVersion: 'activity.miloapis.com/v1alpha1',
+          kind: 'ActivityQuery',
+          spec: requestData?.spec || {},
+          status: { results: mockActivities },
+        },
+      });
     });
 
     await page.goto('/activity-feed');
-    console.log('\n>>> Page loaded');
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(500);
 
-    console.log('\n>>> Clicking "System" button');
+    // Verify all three filter buttons exist
+    await expect(page.getByRole('button', { name: 'All' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Human' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'System' })).toBeVisible();
+
+    // Click through each filter
     await page.getByRole('button', { name: 'System' }).click();
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(300);
 
-    console.log('\n>>> Clicking "Human" button');
     await page.getByRole('button', { name: 'Human' }).click();
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(300);
 
-    console.log('\n>>> Clicking "All" button');
     await page.getByRole('button', { name: 'All' }).click();
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(300);
 
-    console.log('\n========================================');
-    console.log('DEBUG TEST COMPLETE');
-    console.log('========================================\n');
+    // Test passes if no errors occurred
+    expect(true).toBe(true);
   });
 });

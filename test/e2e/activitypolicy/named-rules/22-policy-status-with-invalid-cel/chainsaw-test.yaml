@@ -1,0 +1,78 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: policy-status-with-invalid-cel
+spec:
+  description: |
+    Test that invalid CEL expressions are rejected at admission time.
+    Verifies that policies with valid names but invalid match expressions
+    are rejected by the API server.
+  steps:
+  - name: reject-policy-with-invalid-match-expression
+    try:
+    - apply:
+        resource:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          metadata:
+            name: test-policy-invalid-cel
+          spec:
+            resource:
+              apiGroup: apps
+              kind: Deployment
+            auditRules:
+            - name: invalid-syntax-rule
+              match: "verb == "
+              summary: "{{ actor }} performed action"
+        expect:
+        - check:
+            ($error != null): true
+    - script:
+        content: |
+          echo "Verified that invalid CEL syntax is rejected at admission"
+
+  - name: reject-policy-with-invalid-summary-template
+    try:
+    - apply:
+        resource:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          metadata:
+            name: test-policy-invalid-template
+          spec:
+            resource:
+              apiGroup: apps
+              kind: Deployment
+            auditRules:
+            - name: invalid-template-rule
+              match: "verb == 'create'"
+              summary: "{{ actor }} created {{ "
+        expect:
+        - check:
+            ($error != null): true
+    - script:
+        content: |
+          echo "Verified that invalid template syntax is rejected at admission"
+
+  - name: reject-policy-with-undefined-variable
+    try:
+    - apply:
+        resource:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          metadata:
+            name: test-policy-undefined-var
+          spec:
+            resource:
+              apiGroup: apps
+              kind: Deployment
+            auditRules:
+            - name: undefined-var-rule
+              match: "verb == 'create'"
+              summary: "{{ actor }} created {{ nonexistent.field }}"
+        expect:
+        - check:
+            ($error != null): true
+    - script:
+        content: |
+          echo "Verified that undefined variables are rejected at admission"

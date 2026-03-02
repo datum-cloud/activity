@@ -1,0 +1,69 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: same-name-across-rule-types
+spec:
+  description: |
+    Test that the same rule name can be used in both auditRules and eventRules.
+    Verifies that rule names are scoped to their respective rule lists.
+  steps:
+  - name: create-policy-with-duplicate-names-across-types
+    try:
+    - apply:
+        resource:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          metadata:
+            name: test-cross-type-names
+          spec:
+            resource:
+              apiGroup: ""
+              kind: Pod
+            auditRules:
+              - name: create
+                match: "verb == 'create'"
+                summary: "{{ actor }} created pod {{ objectRef.name }} via API"
+              - name: delete
+                match: "verb == 'delete'"
+                summary: "{{ actor }} deleted pod {{ objectRef.name }} via API"
+            eventRules:
+              - name: create
+                match: "event.reason == 'Created'"
+                summary: "Pod {{ event.involvedObject.name }} was created"
+              - name: delete
+                match: "event.reason == 'Deleted'"
+                summary: "Pod {{ event.involvedObject.name }} was deleted"
+    - assert:
+        resource:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          metadata:
+            name: test-cross-type-names
+          spec:
+            resource:
+              apiGroup: ""
+              kind: Pod
+            auditRules:
+              - name: create
+                match: "verb == 'create'"
+              - name: delete
+                match: "verb == 'delete'"
+            eventRules:
+              - name: create
+                match: "event.reason == 'Created'"
+              - name: delete
+                match: "event.reason == 'Deleted'"
+          status:
+            conditions:
+              - type: Ready
+                status: "True"
+    catch:
+    - describe:
+        apiVersion: activity.miloapis.com/v1alpha1
+        kind: ActivityPolicy
+    finally:
+    - delete:
+        ref:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          name: test-cross-type-names
