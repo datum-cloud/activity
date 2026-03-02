@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import type {
   ActivityPolicy,
   ActivityPolicySpec,
@@ -59,6 +59,10 @@ export interface UsePolicyEditorResult {
   removeAuditRule: (index: number) => void;
   /** Remove an event rule */
   removeEventRule: (index: number) => void;
+  /** Update a rule by name */
+  updateRuleByName: (ruleType: 'audit' | 'event', name: string, updates: Partial<ActivityPolicyRule>) => void;
+  /** Remove a rule by name */
+  removeRuleByName: (ruleType: 'audit' | 'event', name: string) => void;
   /** Save the policy (create or update) */
   save: (dryRun?: boolean) => Promise<ActivityPolicy>;
   /** Load an existing policy by name */
@@ -84,13 +88,33 @@ function createEmptySpec(): ActivityPolicySpec {
 }
 
 /**
- * Create an empty rule
+ * Generate a unique rule name
  */
-function createEmptyRule(): ActivityPolicyRule {
+function generateRuleName(ruleType: 'audit' | 'event', counter: number): string {
+  return `${ruleType}-rule-${counter}`;
+}
+
+/**
+ * Create an empty rule with a generated name
+ */
+function createEmptyRule(ruleType: 'audit' | 'event', counter: number): ActivityPolicyRule {
   return {
+    name: generateRuleName(ruleType, counter),
     match: '',
     summary: '',
   };
+}
+
+/**
+ * Ensure all rules have names, generating them if needed
+ */
+function ensureRuleNames(rules: ActivityPolicyRule[], ruleType: 'audit' | 'event'): ActivityPolicyRule[] {
+  return rules.map((rule, index) => {
+    if (!rule.name) {
+      return { ...rule, name: generateRuleName(ruleType, index + 1) };
+    }
+    return rule;
+  });
 }
 
 /**
@@ -119,6 +143,9 @@ export function usePolicyEditor({
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  // Rule name counters (persisted across the session)
+  const auditRuleCounter = useRef(1);
+  const eventRuleCounter = useRef(1);
 
   // Computed states
   const isNew = policy === null;
@@ -145,14 +172,14 @@ export function usePolicyEditor({
   const addAuditRule = useCallback(() => {
     setSpec((prev) => ({
       ...prev,
-      auditRules: [...(prev.auditRules || []), createEmptyRule()],
+      auditRules: [...(prev.auditRules || []), createEmptyRule('audit', auditRuleCounter.current++)],
     }));
   }, []);
 
   const addEventRule = useCallback(() => {
     setSpec((prev) => ({
       ...prev,
-      eventRules: [...(prev.eventRules || []), createEmptyRule()],
+      eventRules: [...(prev.eventRules || []), createEmptyRule('event', eventRuleCounter.current++)],
     }));
   }, []);
 
@@ -188,6 +215,38 @@ export function usePolicyEditor({
     }));
   }, []);
 
+  // Update rule by name
+  const updateRuleByName = useCallback(
+    (ruleType: 'audit' | 'event', ruleName: string, updates: Partial<ActivityPolicyRule>) => {
+      setSpec((prev) => {
+        const rulesKey = ruleType === 'audit' ? 'auditRules' : 'eventRules';
+        const rules = [...(prev[rulesKey] || [])];
+        const index = rules.findIndex((r) => r.name === ruleName);
+
+        if (index === -1) {
+          console.warn(`Rule with name "${ruleName}" not found in ${ruleType} rules`);
+          return prev;
+        }
+
+        rules[index] = { ...rules[index], ...updates };
+        return { ...prev, [rulesKey]: rules };
+      });
+    },
+    []
+  );
+
+  // Remove rule by name
+  const removeRuleByName = useCallback(
+    (ruleType: 'audit' | 'event', ruleName: string) => {
+      setSpec((prev) => {
+        const rulesKey = ruleType === 'audit' ? 'auditRules' : 'eventRules';
+        const rules = (prev[rulesKey] || []).filter((r) => r.name !== ruleName);
+        return { ...prev, [rulesKey]: rules };
+      });
+    },
+    []
+  );
+
   // Load an existing policy
   const load = useCallback(
     async (policyName: string) => {
@@ -196,10 +255,35 @@ export function usePolicyEditor({
 
       try {
         const result = await client.getPolicy(policyName);
+
+        // Ensure all rules have names (backward compatibility)
+        const specWithNames: ActivityPolicySpec = {
+          ...result.spec,
+          auditRules: result.spec.auditRules
+            ? ensureRuleNames(result.spec.auditRules, 'audit')
+            : [],
+          eventRules: result.spec.eventRules
+            ? ensureRuleNames(result.spec.eventRules, 'event')
+            : [],
+        };
+
+        // Update counters to avoid conflicts with loaded rules
+        const maxAuditIndex = (specWithNames.auditRules || []).reduce((max, rule) => {
+          const match = rule.name.match(/^audit-rule-(\d+)$/);
+          return match ? Math.max(max, parseInt(match[1], 10)) : max;
+        }, 0);
+        const maxEventIndex = (specWithNames.eventRules || []).reduce((max, rule) => {
+          const match = rule.name.match(/^event-rule-(\d+)$/);
+          return match ? Math.max(max, parseInt(match[1], 10)) : max;
+        }, 0);
+
+        auditRuleCounter.current = maxAuditIndex + 1;
+        eventRuleCounter.current = maxEventIndex + 1;
+
         setPolicy(result);
         setName(result.metadata?.name || policyName);
-        setSpec(result.spec);
-        setSavedSpec(result.spec);
+        setSpec(specWithNames);
+        setSavedSpec(specWithNames);
         setSavedName(result.metadata?.name || policyName);
       } catch (err) {
         setError(err instanceof Error ? err : new Error(String(err)));
@@ -269,6 +353,9 @@ export function usePolicyEditor({
     setSavedSpec(createEmptySpec());
     setSavedName('');
     setError(null);
+    // Reset counters when clearing
+    auditRuleCounter.current = 1;
+    eventRuleCounter.current = 1;
   }, []);
 
   return {
@@ -291,6 +378,8 @@ export function usePolicyEditor({
     updateEventRule,
     removeAuditRule,
     removeEventRule,
+    updateRuleByName,
+    removeRuleByName,
     save,
     load,
     reset,

@@ -74,10 +74,28 @@ export { PolicyRuleList } from './components/PolicyRuleList';
 export type { PolicyRuleListProps } from './components/PolicyRuleList';
 export { PolicyRuleEditor } from './components/PolicyRuleEditor';
 export type { PolicyRuleEditorProps } from './components/PolicyRuleEditor';
+export { PolicyRuleEditorDialog } from './components/PolicyRuleEditorDialog';
+export type { PolicyRuleEditorDialogProps } from './components/PolicyRuleEditorDialog';
+export { PolicyRuleListItem } from './components/PolicyRuleListItem';
+export type { PolicyRuleListItemProps } from './components/PolicyRuleListItem';
 export { PolicyResourceForm } from './components/PolicyResourceForm';
 export type { PolicyResourceFormProps } from './components/PolicyResourceForm';
 export { SampleInputTemplates, AUDIT_TEMPLATES, EVENT_TEMPLATES } from './components/SampleInputTemplates';
 export type { SampleInputTemplatesProps } from './components/SampleInputTemplates';
+export { RulePreviewPanel } from './components/RulePreviewPanel';
+export type { RulePreviewPanelProps } from './components/RulePreviewPanel';
+export { CelEditor } from './components/CelEditor';
+export type { CelEditorProps } from './components/CelEditor';
+
+// Components - ReindexJob (new)
+export { ReindexJobList } from './components/ReindexJobList';
+export type { ReindexJobListProps } from './components/ReindexJobList';
+export { ReindexJobDetailView } from './components/ReindexJobDetailView';
+export type { ReindexJobDetailViewProps } from './components/ReindexJobDetailView';
+export { ReindexJobCreate } from './components/ReindexJobCreate';
+export type { ReindexJobCreateProps } from './components/ReindexJobCreate';
+export { ReindexJobDialog } from './components/ReindexJobDialog';
+export type { ReindexJobDialogProps } from './components/ReindexJobDialog';
 
 // UI Components (shadcn/ui based)
 export {
@@ -161,6 +179,7 @@ export type { TimeRangeDropdownProps, TimeRangePreset } from './components/ui/ti
 export { cn } from './lib/utils';
 export { ApiError, parseApiError, NetworkError, defaultErrorFormatter } from './lib/errors';
 export type { ApiErrorResponse } from './lib/errors';
+export { extractFieldPaths, extractFieldPathsFromMany } from './lib/extractFieldPaths';
 
 // Hooks - Audit Log Query (existing)
 export { useAuditLogQuery } from './hooks/useAuditLogQuery';
@@ -207,6 +226,13 @@ export type {
   UsePolicyPreviewOptions,
   UsePolicyPreviewResult,
 } from './hooks/usePolicyPreview';
+
+// Hooks - ReindexJob (new)
+export { useReindexJobs } from './hooks/useReindexJobs';
+export type {
+  UseReindexJobsOptions,
+  UseReindexJobsResult,
+} from './hooks/useReindexJobs';
 
 // API Client
 export { ActivityApiClient } from './api/client';
@@ -300,6 +326,7 @@ export type {
   PolicyPreviewInputType,
   PolicyPreviewStatus,
   PolicyPreviewPolicySpec,
+  AutoFetchSpec,
   KubernetesEvent,
   PolicyGroup,
   SampleInputTemplate,
@@ -307,3 +334,22 @@ export type {
 } from './types/policy';
 
 export { POLICY_FILTER_FIELDS } from './types/policy';
+
+// Types - ReindexJob (new)
+export type {
+  ReindexJob,
+  ReindexJobSpec,
+  ReindexJobStatus,
+  ReindexJobPhase,
+  ReindexJobListResource,
+  ReindexTimeRange,
+  ReindexPolicySelector,
+  CreateReindexJobParams,
+} from './types/reindex';
+
+export {
+  isReindexJobTerminal,
+  isReindexJobRunning,
+  getReindexJobStatusMessage,
+  getReindexJobDuration,
+} from './types/reindex';

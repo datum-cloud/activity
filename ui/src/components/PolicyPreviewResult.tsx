@@ -193,24 +193,7 @@ export function PolicyPreviewResult({
 
   // New multi-input format
   return (
-    <div className={cn('space-y-4', className)}>
-      {/* Summary Header */}
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2">
-          <Badge variant={stats.matched > 0 ? 'success' : 'secondary'}>
-            {stats.matched} matched
-          </Badge>
-          <span className="text-muted-foreground">/</span>
-          <span className="text-sm text-muted-foreground">{stats.total} tested</span>
-          {stats.errors > 0 && (
-            <>
-              <span className="text-muted-foreground">/</span>
-              <Badge variant="destructive">{stats.errors} errors</Badge>
-            </>
-          )}
-        </div>
-      </div>
-
+    <div className={cn('space-y-3', className)}>
       {/* General Error */}
       {hasError && (
         <Alert variant="destructive">

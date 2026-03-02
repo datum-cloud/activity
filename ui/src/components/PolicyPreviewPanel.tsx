@@ -21,16 +21,10 @@ export interface PolicyPreviewPanelProps {
   error: Error | null;
   /** Handler for resource link clicks in result */
   onResourceClick?: (resource: ResourceRef) => void;
+  /** Callback to run preview (with auto-fetch) */
+  onRunPreview?: () => void;
   /** Additional CSS class */
   className?: string;
-  /** Whether audit logs are being loaded */
-  isLoadingInputs?: boolean;
-  /** Whether there are more inputs available for pagination */
-  hasMoreInputs?: boolean;
-  /** Whether more inputs are currently being loaded */
-  isLoadingMoreInputs?: boolean;
-  /** Callback to load more inputs */
-  onLoadMore?: () => void;
 }
 
 
@@ -43,40 +37,60 @@ export function PolicyPreviewPanel({
   isLoading,
   error,
   onResourceClick,
+  onRunPreview,
   className = '',
-  isLoadingInputs = false,
-  hasMoreInputs = false,
-  isLoadingMoreInputs = false,
-  onLoadMore,
 }: PolicyPreviewPanelProps) {
 
   return (
-    <div className={cn('space-y-4', className)}>
-      {/* Header */}
-      <div>
-        <p className="text-sm text-muted-foreground">
-          Preview the activity timeline for recent resource changes.
-        </p>
-      </div>
-
-      {/* Loading Inputs State */}
-      {isLoadingInputs && !isLoading && !result && (
-        <Card>
-          <CardContent className="py-8 text-center">
-            <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">Loading recent audit logs...</p>
-          </CardContent>
-        </Card>
+    <div className={cn('space-y-3', className)}>
+      {/* Header - only show when there's a refresh button */}
+      {onRunPreview && (
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-muted-foreground">
+            Preview the activity timeline for recent resource changes.
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onRunPreview}
+            disabled={isLoading}
+            className="h-7 text-xs"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                Loading...
+              </>
+            ) : (
+              'Refresh Preview'
+            )}
+          </Button>
+        </div>
       )}
 
-      {/* Loading Preview State */}
+      {/* Loading Preview State - Skeleton */}
       {isLoading && (
-        <Card>
-          <CardContent className="py-8 text-center">
-            <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">Generating preview...</p>
-          </CardContent>
-        </Card>
+        <div className="space-y-2">
+          {/* Activity stream skeleton */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="h-3 w-32 bg-muted rounded animate-pulse" />
+              <div className="h-4 w-16 bg-muted rounded animate-pulse" />
+            </div>
+            <div className="space-y-0 border rounded-md divide-y">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="px-2 py-1.5 flex items-center gap-2">
+                  <div className="h-5 w-5 bg-muted rounded-full animate-pulse shrink-0" />
+                  <div className="flex-1 space-y-1">
+                    <div className="h-2.5 w-3/4 bg-muted rounded animate-pulse" />
+                    <div className="h-2 w-1/2 bg-muted rounded animate-pulse" />
+                  </div>
+                  <div className="h-2.5 w-14 bg-muted rounded animate-pulse shrink-0" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Error Display */}
@@ -88,14 +102,14 @@ export function PolicyPreviewPanel({
       )}
 
       {/* Empty State - No result yet and not loading */}
-      {!result && !isLoading && !error && !isLoadingInputs && (
+      {!result && !isLoading && !error && (
         <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-sm text-muted-foreground mb-2">
+          <CardContent className="py-6 text-center">
+            <p className="text-xs text-muted-foreground mb-1">
               No preview available yet
             </p>
-            <p className="text-xs text-muted-foreground">
-              Define resource details and rules in the Editor tab to see a preview
+            <p className="text-[11px] text-muted-foreground">
+              Enter a match expression and summary template to see results.
             </p>
           </CardContent>
         </Card>
@@ -103,35 +117,11 @@ export function PolicyPreviewPanel({
 
       {/* Preview Result */}
       {result && !isLoading && (
-        <>
-          <PolicyPreviewResult
-            result={result}
-            inputs={inputs}
-            onResourceClick={onResourceClick}
-          />
-
-          {/* Load More Button */}
-          {hasMoreInputs && onLoadMore && (
-            <div className="flex justify-center pt-4">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onLoadMore}
-                disabled={isLoadingMoreInputs}
-                className="h-8 text-xs"
-              >
-                {isLoadingMoreInputs ? (
-                  <>
-                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                    Loading...
-                  </>
-                ) : (
-                  'Load More Audit Logs'
-                )}
-              </Button>
-            </div>
-          )}
-        </>
+        <PolicyPreviewResult
+          result={result}
+          inputs={inputs}
+          onResourceClick={onResourceClick}
+        />
       )}
     </div>
   );

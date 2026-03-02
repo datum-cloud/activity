@@ -27,19 +27,19 @@ export interface PolicyRuleEditorProps {
  */
 const AUDIT_CEL_HELP = {
   variables: [
-    { name: 'audit.verb', description: 'HTTP verb (create, update, patch, delete, get, list, watch)' },
-    { name: 'audit.user.username', description: 'Username of the actor' },
-    { name: 'audit.user.groups', description: 'Groups the actor belongs to' },
-    { name: 'audit.objectRef.name', description: 'Name of the resource' },
-    { name: 'audit.objectRef.namespace', description: 'Namespace of the resource' },
-    { name: 'audit.objectRef.subresource', description: 'Subresource (e.g., "status")' },
-    { name: 'audit.responseStatus.code', description: 'HTTP response status code' },
+    { name: 'verb', description: 'HTTP verb (create, update, patch, delete, get, list, watch)' },
+    { name: 'user.username', description: 'Username of the actor' },
+    { name: 'user.groups', description: 'Groups the actor belongs to' },
+    { name: 'objectRef.name', description: 'Name of the resource' },
+    { name: 'objectRef.namespace', description: 'Namespace of the resource' },
+    { name: 'objectRef.subresource', description: 'Subresource (e.g., "status")' },
+    { name: 'responseStatus.code', description: 'HTTP response status code' },
   ],
   examples: [
-    'audit.verb == "create"',
-    'audit.verb in ["create", "update", "patch"]',
-    'audit.verb == "update" && audit.objectRef.subresource == "status"',
-    'audit.responseStatus.code >= 200 && audit.responseStatus.code < 300',
+    'verb == "create"',
+    'verb in ["create", "update", "patch"]',
+    'verb == "update" && objectRef.subresource == "status"',
+    'responseStatus.code >= 200 && responseStatus.code < 300',
   ],
 };
 
@@ -118,13 +118,13 @@ export function PolicyRuleEditor({
 
   return (
     <Card
-      className={`mb-4 transition-all duration-200 ${
+      className={`mb-3 transition-all duration-200 ${
         isHighlighted
           ? 'border-emerald-600 bg-emerald-50'
           : 'bg-muted'
       } ${className}`}
     >
-      <CardHeader className="flex flex-row justify-between items-center p-4 pb-0">
+      <CardHeader className="flex flex-row justify-between items-center p-3 pb-0">
         <span
           className={`text-xs font-semibold uppercase tracking-wide ${
             isHighlighted ? 'text-emerald-600' : 'text-muted-foreground'
@@ -144,10 +144,10 @@ export function PolicyRuleEditor({
         </Button>
       </CardHeader>
 
-      <CardContent className="p-4">
+      <CardContent className="p-3">
         {/* Match Expression */}
-        <div className="mb-4">
-          <div className="flex justify-between items-center mb-1.5">
+        <div className="mb-3">
+          <div className="flex justify-between items-center mb-1">
             <Label htmlFor={`rule-${index}-match`}>
               Match Expression (CEL)
             </Label>
@@ -171,22 +171,22 @@ export function PolicyRuleEditor({
             spellCheck={false}
           />
           {showMatchHelp && (
-            <div className="mt-3 p-4 bg-background border border-border rounded-md text-xs">
-              <div className="mb-4 last:mb-0">
-                <strong className="block mb-2 text-foreground">Available Variables:</strong>
+            <div className="mt-2 p-3 bg-background border border-border rounded-md text-xs">
+              <div className="mb-3 last:mb-0">
+                <strong className="block mb-1.5 text-foreground">Available Variables:</strong>
                 <ul className="m-0 pl-5 list-disc">
                   {celHelp.variables.map((v) => (
-                    <li key={v.name} className="mb-1">
+                    <li key={v.name} className="mb-0.5">
                       <code className="bg-muted px-1.5 py-0.5 rounded text-xs">{v.name}</code> - {v.description}
                     </li>
                   ))}
                 </ul>
               </div>
-              <div className="mb-4 last:mb-0">
-                <strong className="block mb-2 text-foreground">Examples:</strong>
+              <div className="mb-3 last:mb-0">
+                <strong className="block mb-1.5 text-foreground">Examples:</strong>
                 <ul className="m-0 p-0 list-none">
                   {celHelp.examples.map((ex, i) => (
-                    <li key={i} className="flex items-center gap-2 mb-1.5 px-2 py-1.5 bg-muted rounded">
+                    <li key={i} className="flex items-center gap-2 mb-1 px-2 py-1 bg-muted rounded">
                       <code className="flex-1 text-xs break-all">{ex}</code>
                       <Button
                         type="button"
@@ -205,8 +205,8 @@ export function PolicyRuleEditor({
         </div>
 
         {/* Summary Template */}
-        <div className="mb-4 last:mb-0">
-          <div className="flex justify-between items-center mb-1.5">
+        <div className="mb-3 last:mb-0">
+          <div className="flex justify-between items-center mb-1">
             <Label htmlFor={`rule-${index}-summary`}>
               Summary Template (CEL)
             </Label>
@@ -230,22 +230,22 @@ export function PolicyRuleEditor({
             spellCheck={false}
           />
           {showSummaryHelp && (
-            <div className="mt-3 p-4 bg-background border border-border rounded-md text-xs">
-              <div className="mb-4 last:mb-0">
-                <strong className="block mb-2 text-foreground">Available Variables:</strong>
+            <div className="mt-2 p-3 bg-background border border-border rounded-md text-xs">
+              <div className="mb-3 last:mb-0">
+                <strong className="block mb-1.5 text-foreground">Available Variables:</strong>
                 <ul className="m-0 pl-5 list-disc">
                   {SUMMARY_HELP.variables.map((v) => (
-                    <li key={v.name} className="mb-1">
+                    <li key={v.name} className="mb-0.5">
                       <code className="bg-muted px-1.5 py-0.5 rounded text-xs">{'{{ ' + v.name + ' }}'}</code> - {v.description}
                     </li>
                   ))}
                 </ul>
               </div>
-              <div className="mb-4 last:mb-0">
-                <strong className="block mb-2 text-foreground">Examples:</strong>
+              <div className="mb-3 last:mb-0">
+                <strong className="block mb-1.5 text-foreground">Examples:</strong>
                 <ul className="m-0 p-0 list-none">
                   {SUMMARY_HELP.examples.map((ex, i) => (
-                    <li key={i} className="flex items-center gap-2 mb-1.5 px-2 py-1.5 bg-muted rounded">
+                    <li key={i} className="flex items-center gap-2 mb-1 px-2 py-1 bg-muted rounded">
                       <code className="flex-1 text-xs break-all">{ex}</code>
                       <Button
                         type="button"
