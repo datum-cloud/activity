@@ -30,12 +30,14 @@ func TestValidateActivityPolicy(t *testing.T) {
 					},
 					AuditRules: []v1alpha1.ActivityPolicyRule{
 						{
-							Match:   "audit.verb == 'create'",
+							Name:    "test-rule",
+							Match:   "verb == 'create'",
 							Summary: "{{ actor }} created HTTPProxy",
 						},
 					},
 					EventRules: []v1alpha1.ActivityPolicyRule{
 						{
+							Name:    "test-rule",
 							Match:   "event.reason == 'Programmed'",
 							Summary: "HTTPProxy is programmed",
 						},
@@ -57,8 +59,9 @@ func TestValidateActivityPolicy(t *testing.T) {
 					},
 					AuditRules: []v1alpha1.ActivityPolicyRule{
 						{
+							Name:    "test-rule",
 							Match:   "true",
-							Summary: "{{ actor }} {{ audit.verb }}d HTTPProxy",
+							Summary: "{{ actor }} {{ verb }}d HTTPProxy",
 						},
 					},
 				},
@@ -78,7 +81,8 @@ func TestValidateActivityPolicy(t *testing.T) {
 					},
 					AuditRules: []v1alpha1.ActivityPolicyRule{
 						{
-							Match:   "audit.verb == 'create'",
+							Name:    "test-rule",
+							Match:   "verb == 'create'",
 							Summary: "{{ actor }} created HTTPProxy",
 						},
 					},
@@ -98,7 +102,8 @@ func TestValidateActivityPolicy(t *testing.T) {
 					},
 					AuditRules: []v1alpha1.ActivityPolicyRule{
 						{
-							Match:   "audit.verb == 'create'",
+							Name:    "test-rule",
+							Match:   "verb == 'create'",
 							Summary: "{{ actor }} created HTTPProxy",
 						},
 					},
@@ -117,7 +122,8 @@ func TestValidateActivityPolicy(t *testing.T) {
 					Resource: v1alpha1.ActivityPolicyResource{},
 					AuditRules: []v1alpha1.ActivityPolicyRule{
 						{
-							Match:   "audit.verb == 'create'",
+							Name:    "test-rule",
+							Match:   "verb == 'create'",
 							Summary: "{{ actor }} created HTTPProxy",
 						},
 					},
@@ -139,6 +145,7 @@ func TestValidateActivityPolicy(t *testing.T) {
 					},
 					AuditRules: []v1alpha1.ActivityPolicyRule{
 						{
+							Name:    "test-rule",
 							Match:   "invalid syntax !!!",
 							Summary: "{{ actor }} created HTTPProxy",
 						},
@@ -161,7 +168,8 @@ func TestValidateActivityPolicy(t *testing.T) {
 					},
 					AuditRules: []v1alpha1.ActivityPolicyRule{
 						{
-							Match:   "audit.verb == 'create'",
+							Name:    "test-rule",
+							Match:   "verb == 'create'",
 							Summary: "{{ undefinedVar }}",
 						},
 					},
@@ -183,6 +191,7 @@ func TestValidateActivityPolicy(t *testing.T) {
 					},
 					AuditRules: []v1alpha1.ActivityPolicyRule{
 						{
+							Name:    "test-rule",
 							Match:   "",
 							Summary: "{{ actor }} created HTTPProxy",
 						},
@@ -205,7 +214,8 @@ func TestValidateActivityPolicy(t *testing.T) {
 					},
 					AuditRules: []v1alpha1.ActivityPolicyRule{
 						{
-							Match:   "audit.verb == 'create'",
+							Name:    "test-rule",
+							Match:   "verb == 'create'",
 							Summary: "",
 						},
 					},
@@ -227,7 +237,8 @@ func TestValidateActivityPolicy(t *testing.T) {
 					},
 					EventRules: []v1alpha1.ActivityPolicyRule{
 						{
-							Match:   "audit.verb == 'create'", // should use event, not audit
+							Name:    "test-rule",
+							Match:   "verb == 'create'", // should use event, not audit
 							Summary: "HTTPProxy created",
 						},
 					},
@@ -235,6 +246,165 @@ func TestValidateActivityPolicy(t *testing.T) {
 			},
 			wantErrs:  1,
 			wantPaths: []string{"spec.eventRules[0].match"},
+		},
+		{
+			name: "missing rule name in audit rule",
+			policy: &v1alpha1.ActivityPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-policy",
+				},
+				Spec: v1alpha1.ActivityPolicySpec{
+					Resource: v1alpha1.ActivityPolicyResource{
+						APIGroup: "networking.datumapis.com",
+						Kind:     "HTTPProxy",
+					},
+					AuditRules: []v1alpha1.ActivityPolicyRule{
+						{
+							Name:    "", // empty name
+							Match:   "verb == 'create'",
+							Summary: "{{ actor }} created HTTPProxy",
+						},
+					},
+				},
+			},
+			wantErrs:  1,
+			wantPaths: []string{"spec.auditRules[0].name"},
+		},
+		{
+			name: "invalid DNS subdomain in audit rule name",
+			policy: &v1alpha1.ActivityPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-policy",
+				},
+				Spec: v1alpha1.ActivityPolicySpec{
+					Resource: v1alpha1.ActivityPolicyResource{
+						APIGroup: "networking.datumapis.com",
+						Kind:     "HTTPProxy",
+					},
+					AuditRules: []v1alpha1.ActivityPolicyRule{
+						{
+							Name:    "My Rule", // invalid: contains space and uppercase
+							Match:   "verb == 'create'",
+							Summary: "{{ actor }} created HTTPProxy",
+						},
+					},
+				},
+			},
+			wantErrs:  1,
+			wantPaths: []string{"spec.auditRules[0].name"},
+		},
+		{
+			name: "invalid DNS subdomain with underscores in event rule name",
+			policy: &v1alpha1.ActivityPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-policy",
+				},
+				Spec: v1alpha1.ActivityPolicySpec{
+					Resource: v1alpha1.ActivityPolicyResource{
+						APIGroup: "networking.datumapis.com",
+						Kind:     "HTTPProxy",
+					},
+					EventRules: []v1alpha1.ActivityPolicyRule{
+						{
+							Name:    "rule_with_underscores", // invalid: underscores not allowed
+							Match:   "event.reason == 'Programmed'",
+							Summary: "HTTPProxy is programmed",
+						},
+					},
+				},
+			},
+			wantErrs:  1,
+			wantPaths: []string{"spec.eventRules[0].name"},
+		},
+		{
+			name: "duplicate names in audit rules",
+			policy: &v1alpha1.ActivityPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-policy",
+				},
+				Spec: v1alpha1.ActivityPolicySpec{
+					Resource: v1alpha1.ActivityPolicyResource{
+						APIGroup: "networking.datumapis.com",
+						Kind:     "HTTPProxy",
+					},
+					AuditRules: []v1alpha1.ActivityPolicyRule{
+						{
+							Name:    "create-rule",
+							Match:   "verb == 'create'",
+							Summary: "{{ actor }} created HTTPProxy",
+						},
+						{
+							Name:    "create-rule", // duplicate name
+							Match:   "verb == 'update'",
+							Summary: "{{ actor }} updated HTTPProxy",
+						},
+					},
+				},
+			},
+			wantErrs:  1,
+			wantPaths: []string{"spec.auditRules[1].name"},
+		},
+		{
+			name: "duplicate names in event rules",
+			policy: &v1alpha1.ActivityPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-policy",
+				},
+				Spec: v1alpha1.ActivityPolicySpec{
+					Resource: v1alpha1.ActivityPolicyResource{
+						APIGroup: "networking.datumapis.com",
+						Kind:     "HTTPProxy",
+					},
+					EventRules: []v1alpha1.ActivityPolicyRule{
+						{
+							Name:    "ready-rule",
+							Match:   "event.reason == 'Ready'",
+							Summary: "HTTPProxy is ready",
+						},
+						{
+							Name:    "ready-rule", // duplicate name
+							Match:   "event.reason == 'Programmed'",
+							Summary: "HTTPProxy is programmed",
+						},
+					},
+				},
+			},
+			wantErrs:  1,
+			wantPaths: []string{"spec.eventRules[1].name"},
+		},
+		{
+			name: "valid rule names with kebab-case",
+			policy: &v1alpha1.ActivityPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-policy",
+				},
+				Spec: v1alpha1.ActivityPolicySpec{
+					Resource: v1alpha1.ActivityPolicyResource{
+						APIGroup: "networking.datumapis.com",
+						Kind:     "HTTPProxy",
+					},
+					AuditRules: []v1alpha1.ActivityPolicyRule{
+						{
+							Name:    "create-rule",
+							Match:   "verb == 'create'",
+							Summary: "{{ actor }} created HTTPProxy",
+						},
+						{
+							Name:    "update-rule",
+							Match:   "verb == 'update'",
+							Summary: "{{ actor }} updated HTTPProxy",
+						},
+					},
+					EventRules: []v1alpha1.ActivityPolicyRule{
+						{
+							Name:    "ready-rule",
+							Match:   "event.reason == 'Ready'",
+							Summary: "HTTPProxy is ready",
+						},
+					},
+				},
+			},
+			wantErrs: 0,
 		},
 	}
 
