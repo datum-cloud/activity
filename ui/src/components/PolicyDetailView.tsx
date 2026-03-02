@@ -4,12 +4,12 @@ import type { ResourceRef, ErrorFormatter } from '../types/activity';
 import { ActivityApiClient } from '../api/client';
 import { PolicyActivityView } from './PolicyActivityView';
 import { PolicyActivityViewSkeleton } from './PolicyActivityViewSkeleton';
+import { ReindexJobDialog } from './ReindexJobDialog';
 import { Button } from './ui/button';
 import { Card, CardHeader, CardContent } from './ui/card';
-import { Badge } from './ui/badge';
 import { ApiErrorAlert } from './ApiErrorAlert';
 import { Alert, AlertDescription } from './ui/alert';
-import { AlertTriangle, AlertCircle, Copy, Check, Edit } from 'lucide-react';
+import { AlertTriangle, AlertCircle, Copy, Check, Edit, RefreshCw } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
 import {
   Tooltip,
@@ -25,6 +25,8 @@ export interface PolicyDetailViewProps {
   policyName: string;
   /** Callback when edit button is clicked */
   onEdit?: () => void;
+  /** Callback when reindex job is successfully created */
+  onReindexSuccess?: (jobName: string) => void;
   /** Handler for resource link clicks in activity summaries */
   onResourceClick?: (resource: ResourceRef) => void;
   /** Additional CSS class */
@@ -41,6 +43,7 @@ export function PolicyDetailView({
   client,
   policyName,
   onEdit,
+  onReindexSuccess,
   onResourceClick,
   className = '',
   errorFormatter,
@@ -49,6 +52,7 @@ export function PolicyDetailView({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [isCopied, setIsCopied] = useState(false);
+  const [isReindexDialogOpen, setIsReindexDialogOpen] = useState(false);
 
   // Load policy on mount
   useEffect(() => {
@@ -200,6 +204,16 @@ export function PolicyDetailView({
           </div>
 
           <div className="flex gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsReindexDialogOpen(true)}
+              className="h-7 text-xs"
+            >
+              <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+              Reindex
+            </Button>
             {onEdit && (
               <Button
                 type="button"
@@ -257,6 +271,16 @@ export function PolicyDetailView({
           </CardContent>
         )}
       </Card>
+
+      {/* Reindex Dialog */}
+      <ReindexJobDialog
+        client={client}
+        policyName={policyName}
+        open={isReindexDialogOpen}
+        onOpenChange={setIsReindexDialogOpen}
+        onSuccess={onReindexSuccess}
+        errorFormatter={errorFormatter}
+      />
     </TooltipProvider>
   );
 }
