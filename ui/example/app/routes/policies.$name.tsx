@@ -17,15 +17,15 @@ export default function PolicyDetail() {
   const policyName = name ? decodeURIComponent(name) : undefined;
 
   const handleEdit = useCallback(() => {
-    console.log('handleEdit called, policyName:', policyName);
     if (policyName) {
-      const targetPath = `/policies/${encodeURIComponent(policyName)}/edit`;
-      console.log('Navigating to:', targetPath);
-      navigate(targetPath);
-    } else {
-      console.error('No policyName available for edit navigation');
+      navigate(`/policies/${encodeURIComponent(policyName)}/edit`);
     }
   }, [policyName, navigate]);
+
+  const handleReindexSuccess = useCallback((jobName: string) => {
+    // Optionally navigate to the job detail view
+    navigate(`/reindex/${encodeURIComponent(jobName)}`);
+  }, [navigate]);
 
   const handleResourceClick = (resource: ResourceRef) => {
     alert(
@@ -42,6 +42,7 @@ export default function PolicyDetail() {
       client={client}
       policyName={policyName}
       onEdit={handleEdit}
+      onReindexSuccess={handleReindexSuccess}
       onResourceClick={handleResourceClick}
     />
   );
