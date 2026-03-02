@@ -1,0 +1,89 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: name-edge-cases
+spec:
+  description: |
+    Test DNS subdomain validation edge cases for rule names.
+    Validates boundary conditions and special cases according to RFC 1123.
+  steps:
+  - name: reject-empty-string-name
+    try:
+    - apply:
+        file: ../../policies/edge-case-empty-name.yaml
+        expect:
+        - check:
+            ($error != null): true
+    - script:
+        content: |
+          echo "Verified that empty string names are rejected"
+
+  - name: reject-name-ending-with-hyphen
+    try:
+    - apply:
+        file: ../../policies/edge-case-hyphen-end.yaml
+        expect:
+        - check:
+            ($error != null): true
+    - script:
+        content: |
+          echo "Verified that names ending with hyphen are rejected"
+
+  - name: accept-name-with-dots
+    try:
+    - apply:
+        file: ../../policies/edge-case-with-dots.yaml
+    - assert:
+        file: ../../policies/edge-case-with-dots.yaml
+    - script:
+        content: |
+          echo "Verified that names with dots are accepted (DNS subdomain compliant)"
+    finally:
+    - delete:
+        ref:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          name: test-edge-case-with-dots
+
+  - name: accept-max-length-name
+    try:
+    - apply:
+        file: ../../policies/edge-case-max-length.yaml
+    - assert:
+        file: ../../policies/edge-case-max-length.yaml
+    - script:
+        content: |
+          echo "Verified that 253 character names are accepted (DNS subdomain max length)"
+    finally:
+    - delete:
+        ref:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          name: test-edge-case-max-length
+
+  - name: reject-too-long-name
+    try:
+    - apply:
+        file: ../../policies/edge-case-too-long.yaml
+        expect:
+        - check:
+            ($error != null): true
+    - script:
+        content: |
+          echo "Verified that 254+ character names are rejected"
+
+  - name: accept-numeric-only-name
+    try:
+    - apply:
+        file: ../../policies/edge-case-numeric.yaml
+    - assert:
+        file: ../../policies/edge-case-numeric.yaml
+    - script:
+        content: |
+          echo "Verified that numeric-only names are accepted"
+    finally:
+    - delete:
+        ref:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          name: test-edge-case-numeric

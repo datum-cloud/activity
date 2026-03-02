@@ -1,0 +1,53 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: invalid-name-format
+spec:
+  description: |
+    Test that invalid DNS subdomain names are rejected.
+    Rule names must be valid DNS subdomains: lowercase alphanumeric and hyphens,
+    must start and end with alphanumeric characters.
+  steps:
+  - name: reject-name-with-spaces
+    try:
+    - apply:
+        file: ../../policies/invalid-name-spaces.yaml
+        expect:
+        - check:
+            ($error != null): true
+    - script:
+        content: |
+          echo "Verified that names with spaces are rejected"
+
+  - name: reject-name-with-uppercase
+    try:
+    - apply:
+        file: ../../policies/invalid-name-uppercase.yaml
+        expect:
+        - check:
+            ($error != null): true
+    - script:
+        content: |
+          echo "Verified that names with uppercase letters are rejected"
+
+  - name: reject-name-with-underscores
+    try:
+    - apply:
+        file: ../../policies/invalid-name-underscores.yaml
+        expect:
+        - check:
+            ($error != null): true
+    - script:
+        content: |
+          echo "Verified that names with underscores are rejected"
+
+  - name: reject-name-starting-with-hyphen
+    try:
+    - apply:
+        file: ../../policies/invalid-name-hyphen-start.yaml
+        expect:
+        - check:
+            ($error != null): true
+    - script:
+        content: |
+          echo "Verified that names starting with hyphen are rejected"

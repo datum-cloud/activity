@@ -1,0 +1,19 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: duplicate-audit-rule-names
+spec:
+  description: |
+    Test that duplicate names within auditRules are rejected.
+    Each rule within auditRules must have a unique name.
+  steps:
+  - name: reject-duplicate-audit-rule-names
+    try:
+    - apply:
+        file: ../../policies/duplicate-audit-names.yaml
+        expect:
+        - check:
+            ($error != null): true
+    - script:
+        content: |
+          echo "Verified that duplicate names in auditRules are rejected"

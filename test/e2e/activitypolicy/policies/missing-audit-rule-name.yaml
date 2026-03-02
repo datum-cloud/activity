@@ -1,0 +1,11 @@
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: test-missing-audit-rule-name
+spec:
+  resource:
+    apiGroup: apps
+    kind: Deployment
+  auditRules:
+    - match: "verb == 'create'"
+      summary: "{{ actor }} created deployment"

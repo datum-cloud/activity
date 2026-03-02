@@ -1,0 +1,83 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: add-new-rule
+spec:
+  description: |
+    Test adding a new rule to an existing policy using server-side apply.
+    Verifies that new rules can be added without affecting existing rules.
+  steps:
+  - name: create-policy-with-two-rules
+    try:
+    - apply:
+        resource:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          metadata:
+            name: test-add-rule
+          spec:
+            resource:
+              apiGroup: ""
+              kind: ConfigMap
+            auditRules:
+              - name: create-configmap
+                match: "verb == 'create'"
+                summary: "{{ actor }} created configmap {{ objectRef.name }}"
+              - name: delete-configmap
+                match: "verb == 'delete'"
+                summary: "{{ actor }} deleted configmap {{ objectRef.name }}"
+    - assert:
+        resource:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          metadata:
+            name: test-add-rule
+          status:
+            conditions:
+              - type: Ready
+                status: "True"
+  - name: add-update-rule
+    try:
+    - script:
+        content: |
+          kubectl apply --server-side --force-conflicts -f - <<EOF
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          metadata:
+            name: test-add-rule
+          spec:
+            resource:
+              apiGroup: ""
+              kind: ConfigMap
+            auditRules:
+              - name: update-configmap
+                match: "verb in ['update', 'patch']"
+                summary: "{{ actor }} updated configmap {{ objectRef.name }}"
+          EOF
+    - assert:
+        resource:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          metadata:
+            name: test-add-rule
+          spec:
+            auditRules:
+              - name: create-configmap
+                match: "verb == 'create'"
+                summary: "{{ actor }} created configmap {{ objectRef.name }}"
+              - name: delete-configmap
+                match: "verb == 'delete'"
+                summary: "{{ actor }} deleted configmap {{ objectRef.name }}"
+              - name: update-configmap
+                match: "verb in ['update', 'patch']"
+                summary: "{{ actor }} updated configmap {{ objectRef.name }}"
+    catch:
+    - describe:
+        apiVersion: activity.miloapis.com/v1alpha1
+        kind: ActivityPolicy
+    finally:
+    - delete:
+        ref:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          name: test-add-rule

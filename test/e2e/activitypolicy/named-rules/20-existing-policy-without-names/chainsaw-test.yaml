@@ -1,0 +1,79 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: existing-policy-without-names
+spec:
+  description: |
+    Test behavior when a policy exists without rule names (simulating pre-migration data).
+    This tests the validation error path for policies without names.
+    Should return clear validation error indicating name is required.
+    Documents expected behavior for migration.
+  steps:
+  - name: reject-audit-rule-without-name
+    try:
+    - apply:
+        resource:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          metadata:
+            name: test-policy-no-audit-name
+          spec:
+            resource:
+              apiGroup: apps
+              kind: Deployment
+            auditRules:
+            - match: "verb == 'create'"
+              summary: "{{ actor }} created resource"
+        expect:
+        - check:
+            ($error != null): true
+    - script:
+        content: |
+          echo "Verified that audit rules without names are rejected with clear error"
+
+  - name: reject-event-rule-without-name
+    try:
+    - apply:
+        resource:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          metadata:
+            name: test-policy-no-event-name
+          spec:
+            resource:
+              apiGroup: apps
+              kind: Deployment
+            eventRules:
+            - match: "event.reason == 'Programmed'"
+              summary: "Resource is programmed"
+        expect:
+        - check:
+            ($error != null): true
+    - script:
+        content: |
+          echo "Verified that event rules without names are rejected with clear error"
+
+  - name: reject-mixed-rules-some-without-names
+    try:
+    - apply:
+        resource:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          metadata:
+            name: test-policy-mixed-names
+          spec:
+            resource:
+              apiGroup: apps
+              kind: Deployment
+            auditRules:
+            - name: create-rule
+              match: "verb == 'create'"
+              summary: "{{ actor }} created resource"
+            - match: "verb == 'delete'"
+              summary: "{{ actor }} deleted resource"
+        expect:
+        - check:
+            ($error != null): true
+    - script:
+        content: |
+          echo "Verified that policies with mixed named/unnamed rules are rejected"

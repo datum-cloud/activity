@@ -22,7 +22,10 @@ export default defineConfig({
     noExternal: ["@miloapis/activity-ui"],
   },
   optimizeDeps: {
-    exclude: ["@remix-run/react"],
+    exclude: ["@remix-run/react", "monaco-editor"],
+  },
+  worker: {
+    format: 'es',
   },
   server: {
     host: '0.0.0.0',
