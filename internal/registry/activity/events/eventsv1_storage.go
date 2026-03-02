@@ -395,37 +395,24 @@ func (r *EventsV1REST) convertToStatusError(err error) error {
 }
 
 // parseFieldSelectorForWatchV1 extracts watch filter parameters from standard field selectors.
-// Note: For events.k8s.io/v1, field names use "regarding" instead of "involvedObject"
+// For events.k8s.io/v1, field names use "regarding" instead of "involvedObject"
 func parseFieldSelectorForWatchV1(selector fields.Selector, filter *eventwatch.EventsWatchFilter) {
 	if selector == nil || selector.Empty() {
 		return
 	}
 
-	// Check both regarding (v1) and involvedObject (corev1) field names for compatibility
 	if value, found := selector.RequiresExactMatch("regarding.kind"); found {
 		filter.InvolvedObjectKind = value
-	} else if value, found := selector.RequiresExactMatch("involvedObject.kind"); found {
-		filter.InvolvedObjectKind = value
 	}
-
 	if value, found := selector.RequiresExactMatch("regarding.namespace"); found {
 		filter.InvolvedObjectNamespace = value
-	} else if value, found := selector.RequiresExactMatch("involvedObject.namespace"); found {
-		filter.InvolvedObjectNamespace = value
 	}
-
 	if value, found := selector.RequiresExactMatch("regarding.name"); found {
 		filter.InvolvedObjectName = value
-	} else if value, found := selector.RequiresExactMatch("involvedObject.name"); found {
-		filter.InvolvedObjectName = value
 	}
-
 	if value, found := selector.RequiresExactMatch("regarding.uid"); found {
 		filter.InvolvedObjectUID = value
-	} else if value, found := selector.RequiresExactMatch("involvedObject.uid"); found {
-		filter.InvolvedObjectUID = value
 	}
-
 	if value, found := selector.RequiresExactMatch("reason"); found {
 		filter.Reason = value
 	}

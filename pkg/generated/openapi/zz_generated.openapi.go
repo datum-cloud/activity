@@ -49,7 +49,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1alpha1.AuditLogQuery{}.OpenAPIModelName():                      schema_pkg_apis_activity_v1alpha1_AuditLogQuery(ref),
 		v1alpha1.AuditLogQuerySpec{}.OpenAPIModelName():                  schema_pkg_apis_activity_v1alpha1_AuditLogQuerySpec(ref),
 		v1alpha1.AuditLogQueryStatus{}.OpenAPIModelName():                schema_pkg_apis_activity_v1alpha1_AuditLogQueryStatus(ref),
-		v1alpha1.EvaluationStats{}.OpenAPIModelName():                    schema_pkg_apis_activity_v1alpha1_EvaluationStats(ref),
+		v1alpha1.AutoFetchSpec{}.OpenAPIModelName():                      schema_pkg_apis_activity_v1alpha1_AutoFetchSpec(ref),
 		v1alpha1.EventFacetQuery{}.OpenAPIModelName():                    schema_pkg_apis_activity_v1alpha1_EventFacetQuery(ref),
 		v1alpha1.EventFacetQuerySpec{}.OpenAPIModelName():                schema_pkg_apis_activity_v1alpha1_EventFacetQuerySpec(ref),
 		v1alpha1.EventFacetQueryStatus{}.OpenAPIModelName():              schema_pkg_apis_activity_v1alpha1_EventFacetQueryStatus(ref),
@@ -772,7 +772,7 @@ func schema_pkg_apis_activity_v1alpha1_ActivityPolicy(ref common.ReferenceCallba
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "ActivityPolicy defines translation rules for a specific resource type. Service providers create one ActivityPolicy per resource kind to customize activity descriptions without modifying the Activity Processor.\n\nExample:\n\n\tapiVersion: activity.miloapis.com/v1alpha1\n\tkind: ActivityPolicy\n\tmetadata:\n\t  name: networking-httpproxy\n\tspec:\n\t  resource:\n\t    apiGroup: networking.datumapis.com\n\t    kind: HTTPProxy\n\t  auditRules:\n\t    - match: \"audit.verb == 'create'\"\n\t      summary: \"{{ actor }} created {{ link(kind + ' ' + audit.objectRef.name, audit.responseObject) }}\"\n\t  eventRules:\n\t    - match: \"event.reason == 'Programmed'\"\n\t      summary: \"{{ link(kind + ' ' + event.regarding.name, event.regarding) }} is now programmed\"",
+				Description: "ActivityPolicy defines translation rules for a specific resource type. Service providers create one ActivityPolicy per resource kind to customize activity descriptions without modifying the Activity Processor.\n\nExample:\n\n\tapiVersion: activity.miloapis.com/v1alpha1\n\tkind: ActivityPolicy\n\tmetadata:\n\t  name: networking-httpproxy\n\tspec:\n\t  resource:\n\t    apiGroup: networking.datumapis.com\n\t    kind: HTTPProxy\n\t  auditRules:\n\t    - match: \"verb == 'create'\"\n\t      summary: \"{{ actor }} created {{ link(kind + ' ' + objectRef.name, responseObject) }}\"\n\t  eventRules:\n\t    - match: \"event.reason == 'Programmed'\"\n\t      summary: \"{{ link(kind + ' ' + event.regarding.name, event.regarding) }} is now programmed\"",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -902,9 +902,24 @@ func schema_pkg_apis_activity_v1alpha1_ActivityPolicyRule(ref common.ReferenceCa
 				Description: "ActivityPolicyRule defines a single translation rule that matches input events and generates human-readable activity summaries.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is a unique identifier for this rule within the policy. Used for strategic merge patching and error reporting.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Description is an optional human-readable description of what this rule does.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"match": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Match is a CEL expression that determines if this rule applies to the input. For audit rules, use the `audit` variable (e.g., \"audit.verb == 'create'\"). For event rules, use the `event` variable (e.g., \"event.reason == 'Programmed'\").\n\nExamples:\n  \"audit.verb == 'create'\"\n  \"audit.verb in ['update', 'patch']\"\n  \"event.reason.startsWith('Failed')\"\n  \"true\"  (fallback rule that always matches)",
+							Description: "Match is a CEL expression that determines if this rule applies to the input. For audit rules, use top-level variables (e.g., \"verb == 'create'\", \"objectRef.namespace == 'default'\"). For event rules, use the `event` variable (e.g., \"event.reason == 'Programmed'\").\n\nExamples:\n  \"verb == 'create'\"\n  \"verb in ['update', 'patch']\"\n  \"event.reason.startsWith('Failed')\"\n  \"true\"  (fallback rule that always matches)",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -912,14 +927,14 @@ func schema_pkg_apis_activity_v1alpha1_ActivityPolicyRule(ref common.ReferenceCa
 					},
 					"summary": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Summary is a CEL template for generating the activity summary. Use {{ }} delimiters to embed CEL expressions within strings.\n\nAvailable variables:\n  - audit/event: The full input object\n  - actor: Resolved display name for the actor\n\nAvailable functions:\n  - link(displayText, resourceRef): Creates a clickable reference\n\nExamples:\n  \"{{ actor }} created {{ link(kind + ' ' + audit.objectRef.name, audit.responseObject) }}\"\n  \"{{ link(kind + ' ' + event.regarding.name, event.regarding) }} is now programmed\"",
+							Description: "Summary is a CEL template for generating the activity summary. Use {{ }} delimiters to embed CEL expressions within strings.\n\nAvailable variables:\n  - For audit rules: verb, objectRef, user, responseStatus, responseObject, actor, actorRef, kind\n  - For event rules: event, actor\n\nAvailable functions:\n  - link(displayText, resourceRef): Creates a clickable reference\n\nExamples:\n  \"{{ actor }} created {{ link(kind + ' ' + objectRef.name, responseObject) }}\"\n  \"{{ link(kind + ' ' + event.regarding.name, event.regarding) }} is now programmed\"",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 				},
-				Required: []string{"match", "summary"},
+				Required: []string{"name", "match", "summary"},
 			},
 		},
 	}
@@ -942,11 +957,14 @@ func schema_pkg_apis_activity_v1alpha1_ActivityPolicySpec(ref common.ReferenceCa
 					"auditRules": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "atomic",
+								"x-kubernetes-list-map-keys": []interface{}{
+									"name",
+								},
+								"x-kubernetes-list-type": "map",
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "AuditRules define how to translate audit log entries into activity summaries. Rules are evaluated in order; the first matching rule wins. The `audit` variable contains the full Kubernetes audit event structure. Convenience variables available: actor",
+							Description: "AuditRules define how to translate audit log entries into activity summaries. Rules are evaluated in order; the first matching rule wins. Available variables: verb, objectRef, user, responseStatus, responseObject, actor, actorRef, kind Convenience variables available: actor",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -961,7 +979,10 @@ func schema_pkg_apis_activity_v1alpha1_ActivityPolicySpec(ref common.ReferenceCa
 					"eventRules": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "atomic",
+								"x-kubernetes-list-map-keys": []interface{}{
+									"name",
+								},
+								"x-kubernetes-list-type": "map",
 							},
 						},
 						SchemaProps: spec.SchemaProps{
@@ -1022,17 +1043,11 @@ func schema_pkg_apis_activity_v1alpha1_ActivityPolicyStatus(ref common.Reference
 							Format:      "int64",
 						},
 					},
-					"evaluationStats": {
-						SchemaProps: spec.SchemaProps{
-							Description: "EvaluationStats contains runtime evaluation statistics from the processor. Updated periodically by the activity-processor to report rule evaluation health.",
-							Ref:         ref(v1alpha1.EvaluationStats{}.OpenAPIModelName()),
-						},
-					},
 				},
 			},
 		},
 		Dependencies: []string{
-			v1alpha1.EvaluationStats{}.OpenAPIModelName(), metav1.Condition{}.OpenAPIModelName()},
+			metav1.Condition{}.OpenAPIModelName()},
 	}
 }
 
@@ -1711,64 +1726,37 @@ func schema_pkg_apis_activity_v1alpha1_AuditLogQueryStatus(ref common.ReferenceC
 	}
 }
 
-func schema_pkg_apis_activity_v1alpha1_EvaluationStats(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_activity_v1alpha1_AutoFetchSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "EvaluationStats tracks runtime CEL expression evaluation health for a policy. These metrics are collected by the activity-processor and reported via status updates.",
+				Description: "AutoFetchSpec configures automatic sample data retrieval.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"lastEvaluationTime": {
+					"limit": {
 						SchemaProps: spec.SchemaProps{
-							Description: "LastEvaluationTime is when this policy last evaluated an event/audit.",
-							Ref:         ref(metav1.Time{}.OpenAPIModelName()),
-						},
-					},
-					"successCount": {
-						SchemaProps: spec.SchemaProps{
-							Description: "SuccessCount is the number of successful evaluations in the current window.",
-							Type:        []string{"integer"},
-							Format:      "int64",
-						},
-					},
-					"errorCount": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ErrorCount is the number of failed evaluations in the current window.",
-							Type:        []string{"integer"},
-							Format:      "int64",
-						},
-					},
-					"lastErrorTime": {
-						SchemaProps: spec.SchemaProps{
-							Description: "LastErrorTime is when the most recent error occurred.",
-							Ref:         ref(metav1.Time{}.OpenAPIModelName()),
-						},
-					},
-					"lastErrorMessage": {
-						SchemaProps: spec.SchemaProps{
-							Description: "LastErrorMessage contains the error message from the most recent failure.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"lastErrorRuleIndex": {
-						SchemaProps: spec.SchemaProps{
-							Description: "LastErrorRuleIndex indicates which rule failed (0-based index).",
+							Description: "Limit is the maximum number of sample inputs to fetch (default: 10, max: 50). The API fetches up to this many audit logs and/or events.",
 							Type:        []string{"integer"},
 							Format:      "int32",
 						},
 					},
-					"windowStartTime": {
+					"timeRange": {
 						SchemaProps: spec.SchemaProps{
-							Description: "WindowStartTime marks the beginning of the current statistics window.",
-							Ref:         ref(metav1.Time{}.OpenAPIModelName()),
+							Description: "TimeRange specifies how far back to look for samples (default: \"24h\"). Supports relative format: \"1h\", \"24h\", \"7d\", \"30d\"",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"sources": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Sources specifies which data sources to query: \"audit\", \"events\", or \"both\" (default: \"both\"). - \"audit\": Only fetch audit logs (only tests auditRules) - \"events\": Only fetch Kubernetes events (only tests eventRules) - \"both\": Fetch both types (tests all rules)",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
 			},
 		},
-		Dependencies: []string{
-			metav1.Time{}.OpenAPIModelName()},
 	}
 }
 
@@ -1776,7 +1764,7 @@ func schema_pkg_apis_activity_v1alpha1_EventFacetQuery(ref common.ReferenceCallb
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "EventFacetQuery is an ephemeral resource for getting distinct field values from Kubernetes Events. Use this to power autocomplete, filter dropdowns, and faceted search in UIs.\n\nThe query returns counts for each distinct value, allowing you to show both available options and their frequency.\n\nExample:\n\n\tapiVersion: activity.miloapis.com/v1alpha1\n\tkind: EventFacetQuery\n\tmetadata:\n\t  name: get-facets\n\tspec:\n\t  timeRange:\n\t    start: \"now-7d\"\n\t  facets:\n\t    - field: involvedObject.kind\n\t      limit: 10\n\t    - field: reason\n\t    - field: type",
+				Description: "EventFacetQuery is an ephemeral resource for getting distinct field values from Kubernetes Events. Use this to power autocomplete, filter dropdowns, and faceted search in UIs.\n\nThe query returns counts for each distinct value, allowing you to show both available options and their frequency.\n\nExample:\n\n\tapiVersion: activity.miloapis.com/v1alpha1\n\tkind: EventFacetQuery\n\tmetadata:\n\t  name: get-facets\n\tspec:\n\t  timeRange:\n\t    start: \"now-7d\"\n\t  facets:\n\t    - field: regarding.kind\n\t      limit: 10\n\t    - field: reason\n\t    - field: type",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -1841,7 +1829,7 @@ func schema_pkg_apis_activity_v1alpha1_EventFacetQuerySpec(ref common.ReferenceC
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "Facets specifies which fields to get distinct values for. Each facet returns the top N values with counts.\n\nSupported fields:\n  - involvedObject.kind: Resource kinds (Pod, Deployment, etc.)\n  - involvedObject.namespace: Namespaces of involved objects\n  - reason: Event reasons (Scheduled, Pulled, Created, etc.)\n  - type: Event types (Normal, Warning)\n  - source.component: Source components (kubelet, scheduler, etc.)\n  - namespace: Event namespace",
+							Description: "Facets specifies which fields to get distinct values for. Each facet returns the top N values with counts.\n\nSupported fields:\n  - regarding.kind: Resource kinds (Pod, Deployment, etc.)\n  - regarding.namespace: Namespaces of regarding objects\n  - reason: Event reasons (Scheduled, Pulled, Created, etc.)\n  - type: Event types (Normal, Warning)\n  - source.component: Source components (kubelet, scheduler, etc.)\n  - namespace: Event namespace",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -2025,7 +2013,7 @@ func schema_pkg_apis_activity_v1alpha1_EventQuerySpec(ref common.ReferenceCallba
 					},
 					"fieldSelector": {
 						SchemaProps: spec.SchemaProps{
-							Description: "FieldSelector filters events using standard Kubernetes field selector syntax.\n\nSupported Fields:\n  metadata.name               - event name\n  metadata.namespace          - event namespace\n  metadata.uid                - event UID\n  involvedObject.apiVersion   - involved resource API version\n  involvedObject.kind         - involved resource kind (e.g., Pod, Deployment)\n  involvedObject.namespace    - involved resource namespace\n  involvedObject.name         - involved resource name\n  involvedObject.uid          - involved resource UID\n  involvedObject.fieldPath    - involved resource field path\n  reason                      - event reason (e.g., FailedMount, Pulled)\n  type                        - event type (Normal or Warning)\n  source.component            - reporting component\n  source.host                 - reporting host\n\nOperators: = (or ==), != Multiple conditions: comma-separated (all must match)\n\nCommon Patterns:\n  \"type=Warning\"                                  - Warning events only\n  \"involvedObject.kind=Pod\"                       - Events for pods\n  \"reason=FailedMount\"                            - Mount failure events\n  \"involvedObject.name=my-pod,type=Warning\"       - Warnings for a specific pod",
+							Description: "FieldSelector filters events using standard Kubernetes field selector syntax.\n\nSupported Fields:\n  metadata.name               - event name\n  metadata.namespace          - event namespace\n  metadata.uid                - event UID\n  regarding.apiVersion        - regarding resource API version\n  regarding.kind              - regarding resource kind (e.g., Pod, Deployment)\n  regarding.namespace         - regarding resource namespace\n  regarding.name              - regarding resource name\n  regarding.uid               - regarding resource UID\n  regarding.fieldPath         - regarding resource field path\n  reason                      - event reason (e.g., FailedMount, Pulled)\n  type                        - event type (Normal or Warning)\n  source.component            - reporting component\n  source.host                 - reporting host\n  reportingComponent          - reporting component (alias for source.component)\n  reportingInstance           - reporting instance (alias for source.host)\n\nOperators: = (or ==), != Multiple conditions: comma-separated (all must match)\n\nCommon Patterns:\n  \"type=Warning\"                                  - Warning events only\n  \"regarding.kind=Pod\"                            - Events for pods\n  \"reason=FailedMount\"                            - Mount failure events\n  \"regarding.name=my-pod,type=Warning\"            - Warnings for a specific pod",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -2282,7 +2270,7 @@ func schema_pkg_apis_activity_v1alpha1_PolicyPreview(ref common.ReferenceCallbac
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "PolicyPreview tests an ActivityPolicy against sample inputs without persisting anything. Use this to verify that your policy rules match correctly and generate the expected summaries before deploying the policy.\n\nThe preview accepts multiple inputs (audit logs and/or events) and returns the rendered Activity stream that would be generated by the policy.\n\nExample:\n\n\tapiVersion: activity.miloapis.com/v1alpha1\n\tkind: PolicyPreview\n\tmetadata:\n\t  name: test-preview\n\tspec:\n\t  policy:\n\t    resource:\n\t      apiGroup: networking.datumapis.com\n\t      kind: HTTPProxy\n\t    auditRules:\n\t      - match: \"audit.verb == 'create'\"\n\t        summary: \"{{ actor }} created HTTPProxy\"\n\t      - match: \"audit.verb == 'delete'\"\n\t        summary: \"{{ actor }} deleted HTTPProxy\"\n\t  inputs:\n\t    - type: audit\n\t      audit:\n\t        verb: create\n\t        objectRef:\n\t          apiGroup: networking.datumapis.com\n\t          resource: httpproxies\n\t          name: my-proxy\n\t        user:\n\t          username: alice@example.com\n\t    - type: audit\n\t      audit:\n\t        verb: delete\n\t        objectRef:\n\t          apiGroup: networking.datumapis.com\n\t          resource: httpproxies\n\t          name: old-proxy\n\t        user:\n\t          username: bob@example.com",
+				Description: "PolicyPreview tests an ActivityPolicy against sample inputs without persisting anything. Use this to verify that your policy rules match correctly and generate the expected summaries before deploying the policy.\n\nThe preview accepts multiple inputs (audit logs and/or events) and returns the rendered Activity stream that would be generated by the policy.\n\nExample:\n\n\tapiVersion: activity.miloapis.com/v1alpha1\n\tkind: PolicyPreview\n\tmetadata:\n\t  name: test-preview\n\tspec:\n\t  policy:\n\t    resource:\n\t      apiGroup: networking.datumapis.com\n\t      kind: HTTPProxy\n\t    auditRules:\n\t      - match: \"verb == 'create'\"\n\t        summary: \"{{ actor }} created HTTPProxy\"\n\t      - match: \"verb == 'delete'\"\n\t        summary: \"{{ actor }} deleted HTTPProxy\"\n\t  inputs:\n\t    - type: audit\n\t      audit:\n\t        verb: create\n\t        objectRef:\n\t          apiGroup: networking.datumapis.com\n\t          resource: httpproxies\n\t          name: my-proxy\n\t        user:\n\t          username: alice@example.com\n\t    - type: audit\n\t      audit:\n\t        verb: delete\n\t        objectRef:\n\t          apiGroup: networking.datumapis.com\n\t          resource: httpproxies\n\t          name: old-proxy\n\t        user:\n\t          username: bob@example.com",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -2400,6 +2388,13 @@ func schema_pkg_apis_activity_v1alpha1_PolicyPreviewInputResult(ref common.Refer
 							Format:      "",
 						},
 					},
+					"matchedRuleName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MatchedRuleName is the name of the rule that matched this input. This is the value from the rule's Name field in the policy spec. Empty if no rule matched.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"error": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Error contains any error message if evaluating this input failed. This could be a CEL compilation error or evaluation error.",
@@ -2435,7 +2430,7 @@ func schema_pkg_apis_activity_v1alpha1_PolicyPreviewSpec(ref common.ReferenceCal
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "Inputs contains sample audit logs and/or events to test against the policy. Each input is evaluated independently and produces an Activity if a rule matches. You can mix audit logs and events in the same request.",
+							Description: "Inputs contains sample audit logs and/or events to test against the policy. Each input is evaluated independently and produces an Activity if a rule matches. You can mix audit logs and events in the same request. Optional when AutoFetch is specified.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -2447,12 +2442,32 @@ func schema_pkg_apis_activity_v1alpha1_PolicyPreviewSpec(ref common.ReferenceCal
 							},
 						},
 					},
+					"autoFetch": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AutoFetch automatically retrieves sample inputs based on the policy resource type. When specified, the API queries recent audit logs and/or events matching the policy. Mutually exclusive with manual inputs - only one should be provided.",
+							Ref:         ref(v1alpha1.AutoFetchSpec{}.OpenAPIModelName()),
+						},
+					},
+					"kindLabel": {
+						SchemaProps: spec.SchemaProps{
+							Description: "KindLabel overrides the display label for the resource kind.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"kindLabelPlural": {
+						SchemaProps: spec.SchemaProps{
+							Description: "KindLabelPlural overrides the plural display label.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
-				Required: []string{"policy", "inputs"},
+				Required: []string{"policy"},
 			},
 		},
 		Dependencies: []string{
-			v1alpha1.ActivityPolicySpec{}.OpenAPIModelName(), v1alpha1.PolicyPreviewInput{}.OpenAPIModelName()},
+			v1alpha1.ActivityPolicySpec{}.OpenAPIModelName(), v1alpha1.AutoFetchSpec{}.OpenAPIModelName(), v1alpha1.PolicyPreviewInput{}.OpenAPIModelName()},
 	}
 }
 
@@ -2501,6 +2516,25 @@ func schema_pkg_apis_activity_v1alpha1_PolicyPreviewStatus(ref common.ReferenceC
 							},
 						},
 					},
+					"fetchedInputs": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "FetchedInputs contains the auto-fetched sample inputs (only present when autoFetch was used). This allows clients to see what data was tested.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(v1alpha1.PolicyPreviewInput{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
 					"error": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Error contains a general error message if the preview failed entirely. Individual input errors are reported in results[].error.",
@@ -2512,7 +2546,7 @@ func schema_pkg_apis_activity_v1alpha1_PolicyPreviewStatus(ref common.ReferenceC
 			},
 		},
 		Dependencies: []string{
-			v1alpha1.Activity{}.OpenAPIModelName(), v1alpha1.PolicyPreviewInputResult{}.OpenAPIModelName()},
+			v1alpha1.Activity{}.OpenAPIModelName(), v1alpha1.PolicyPreviewInput{}.OpenAPIModelName(), v1alpha1.PolicyPreviewInputResult{}.OpenAPIModelName()},
 	}
 }
 
