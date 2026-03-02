@@ -1,0 +1,16 @@
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: activity-api-streaming
+  namespace: activity-system
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: activity-ui
+  timeout:
+    http:
+      # Long timeout for streaming/watch connections (1 hour)
+      requestTimeout: 3600s
+      # Idle timeout for long-lived connections (1 hour)
+      connectionIdleTimeout: 3600s

@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: activity-ui
+  namespace: activity-system
+  labels:
+    app: activity-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: activity-ui
+  template:
+    metadata:
+      labels:
+        app: activity-ui
+    spec:
+      serviceAccountName: activity-ui
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: ui
+          image: ghcr.io/datum-cloud/activity-ui:latest
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            runAsUser: 1000
+            capabilities:
+              drop:
+                - ALL
+          env:
+            # URL to the activity-apiserver for proxying API requests
+            - name: ACTIVITY_API_SERVER_URL
+              value: "https://activity-apiserver.activity-system.svc:443"
+            # Use the control plane CA for TLS verification (matches apiserver's serving cert)
+            - name: ACTIVITY_API_CA_FILE
+              value: "/etc/activity-apiserver-ca/ca.crt"
+            # Client certificate for mTLS authentication to activity-apiserver
+            - name: ACTIVITY_API_CERT_FILE
+              value: "/etc/activity-client-cert/tls.crt"
+            - name: ACTIVITY_API_KEY_FILE
+              value: "/etc/activity-client-cert/tls.key"
+          ports:
+            - containerPort: 3000
+              name: http
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: activity-apiserver-ca
+              mountPath: /etc/activity-apiserver-ca
+              readOnly: true
+            - name: activity-client-cert
+              mountPath: /etc/activity-client-cert
+              readOnly: true
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: activity-apiserver-ca
+          configMap:
+            name: datum-control-plane-trust-bundle
+        - name: activity-client-cert
+          csi:
+            driver: csi.cert-manager.io
+            readOnly: true
+            volumeAttributes:
+              csi.cert-manager.io/issuer-kind: ClusterIssuer
+              csi.cert-manager.io/issuer-name: datum-control-plane
+              csi.cert-manager.io/common-name: activity-ui
+              csi.cert-manager.io/organizations: "system:masters"
+              csi.cert-manager.io/key-usages: "client auth"
+              csi.cert-manager.io/duration: "8760h"
+              csi.cert-manager.io/renew-before: "720h"
+              csi.cert-manager.io/fs-group: "1000"
