@@ -14,9 +14,12 @@ spec:
     apiGroup: networking.k8s.io
     kind: Ingress
   auditRules:
-    - match: "audit.verb == 'create'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} exposed route {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"
-    - match: "audit.verb == 'delete'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed route {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"
-    - match: "audit.verb in ['update', 'patch']"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated route {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"
+    - name: create
+      match: "verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} exposed route {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
+    - name: delete
+      match: "verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed route {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
+    - name: update
+      match: "verb in ['update', 'patch']"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated route {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"

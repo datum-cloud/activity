@@ -653,3 +653,18 @@ tasks:
         echo "  - Review generated files"
         echo "  - Commit: git add pkg/ config/ docs/ && git commit -m 'chore: regenerate code and docs'"
     silent: true
+
+  # ============================================================
+  # E2E Testing with Chainsaw
+  # ============================================================
+  e2e:
+    desc: Run chainsaw e2e tests
+    cmds:
+      - chainsaw test test/e2e/ --config test/e2e/chainsaw-test.yaml
+    silent: false
+
+  e2e:named-rules:
+    desc: Run named rules e2e tests only
+    cmds:
+      - chainsaw test test/e2e/activitypolicy/named-rules/
+    silent: false

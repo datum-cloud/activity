@@ -14,14 +14,18 @@ spec:
     apiGroup: apps
     kind: Deployment
   auditRules:
-    - match: "audit.verb == 'create'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} deployed {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : 'application' }}"
-    - match: "audit.verb == 'delete'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : 'application' }}"
-    - match: "audit.verb in ['update', 'patch'] && has(audit.objectRef.subresource) && audit.objectRef.subresource == 'scale'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} scaled {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : 'application' }}"
-    - match: "audit.verb in ['update', 'patch']"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : 'application' }}"
+    - name: create
+      match: "verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} deployed {{ has(objectRef.name) ? link(objectRef.name, objectRef) : 'application' }}"
+    - name: delete
+      match: "verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed {{ has(objectRef.name) ? link(objectRef.name, objectRef) : 'application' }}"
+    - name: scale
+      match: "verb in ['update', 'patch'] && has(objectRef.subresource) && objectRef.subresource == 'scale'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} scaled {{ has(objectRef.name) ? link(objectRef.name, objectRef) : 'application' }}"
+    - name: update
+      match: "verb in ['update', 'patch']"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated {{ has(objectRef.name) ? link(objectRef.name, objectRef) : 'application' }}"
 
 ---
 apiVersion: activity.miloapis.com/v1alpha1
@@ -33,14 +37,18 @@ spec:
     apiGroup: apps
     kind: ReplicaSet
   auditRules:
-    - match: "audit.verb == 'create'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} created replicas for {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : 'application' }}"
-    - match: "audit.verb == 'delete'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed replicas for {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : 'application' }}"
-    - match: "audit.verb in ['update', 'patch'] && has(audit.objectRef.subresource) && audit.objectRef.subresource == 'scale'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} scaled {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : 'replicas' }}"
-    - match: "audit.verb in ['update', 'patch']"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated replicas for {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : 'application' }}"
+    - name: create
+      match: "verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} created replicas for {{ has(objectRef.name) ? link(objectRef.name, objectRef) : 'application' }}"
+    - name: delete
+      match: "verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed replicas for {{ has(objectRef.name) ? link(objectRef.name, objectRef) : 'application' }}"
+    - name: scale
+      match: "verb in ['update', 'patch'] && has(objectRef.subresource) && objectRef.subresource == 'scale'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} scaled {{ has(objectRef.name) ? link(objectRef.name, objectRef) : 'replicas' }}"
+    - name: update
+      match: "verb in ['update', 'patch']"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated replicas for {{ has(objectRef.name) ? link(objectRef.name, objectRef) : 'application' }}"
 
 ---
 apiVersion: activity.miloapis.com/v1alpha1
@@ -52,14 +60,18 @@ spec:
     apiGroup: apps
     kind: StatefulSet
   auditRules:
-    - match: "audit.verb == 'create'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} deployed stateful app {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"
-    - match: "audit.verb == 'delete'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed stateful app {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"
-    - match: "audit.verb in ['update', 'patch'] && has(audit.objectRef.subresource) && audit.objectRef.subresource == 'scale'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} scaled {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : 'stateful app' }}"
-    - match: "audit.verb in ['update', 'patch']"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated stateful app {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"
+    - name: create
+      match: "verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} deployed stateful app {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
+    - name: delete
+      match: "verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed stateful app {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
+    - name: scale
+      match: "verb in ['update', 'patch'] && has(objectRef.subresource) && objectRef.subresource == 'scale'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} scaled {{ has(objectRef.name) ? link(objectRef.name, objectRef) : 'stateful app' }}"
+    - name: update
+      match: "verb in ['update', 'patch']"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated stateful app {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
 
 ---
 apiVersion: activity.miloapis.com/v1alpha1
@@ -71,9 +83,12 @@ spec:
     apiGroup: apps
     kind: DaemonSet
   auditRules:
-    - match: "audit.verb == 'create'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} deployed cluster-wide service {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"
-    - match: "audit.verb == 'delete'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed cluster-wide service {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"
-    - match: "audit.verb in ['update', 'patch']"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated cluster-wide service {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"
+    - name: create
+      match: "verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} deployed cluster-wide service {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
+    - name: delete
+      match: "verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed cluster-wide service {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
+    - name: update
+      match: "verb in ['update', 'patch']"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated cluster-wide service {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"

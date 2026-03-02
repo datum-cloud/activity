@@ -14,14 +14,18 @@ spec:
     apiGroup: ""
     kind: Pod
   auditRules:
-    - match: "audit.verb == 'create' && has(audit.objectRef.subresource) && audit.objectRef.subresource == 'eviction'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} evicted {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : 'pod' }}"
-    - match: "audit.verb == 'create'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} started {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : 'pod' }}"
-    - match: "audit.verb == 'delete'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} stopped {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : 'pod' }}"
-    - match: "audit.verb in ['update', 'patch']"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : 'pod' }}"
+    - name: evict
+      match: "verb == 'create' && has(objectRef.subresource) && objectRef.subresource == 'eviction'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} evicted {{ has(objectRef.name) ? link(objectRef.name, objectRef) : 'pod' }}"
+    - name: create
+      match: "verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} started {{ has(objectRef.name) ? link(objectRef.name, objectRef) : 'pod' }}"
+    - name: delete
+      match: "verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} stopped {{ has(objectRef.name) ? link(objectRef.name, objectRef) : 'pod' }}"
+    - name: update
+      match: "verb in ['update', 'patch']"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated {{ has(objectRef.name) ? link(objectRef.name, objectRef) : 'pod' }}"
 
 ---
 apiVersion: activity.miloapis.com/v1alpha1
@@ -33,12 +37,15 @@ spec:
     apiGroup: ""
     kind: Service
   auditRules:
-    - match: "audit.verb == 'create'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} exposed {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : 'service' }}"
-    - match: "audit.verb == 'delete'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : 'service' }}"
-    - match: "audit.verb in ['update', 'patch']"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : 'service' }}"
+    - name: create
+      match: "verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} exposed {{ has(objectRef.name) ? link(objectRef.name, objectRef) : 'service' }}"
+    - name: delete
+      match: "verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed {{ has(objectRef.name) ? link(objectRef.name, objectRef) : 'service' }}"
+    - name: update
+      match: "verb in ['update', 'patch']"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated {{ has(objectRef.name) ? link(objectRef.name, objectRef) : 'service' }}"
 
 ---
 apiVersion: activity.miloapis.com/v1alpha1
@@ -50,12 +57,15 @@ spec:
     apiGroup: ""
     kind: ConfigMap
   auditRules:
-    - match: "audit.verb == 'create'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} added configuration {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"
-    - match: "audit.verb == 'delete'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed configuration {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"
-    - match: "audit.verb in ['update', 'patch']"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} changed configuration {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"
+    - name: create
+      match: "verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} added configuration {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
+    - name: delete
+      match: "verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed configuration {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
+    - name: update
+      match: "verb in ['update', 'patch']"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} changed configuration {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
 
 ---
 apiVersion: activity.miloapis.com/v1alpha1
@@ -67,12 +77,15 @@ spec:
     apiGroup: ""
     kind: Secret
   auditRules:
-    - match: "audit.verb == 'create'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} added secret {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"
-    - match: "audit.verb == 'delete'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed secret {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"
-    - match: "audit.verb in ['update', 'patch']"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} changed secret {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"
+    - name: create
+      match: "verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} added secret {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
+    - name: delete
+      match: "verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed secret {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
+    - name: update
+      match: "verb in ['update', 'patch']"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} changed secret {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
 
 ---
 apiVersion: activity.miloapis.com/v1alpha1
@@ -84,12 +97,15 @@ spec:
     apiGroup: ""
     kind: Namespace
   auditRules:
-    - match: "audit.verb == 'create'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} created workspace {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"
-    - match: "audit.verb == 'delete'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed workspace {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"
-    - match: "audit.verb in ['update', 'patch']"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated workspace {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"
+    - name: create
+      match: "verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} created workspace {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
+    - name: delete
+      match: "verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed workspace {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
+    - name: update
+      match: "verb in ['update', 'patch']"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated workspace {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
 
 ---
 apiVersion: activity.miloapis.com/v1alpha1
@@ -101,12 +117,15 @@ spec:
     apiGroup: ""
     kind: ServiceAccount
   auditRules:
-    - match: "audit.verb == 'create'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} created identity {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"
-    - match: "audit.verb == 'delete'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed identity {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"
-    - match: "audit.verb in ['update', 'patch']"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated identity {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"
+    - name: create
+      match: "verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} created identity {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
+    - name: delete
+      match: "verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed identity {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
+    - name: update
+      match: "verb in ['update', 'patch']"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated identity {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
 
 ---
 apiVersion: activity.miloapis.com/v1alpha1
@@ -118,12 +137,15 @@ spec:
     apiGroup: ""
     kind: PersistentVolumeClaim
   auditRules:
-    - match: "audit.verb == 'create'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} requested storage {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"
-    - match: "audit.verb == 'delete'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} released storage {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"
-    - match: "audit.verb in ['update', 'patch']"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated storage {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"
+    - name: create
+      match: "verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} requested storage {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
+    - name: delete
+      match: "verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} released storage {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
+    - name: update
+      match: "verb in ['update', 'patch']"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated storage {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
 
 ---
 apiVersion: activity.miloapis.com/v1alpha1
@@ -135,9 +157,12 @@ spec:
     apiGroup: ""
     kind: PersistentVolume
   auditRules:
-    - match: "audit.verb == 'create'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} provisioned storage {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"
-    - match: "audit.verb == 'delete'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed storage {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"
-    - match: "audit.verb in ['update', 'patch']"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated storage {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"
+    - name: create
+      match: "verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} provisioned storage {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
+    - name: delete
+      match: "verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed storage {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
+    - name: update
+      match: "verb in ['update', 'patch']"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated storage {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"

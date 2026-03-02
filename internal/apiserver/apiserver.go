@@ -162,13 +162,19 @@ func (c completedConfig) New() (*ActivityServer, error) {
 	// ActivityFacetQuery for faceted search on activities
 	v1alpha1Storage["activityfacetqueries"] = facet.NewFacetQueryStorage(clickhouseStorage)
 
-	// PolicyPreview for testing policies without persisting
-	v1alpha1Storage["policypreviews"] = preview.NewPolicyPreviewStorage()
-
 	// Create events backend using the same ClickHouse connection
 	eventsBackend := storage.NewClickHouseEventsBackend(clickhouseStorage.Conn(), storage.ClickHouseEventsConfig{
 		Database: clickhouseStorage.Config().Database,
 	})
+
+	// Create EventQuery backend for PolicyPreview auto-fetch
+	eventQueryBackend := storage.NewClickHouseEventQueryBackend(clickhouseStorage.Conn(), storage.ClickHouseEventsConfig{
+		Database: clickhouseStorage.Config().Database,
+	})
+
+	// PolicyPreview for testing policies without persisting
+	// Pass backends for auto-fetch functionality
+	v1alpha1Storage["policypreviews"] = preview.NewPolicyPreviewStorage(clickhouseStorage, eventQueryBackend)
 
 	// Create NATS publisher for events if configured
 	// When configured, events will be published to NATS instead of written directly to ClickHouse
@@ -203,9 +209,7 @@ func (c completedConfig) New() (*ActivityServer, error) {
 	v1alpha1Storage["eventfacetqueries"] = eventfacet.NewEventFacetQueryStorage(eventsBackend)
 
 	// EventQuery for historical event queries up to 60 days (no 24-hour limit)
-	eventQueryBackend := storage.NewClickHouseEventQueryBackend(clickhouseStorage.Conn(), storage.ClickHouseEventsConfig{
-		Database: clickhouseStorage.Config().Database,
-	})
+	// Note: eventQueryBackend was created earlier for PolicyPreview auto-fetch
 	v1alpha1Storage["eventqueries"] = eventquery.NewEventQueryREST(eventQueryBackend)
 
 	apiGroupInfo.VersionedResourcesStorageMap["v1alpha1"] = v1alpha1Storage

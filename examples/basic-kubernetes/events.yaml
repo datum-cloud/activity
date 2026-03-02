@@ -15,21 +15,29 @@ spec:
     apiGroup: ""
     kind: Pod
   eventRules:
-    - match: 'event.reason == "Scheduled"'
+    - name: scheduled
+      match: 'event.reason == "Scheduled"'
       summary: "{{ link(event.regarding.name, event.regarding) }} scheduled to node {{ event.note }}"
-    - match: 'event.reason == "Pulling"'
+    - name: pulling
+      match: 'event.reason == "Pulling"'
       summary: "Pulling image for {{ link(event.regarding.name, event.regarding) }}"
-    - match: 'event.reason == "Pulled"'
+    - name: pulled
+      match: 'event.reason == "Pulled"'
       summary: "Successfully pulled image for {{ link(event.regarding.name, event.regarding) }}"
-    - match: 'event.reason == "Created"'
+    - name: created
+      match: 'event.reason == "Created"'
       summary: "Created container in {{ link(event.regarding.name, event.regarding) }}"
-    - match: 'event.reason == "Started"'
+    - name: started
+      match: 'event.reason == "Started"'
       summary: "Started container in {{ link(event.regarding.name, event.regarding) }}"
-    - match: 'event.reason == "Killing"'
+    - name: killing
+      match: 'event.reason == "Killing"'
       summary: "Stopping container in {{ link(event.regarding.name, event.regarding) }}"
-    - match: 'event.reason == "BackOff"'
+    - name: backoff
+      match: 'event.reason == "BackOff"'
       summary: "{{ link(event.regarding.name, event.regarding) }} failed to start: {{ event.note }}"
-    - match: 'event.reason == "FailedScheduling"'
+    - name: failed-scheduling
+      match: 'event.reason == "FailedScheduling"'
       summary: "Failed to schedule {{ link(event.regarding.name, event.regarding) }}: {{ event.note }}"
 
 ---
@@ -42,13 +50,17 @@ spec:
     apiGroup: ""
     kind: Node
   eventRules:
-    - match: 'event.reason == "NodeReady"'
+    - name: node-ready
+      match: 'event.reason == "NodeReady"'
       summary: "Node {{ link(event.regarding.name, event.regarding) }} is ready"
-    - match: 'event.reason == "NodeNotReady"'
+    - name: node-not-ready
+      match: 'event.reason == "NodeNotReady"'
       summary: "Node {{ link(event.regarding.name, event.regarding) }} is not ready"
-    - match: 'event.reason == "NodeSchedulable"'
+    - name: node-schedulable
+      match: 'event.reason == "NodeSchedulable"'
       summary: "Node {{ link(event.regarding.name, event.regarding) }} is now schedulable"
-    - match: 'event.reason == "RegisteredNode"'
+    - name: registered-node
+      match: 'event.reason == "RegisteredNode"'
       summary: "Node {{ link(event.regarding.name, event.regarding) }} joined the cluster"
 
 ---
@@ -61,7 +73,9 @@ spec:
     apiGroup: "apps"
     kind: Deployment
   eventRules:
-    - match: 'event.reason == "ScalingReplicaSet"'
+    - name: scaling-replicaset
+      match: 'event.reason == "ScalingReplicaSet"'
       summary: "Scaling replica set for {{ link(event.regarding.name, event.regarding) }}"
-    - match: 'event.reason == "SuccessfulCreate"'
+    - name: successful-create
+      match: 'event.reason == "SuccessfulCreate"'
       summary: "Created replica set for {{ link(event.regarding.name, event.regarding) }}"
