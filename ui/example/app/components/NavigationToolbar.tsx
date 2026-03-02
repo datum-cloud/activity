@@ -12,6 +12,7 @@ const TABS: TabConfig[] = [
   { path: "/audit-logs", label: "Audit Logs" },
   { path: "/resource-history", label: "Resource History" },
   { path: "/policies", label: "Manage Policies", matchPrefix: true },
+  { path: "/reindex", label: "Reindex Jobs", matchPrefix: true },
 ];
 
 /**
