@@ -62,3 +62,8 @@ observability/jsonnetfile.lock.json
 
 # Directory used by the taskfile for remote taskfile storage
 .task
+.infra
+
+# Node.js
+node_modules/
+.pnpm-store/
