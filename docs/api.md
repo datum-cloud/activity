@@ -208,8 +208,8 @@ Example:
 	    apiGroup: networking.datumapis.com
 	    kind: HTTPProxy
 	  auditRules:
-	    - match: "audit.verb == 'create'"
-	      summary: "{{ actor }} created {{ link(kind + ' ' + audit.objectRef.name, audit.responseObject) }}"
+	    - match: "verb == 'create'"
+	      summary: "{{ actor }} created {{ link(kind + ' ' + objectRef.name, responseObject) }}"
 	  eventRules:
 	    - match: "event.reason == 'Programmed'"
 	      summary: "{{ link(kind + ' ' + event.regarding.name, event.regarding) }} is now programmed"
@@ -259,8 +259,10 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `match` _string_ | Match is a CEL expression that determines if this rule applies to the input.<br />For audit rules, use the `audit` variable (e.g., "audit.verb == 'create'").<br />For event rules, use the `event` variable (e.g., "event.reason == 'Programmed'").<br /><br />Examples:<br />  "audit.verb == 'create'"<br />  "audit.verb in ['update', 'patch']"<br />  "event.reason.startsWith('Failed')"<br />  "true"  (fallback rule that always matches) |  |  |
-| `summary` _string_ | Summary is a CEL template for generating the activity summary.<br />Use \{\{ \}\} delimiters to embed CEL expressions within strings.<br /><br />Available variables:<br />  - audit/event: The full input object<br />  - actor: Resolved display name for the actor<br /><br />Available functions:<br />  - link(displayText, resourceRef): Creates a clickable reference<br /><br />Examples:<br />  "\{\{ actor \}\} created \{\{ link(kind + ' ' + audit.objectRef.name, audit.responseObject) \}\}"<br />  "\{\{ link(kind + ' ' + event.regarding.name, event.regarding) \}\} is now programmed" |  |  |
+| `name` _string_ | Name is a unique identifier for this rule within the policy.<br />Used for strategic merge patching and error reporting. |  |  |
+| `description` _string_ | Description is an optional human-readable description of what this rule does. |  |  |
+| `match` _string_ | Match is a CEL expression that determines if this rule applies to the input.<br />For audit rules, use top-level variables (e.g., "verb == 'create'", "objectRef.namespace == 'default'").<br />For event rules, use the `event` variable (e.g., "event.reason == 'Programmed'").<br /><br />Examples:<br />  "verb == 'create'"<br />  "verb in ['update', 'patch']"<br />  "event.reason.startsWith('Failed')"<br />  "true"  (fallback rule that always matches) |  |  |
+| `summary` _string_ | Summary is a CEL template for generating the activity summary.<br />Use \{\{ \}\} delimiters to embed CEL expressions within strings.<br /><br />Available variables:<br />  - For audit rules: verb, objectRef, user, responseStatus, responseObject, actor, actorRef, kind<br />  - For event rules: event, actor<br /><br />Available functions:<br />  - link(displayText, resourceRef): Creates a clickable reference<br /><br />Examples:<br />  "\{\{ actor \}\} created \{\{ link(kind + ' ' + objectRef.name, responseObject) \}\}"<br />  "\{\{ link(kind + ' ' + event.regarding.name, event.regarding) \}\} is now programmed" |  |  |
 
 
 #### ActivityPolicySpec
@@ -278,7 +280,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `resource` _[ActivityPolicyResource](#activitypolicyresource)_ | Resource identifies the Kubernetes resource this policy applies to.<br />One ActivityPolicy should exist per resource kind. |  |  |
-| `auditRules` _[ActivityPolicyRule](#activitypolicyrule) array_ | AuditRules define how to translate audit log entries into activity summaries.<br />Rules are evaluated in order; the first matching rule wins.<br />The `audit` variable contains the full Kubernetes audit event structure.<br />Convenience variables available: actor |  |  |
+| `auditRules` _[ActivityPolicyRule](#activitypolicyrule) array_ | AuditRules define how to translate audit log entries into activity summaries.<br />Rules are evaluated in order; the first matching rule wins.<br />Available variables: verb, objectRef, user, responseStatus, responseObject, actor, actorRef, kind<br />Convenience variables available: actor |  |  |
 | `eventRules` _[ActivityPolicyRule](#activitypolicyrule) array_ | EventRules define how to translate Kubernetes events into activity summaries.<br />Rules are evaluated in order; the first matching rule wins.<br />The `event` variable contains the full Kubernetes Event structure.<br />Convenience variables available: actor |  |  |
 
 
@@ -297,7 +299,6 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#condition-v1-meta) array_ | Conditions represent the current state of the policy.<br />The "Ready" condition indicates whether all rules compile successfully. |  |  |
 | `observedGeneration` _integer_ | ObservedGeneration is the generation last processed by the controller. |  |  |
-| `evaluationStats` _[EvaluationStats](#evaluationstats)_ | EvaluationStats contains runtime evaluation statistics from the processor.<br />Updated periodically by the activity-processor to report rule evaluation health. |  |  |
 
 
 
@@ -500,27 +501,22 @@ _Appears in:_
 | `effectiveEndTime` _string_ | EffectiveEndTime is the actual end time used for this query (RFC3339 format).<br /><br />When you use relative times like "now", this shows the exact timestamp that was<br />calculated. Useful for understanding exactly what time range was queried.<br /><br />Example: If you query with endTime="now" at 2025-12-17T12:00:00Z,<br />this will be "2025-12-17T12:00:00Z". |  |  |
 
 
-#### EvaluationStats
+#### AutoFetchSpec
 
 
 
-EvaluationStats tracks runtime CEL expression evaluation health for a policy.
-These metrics are collected by the activity-processor and reported via status updates.
+AutoFetchSpec configures automatic sample data retrieval.
 
 
 
 _Appears in:_
-- [ActivityPolicyStatus](#activitypolicystatus)
+- [PolicyPreviewSpec](#policypreviewspec)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `lastEvaluationTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#time-v1-meta)_ | LastEvaluationTime is when this policy last evaluated an event/audit. |  |  |
-| `successCount` _integer_ | SuccessCount is the number of successful evaluations in the current window. |  |  |
-| `errorCount` _integer_ | ErrorCount is the number of failed evaluations in the current window. |  |  |
-| `lastErrorTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#time-v1-meta)_ | LastErrorTime is when the most recent error occurred. |  |  |
-| `lastErrorMessage` _string_ | LastErrorMessage contains the error message from the most recent failure. |  |  |
-| `lastErrorRuleIndex` _integer_ | LastErrorRuleIndex indicates which rule failed (0-based index). |  |  |
-| `windowStartTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#time-v1-meta)_ | WindowStartTime marks the beginning of the current statistics window. |  |  |
+| `limit` _integer_ | Limit is the maximum number of sample inputs to fetch (default: 10, max: 50).<br />The API fetches up to this many audit logs and/or events. | 10 | Maximum: 50 <br />Minimum: 1 <br /> |
+| `timeRange` _string_ | TimeRange specifies how far back to look for samples (default: "24h").<br />Supports relative format: "1h", "24h", "7d", "30d" | 24h |  |
+| `sources` _string_ | Sources specifies which data sources to query: "audit", "events", or "both" (default: "both").<br />- "audit": Only fetch audit logs (only tests auditRules)<br />- "events": Only fetch Kubernetes events (only tests eventRules)<br />- "both": Fetch both types (tests all rules) | both | Enum: [audit events both] <br /> |
 
 
 
@@ -539,7 +535,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `timeRange` _[FacetTimeRange](#facettimerange)_ | TimeRange limits the time window for facet aggregation.<br />If not specified, defaults to the last 7 days. |  |  |
-| `facets` _[FacetSpec](#facetspec) array_ | Facets specifies which fields to get distinct values for.<br />Each facet returns the top N values with counts.<br /><br />Supported fields:<br />  - involvedObject.kind: Resource kinds (Pod, Deployment, etc.)<br />  - involvedObject.namespace: Namespaces of involved objects<br />  - reason: Event reasons (Scheduled, Pulled, Created, etc.)<br />  - type: Event types (Normal, Warning)<br />  - source.component: Source components (kubelet, scheduler, etc.)<br />  - namespace: Event namespace |  |  |
+| `facets` _[FacetSpec](#facetspec) array_ | Facets specifies which fields to get distinct values for.<br />Each facet returns the top N values with counts.<br /><br />Supported fields:<br />  - regarding.kind: Resource kinds (Pod, Deployment, etc.)<br />  - regarding.namespace: Namespaces of regarding objects<br />  - reason: Event reasons (Scheduled, Pulled, Created, etc.)<br />  - type: Event types (Normal, Warning)<br />  - source.component: Source components (kubelet, scheduler, etc.)<br />  - namespace: Event namespace |  |  |
 
 
 #### EventFacetQueryStatus
@@ -624,7 +620,7 @@ _Appears in:_
 | `startTime` _string_ | StartTime is the beginning of your search window (inclusive).<br /><br />Format Options:<br />- Relative: "now-30d", "now-2h", "now-30m" (units: s, m, h, d, w)<br />  Use for dashboards and recurring queries - they adjust automatically.<br />- Absolute: "2024-01-01T00:00:00Z" (RFC3339 with timezone)<br />  Use for historical analysis of specific time periods.<br /><br />Maximum lookback is 60 days from now.<br /><br />Examples:<br />  "now-7d"                      → 7 days ago<br />  "2024-06-15T14:30:00-05:00"   → specific time with timezone offset |  |  |
 | `endTime` _string_ | EndTime is the end of your search window (exclusive).<br /><br />Uses the same formats as StartTime. Commonly "now" for the current moment.<br />Must be greater than StartTime.<br /><br />Examples:<br />  "now"                  → current time<br />  "2024-01-02T00:00:00Z" → specific end point |  |  |
 | `namespace` _string_ | Namespace limits results to events from a specific namespace.<br />Leave empty to query events across all namespaces. |  |  |
-| `fieldSelector` _string_ | FieldSelector filters events using standard Kubernetes field selector syntax.<br /><br />Supported Fields:<br />  metadata.name               - event name<br />  metadata.namespace          - event namespace<br />  metadata.uid                - event UID<br />  involvedObject.apiVersion   - involved resource API version<br />  involvedObject.kind         - involved resource kind (e.g., Pod, Deployment)<br />  involvedObject.namespace    - involved resource namespace<br />  involvedObject.name         - involved resource name<br />  involvedObject.uid          - involved resource UID<br />  involvedObject.fieldPath    - involved resource field path<br />  reason                      - event reason (e.g., FailedMount, Pulled)<br />  type                        - event type (Normal or Warning)<br />  source.component            - reporting component<br />  source.host                 - reporting host<br /><br />Operators: = (or ==), !=<br />Multiple conditions: comma-separated (all must match)<br /><br />Common Patterns:<br />  "type=Warning"                                  - Warning events only<br />  "involvedObject.kind=Pod"                       - Events for pods<br />  "reason=FailedMount"                            - Mount failure events<br />  "involvedObject.name=my-pod,type=Warning"       - Warnings for a specific pod |  |  |
+| `fieldSelector` _string_ | FieldSelector filters events using standard Kubernetes field selector syntax.<br /><br />Supported Fields:<br />  metadata.name               - event name<br />  metadata.namespace          - event namespace<br />  metadata.uid                - event UID<br />  regarding.apiVersion        - regarding resource API version<br />  regarding.kind              - regarding resource kind (e.g., Pod, Deployment)<br />  regarding.namespace         - regarding resource namespace<br />  regarding.name              - regarding resource name<br />  regarding.uid               - regarding resource UID<br />  regarding.fieldPath         - regarding resource field path<br />  reason                      - event reason (e.g., FailedMount, Pulled)<br />  type                        - event type (Normal or Warning)<br />  source.component            - reporting component<br />  source.host                 - reporting host<br />  reportingComponent          - reporting component (alias for source.component)<br />  reportingInstance           - reporting instance (alias for source.host)<br /><br />Operators: = (or ==), !=<br />Multiple conditions: comma-separated (all must match)<br /><br />Common Patterns:<br />  "type=Warning"                                  - Warning events only<br />  "regarding.kind=Pod"                            - Events for pods<br />  "reason=FailedMount"                            - Mount failure events<br />  "regarding.name=my-pod,type=Warning"            - Warnings for a specific pod |  |  |
 | `limit` _integer_ | Limit sets the maximum number of results per page.<br />Default: 100, Maximum: 1000.<br /><br />Use smaller values (10-50) for exploration, larger (500-1000) for data collection.<br />Use continue to fetch additional pages. |  |  |
 | `continue` _string_ | Continue is the pagination cursor for fetching additional pages.<br /><br />Leave empty for the first page. If status.continue is non-empty after a query,<br />copy that value here in a new query with identical parameters to get the next page.<br />Repeat until status.continue is empty.<br /><br />Important: Keep all other parameters (startTime, endTime, namespace, fieldSelector,<br />limit) identical across paginated requests. The cursor is opaque - copy it exactly<br />without modification. |  |  |
 
@@ -754,6 +750,7 @@ PolicyPreviewInput contains the sample input for policy testing.
 
 _Appears in:_
 - [PolicyPreviewSpec](#policypreviewspec)
+- [PolicyPreviewStatus](#policypreviewstatus)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
@@ -779,6 +776,7 @@ _Appears in:_
 | `matched` _boolean_ | Matched indicates whether any rule matched this input. |  |  |
 | `matchedRuleIndex` _integer_ | MatchedRuleIndex is the index of the rule that matched (0-based).<br />-1 if no rule matched. |  |  |
 | `matchedRuleType` _string_ | MatchedRuleType indicates whether the matched rule was an audit or event rule.<br />Empty if no rule matched. |  |  |
+| `matchedRuleName` _string_ | MatchedRuleName is the name of the rule that matched this input.<br />This is the value from the rule's Name field in the policy spec.<br />Empty if no rule matched. |  |  |
 | `error` _string_ | Error contains any error message if evaluating this input failed.<br />This could be a CEL compilation error or evaluation error. |  |  |
 
 
@@ -796,7 +794,10 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `policy` _[ActivityPolicySpec](#activitypolicyspec)_ | Policy is the ActivityPolicy spec to test.<br />You can use the full spec from an existing policy or create a new one. |  |  |
-| `inputs` _[PolicyPreviewInput](#policypreviewinput) array_ | Inputs contains sample audit logs and/or events to test against the policy.<br />Each input is evaluated independently and produces an Activity if a rule matches.<br />You can mix audit logs and events in the same request. |  |  |
+| `inputs` _[PolicyPreviewInput](#policypreviewinput) array_ | Inputs contains sample audit logs and/or events to test against the policy.<br />Each input is evaluated independently and produces an Activity if a rule matches.<br />You can mix audit logs and events in the same request.<br />Optional when AutoFetch is specified. |  |  |
+| `autoFetch` _[AutoFetchSpec](#autofetchspec)_ | AutoFetch automatically retrieves sample inputs based on the policy resource type.<br />When specified, the API queries recent audit logs and/or events matching the policy.<br />Mutually exclusive with manual inputs - only one should be provided. |  |  |
+| `kindLabel` _string_ | KindLabel overrides the display label for the resource kind. |  |  |
+| `kindLabelPlural` _string_ | KindLabelPlural overrides the plural display label. |  |  |
 
 
 #### PolicyPreviewStatus
@@ -814,6 +815,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `activities` _[Activity](#activity) array_ | Activities contains the rendered Activity objects for inputs that matched a rule.<br />The order corresponds to the order of matched inputs (not necessarily the input order).<br />Inputs that don't match any rule are not included here. |  |  |
 | `results` _[PolicyPreviewInputResult](#policypreviewinputresult) array_ | Results contains detailed results for each input, in the same order as spec.inputs.<br />Use this to see which inputs matched and any errors that occurred. |  |  |
+| `fetchedInputs` _[PolicyPreviewInput](#policypreviewinput) array_ | FetchedInputs contains the auto-fetched sample inputs (only present when autoFetch was used).<br />This allows clients to see what data was tested. |  |  |
 | `error` _string_ | Error contains a general error message if the preview failed entirely.<br />Individual input errors are reported in results[].error. |  |  |
 
 

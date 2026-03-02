@@ -59,7 +59,7 @@ export function useEventFacets(
     setError(null);
 
     try {
-      // EventFacetQuery supports these fields: involvedObject.kind, involvedObject.namespace,
+      // EventFacetQuery supports these fields: regarding.kind, regarding.namespace,
       // namespace, reason, source.component, type
       const result = await client.queryEventFacets({
         timeRange: {
@@ -67,18 +67,18 @@ export function useEventFacets(
           end: timeRange.end,
         },
         facets: [
-          { field: 'involvedObject.kind', limit: 50 },
+          { field: 'regarding.kind', limit: 50 },
           { field: 'reason', limit: 50 },
           { field: 'type', limit: 5 },
           { field: 'source.component', limit: 50 },
-          { field: 'involvedObject.namespace', limit: 50 },
+          { field: 'regarding.namespace', limit: 50 },
         ],
       });
 
       const facets = result.status?.facets || [];
 
       // Extract involved object kinds
-      const kindFacet = facets.find((f) => f.field === 'involvedObject.kind');
+      const kindFacet = facets.find((f) => f.field === 'regarding.kind');
       setInvolvedKinds(kindFacet?.values || []);
 
       // Extract reasons
@@ -94,7 +94,7 @@ export function useEventFacets(
       setSourceComponents(componentFacet?.values || []);
 
       // Extract namespaces from involved objects
-      const namespaceFacet = facets.find((f) => f.field === 'involvedObject.namespace');
+      const namespaceFacet = facets.find((f) => f.field === 'regarding.namespace');
       setNamespaces(namespaceFacet?.values || []);
 
       lastFetchedRef.current = cacheKey;

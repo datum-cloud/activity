@@ -14,13 +14,13 @@ var EventsFieldSelectors = map[string]string{
 	"metadata.name":      "name",
 	"metadata.uid":       "uid",
 
-	// Involved object fields (most commonly used with field selectors)
-	"involvedObject.apiVersion": "involved_api_version",
-	"involvedObject.kind":       "involved_kind",
-	"involvedObject.namespace":  "involved_namespace",
-	"involvedObject.name":       "involved_name",
-	"involvedObject.uid":        "involved_uid",
-	"involvedObject.fieldPath":  "involved_field_path",
+	// Regarding object fields (events/v1)
+	"regarding.apiVersion": "involved_api_version",
+	"regarding.kind":       "involved_kind",
+	"regarding.namespace":  "involved_namespace",
+	"regarding.name":       "involved_name",
+	"regarding.uid":        "involved_uid",
+	"regarding.fieldPath":  "involved_field_path",
 
 	// Event classification
 	"reason": "reason",
@@ -44,7 +44,7 @@ var EventsFieldSelectorAliases = map[string]string{
 }
 
 // ResolveEventFieldSelector resolves a field selector key to a ClickHouse column name.
-// It handles both full paths (involvedObject.name) and aliases (namespace).
+// It handles both full paths (regarding.name) and aliases (namespace).
 // Returns an error if the field selector is not supported.
 func ResolveEventFieldSelector(field string) (string, error) {
 	// Check for alias first
@@ -64,7 +64,7 @@ func ResolveEventFieldSelector(field string) (string, error) {
 // ParseFieldSelector parses a Kubernetes field selector string and returns
 // a list of (column, operator, value) tuples for building WHERE clauses.
 // Supports both = (equality) and != (inequality) operators.
-// Example: "involvedObject.name=my-pod,type!=Warning"
+// Example: "regarding.name=my-pod,type!=Warning"
 func ParseFieldSelector(selector string) ([]FieldSelectorTerm, error) {
 	if selector == "" {
 		return nil, nil

@@ -412,16 +412,16 @@ func parseFieldSelectorForWatch(selector fields.Selector, filter *eventwatch.Eve
 		return
 	}
 
-	if value, found := selector.RequiresExactMatch("involvedObject.kind"); found {
+	if value, found := selector.RequiresExactMatch("regarding.kind"); found {
 		filter.InvolvedObjectKind = value
 	}
-	if value, found := selector.RequiresExactMatch("involvedObject.namespace"); found {
+	if value, found := selector.RequiresExactMatch("regarding.namespace"); found {
 		filter.InvolvedObjectNamespace = value
 	}
-	if value, found := selector.RequiresExactMatch("involvedObject.name"); found {
+	if value, found := selector.RequiresExactMatch("regarding.name"); found {
 		filter.InvolvedObjectName = value
 	}
-	if value, found := selector.RequiresExactMatch("involvedObject.uid"); found {
+	if value, found := selector.RequiresExactMatch("regarding.uid"); found {
 		filter.InvolvedObjectUID = value
 	}
 	if value, found := selector.RequiresExactMatch("reason"); found {

@@ -26,7 +26,7 @@ import (
 //	  timeRange:
 //	    start: "now-7d"
 //	  facets:
-//	    - field: involvedObject.kind
+//	    - field: regarding.kind
 //	      limit: 10
 //	    - field: reason
 //	    - field: type
@@ -50,8 +50,8 @@ type EventFacetQuerySpec struct {
 	// Each facet returns the top N values with counts.
 	//
 	// Supported fields:
-	//   - involvedObject.kind: Resource kinds (Pod, Deployment, etc.)
-	//   - involvedObject.namespace: Namespaces of involved objects
+	//   - regarding.kind: Resource kinds (Pod, Deployment, etc.)
+	//   - regarding.namespace: Namespaces of regarding objects
 	//   - reason: Event reasons (Scheduled, Pulled, Created, etc.)
 	//   - type: Event types (Normal, Warning)
 	//   - source.component: Source components (kubelet, scheduler, etc.)
