@@ -34,18 +34,28 @@ const (
 var summaryTemplateRegex = regexp.MustCompile(`\{\{\s*(.+?)\s*\}\}`)
 
 // auditEnvironment creates a CEL environment for audit rule expressions.
-// Available variables: audit (full audit event), actor, actorRef
+// Available variables match AuditLogQuery filter format: verb, objectRef, user, responseStatus, etc.
+// Also available: actor, actorRef for convenience.
 // If collector is non-nil, link() calls will capture link information.
 func auditEnvironment(collector *linkCollector) (*cel.Env, error) {
-	// The audit variable is a map containing the full Kubernetes audit event
-	auditType := cel.MapType(cel.StringType, cel.DynType)
-	// The actorRef variable is a map with {type, name} for linking
+	objectRefType := cel.MapType(cel.StringType, cel.DynType)
+	userType := cel.MapType(cel.StringType, cel.DynType)
+	responseStatusType := cel.MapType(cel.StringType, cel.DynType)
 	actorRefType := cel.MapType(cel.StringType, cel.DynType)
 
 	return cel.NewEnv(
-		cel.Variable("audit", auditType),
+		// Core audit fields - match AuditLogQuery filter format
+		cel.Variable("verb", cel.StringType),
+		cel.Variable("objectRef", objectRefType),
+		cel.Variable("user", userType),
+		cel.Variable("responseStatus", responseStatusType),
+
+		// Convenience variables
 		cel.Variable("actor", cel.StringType),
 		cel.Variable("actorRef", actorRefType),
+
+		// Also expose "kind" for convenience (extracted from objectRef)
+		cel.Variable("kind", cel.StringType),
 
 		// link function declaration with implementation: link(displayText string, resourceRef map) -> string
 		// Returns the display text and optionally captures link info in the collector.
@@ -149,6 +159,13 @@ func validateMatchExpression(env *cel.Env, expression string) error {
 
 // validateSummaryExpression validates a summary template expression with {{ }} delimiters.
 func validateSummaryExpression(env *cel.Env, expression string) error {
+	// Check for balanced delimiters
+	openCount := strings.Count(expression, "{{")
+	closeCount := strings.Count(expression, "}}")
+	if openCount != closeCount {
+		return fmt.Errorf("error compiling template: missing closing delimiter")
+	}
+
 	// Extract all {{ expression }} blocks from the template
 	matches := summaryTemplateRegex.FindAllStringSubmatch(expression, -1)
 
@@ -192,9 +209,9 @@ func formatPolicyError(err error, context string) error {
 	// Check for common error patterns and provide helpful messages
 	if strings.Contains(errStr, "undeclared reference") {
 		return fmt.Errorf("invalid %s expression: %s. "+
-			"For audit rules, use 'audit' variable (e.g., audit.verb, audit.objectRef.name). "+
-			"For event rules, use 'event' variable (e.g., event.reason, event.regarding.name). "+
-			"Also available: actor, actorRef", context, errStr)
+			"For audit rules: verb, objectRef.namespace, objectRef.name, user.username, responseStatus.code, actor, kind. "+
+			"For event rules: event.reason, event.type, event.regarding.name, actor. "+
+			"Also available: actorRef, link()", context, errStr)
 	}
 
 	if strings.Contains(errStr, "found no matching overload") {
@@ -263,11 +280,7 @@ func EvaluateAuditMatchMap(expression string, auditMap map[string]interface{}) (
 		return false, fmt.Errorf("failed to create program: %w", err)
 	}
 
-	out, _, err := prg.Eval(map[string]interface{}{
-		"audit":    auditMap,
-		"actor":    extractString(auditMap, "user", "username"),
-		"actorRef": buildActorRef(auditMap),
-	})
+	out, _, err := prg.Eval(buildAuditVars(auditMap))
 	if err != nil {
 		return false, fmt.Errorf("failed to evaluate match expression: %w", err)
 	}
@@ -278,6 +291,53 @@ func EvaluateAuditMatchMap(expression string, auditMap map[string]interface{}) (
 	}
 
 	return result, nil
+}
+
+// buildAuditVars creates the CEL variable map for audit evaluation.
+// Variables are flattened to match AuditLogQuery filter format.
+func buildAuditVars(auditMap map[string]interface{}) map[string]interface{} {
+	vars := map[string]interface{}{
+		"actor":    extractString(auditMap, "user", "username"),
+		"actorRef": buildActorRef(auditMap),
+	}
+
+	// Flatten audit fields to top level
+	if v, ok := auditMap["verb"]; ok {
+		vars["verb"] = v
+	} else {
+		vars["verb"] = ""
+	}
+
+	if v, ok := auditMap["objectRef"]; ok {
+		vars["objectRef"] = v
+		// Extract kind for convenience
+		if objRef, ok := v.(map[string]interface{}); ok {
+			if kind, ok := objRef["resource"].(string); ok {
+				vars["kind"] = kind
+			} else {
+				vars["kind"] = ""
+			}
+		} else {
+			vars["kind"] = ""
+		}
+	} else {
+		vars["objectRef"] = map[string]interface{}{}
+		vars["kind"] = ""
+	}
+
+	if v, ok := auditMap["user"]; ok {
+		vars["user"] = v
+	} else {
+		vars["user"] = map[string]interface{}{}
+	}
+
+	if v, ok := auditMap["responseStatus"]; ok {
+		vars["responseStatus"] = v
+	} else {
+		vars["responseStatus"] = map[string]interface{}{}
+	}
+
+	return vars
 }
 
 // EvaluateAuditSummary evaluates a summary template against an audit log entry.
@@ -297,13 +357,7 @@ func EvaluateAuditSummaryMap(template string, auditMap map[string]interface{}) (
 		return "", nil, fmt.Errorf("failed to create audit environment: %w", err)
 	}
 
-	vars := map[string]interface{}{
-		"audit":    auditMap,
-		"actor":    extractString(auditMap, "user", "username"),
-		"actorRef": buildActorRef(auditMap),
-	}
-
-	result, err := evaluateSummaryTemplate(env, template, vars)
+	result, err := evaluateSummaryTemplate(env, template, buildAuditVars(auditMap))
 	if err != nil {
 		return "", nil, err
 	}

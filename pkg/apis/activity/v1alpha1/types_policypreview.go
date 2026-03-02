@@ -31,9 +31,9 @@ import (
 //	      apiGroup: networking.datumapis.com
 //	      kind: HTTPProxy
 //	    auditRules:
-//	      - match: "audit.verb == 'create'"
+//	      - match: "verb == 'create'"
 //	        summary: "{{ actor }} created HTTPProxy"
-//	      - match: "audit.verb == 'delete'"
+//	      - match: "verb == 'delete'"
 //	        summary: "{{ actor }} deleted HTTPProxy"
 //	  inputs:
 //	    - type: audit
@@ -73,10 +73,28 @@ type PolicyPreviewSpec struct {
 	// Inputs contains sample audit logs and/or events to test against the policy.
 	// Each input is evaluated independently and produces an Activity if a rule matches.
 	// You can mix audit logs and events in the same request.
+	// Optional when AutoFetch is specified.
 	//
-	// +required
+	// +optional
 	// +listType=atomic
-	Inputs []PolicyPreviewInput `json:"inputs"`
+	Inputs []PolicyPreviewInput `json:"inputs,omitempty"`
+
+	// AutoFetch automatically retrieves sample inputs based on the policy resource type.
+	// When specified, the API queries recent audit logs and/or events matching the policy.
+	// Mutually exclusive with manual inputs - only one should be provided.
+	//
+	// +optional
+	AutoFetch *AutoFetchSpec `json:"autoFetch,omitempty"`
+
+	// KindLabel overrides the display label for the resource kind.
+	//
+	// +optional
+	KindLabel string `json:"kindLabel,omitempty"`
+
+	// KindLabelPlural overrides the plural display label.
+	//
+	// +optional
+	KindLabelPlural string `json:"kindLabelPlural,omitempty"`
 }
 
 // PolicyPreviewInput contains the sample input for policy testing.
@@ -101,6 +119,35 @@ type PolicyPreviewInput struct {
 	Event *runtime.RawExtension `json:"event,omitempty"`
 }
 
+// AutoFetchSpec configures automatic sample data retrieval.
+type AutoFetchSpec struct {
+	// Limit is the maximum number of sample inputs to fetch (default: 10, max: 50).
+	// The API fetches up to this many audit logs and/or events.
+	//
+	// +optional
+	// +kubebuilder:default=10
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=50
+	Limit int32 `json:"limit,omitempty"`
+
+	// TimeRange specifies how far back to look for samples (default: "24h").
+	// Supports relative format: "1h", "24h", "7d", "30d"
+	//
+	// +optional
+	// +kubebuilder:default="24h"
+	TimeRange string `json:"timeRange,omitempty"`
+
+	// Sources specifies which data sources to query: "audit", "events", or "both" (default: "both").
+	// - "audit": Only fetch audit logs (only tests auditRules)
+	// - "events": Only fetch Kubernetes events (only tests eventRules)
+	// - "both": Fetch both types (tests all rules)
+	//
+	// +optional
+	// +kubebuilder:default="both"
+	// +kubebuilder:validation:Enum=audit;events;both
+	Sources string `json:"sources,omitempty"`
+}
+
 // PolicyPreviewStatus contains the preview results.
 type PolicyPreviewStatus struct {
 	// Activities contains the rendered Activity objects for inputs that matched a rule.
@@ -117,6 +164,13 @@ type PolicyPreviewStatus struct {
 	// +optional
 	// +listType=atomic
 	Results []PolicyPreviewInputResult `json:"results,omitempty"`
+
+	// FetchedInputs contains the auto-fetched sample inputs (only present when autoFetch was used).
+	// This allows clients to see what data was tested.
+	//
+	// +optional
+	// +listType=atomic
+	FetchedInputs []PolicyPreviewInput `json:"fetchedInputs,omitempty"`
 
 	// Error contains a general error message if the preview failed entirely.
 	// Individual input errors are reported in results[].error.
@@ -140,6 +194,13 @@ type PolicyPreviewInputResult struct {
 	// MatchedRuleType indicates whether the matched rule was an audit or event rule.
 	// Empty if no rule matched.
 	MatchedRuleType string `json:"matchedRuleType,omitempty"`
+
+	// MatchedRuleName is the name of the rule that matched this input.
+	// This is the value from the rule's Name field in the policy spec.
+	// Empty if no rule matched.
+	//
+	// +optional
+	MatchedRuleName string `json:"matchedRuleName,omitempty"`
 
 	// Error contains any error message if evaluating this input failed.
 	// This could be a CEL compilation error or evaluation error.

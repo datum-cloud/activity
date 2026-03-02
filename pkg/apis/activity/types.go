@@ -31,8 +31,10 @@ type ActivityPolicyResource struct {
 
 // ActivityPolicyRule defines a translation rule.
 type ActivityPolicyRule struct {
-	Match   string
-	Summary string
+	Name        string
+	Description string
+	Match       string
+	Summary     string
 }
 
 // Condition is an alias for metav1.Condition to simplify conversions
@@ -131,4 +133,11 @@ type ReindexJobList struct {
 	metav1.ListMeta
 
 	Items []ReindexJob
+}
+
+// AutoFetchSpec configures automatic sample data retrieval for PolicyPreview.
+type AutoFetchSpec struct {
+	Limit     int32
+	TimeRange string
+	Sources   string
 }

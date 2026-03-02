@@ -141,8 +141,8 @@ func (in AuditLogQueryStatus) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
-func (in EvaluationStats) OpenAPIModelName() string {
-	return "com.miloapis.activity.v1alpha1.EvaluationStats"
+func (in AutoFetchSpec) OpenAPIModelName() string {
+	return "com.miloapis.activity.v1alpha1.AutoFetchSpec"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.

@@ -24,8 +24,8 @@ import (
 //	    apiGroup: networking.datumapis.com
 //	    kind: HTTPProxy
 //	  auditRules:
-//	    - match: "audit.verb == 'create'"
-//	      summary: "{{ actor }} created {{ link(kind + ' ' + audit.objectRef.name, audit.responseObject) }}"
+//	    - match: "verb == 'create'"
+//	      summary: "{{ actor }} created {{ link(kind + ' ' + objectRef.name, responseObject) }}"
 //	  eventRules:
 //	    - match: "event.reason == 'Programmed'"
 //	      summary: "{{ link(kind + ' ' + event.regarding.name, event.regarding) }} is now programmed"
@@ -49,43 +49,6 @@ type ActivityPolicyStatus struct {
 	// ObservedGeneration is the generation last processed by the controller.
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
-
-	// EvaluationStats contains runtime evaluation statistics from the processor.
-	// Updated periodically by the activity-processor to report rule evaluation health.
-	// +optional
-	EvaluationStats *EvaluationStats `json:"evaluationStats,omitempty"`
-}
-
-// EvaluationStats tracks runtime CEL expression evaluation health for a policy.
-// These metrics are collected by the activity-processor and reported via status updates.
-type EvaluationStats struct {
-	// LastEvaluationTime is when this policy last evaluated an event/audit.
-	// +optional
-	LastEvaluationTime *metav1.Time `json:"lastEvaluationTime,omitempty"`
-
-	// SuccessCount is the number of successful evaluations in the current window.
-	// +optional
-	SuccessCount int64 `json:"successCount,omitempty"`
-
-	// ErrorCount is the number of failed evaluations in the current window.
-	// +optional
-	ErrorCount int64 `json:"errorCount,omitempty"`
-
-	// LastErrorTime is when the most recent error occurred.
-	// +optional
-	LastErrorTime *metav1.Time `json:"lastErrorTime,omitempty"`
-
-	// LastErrorMessage contains the error message from the most recent failure.
-	// +optional
-	LastErrorMessage string `json:"lastErrorMessage,omitempty"`
-
-	// LastErrorRuleIndex indicates which rule failed (0-based index).
-	// +optional
-	LastErrorRuleIndex *int `json:"lastErrorRuleIndex,omitempty"`
-
-	// WindowStartTime marks the beginning of the current statistics window.
-	// +optional
-	WindowStartTime *metav1.Time `json:"windowStartTime,omitempty"`
 }
 
 // ActivityPolicySpec defines the translation rules for a resource type.
@@ -98,11 +61,12 @@ type ActivityPolicySpec struct {
 
 	// AuditRules define how to translate audit log entries into activity summaries.
 	// Rules are evaluated in order; the first matching rule wins.
-	// The `audit` variable contains the full Kubernetes audit event structure.
+	// Available variables: verb, objectRef, user, responseStatus, responseObject, actor, actorRef, kind
 	// Convenience variables available: actor
 	//
 	// +optional
-	// +listType=atomic
+	// +listType=map
+	// +listMapKey=name
 	AuditRules []ActivityPolicyRule `json:"auditRules,omitempty"`
 
 	// EventRules define how to translate Kubernetes events into activity summaries.
@@ -111,7 +75,8 @@ type ActivityPolicySpec struct {
 	// Convenience variables available: actor
 	//
 	// +optional
-	// +listType=atomic
+	// +listType=map
+	// +listMapKey=name
 	EventRules []ActivityPolicyRule `json:"eventRules,omitempty"`
 }
 
@@ -132,13 +97,24 @@ type ActivityPolicyResource struct {
 // ActivityPolicyRule defines a single translation rule that matches input events
 // and generates human-readable activity summaries.
 type ActivityPolicyRule struct {
+	// Name is a unique identifier for this rule within the policy.
+	// Used for strategic merge patching and error reporting.
+	//
+	// +required
+	Name string `json:"name"`
+
+	// Description is an optional human-readable description of what this rule does.
+	//
+	// +optional
+	Description string `json:"description,omitempty"`
+
 	// Match is a CEL expression that determines if this rule applies to the input.
-	// For audit rules, use the `audit` variable (e.g., "audit.verb == 'create'").
+	// For audit rules, use top-level variables (e.g., "verb == 'create'", "objectRef.namespace == 'default'").
 	// For event rules, use the `event` variable (e.g., "event.reason == 'Programmed'").
 	//
 	// Examples:
-	//   "audit.verb == 'create'"
-	//   "audit.verb in ['update', 'patch']"
+	//   "verb == 'create'"
+	//   "verb in ['update', 'patch']"
 	//   "event.reason.startsWith('Failed')"
 	//   "true"  (fallback rule that always matches)
 	//
@@ -149,14 +125,14 @@ type ActivityPolicyRule struct {
 	// Use {{ }} delimiters to embed CEL expressions within strings.
 	//
 	// Available variables:
-	//   - audit/event: The full input object
-	//   - actor: Resolved display name for the actor
+	//   - For audit rules: verb, objectRef, user, responseStatus, responseObject, actor, actorRef, kind
+	//   - For event rules: event, actor
 	//
 	// Available functions:
 	//   - link(displayText, resourceRef): Creates a clickable reference
 	//
 	// Examples:
-	//   "{{ actor }} created {{ link(kind + ' ' + audit.objectRef.name, audit.responseObject) }}"
+	//   "{{ actor }} created {{ link(kind + ' ' + objectRef.name, responseObject) }}"
 	//   "{{ link(kind + ' ' + event.regarding.name, event.regarding) }} is now programmed"
 	//
 	// +required

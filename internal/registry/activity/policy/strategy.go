@@ -7,6 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apiserver/pkg/registry/generic"
 	"k8s.io/apiserver/pkg/storage"
@@ -139,16 +140,38 @@ func ValidateActivityPolicySpec(spec *activity.ActivityPolicySpec, specPath *fie
 
 	// Validate audit rules
 	auditRulesPath := specPath.Child("auditRules")
+	auditRuleNames := make(map[string]int)
 	for i, rule := range spec.AuditRules {
 		rulePath := auditRulesPath.Index(i)
 		allErrs = append(allErrs, validatePolicyRule(rule, rulePath, cel.AuditRule)...)
+
+		// Check for duplicate names within auditRules
+		if rule.Name != "" {
+			if firstIdx, exists := auditRuleNames[rule.Name]; exists {
+				allErrs = append(allErrs, field.Duplicate(rulePath.Child("name"),
+					fmt.Sprintf("%s (conflicts with auditRules[%d])", rule.Name, firstIdx)))
+			} else {
+				auditRuleNames[rule.Name] = i
+			}
+		}
 	}
 
 	// Validate event rules
 	eventRulesPath := specPath.Child("eventRules")
+	eventRuleNames := make(map[string]int)
 	for i, rule := range spec.EventRules {
 		rulePath := eventRulesPath.Index(i)
 		allErrs = append(allErrs, validatePolicyRule(rule, rulePath, cel.EventRule)...)
+
+		// Check for duplicate names within eventRules
+		if rule.Name != "" {
+			if firstIdx, exists := eventRuleNames[rule.Name]; exists {
+				allErrs = append(allErrs, field.Duplicate(rulePath.Child("name"),
+					fmt.Sprintf("%s (conflicts with eventRules[%d])", rule.Name, firstIdx)))
+			} else {
+				eventRuleNames[rule.Name] = i
+			}
+		}
 	}
 
 	return allErrs
@@ -167,10 +190,21 @@ func warningsForPolicy(policy *activity.ActivityPolicy) []string {
 func validatePolicyRule(rule activity.ActivityPolicyRule, path *field.Path, ruleType cel.PolicyRuleType) field.ErrorList {
 	allErrs := field.ErrorList{}
 
+	// Validate name field - required
+	if rule.Name == "" {
+		allErrs = append(allErrs, field.Required(path.Child("name"),
+			"provide a unique name for this rule (e.g., 'create', 'update-status')"))
+	} else {
+		if errs := validation.IsDNS1123Subdomain(rule.Name); len(errs) > 0 {
+			allErrs = append(allErrs, field.Invalid(path.Child("name"), rule.Name,
+				fmt.Sprintf("must be a valid DNS subdomain (lowercase alphanumeric and hyphens, start/end with alphanumeric): %v", errs)))
+		}
+	}
+
 	// Validate match expression
 	if rule.Match == "" {
 		allErrs = append(allErrs, field.Required(path.Child("match"),
-			"provide a CEL expression that determines when this rule applies (e.g., 'audit.verb == \"create\"')"))
+			"provide a CEL expression that determines when this rule applies (e.g., 'verb == \"create\"')"))
 	} else {
 		if err := cel.ValidatePolicyExpression(rule.Match, cel.MatchExpression, ruleType); err != nil {
 			allErrs = append(allErrs, field.Invalid(path.Child("match"), rule.Match, err.Error()))
