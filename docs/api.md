@@ -21,6 +21,7 @@ Package v1alpha1 contains API Schema definitions for the activity v1alpha1 API g
 
 
 
+
 #### Activity
 
 
@@ -207,8 +208,8 @@ Example:
 	    apiGroup: networking.datumapis.com
 	    kind: HTTPProxy
 	  auditRules:
-	    - match: "audit.verb == 'create'"
-	      summary: "{{ actor }} created {{ link(kind + ' ' + audit.objectRef.name, audit.responseObject) }}"
+	    - match: "verb == 'create'"
+	      summary: "{{ actor }} created {{ link(kind + ' ' + objectRef.name, responseObject) }}"
 	  eventRules:
 	    - match: "event.reason == 'Programmed'"
 	      summary: "{{ link(kind + ' ' + event.regarding.name, event.regarding) }} is now programmed"
@@ -258,8 +259,10 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `match` _string_ | Match is a CEL expression that determines if this rule applies to the input.<br />For audit rules, use the `audit` variable (e.g., "audit.verb == 'create'").<br />For event rules, use the `event` variable (e.g., "event.reason == 'Programmed'").<br /><br />Examples:<br />  "audit.verb == 'create'"<br />  "audit.verb in ['update', 'patch']"<br />  "event.reason.startsWith('Failed')"<br />  "true"  (fallback rule that always matches) |  |  |
-| `summary` _string_ | Summary is a CEL template for generating the activity summary.<br />Use \{\{ \}\} delimiters to embed CEL expressions within strings.<br /><br />Available variables:<br />  - audit/event: The full input object<br />  - actor: Resolved display name for the actor<br /><br />Available functions:<br />  - link(displayText, resourceRef): Creates a clickable reference<br /><br />Examples:<br />  "\{\{ actor \}\} created \{\{ link(kind + ' ' + audit.objectRef.name, audit.responseObject) \}\}"<br />  "\{\{ link(kind + ' ' + event.regarding.name, event.regarding) \}\} is now programmed" |  |  |
+| `name` _string_ | Name is a unique identifier for this rule within the policy.<br />Used for strategic merge patching and error reporting. |  |  |
+| `description` _string_ | Description is an optional human-readable description of what this rule does. |  |  |
+| `match` _string_ | Match is a CEL expression that determines if this rule applies to the input.<br />For audit rules, use top-level variables (e.g., "verb == 'create'", "objectRef.namespace == 'default'").<br />For event rules, use the `event` variable (e.g., "event.reason == 'Programmed'").<br /><br />Examples:<br />  "verb == 'create'"<br />  "verb in ['update', 'patch']"<br />  "event.reason.startsWith('Failed')"<br />  "true"  (fallback rule that always matches) |  |  |
+| `summary` _string_ | Summary is a CEL template for generating the activity summary.<br />Use \{\{ \}\} delimiters to embed CEL expressions within strings.<br /><br />Available variables:<br />  - For audit rules: verb, objectRef, user, responseStatus, responseObject, actor, actorRef, kind<br />  - For event rules: event, actor<br /><br />Available functions:<br />  - link(displayText, resourceRef): Creates a clickable reference<br /><br />Examples:<br />  "\{\{ actor \}\} created \{\{ link(kind + ' ' + objectRef.name, responseObject) \}\}"<br />  "\{\{ link(kind + ' ' + event.regarding.name, event.regarding) \}\} is now programmed" |  |  |
 
 
 #### ActivityPolicySpec
@@ -277,7 +280,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `resource` _[ActivityPolicyResource](#activitypolicyresource)_ | Resource identifies the Kubernetes resource this policy applies to.<br />One ActivityPolicy should exist per resource kind. |  |  |
-| `auditRules` _[ActivityPolicyRule](#activitypolicyrule) array_ | AuditRules define how to translate audit log entries into activity summaries.<br />Rules are evaluated in order; the first matching rule wins.<br />The `audit` variable contains the full Kubernetes audit event structure.<br />Convenience variables available: actor |  |  |
+| `auditRules` _[ActivityPolicyRule](#activitypolicyrule) array_ | AuditRules define how to translate audit log entries into activity summaries.<br />Rules are evaluated in order; the first matching rule wins.<br />Available variables: verb, objectRef, user, responseStatus, responseObject, actor, actorRef, kind<br />Convenience variables available: actor |  |  |
 | `eventRules` _[ActivityPolicyRule](#activitypolicyrule) array_ | EventRules define how to translate Kubernetes events into activity summaries.<br />Rules are evaluated in order; the first matching rule wins.<br />The `event` variable contains the full Kubernetes Event structure.<br />Convenience variables available: actor |  |  |
 
 
@@ -496,6 +499,24 @@ _Appears in:_
 | `continue` _string_ | Continue is the pagination cursor.<br />Non-empty means more results are available - copy this to spec.continue for the next page.<br />Empty means you have all results. |  |  |
 | `effectiveStartTime` _string_ | EffectiveStartTime is the actual start time used for this query (RFC3339 format).<br /><br />When you use relative times like "now-7d", this shows the exact timestamp that was<br />calculated. Useful for understanding exactly what time range was queried, especially<br />for auditing, debugging, or recreating queries with absolute timestamps.<br /><br />Example: If you query with startTime="now-7d" at 2025-12-17T12:00:00Z,<br />this will be "2025-12-10T12:00:00Z". |  |  |
 | `effectiveEndTime` _string_ | EffectiveEndTime is the actual end time used for this query (RFC3339 format).<br /><br />When you use relative times like "now", this shows the exact timestamp that was<br />calculated. Useful for understanding exactly what time range was queried.<br /><br />Example: If you query with endTime="now" at 2025-12-17T12:00:00Z,<br />this will be "2025-12-17T12:00:00Z". |  |  |
+
+
+#### AutoFetchSpec
+
+
+
+AutoFetchSpec configures automatic sample data retrieval.
+
+
+
+_Appears in:_
+- [PolicyPreviewSpec](#policypreviewspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `limit` _integer_ | Limit is the maximum number of sample inputs to fetch (default: 10, max: 50).<br />The API fetches up to this many audit logs and/or events. | 10 | Maximum: 50 <br />Minimum: 1 <br /> |
+| `timeRange` _string_ | TimeRange specifies how far back to look for samples (default: "24h").<br />Supports relative format: "1h", "24h", "7d", "30d" | 24h |  |
+| `sources` _string_ | Sources specifies which data sources to query: "audit", "events", or "both" (default: "both").<br />- "audit": Only fetch audit logs (only tests auditRules)<br />- "events": Only fetch Kubernetes events (only tests eventRules)<br />- "both": Fetch both types (tests all rules) | both | Enum: [audit events both] <br /> |
 
 
 
@@ -729,6 +750,7 @@ PolicyPreviewInput contains the sample input for policy testing.
 
 _Appears in:_
 - [PolicyPreviewSpec](#policypreviewspec)
+- [PolicyPreviewStatus](#policypreviewstatus)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
@@ -754,6 +776,7 @@ _Appears in:_
 | `matched` _boolean_ | Matched indicates whether any rule matched this input. |  |  |
 | `matchedRuleIndex` _integer_ | MatchedRuleIndex is the index of the rule that matched (0-based).<br />-1 if no rule matched. |  |  |
 | `matchedRuleType` _string_ | MatchedRuleType indicates whether the matched rule was an audit or event rule.<br />Empty if no rule matched. |  |  |
+| `matchedRuleName` _string_ | MatchedRuleName is the name of the rule that matched this input.<br />This is the value from the rule's Name field in the policy spec.<br />Empty if no rule matched. |  |  |
 | `error` _string_ | Error contains any error message if evaluating this input failed.<br />This could be a CEL compilation error or evaluation error. |  |  |
 
 
@@ -771,7 +794,10 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `policy` _[ActivityPolicySpec](#activitypolicyspec)_ | Policy is the ActivityPolicy spec to test.<br />You can use the full spec from an existing policy or create a new one. |  |  |
-| `inputs` _[PolicyPreviewInput](#policypreviewinput) array_ | Inputs contains sample audit logs and/or events to test against the policy.<br />Each input is evaluated independently and produces an Activity if a rule matches.<br />You can mix audit logs and events in the same request. |  |  |
+| `inputs` _[PolicyPreviewInput](#policypreviewinput) array_ | Inputs contains sample audit logs and/or events to test against the policy.<br />Each input is evaluated independently and produces an Activity if a rule matches.<br />You can mix audit logs and events in the same request.<br />Optional when AutoFetch is specified. |  |  |
+| `autoFetch` _[AutoFetchSpec](#autofetchspec)_ | AutoFetch automatically retrieves sample inputs based on the policy resource type.<br />When specified, the API queries recent audit logs and/or events matching the policy.<br />Mutually exclusive with manual inputs - only one should be provided. |  |  |
+| `kindLabel` _string_ | KindLabel overrides the display label for the resource kind. |  |  |
+| `kindLabelPlural` _string_ | KindLabelPlural overrides the plural display label. |  |  |
 
 
 #### PolicyPreviewStatus
@@ -789,6 +815,201 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `activities` _[Activity](#activity) array_ | Activities contains the rendered Activity objects for inputs that matched a rule.<br />The order corresponds to the order of matched inputs (not necessarily the input order).<br />Inputs that don't match any rule are not included here. |  |  |
 | `results` _[PolicyPreviewInputResult](#policypreviewinputresult) array_ | Results contains detailed results for each input, in the same order as spec.inputs.<br />Use this to see which inputs matched and any errors that occurred. |  |  |
+| `fetchedInputs` _[PolicyPreviewInput](#policypreviewinput) array_ | FetchedInputs contains the auto-fetched sample inputs (only present when autoFetch was used).<br />This allows clients to see what data was tested. |  |  |
 | `error` _string_ | Error contains a general error message if the preview failed entirely.<br />Individual input errors are reported in results[].error. |  |  |
+
+
+#### ReindexConfig
+
+
+
+ReindexConfig contains processing configuration options.
+
+
+
+_Appears in:_
+- [ReindexJobSpec](#reindexjobspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `batchSize` _integer_ | BatchSize is the number of events to process per batch.<br />Larger batches are faster but use more memory.<br />Default: 1000 | 1000 | Maximum: 10000 <br />Minimum: 100 <br /> |
+| `rateLimit` _integer_ | RateLimit is the maximum events per second to process.<br />Prevents overwhelming ClickHouse.<br />Default: 100 | 100 | Maximum: 1000 <br />Minimum: 10 <br /> |
+| `dryRun` _boolean_ | DryRun previews changes without writing activities.<br />Useful for estimating impact before execution.<br />Default: false |  |  |
+
+
+#### ReindexJob
+
+
+
+ReindexJob triggers re-processing of historical audit logs and events through
+current ActivityPolicy rules. Use this to fix policy bugs retroactively, add
+coverage for new policies, or refine activity summaries after policy improvements.
+
+
+ReindexJob is a one-shot resource: once completed or failed, it cannot be
+re-run. Create a new ReindexJob for subsequent re-indexing operations.
+
+
+KUBERNETES EVENT LIMITATION:
+
+
+When a Kubernetes Event is updated (e.g., count incremented from 1 to 5),
+it retains the same UID. Re-indexing will produce ONE activity per Event UID,
+reflecting the Event's final state. Historical activity occurrences from earlier
+Event states are lost.
+
+
+Example: Event "pod-oom" fires 5 times (count=5) → Re-indexing produces 1 activity (not 5)
+
+
+Mitigation: Scope re-indexing to audit logs only via spec.policySelector to
+preserve activities from earlier Event occurrences.
+
+
+Example:
+
+
+	kubectl apply -f - <<EOF
+	apiVersion: activity.miloapis.com/v1alpha1
+	kind: ReindexJob
+	metadata:
+	  name: fix-policy-bug-2026-02-27
+	spec:
+	  timeRange:
+	    startTime: "now-7d"       # last 7 days (or use absolute: "2026-02-25T00:00:00Z")
+	    endTime: "now"            # defaults to "now" if omitted
+	  policySelector:
+	    names: ["httpproxy-policy"]
+	EOF
+
+
+	kubectl get reindexjobs -w  # Watch progress
+
+
+
+_Appears in:_
+- [ReindexJobList](#reindexjoblist)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[ReindexJobSpec](#reindexjobspec)_ |  |  |  |
+| `status` _[ReindexJobStatus](#reindexjobstatus)_ |  |  |  |
+
+
+
+
+#### ReindexJobPhase
+
+_Underlying type:_ _string_
+
+ReindexJobPhase represents the lifecycle phase of a ReindexJob.
+
+
+
+_Appears in:_
+- [ReindexJobStatus](#reindexjobstatus)
+
+| Field | Description |
+| --- | --- |
+| `Pending` |  |
+| `Running` |  |
+| `Succeeded` |  |
+| `Failed` |  |
+
+
+#### ReindexJobSpec
+
+
+
+ReindexJobSpec defines the parameters for a re-indexing operation.
+
+
+
+_Appears in:_
+- [ReindexJob](#reindexjob)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `timeRange` _[ReindexTimeRange](#reindextimerange)_ | TimeRange specifies the time window of events to re-index.<br />Events outside this range are not processed. |  |  |
+| `policySelector` _[ReindexPolicySelector](#reindexpolicyselector)_ | PolicySelector optionally limits re-indexing to specific policies.<br />If omitted, all active ActivityPolicies are evaluated. |  |  |
+| `config` _[ReindexConfig](#reindexconfig)_ | Config contains processing configuration options. |  |  |
+| `ttlSecondsAfterFinished` _integer_ | TTLSecondsAfterFinished limits the lifetime of a ReindexJob after it finishes<br />execution (either Succeeded or Failed). If set, the controller will delete the<br />ReindexJob resource after it has been in a terminal state for this many seconds.<br /><br />This field is optional. If unset, completed jobs are retained indefinitely.<br /><br />Example: Setting to 3600 (1 hour) allows users to inspect job results for an<br />hour after completion, after which the job is automatically cleaned up. |  | Minimum: 0 <br /> |
+
+
+#### ReindexJobStatus
+
+
+
+ReindexJobStatus represents the current state of a ReindexJob.
+
+
+
+_Appears in:_
+- [ReindexJob](#reindexjob)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `phase` _[ReindexJobPhase](#reindexjobphase)_ | Phase is the current lifecycle phase.<br />Values: Pending, Running, Succeeded, Failed |  |  |
+| `message` _string_ | Message is a human-readable description of the current state. |  |  |
+| `progress` _[ReindexProgress](#reindexprogress)_ | Progress contains detailed progress information. |  |  |
+| `startedAt` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#time-v1-meta)_ | StartedAt is when processing began. |  |  |
+| `completedAt` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#time-v1-meta)_ | CompletedAt is when processing finished (success or failure). |  |  |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#condition-v1-meta) array_ | Conditions represent the latest observations of the job's state. |  |  |
+
+
+#### ReindexPolicySelector
+
+
+
+ReindexPolicySelector specifies which policies to include in re-indexing.
+
+
+
+_Appears in:_
+- [ReindexJobSpec](#reindexjobspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `names` _string array_ | Names is a list of ActivityPolicy names to include.<br />Mutually exclusive with MatchLabels. |  |  |
+| `matchLabels` _object (keys:string, values:string)_ | MatchLabels selects policies by label.<br />Mutually exclusive with Names. |  |  |
+
+
+#### ReindexProgress
+
+
+
+ReindexProgress contains detailed progress metrics.
+
+
+
+_Appears in:_
+- [ReindexJobStatus](#reindexjobstatus)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `totalEvents` _integer_ | TotalEvents is the estimated total events to process. |  |  |
+| `processedEvents` _integer_ | ProcessedEvents is the number of events processed so far. |  |  |
+| `activitiesGenerated` _integer_ | ActivitiesGenerated is the number of activities created. |  |  |
+| `errors` _integer_ | Errors is the count of non-fatal errors encountered. |  |  |
+| `currentBatch` _integer_ | CurrentBatch is the batch number currently being processed. |  |  |
+| `totalBatches` _integer_ | TotalBatches is the estimated total number of batches. |  |  |
+
+
+#### ReindexTimeRange
+
+
+
+ReindexTimeRange specifies the time window for re-indexing.
+
+
+
+_Appears in:_
+- [ReindexJobSpec](#reindexjobspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `startTime` _string_ | StartTime is the beginning of the time range (inclusive).<br />Must be within the ClickHouse retention window (60 days).<br /><br />Format Options:<br />- Relative: "now-30d", "now-2h", "now-30m" (units: s, m, h, d, w)<br />  Use for recent time windows - they adjust automatically at job start.<br />- Absolute: "2026-02-01T00:00:00Z" (RFC3339 with timezone)<br />  Use for specific historical time periods.<br /><br />Examples:<br />  "now-7d"                      → 7 days before job starts<br />  "2026-02-25T00:00:00Z"        → specific time with UTC<br />  "2026-02-25T00:00:00-08:00"   → specific time with timezone offset<br /><br />Note: Relative times are resolved when the job STARTS processing,<br />not when the resource is created. This ensures consistent time ranges<br />even if the job is queued. |  |  |
+| `endTime` _string_ | EndTime is the end of the time range (exclusive).<br />Defaults to "now" (job start time) if omitted.<br /><br />Uses the same formats as StartTime.<br />Must be greater than StartTime.<br /><br />Examples:<br />  "now"                  → current time when job starts<br />  "2026-03-01T00:00:00Z" → specific end point<br />  "now-1h"               → 1 hour before job starts |  |  |
 
 
