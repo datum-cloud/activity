@@ -66,14 +66,14 @@ spec:
     kind: HTTPProxy
 
   auditRules:
-    - match: "audit.verb == 'create'"
-      summary: "{{ actor }} created {{ link('HTTP proxy ' + audit.objectRef.name, audit.responseObject) }}"
+    - match: "verb == 'create'"
+      summary: "{{ actor }} created {{ link('HTTP proxy ' + objectRef.name, responseObject) }}"
 
-    - match: "audit.verb == 'delete'"
-      summary: "{{ actor }} deleted {{ link('HTTP proxy ' + audit.objectRef.name, audit.responseObject) }}"
+    - match: "verb == 'delete'"
+      summary: "{{ actor }} deleted {{ link('HTTP proxy ' + objectRef.name, responseObject) }}"
 
-    - match: "audit.verb in ['update', 'patch']"
-      summary: "{{ actor }} updated {{ link('HTTP proxy ' + audit.objectRef.name, audit.responseObject) }}"
+    - match: "verb in ['update', 'patch']"
+      summary: "{{ actor }} updated {{ link('HTTP proxy ' + objectRef.name, responseObject) }}"
 
   eventRules:
     - match: "event.reason == 'Programmed'"
@@ -106,7 +106,7 @@ The `link()` function creates clickable references in the portal:
 link(displayText, resourceRef)
 ```
 
-Example: `{{ link("HTTP Proxy " + audit.objectRef.name, audit.responseObject) }}`
+Example: `{{ link("HTTP Proxy " + objectRef.name, responseObject) }}`
 
 This produces "HTTP proxy api-gateway" in the summary and registers it as a
 clickable link to the resource.
@@ -136,7 +136,7 @@ Actors are resolved from different sources based on the activity origin:
 
 | Source | Resolution Method |
 |--------|-------------------|
-| Audit logs | Extract from `audit.user.username`, `audit.user.uid` |
+| Audit logs | Extract from `user.username`, `user.uid` |
 | Events with annotations | Use `activity.miloapis.com/actor-*` annotations |
 | Events from controllers | Map `event.reportingController` to a system actor |
 

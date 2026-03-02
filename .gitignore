@@ -67,3 +67,4 @@ observability/jsonnetfile.lock.json
 # Node.js
 node_modules/
 .pnpm-store/
+.claude/settings.local.json

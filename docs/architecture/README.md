@@ -94,8 +94,8 @@ spec:
     apiGroup: networking.datumapis.com
     kind: HTTPProxy
   auditRules:
-    - match: "audit.verb == 'create'"
-      summary: "{{ actor }} created {{ link(kind + ' ' + audit.objectRef.name, audit.responseObject) }}"
+    - match: "verb == 'create'"
+      summary: "{{ actor }} created {{ link(kind + ' ' + objectRef.name, responseObject) }}"
 ```
 
 See [Activity Pipeline](./activity-pipeline.md) for details.
