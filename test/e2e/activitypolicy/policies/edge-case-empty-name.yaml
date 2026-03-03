@@ -1,0 +1,12 @@
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: test-edge-case-empty-name
+spec:
+  resource:
+    apiGroup: apps
+    kind: Deployment
+  auditRules:
+    - name: ""
+      match: "verb == 'create'"
+      summary: "{{ actor }} created deployment"

@@ -1,0 +1,30 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: missing-required-name
+spec:
+  description: |
+    Test that rules without names are rejected.
+    The name field is required for all rules.
+  steps:
+  - name: reject-audit-rule-without-name
+    try:
+    - apply:
+        file: ../../policies/missing-audit-rule-name.yaml
+        expect:
+        - check:
+            ($error != null): true
+    - script:
+        content: |
+          echo "Verified that audit rules without names are rejected"
+
+  - name: reject-event-rule-without-name
+    try:
+    - apply:
+        file: ../../policies/missing-event-rule-name.yaml
+        expect:
+        - check:
+            ($error != null): true
+    - script:
+        content: |
+          echo "Verified that event rules without names are rejected"

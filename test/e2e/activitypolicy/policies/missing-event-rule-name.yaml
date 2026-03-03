@@ -1,0 +1,11 @@
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: test-missing-event-rule-name
+spec:
+  resource:
+    apiGroup: apps
+    kind: Deployment
+  eventRules:
+    - match: "event.reason == 'ScalingReplicaSet'"
+      summary: "Deployment {{ event.involvedObject.name }} scaled"

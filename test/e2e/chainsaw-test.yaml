@@ -1,0 +1,21 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Configuration
+metadata:
+  name: activity-e2e-tests
+spec:
+  # Global timeout settings
+  timeouts:
+    # Maximum time to wait for operations (30 seconds)
+    apply: 30s
+    assert: 30s
+    delete: 30s
+    # Error timeout is shorter as errors should appear quickly
+    error: 10s
+    # Exec operations may need more time
+    exec: 30s
+
+  # Reporting
+  reportFormat: JSON
+
+  # Fail fast - stop on first failure
+  failFast: false
