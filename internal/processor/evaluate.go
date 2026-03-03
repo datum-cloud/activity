@@ -20,6 +20,9 @@ type EvaluationResult struct {
 
 	// MatchedRuleType is "audit" or "event" depending on which rule matched
 	MatchedRuleType string
+
+	// MatchedRuleName is the name of the matched rule from the policy spec
+	MatchedRuleName string
 }
 
 // EvaluateAuditRules evaluates audit rules against an audit log input.
@@ -66,6 +69,7 @@ func EvaluateAuditRules(
 				Activity:         activity,
 				MatchedRuleIndex: i,
 				MatchedRuleType:  "audit",
+				MatchedRuleName:  rule.Name,
 			}, nil
 		}
 	}
@@ -120,6 +124,7 @@ func EvaluateEventRules(
 				Activity:         activity,
 				MatchedRuleIndex: i,
 				MatchedRuleType:  "event",
+				MatchedRuleName:  rule.Name,
 			}, nil
 		}
 	}

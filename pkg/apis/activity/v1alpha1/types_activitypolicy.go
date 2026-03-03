@@ -24,8 +24,8 @@ import (
 //	    apiGroup: networking.datumapis.com
 //	    kind: HTTPProxy
 //	  auditRules:
-//	    - match: "audit.verb == 'create'"
-//	      summary: "{{ actor }} created {{ link(kind + ' ' + audit.objectRef.name, audit.responseObject) }}"
+//	    - match: "verb == 'create'"
+//	      summary: "{{ actor }} created {{ link(kind + ' ' + objectRef.name, responseObject) }}"
 //	  eventRules:
 //	    - match: "event.reason == 'Programmed'"
 //	      summary: "{{ link(kind + ' ' + event.regarding.name, event.regarding) }} is now programmed"
@@ -61,11 +61,12 @@ type ActivityPolicySpec struct {
 
 	// AuditRules define how to translate audit log entries into activity summaries.
 	// Rules are evaluated in order; the first matching rule wins.
-	// The `audit` variable contains the full Kubernetes audit event structure.
+	// Available variables: verb, objectRef, user, responseStatus, responseObject, actor, actorRef, kind
 	// Convenience variables available: actor
 	//
 	// +optional
-	// +listType=atomic
+	// +listType=map
+	// +listMapKey=name
 	AuditRules []ActivityPolicyRule `json:"auditRules,omitempty"`
 
 	// EventRules define how to translate Kubernetes events into activity summaries.
@@ -74,7 +75,8 @@ type ActivityPolicySpec struct {
 	// Convenience variables available: actor
 	//
 	// +optional
-	// +listType=atomic
+	// +listType=map
+	// +listMapKey=name
 	EventRules []ActivityPolicyRule `json:"eventRules,omitempty"`
 }
 
@@ -95,13 +97,24 @@ type ActivityPolicyResource struct {
 // ActivityPolicyRule defines a single translation rule that matches input events
 // and generates human-readable activity summaries.
 type ActivityPolicyRule struct {
+	// Name is a unique identifier for this rule within the policy.
+	// Used for strategic merge patching and error reporting.
+	//
+	// +required
+	Name string `json:"name"`
+
+	// Description is an optional human-readable description of what this rule does.
+	//
+	// +optional
+	Description string `json:"description,omitempty"`
+
 	// Match is a CEL expression that determines if this rule applies to the input.
-	// For audit rules, use the `audit` variable (e.g., "audit.verb == 'create'").
+	// For audit rules, use top-level variables (e.g., "verb == 'create'", "objectRef.namespace == 'default'").
 	// For event rules, use the `event` variable (e.g., "event.reason == 'Programmed'").
 	//
 	// Examples:
-	//   "audit.verb == 'create'"
-	//   "audit.verb in ['update', 'patch']"
+	//   "verb == 'create'"
+	//   "verb in ['update', 'patch']"
 	//   "event.reason.startsWith('Failed')"
 	//   "true"  (fallback rule that always matches)
 	//
@@ -112,14 +125,14 @@ type ActivityPolicyRule struct {
 	// Use {{ }} delimiters to embed CEL expressions within strings.
 	//
 	// Available variables:
-	//   - audit/event: The full input object
-	//   - actor: Resolved display name for the actor
+	//   - For audit rules: verb, objectRef, user, responseStatus, responseObject, actor, actorRef, kind
+	//   - For event rules: event, actor
 	//
 	// Available functions:
 	//   - link(displayText, resourceRef): Creates a clickable reference
 	//
 	// Examples:
-	//   "{{ actor }} created {{ link(kind + ' ' + audit.objectRef.name, audit.responseObject) }}"
+	//   "{{ actor }} created {{ link(kind + ' ' + objectRef.name, responseObject) }}"
 	//   "{{ link(kind + ' ' + event.regarding.name, event.regarding) }} is now programmed"
 	//
 	// +required

@@ -15,19 +15,19 @@ func TestValidatePolicyExpression_MatchExpressions(t *testing.T) {
 	}{
 		{
 			name:       "valid audit verb match",
-			expression: "audit.verb == 'create'",
+			expression: "verb == 'create'",
 			ruleType:   AuditRule,
 			wantErr:    false,
 		},
 		{
 			name:       "valid audit verb in list",
-			expression: "audit.verb in ['update', 'patch']",
+			expression: "verb in ['update', 'patch']",
 			ruleType:   AuditRule,
 			wantErr:    false,
 		},
 		{
-			name:       "valid audit subresource check",
-			expression: "audit.objectRef.subresource == 'status'",
+			name:       "valid audit objectRef check",
+			expression: "objectRef.namespace == 'default'",
 			ruleType:   AuditRule,
 			wantErr:    false,
 		},
@@ -51,7 +51,7 @@ func TestValidatePolicyExpression_MatchExpressions(t *testing.T) {
 		},
 		{
 			name:       "invalid - non-boolean return",
-			expression: "audit.verb",
+			expression: "verb",
 			ruleType:   AuditRule,
 			wantErr:    true,
 			errContains: "must return a boolean",
@@ -107,13 +107,13 @@ func TestValidatePolicyExpression_SummaryExpressions(t *testing.T) {
 		},
 		{
 			name:       "valid link function",
-			expression: "{{ actor }} created {{ link('Deployment ' + audit.objectRef.name, audit.responseObject) }}",
+			expression: "{{ actor }} created {{ link('Deployment ' + objectRef.name, objectRef) }}",
 			ruleType:   AuditRule,
 			wantErr:    false,
 		},
 		{
 			name:       "valid link in ternary expression",
-			expression: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified {{ audit.objectRef.name }}",
+			expression: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified {{ objectRef.name }}",
 			ruleType:   AuditRule,
 			wantErr:    false,
 		},
@@ -125,7 +125,7 @@ func TestValidatePolicyExpression_SummaryExpressions(t *testing.T) {
 		},
 		{
 			name:       "valid multiple templates",
-			expression: "{{ actor }} updated Deployment {{ audit.objectRef.name }}",
+			expression: "{{ actor }} updated Deployment {{ objectRef.name }}",
 			ruleType:   AuditRule,
 			wantErr:    false,
 		},
@@ -148,6 +148,20 @@ func TestValidatePolicyExpression_SummaryExpressions(t *testing.T) {
 			ruleType:   AuditRule,
 			wantErr:    true,
 			errContains: "undeclared reference",
+		},
+		{
+			name:        "invalid - unclosed delimiter",
+			expression:  "{{ actor }} created {{ ",
+			ruleType:    AuditRule,
+			wantErr:     true,
+			errContains: "missing closing delimiter",
+		},
+		{
+			name:        "invalid - extra closing delimiter",
+			expression:  "{{ actor }} created }}",
+			ruleType:    AuditRule,
+			wantErr:     true,
+			errContains: "missing closing delimiter",
 		},
 	}
 
@@ -213,7 +227,7 @@ func TestEvaluateAuditSummary_TernaryWithLink(t *testing.T) {
 		},
 		{
 			name:     "standalone link function",
-			template: "{{ link(audit.objectRef.name, audit.objectRef) }} was modified",
+			template: "{{ link(objectRef.name, objectRef) }} was modified",
 			auditMap: map[string]interface{}{
 				"user": map[string]interface{}{
 					"username": "admin",
