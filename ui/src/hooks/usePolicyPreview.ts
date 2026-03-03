@@ -6,6 +6,7 @@ import type {
   PolicyPreviewPolicySpec,
   PolicyPreviewInputType,
   KubernetesEvent,
+  AutoFetchSpec,
 } from '../types/policy';
 import type { Event } from '../types';
 import { ActivityApiClient } from '../api/client';
@@ -51,6 +52,13 @@ export interface UsePolicyPreviewResult {
   /** Run the preview with selected inputs */
   runPreview: (
     policySpec: PolicyPreviewPolicySpec,
+    kindLabel?: string,
+    kindLabelPlural?: string
+  ) => Promise<PolicyPreviewStatus>;
+  /** Run the preview with auto-fetch (fetches sample data automatically) */
+  runPreviewWithAutoFetch: (
+    policySpec: PolicyPreviewPolicySpec,
+    autoFetch?: AutoFetchSpec,
     kindLabel?: string,
     kindLabelPlural?: string
   ) => Promise<PolicyPreviewStatus>;
@@ -301,6 +309,56 @@ export function usePolicyPreview({
     [client, getSelectedInputs]
   );
 
+  // Run the preview with auto-fetch
+  const runPreviewWithAutoFetch = useCallback(
+    async (
+      policySpec: PolicyPreviewPolicySpec,
+      autoFetch: AutoFetchSpec = { limit: 10, timeRange: '24h', sources: 'both' },
+      kindLabel?: string,
+      kindLabelPlural?: string
+    ): Promise<PolicyPreviewStatus> => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const spec: PolicyPreviewSpec = {
+          policy: policySpec,
+          autoFetch,
+          kindLabel,
+          kindLabelPlural,
+        };
+
+        const previewResult = await client.createPolicyPreview(spec);
+        const status = previewResult.status || {
+          activities: [],
+          results: [],
+          error: 'No status returned from server',
+        };
+
+        setResult(status);
+
+        // Update inputs from fetchedInputs so UI can display what was tested
+        if (status.fetchedInputs) {
+          setInputs(status.fetchedInputs);
+        }
+
+        return status;
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        setError(error);
+        setResult({
+          activities: [],
+          results: [],
+          error: error.message,
+        });
+        throw error;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [client, setInputs]
+  );
+
   // Clear the result
   const clearResult = useCallback(() => {
     setResult(null);
@@ -373,6 +431,7 @@ export function usePolicyPreview({
     setAuditInputs,
     setEventInputs,
     runPreview,
+    runPreviewWithAutoFetch,
     clearResult,
     reset,
     getSelectedInputs,

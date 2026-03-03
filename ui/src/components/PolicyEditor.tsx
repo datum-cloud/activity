@@ -1,12 +1,10 @@
 import { useEffect, useCallback, useState } from 'react';
-import type { PolicyPreviewPolicySpec, Condition } from '../types/policy';
+import type { Condition } from '../types/policy';
 import type { ResourceRef, ErrorFormatter } from '../types/activity';
 import { ActivityApiClient } from '../api/client';
 import { usePolicyEditor, type UsePolicyEditorResult } from '../hooks/usePolicyEditor';
-import { usePolicyPreview, type UsePolicyPreviewResult } from '../hooks/usePolicyPreview';
 import { PolicyResourceForm } from './PolicyResourceForm';
 import { PolicyRuleList } from './PolicyRuleList';
-import { PolicyPreviewPanel } from './PolicyPreviewPanel';
 import { PolicyActivityView } from './PolicyActivityView';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
@@ -68,9 +66,6 @@ export function PolicyEditor({
     initialPolicyName: policyName,
   });
 
-  // Preview state
-  const preview: UsePolicyPreviewResult = usePolicyPreview({ client });
-
   // Delete confirmation state
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -106,19 +101,6 @@ export function PolicyEditor({
     },
     [editor, onSaveSuccess]
   );
-
-  // Handle preview
-  const handleRunPreview = useCallback(() => {
-    const policySpec: PolicyPreviewPolicySpec = {
-      resource: editor.spec.resource,
-      auditRules: editor.spec.auditRules,
-      eventRules: editor.spec.eventRules,
-    };
-
-    preview.runPreview(policySpec).catch((err) => {
-      console.error('Preview failed:', err);
-    });
-  }, [editor.spec, preview]);
 
   // Handle delete
   const handleDelete = useCallback(async () => {
@@ -194,10 +176,10 @@ export function PolicyEditor({
     <TooltipProvider delayDuration={0}>
       <Card className={`rounded-xl ${className}`}>
         {/* Header */}
-        <CardHeader className="flex flex-row justify-between items-center p-6 border-b border-border space-y-0">
-          <div className="flex items-center gap-4">
+        <CardHeader className="flex flex-row justify-between items-center p-4 border-b border-border space-y-0">
+          <div className="flex items-center gap-3">
             {editor.isNew ? (
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-0.5">
                 <Label htmlFor="policy-name" className="text-xs text-muted-foreground">
                   Policy Name
                 </Label>
@@ -211,8 +193,8 @@ export function PolicyEditor({
                 />
               </div>
             ) : (
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-2">
+              <div className="flex flex-col gap-0.5">
+                <div className="flex items-center gap-1.5">
                   {policyStatus && (
                     <Tooltip delayDuration={300}>
                       <TooltipTrigger asChild>
@@ -272,7 +254,7 @@ export function PolicyEditor({
             )}
           </div>
 
-        <div className="flex gap-3">
+        <div className="flex gap-2">
           {onCancel && (
             <Button
               type="button"
@@ -316,11 +298,11 @@ export function PolicyEditor({
       </CardHeader>
 
       {/* Error Display */}
-      <ApiErrorAlert error={editor.error} className="mx-6 mt-4" errorFormatter={errorFormatter} />
+      <ApiErrorAlert error={editor.error} className="mx-4 mt-3" errorFormatter={errorFormatter} />
 
       {/* Loading State */}
       {editor.isLoading && (
-        <div className="flex items-center justify-center gap-3 py-12 text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
           <span className="w-5 h-5 border-[3px] border-border border-t-[#BF9595] rounded-full animate-spin" />
           Loading policy...
         </div>
@@ -328,12 +310,11 @@ export function PolicyEditor({
 
       {/* Main Content */}
       {!editor.isLoading && (
-        <CardContent className="p-6">
+        <CardContent className="p-4">
           <Tabs defaultValue="activity" value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-6">
+            <TabsList className="grid w-full grid-cols-2 mb-4">
               <TabsTrigger value="activity">Activity</TabsTrigger>
               <TabsTrigger value="editor">Editor</TabsTrigger>
-              <TabsTrigger value="preview">Preview</TabsTrigger>
             </TabsList>
 
             {/* Activity Tab */}
@@ -349,7 +330,7 @@ export function PolicyEditor({
 
             {/* Editor Tab */}
             <TabsContent value="editor" className="mt-0">
-              <div className="flex flex-col gap-6">
+              <div className="flex flex-col gap-4">
                 <PolicyResourceForm
                   resource={editor.spec.resource}
                   onChange={editor.setResource}
@@ -360,24 +341,23 @@ export function PolicyEditor({
                 <PolicyRuleList
                   auditRules={editor.spec.auditRules || []}
                   eventRules={editor.spec.eventRules || []}
-                  previewResult={preview.result}
+                  policyResource={editor.spec.resource}
+                  apiClient={client}
                   onAuditRulesChange={editor.setAuditRules}
                   onEventRulesChange={editor.setEventRules}
-                  onAddAuditRule={editor.addAuditRule}
-                  onAddEventRule={editor.addEventRule}
                 />
 
                 {/* Danger Zone - Delete Policy (only for existing policies) */}
                 {!editor.isNew && (
-                  <div className="mt-8 pt-6 border-t border-border">
-                    <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-6">
-                      <div className="flex items-start gap-4">
+                  <div className="mt-6 pt-4 border-t border-border">
+                    <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+                      <div className="flex items-start gap-3">
                         <div className="flex-1">
-                          <h3 className="text-base font-semibold text-foreground mb-2 flex items-center gap-2">
+                          <h3 className="text-base font-semibold text-foreground mb-1.5 flex items-center gap-2">
                             <AlertTriangle className="h-5 w-5 text-destructive" />
                             Danger Zone
                           </h3>
-                          <p className="text-sm text-muted-foreground mb-4">
+                          <p className="text-sm text-muted-foreground mb-3">
                             Deleting this policy will stop translating audit logs and events for{' '}
                             <strong className="text-foreground">
                               {editor.spec.resource.kind}
@@ -399,16 +379,6 @@ export function PolicyEditor({
                   </div>
                 )}
               </div>
-            </TabsContent>
-
-            {/* Preview Tab */}
-            <TabsContent value="preview" className="mt-0">
-              <PolicyPreviewPanel
-                result={preview.result}
-                isLoading={preview.isLoading}
-                error={preview.error}
-                onResourceClick={onResourceClick}
-              />
             </TabsContent>
           </Tabs>
         </CardContent>
