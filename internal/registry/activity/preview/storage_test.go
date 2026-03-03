@@ -6,15 +6,51 @@ import (
 	"testing"
 
 	authnv1 "k8s.io/api/authentication/v1"
+	eventsv1 "k8s.io/api/events/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	auditv1 "k8s.io/apiserver/pkg/apis/audit/v1"
 
+	"go.miloapis.com/activity/internal/storage"
 	"go.miloapis.com/activity/pkg/apis/activity/v1alpha1"
 )
 
+// Mock storage backends for testing
+type mockAuditLogBackend struct {
+	result *storage.QueryResult
+	err    error
+}
+
+func (m *mockAuditLogBackend) QueryAuditLogs(ctx context.Context, spec v1alpha1.AuditLogQuerySpec, scope storage.ScopeContext) (*storage.QueryResult, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.result, nil
+}
+
+type mockEventBackend struct {
+	result *storage.EventQueryResult
+	err    error
+}
+
+func (m *mockEventBackend) QueryEvents(ctx context.Context, spec v1alpha1.EventQuerySpec, scope storage.ScopeContext) (*storage.EventQueryResult, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.result, nil
+}
+
+// Helper to create eventsv1.Event for tests
+func createEventV1(reason, message, controller string) eventsv1.Event {
+	return eventsv1.Event{
+		Reason:              reason,
+		Note:                message,
+		ReportingController: controller,
+	}
+}
+
 func TestPolicyPreviewStorage_Create_SingleAuditMatch(t *testing.T) {
-	storage := NewPolicyPreviewStorage()
+	storage := NewPolicyPreviewStorage(nil, nil)
 
 	preview := &v1alpha1.PolicyPreview{
 		Spec: v1alpha1.PolicyPreviewSpec{
@@ -25,7 +61,8 @@ func TestPolicyPreviewStorage_Create_SingleAuditMatch(t *testing.T) {
 				},
 				AuditRules: []v1alpha1.ActivityPolicyRule{
 					{
-						Match:   `audit.verb == "create"`,
+						Name:    "rule-e5841d",
+						Match:   `verb == "create"`,
 						Summary: `{{ actor }} created HTTPProxy`,
 					},
 				},
@@ -111,7 +148,7 @@ func TestPolicyPreviewStorage_Create_SingleAuditMatch(t *testing.T) {
 }
 
 func TestPolicyPreviewStorage_Create_MultipleInputs(t *testing.T) {
-	storage := NewPolicyPreviewStorage()
+	storage := NewPolicyPreviewStorage(nil, nil)
 
 	preview := &v1alpha1.PolicyPreview{
 		Spec: v1alpha1.PolicyPreviewSpec{
@@ -122,11 +159,13 @@ func TestPolicyPreviewStorage_Create_MultipleInputs(t *testing.T) {
 				},
 				AuditRules: []v1alpha1.ActivityPolicyRule{
 					{
-						Match:   `audit.verb == "create"`,
+						Name:    "rule-22b1cd",
+						Match:   `verb == "create"`,
 						Summary: `{{ actor }} created HTTPProxy`,
 					},
 					{
-						Match:   `audit.verb == "delete"`,
+						Name:    "rule-6754e0",
+						Match:   `verb == "delete"`,
 						Summary: `{{ actor }} deleted HTTPProxy`,
 					},
 				},
@@ -226,7 +265,7 @@ func TestPolicyPreviewStorage_Create_MultipleInputs(t *testing.T) {
 }
 
 func TestPolicyPreviewStorage_Create_MixedAuditAndEvent(t *testing.T) {
-	storage := NewPolicyPreviewStorage()
+	storage := NewPolicyPreviewStorage(nil, nil)
 
 	eventData := map[string]interface{}{
 		"reason":              "Deployed",
@@ -250,12 +289,14 @@ func TestPolicyPreviewStorage_Create_MixedAuditAndEvent(t *testing.T) {
 				},
 				AuditRules: []v1alpha1.ActivityPolicyRule{
 					{
-						Match:   `audit.verb == "create"`,
+						Name:    "rule-968c9b",
+						Match:   `verb == "create"`,
 						Summary: `{{ actor }} created HTTPProxy`,
 					},
 				},
 				EventRules: []v1alpha1.ActivityPolicyRule{
 					{
+						Name:    "rule-a8acc2",
 						Match:   `event.reason == "Deployed"`,
 						Summary: `{{ actor }} deployed HTTPProxy`,
 					},
@@ -334,7 +375,7 @@ func TestPolicyPreviewStorage_Create_MixedAuditAndEvent(t *testing.T) {
 }
 
 func TestPolicyPreviewStorage_Create_AuditNoMatch(t *testing.T) {
-	storage := NewPolicyPreviewStorage()
+	storage := NewPolicyPreviewStorage(nil, nil)
 
 	preview := &v1alpha1.PolicyPreview{
 		Spec: v1alpha1.PolicyPreviewSpec{
@@ -345,7 +386,8 @@ func TestPolicyPreviewStorage_Create_AuditNoMatch(t *testing.T) {
 				},
 				AuditRules: []v1alpha1.ActivityPolicyRule{
 					{
-						Match:   `audit.verb == "delete"`,
+						Name:    "rule-a52fd5",
+						Match:   `verb == "delete"`,
 						Summary: `{{ actor }} deleted HTTPProxy`,
 					},
 				},
@@ -386,7 +428,7 @@ func TestPolicyPreviewStorage_Create_AuditNoMatch(t *testing.T) {
 }
 
 func TestPolicyPreviewStorage_Create_InvalidInput(t *testing.T) {
-	storage := NewPolicyPreviewStorage()
+	storage := NewPolicyPreviewStorage(nil, nil)
 
 	// Valid policy to use for input validation tests
 	validPolicy := v1alpha1.ActivityPolicySpec{
@@ -396,6 +438,7 @@ func TestPolicyPreviewStorage_Create_InvalidInput(t *testing.T) {
 		},
 		AuditRules: []v1alpha1.ActivityPolicyRule{
 			{
+				Name:    "rule-c7a19f",
 				Match:   "true",
 				Summary: `HTTPProxy changed`,
 			},
@@ -415,7 +458,7 @@ func TestPolicyPreviewStorage_Create_InvalidInput(t *testing.T) {
 					Inputs: []v1alpha1.PolicyPreviewInput{},
 				},
 			},
-			wantErr: "Provide at least one audit log or event to test against the policy.",
+			wantErr: "Provide either 'inputs' or 'autoFetch'",
 		},
 		{
 			name: "missing input type",
@@ -487,7 +530,7 @@ func TestPolicyPreviewStorage_Create_InvalidInput(t *testing.T) {
 }
 
 func TestPolicyPreviewStorage_Create_InvalidPolicy(t *testing.T) {
-	storage := NewPolicyPreviewStorage()
+	storage := NewPolicyPreviewStorage(nil, nil)
 
 	tests := []struct {
 		name    string
@@ -505,6 +548,7 @@ func TestPolicyPreviewStorage_Create_InvalidPolicy(t *testing.T) {
 						},
 						AuditRules: []v1alpha1.ActivityPolicyRule{
 							{
+								Name:    "rule-bf1384",
 								Match:   "true",
 								Summary: `HTTPProxy changed`,
 							},
@@ -513,7 +557,7 @@ func TestPolicyPreviewStorage_Create_InvalidPolicy(t *testing.T) {
 					// Inputs missing - this is what we're testing
 				},
 			},
-			wantErr: "Provide at least one audit log or event to test",
+			wantErr: "Provide either 'inputs' or 'autoFetch'",
 		},
 		{
 			name: "missing kind",
@@ -525,6 +569,7 @@ func TestPolicyPreviewStorage_Create_InvalidPolicy(t *testing.T) {
 						},
 						AuditRules: []v1alpha1.ActivityPolicyRule{
 							{
+								Name:    "rule-54c024",
 								Match:   "true",
 								Summary: `HTTPProxy changed`,
 							},
@@ -553,6 +598,7 @@ func TestPolicyPreviewStorage_Create_InvalidPolicy(t *testing.T) {
 						},
 						AuditRules: []v1alpha1.ActivityPolicyRule{
 							{
+								Name:    "rule-1eea79",
 								Match:   "invalid.expression[",
 								Summary: `HTTPProxy changed`,
 							},
@@ -581,6 +627,7 @@ func TestPolicyPreviewStorage_Create_InvalidPolicy(t *testing.T) {
 						},
 						AuditRules: []v1alpha1.ActivityPolicyRule{
 							{
+								Name:    "rule-53b1ab",
 								Match:   "true",
 								Summary: `{{ undeclared_variable }}`,
 							},
@@ -609,6 +656,7 @@ func TestPolicyPreviewStorage_Create_InvalidPolicy(t *testing.T) {
 						},
 						AuditRules: []v1alpha1.ActivityPolicyRule{
 							{
+								Name:    "rule-b527e9",
 								Summary: `HTTPProxy changed`,
 							},
 						},
@@ -636,6 +684,7 @@ func TestPolicyPreviewStorage_Create_InvalidPolicy(t *testing.T) {
 						},
 						AuditRules: []v1alpha1.ActivityPolicyRule{
 							{
+								Name:    "rule-d78931",
 								Match: "true",
 							},
 						},
@@ -668,7 +717,7 @@ func TestPolicyPreviewStorage_Create_InvalidPolicy(t *testing.T) {
 }
 
 func TestPolicyPreviewStorage_Create_ActivityFields(t *testing.T) {
-	storage := NewPolicyPreviewStorage()
+	storage := NewPolicyPreviewStorage(nil, nil)
 
 	preview := &v1alpha1.PolicyPreview{
 		Spec: v1alpha1.PolicyPreviewSpec{
@@ -679,7 +728,8 @@ func TestPolicyPreviewStorage_Create_ActivityFields(t *testing.T) {
 				},
 				AuditRules: []v1alpha1.ActivityPolicyRule{
 					{
-						Match:   `audit.verb == "create"`,
+						Name:    "rule-2425ad",
+						Match:   `verb == "create"`,
 						Summary: `{{ actor }} created HTTPProxy`,
 					},
 				},
@@ -768,4 +818,537 @@ func contains(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+// Auto-fetch tests
+
+func TestPolicyPreviewStorage_Create_AutoFetch_AuditOnly(t *testing.T) {
+	// Mock audit log backend that returns sample data
+	mockAudit := &mockAuditLogBackend{
+		result: &storage.QueryResult{
+			Events: []auditv1.Event{
+				{
+					Verb: "create",
+					User: authnv1.UserInfo{
+						Username: "alice@example.com",
+					},
+					ObjectRef: &auditv1.ObjectReference{
+						APIGroup: "networking.datumapis.com",
+						Resource: "httpproxies",
+						Name:     "test-proxy",
+					},
+				},
+			},
+		},
+	}
+
+	storage := NewPolicyPreviewStorage(mockAudit, nil)
+
+	preview := &v1alpha1.PolicyPreview{
+		Spec: v1alpha1.PolicyPreviewSpec{
+			Policy: v1alpha1.ActivityPolicySpec{
+				Resource: v1alpha1.ActivityPolicyResource{
+					APIGroup: "networking.datumapis.com",
+					Kind:     "HTTPProxy",
+				},
+				AuditRules: []v1alpha1.ActivityPolicyRule{
+					{
+						Name:    "rule-create",
+						Match:   `verb == "create"`,
+						Summary: `{{ actor }} created HTTPProxy`,
+					},
+				},
+			},
+			AutoFetch: &v1alpha1.AutoFetchSpec{
+				Limit:     10,
+				TimeRange: "24h",
+				Sources:   "audit",
+			},
+		},
+	}
+
+	result, err := storage.Create(context.Background(), preview, nil, &metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+
+	resultPreview := result.(*v1alpha1.PolicyPreview)
+
+	// Verify fetched inputs are included in status
+	if len(resultPreview.Status.FetchedInputs) != 1 {
+		t.Fatalf("Expected 1 fetched input, got %d", len(resultPreview.Status.FetchedInputs))
+	}
+
+	if resultPreview.Status.FetchedInputs[0].Type != "audit" {
+		t.Errorf("Expected fetched input type='audit', got %q", resultPreview.Status.FetchedInputs[0].Type)
+	}
+
+	// Verify evaluation happened
+	if len(resultPreview.Status.Results) != 1 {
+		t.Fatalf("Expected 1 result, got %d", len(resultPreview.Status.Results))
+	}
+
+	if !resultPreview.Status.Results[0].Matched {
+		t.Error("Expected fetched input to match")
+	}
+
+	if len(resultPreview.Status.Activities) != 1 {
+		t.Fatalf("Expected 1 activity, got %d", len(resultPreview.Status.Activities))
+	}
+}
+
+func TestPolicyPreviewStorage_Create_AutoFetch_EventsOnly(t *testing.T) {
+	// Mock event backend that returns sample data
+	mockEvent := &mockEventBackend{
+		result: &storage.EventQueryResult{
+			Events: []v1alpha1.EventRecord{
+				{
+					Event: createEventV1("Deployed", "Successfully deployed", "deploy-controller"),
+				},
+			},
+		},
+	}
+
+	storage := NewPolicyPreviewStorage(nil, mockEvent)
+
+	preview := &v1alpha1.PolicyPreview{
+		Spec: v1alpha1.PolicyPreviewSpec{
+			Policy: v1alpha1.ActivityPolicySpec{
+				Resource: v1alpha1.ActivityPolicyResource{
+					APIGroup: "networking.datumapis.com",
+					Kind:     "HTTPProxy",
+				},
+				EventRules: []v1alpha1.ActivityPolicyRule{
+					{
+						Name:    "rule-deployed",
+						Match:   `event.reason == "Deployed"`,
+						Summary: `{{ actor }} deployed HTTPProxy`,
+					},
+				},
+			},
+			AutoFetch: &v1alpha1.AutoFetchSpec{
+				Limit:     10,
+				TimeRange: "24h",
+				Sources:   "events",
+			},
+		},
+	}
+
+	result, err := storage.Create(context.Background(), preview, nil, &metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+
+	resultPreview := result.(*v1alpha1.PolicyPreview)
+
+	// Verify fetched inputs
+	if len(resultPreview.Status.FetchedInputs) != 1 {
+		t.Fatalf("Expected 1 fetched input, got %d", len(resultPreview.Status.FetchedInputs))
+	}
+
+	if resultPreview.Status.FetchedInputs[0].Type != "event" {
+		t.Errorf("Expected fetched input type='event', got %q", resultPreview.Status.FetchedInputs[0].Type)
+	}
+
+	// Verify evaluation
+	if len(resultPreview.Status.Results) != 1 {
+		t.Fatalf("Expected 1 result, got %d", len(resultPreview.Status.Results))
+	}
+
+	if !resultPreview.Status.Results[0].Matched {
+		t.Error("Expected fetched input to match")
+	}
+}
+
+func TestPolicyPreviewStorage_Create_AutoFetch_Both(t *testing.T) {
+	mockAudit := &mockAuditLogBackend{
+		result: &storage.QueryResult{
+			Events: []auditv1.Event{
+				{
+					Verb: "create",
+					User: authnv1.UserInfo{
+						Username: "alice@example.com",
+					},
+					ObjectRef: &auditv1.ObjectReference{
+						APIGroup: "networking.datumapis.com",
+						Resource: "httpproxies",
+						Name:     "test-proxy",
+					},
+				},
+			},
+		},
+	}
+
+	mockEvent := &mockEventBackend{
+		result: &storage.EventQueryResult{
+			Events: []v1alpha1.EventRecord{
+				{
+					Event: createEventV1("Deployed", "Successfully deployed", "deploy-controller"),
+				},
+			},
+		},
+	}
+
+	storage := NewPolicyPreviewStorage(mockAudit, mockEvent)
+
+	preview := &v1alpha1.PolicyPreview{
+		Spec: v1alpha1.PolicyPreviewSpec{
+			Policy: v1alpha1.ActivityPolicySpec{
+				Resource: v1alpha1.ActivityPolicyResource{
+					APIGroup: "networking.datumapis.com",
+					Kind:     "HTTPProxy",
+				},
+				AuditRules: []v1alpha1.ActivityPolicyRule{
+					{
+						Name:    "rule-create",
+						Match:   `verb == "create"`,
+						Summary: `{{ actor }} created HTTPProxy`,
+					},
+				},
+				EventRules: []v1alpha1.ActivityPolicyRule{
+					{
+						Name:    "rule-deployed",
+						Match:   `event.reason == "Deployed"`,
+						Summary: `{{ actor }} deployed HTTPProxy`,
+					},
+				},
+			},
+			AutoFetch: &v1alpha1.AutoFetchSpec{
+				Limit:     10,
+				TimeRange: "24h",
+				Sources:   "both",
+			},
+		},
+	}
+
+	result, err := storage.Create(context.Background(), preview, nil, &metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+
+	resultPreview := result.(*v1alpha1.PolicyPreview)
+
+	// Should have both audit and event inputs
+	if len(resultPreview.Status.FetchedInputs) != 2 {
+		t.Fatalf("Expected 2 fetched inputs, got %d", len(resultPreview.Status.FetchedInputs))
+	}
+
+	// Both should match
+	if len(resultPreview.Status.Activities) != 2 {
+		t.Fatalf("Expected 2 activities, got %d", len(resultPreview.Status.Activities))
+	}
+}
+
+func TestPolicyPreviewStorage_Create_AutoFetch_EmptyResults(t *testing.T) {
+	// Mock returns empty results
+	mockAudit := &mockAuditLogBackend{
+		result: &storage.QueryResult{
+			Events: []auditv1.Event{},
+		},
+	}
+
+	storage := NewPolicyPreviewStorage(mockAudit, nil)
+
+	preview := &v1alpha1.PolicyPreview{
+		Spec: v1alpha1.PolicyPreviewSpec{
+			Policy: v1alpha1.ActivityPolicySpec{
+				Resource: v1alpha1.ActivityPolicyResource{
+					APIGroup: "networking.datumapis.com",
+					Kind:     "HTTPProxy",
+				},
+				AuditRules: []v1alpha1.ActivityPolicyRule{
+					{
+						Name:    "rule-create",
+						Match:   `verb == "create"`,
+						Summary: `{{ actor }} created HTTPProxy`,
+					},
+				},
+			},
+			AutoFetch: &v1alpha1.AutoFetchSpec{
+				Limit:     10,
+				TimeRange: "24h",
+				Sources:   "audit",
+			},
+		},
+	}
+
+	result, err := storage.Create(context.Background(), preview, nil, &metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Create should succeed with empty results, got error: %v", err)
+	}
+
+	resultPreview := result.(*v1alpha1.PolicyPreview)
+
+	// Should have empty fetched inputs
+	if len(resultPreview.Status.FetchedInputs) != 0 {
+		t.Errorf("Expected 0 fetched inputs, got %d", len(resultPreview.Status.FetchedInputs))
+	}
+
+	// No activities
+	if len(resultPreview.Status.Activities) != 0 {
+		t.Errorf("Expected 0 activities, got %d", len(resultPreview.Status.Activities))
+	}
+}
+
+func TestPolicyPreviewStorage_Create_Validation_BothInputsAndAutoFetch(t *testing.T) {
+	storage := NewPolicyPreviewStorage(nil, nil)
+
+	preview := &v1alpha1.PolicyPreview{
+		Spec: v1alpha1.PolicyPreviewSpec{
+			Policy: v1alpha1.ActivityPolicySpec{
+				Resource: v1alpha1.ActivityPolicyResource{
+					APIGroup: "networking.datumapis.com",
+					Kind:     "HTTPProxy",
+				},
+				AuditRules: []v1alpha1.ActivityPolicyRule{
+					{
+						Name:    "rule-create",
+						Match:   `verb == "create"`,
+						Summary: `{{ actor }} created HTTPProxy`,
+					},
+				},
+			},
+			Inputs: []v1alpha1.PolicyPreviewInput{
+				{
+					Type: "audit",
+					Audit: &auditv1.Event{
+						Verb: "create",
+					},
+				},
+			},
+			AutoFetch: &v1alpha1.AutoFetchSpec{
+				Limit: 10,
+			},
+		},
+	}
+
+	_, err := storage.Create(context.Background(), preview, nil, &metav1.CreateOptions{})
+	if err == nil {
+		t.Fatal("Expected validation error for both inputs and autoFetch, got nil")
+	}
+
+	if !containsSubstring(err.Error(), "Cannot specify both") && !containsSubstring(err.Error(), "cannot specify both") {
+		t.Errorf("Expected error about mutual exclusivity, got: %v", err)
+	}
+}
+
+func TestPolicyPreviewStorage_Create_Validation_NeitherInputsNorAutoFetch(t *testing.T) {
+	storage := NewPolicyPreviewStorage(nil, nil)
+
+	preview := &v1alpha1.PolicyPreview{
+		Spec: v1alpha1.PolicyPreviewSpec{
+			Policy: v1alpha1.ActivityPolicySpec{
+				Resource: v1alpha1.ActivityPolicyResource{
+					APIGroup: "networking.datumapis.com",
+					Kind:     "HTTPProxy",
+				},
+				AuditRules: []v1alpha1.ActivityPolicyRule{
+					{
+						Name:    "rule-create",
+						Match:   `verb == "create"`,
+						Summary: `{{ actor }} created HTTPProxy`,
+					},
+				},
+			},
+			// No inputs, no autoFetch
+		},
+	}
+
+	_, err := storage.Create(context.Background(), preview, nil, &metav1.CreateOptions{})
+	if err == nil {
+		t.Fatal("Expected validation error for missing inputs/autoFetch, got nil")
+	}
+
+	if !containsSubstring(err.Error(), "Provide either") && !containsSubstring(err.Error(), "provide either") {
+		t.Errorf("Expected error about providing either inputs or autoFetch, got: %v", err)
+	}
+}
+
+func TestPolicyPreviewStorage_Create_Validation_AutoFetchInvalidLimit(t *testing.T) {
+	storage := NewPolicyPreviewStorage(nil, nil)
+
+	preview := &v1alpha1.PolicyPreview{
+		Spec: v1alpha1.PolicyPreviewSpec{
+			Policy: v1alpha1.ActivityPolicySpec{
+				Resource: v1alpha1.ActivityPolicyResource{
+					APIGroup: "networking.datumapis.com",
+					Kind:     "HTTPProxy",
+				},
+				AuditRules: []v1alpha1.ActivityPolicyRule{
+					{
+						Name:    "rule-create",
+						Match:   "true",
+						Summary: `Test`,
+					},
+				},
+			},
+			AutoFetch: &v1alpha1.AutoFetchSpec{
+				Limit: 100, // Over max of 50
+			},
+		},
+	}
+
+	_, err := storage.Create(context.Background(), preview, nil, &metav1.CreateOptions{})
+	if err == nil {
+		t.Fatal("Expected validation error for limit > 50, got nil")
+	}
+
+	if !containsSubstring(err.Error(), "Must be <= 50") && !containsSubstring(err.Error(), "must be <= 50") {
+		t.Errorf("Expected error about limit, got: %v", err)
+	}
+}
+
+func TestPolicyPreviewStorage_Create_Validation_AutoFetchInvalidSources(t *testing.T) {
+	storage := NewPolicyPreviewStorage(nil, nil)
+
+	preview := &v1alpha1.PolicyPreview{
+		Spec: v1alpha1.PolicyPreviewSpec{
+			Policy: v1alpha1.ActivityPolicySpec{
+				Resource: v1alpha1.ActivityPolicyResource{
+					APIGroup: "networking.datumapis.com",
+					Kind:     "HTTPProxy",
+				},
+				AuditRules: []v1alpha1.ActivityPolicyRule{
+					{
+						Name:    "rule-create",
+						Match:   "true",
+						Summary: `Test`,
+					},
+				},
+			},
+			AutoFetch: &v1alpha1.AutoFetchSpec{
+				Limit:   10,
+				Sources: "invalid",
+			},
+		},
+	}
+
+	_, err := storage.Create(context.Background(), preview, nil, &metav1.CreateOptions{})
+	if err == nil {
+		t.Fatal("Expected validation error for invalid sources, got nil")
+	}
+
+	if !containsSubstring(err.Error(), "Supported values") {
+		t.Errorf("Expected error about supported values, got: %v", err)
+	}
+}
+
+func TestBuildRuleFilter(t *testing.T) {
+	tests := []struct {
+		name     string
+		rules    []v1alpha1.ActivityPolicyRule
+		expected string
+	}{
+		{
+			name: "single rule - passed through directly",
+			rules: []v1alpha1.ActivityPolicyRule{
+				{Name: "rule1", Match: `verb == "create"`},
+			},
+			expected: `(verb == "create")`,
+		},
+		{
+			name: "multiple rules - ORed together",
+			rules: []v1alpha1.ActivityPolicyRule{
+				{Name: "rule1", Match: `verb == "create"`},
+				{Name: "rule2", Match: `verb == "delete"`},
+			},
+			expected: `((verb == "create") || (verb == "delete"))`,
+		},
+		{
+			name: "complex expression - passed through directly",
+			rules: []v1alpha1.ActivityPolicyRule{
+				{Name: "rule1", Match: `verb == "update" && objectRef.namespace == "production"`},
+			},
+			expected: `(verb == "update" && objectRef.namespace == "production")`,
+		},
+		{
+			name: "skips empty match",
+			rules: []v1alpha1.ActivityPolicyRule{
+				{Name: "rule1", Match: ""},
+				{Name: "rule2", Match: `verb == "create"`},
+			},
+			expected: `(verb == "create")`,
+		},
+		{
+			name: "skips 'true' match",
+			rules: []v1alpha1.ActivityPolicyRule{
+				{Name: "rule1", Match: "true"},
+				{Name: "rule2", Match: `verb == "create"`},
+			},
+			expected: `(verb == "create")`,
+		},
+		{
+			name:     "empty rules",
+			rules:    []v1alpha1.ActivityPolicyRule{},
+			expected: "",
+		},
+		{
+			name: "all rules are true or empty",
+			rules: []v1alpha1.ActivityPolicyRule{
+				{Name: "rule1", Match: "true"},
+				{Name: "rule2", Match: ""},
+			},
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := buildRuleFilter(tt.rules)
+			if result != tt.expected {
+				t.Errorf("Expected %q, got %q", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestExtractEventFiltersFromCEL(t *testing.T) {
+	tests := []struct {
+		name     string
+		celExpr  string
+		expected []string
+	}{
+		{
+			name:     "reason equals",
+			celExpr:  `event.reason == "Ready"`,
+			expected: []string{"reason=Ready"},
+		},
+		{
+			name:     "type equals",
+			celExpr:  `event.type == "Warning"`,
+			expected: []string{"type=Warning"},
+		},
+		{
+			name:     "reason and type",
+			celExpr:  `event.reason == "Failed" && event.type == "Warning"`,
+			expected: []string{"reason=Failed", "type=Warning"},
+		},
+		{
+			name:     "no extractable filters",
+			celExpr:  `event.note.contains("error")`,
+			expected: nil,
+		},
+		{
+			name:     "empty expression",
+			celExpr:  ``,
+			expected: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := extractEventFiltersFromCEL(tt.celExpr)
+
+			if len(result) != len(tt.expected) {
+				t.Errorf("Expected %d filters, got %d: %v", len(tt.expected), len(result), result)
+				return
+			}
+
+			for i, expected := range tt.expected {
+				if result[i] != expected {
+					t.Errorf("Filter %d: expected %q, got %q", i, expected, result[i])
+				}
+			}
+		})
+	}
 }

@@ -67,12 +67,16 @@ func Convert_v1alpha1_ActivityPolicy_To_activity_ActivityPolicy(in *ActivityPoli
 
 	out.Spec.AuditRules = make([]activity.ActivityPolicyRule, len(in.Spec.AuditRules))
 	for i, rule := range in.Spec.AuditRules {
+		out.Spec.AuditRules[i].Name = rule.Name
+		out.Spec.AuditRules[i].Description = rule.Description
 		out.Spec.AuditRules[i].Match = rule.Match
 		out.Spec.AuditRules[i].Summary = rule.Summary
 	}
 
 	out.Spec.EventRules = make([]activity.ActivityPolicyRule, len(in.Spec.EventRules))
 	for i, rule := range in.Spec.EventRules {
+		out.Spec.EventRules[i].Name = rule.Name
+		out.Spec.EventRules[i].Description = rule.Description
 		out.Spec.EventRules[i].Match = rule.Match
 		out.Spec.EventRules[i].Summary = rule.Summary
 	}
@@ -97,12 +101,16 @@ func Convert_activity_ActivityPolicy_To_v1alpha1_ActivityPolicy(in *activity.Act
 
 	out.Spec.AuditRules = make([]ActivityPolicyRule, len(in.Spec.AuditRules))
 	for i, rule := range in.Spec.AuditRules {
+		out.Spec.AuditRules[i].Name = rule.Name
+		out.Spec.AuditRules[i].Description = rule.Description
 		out.Spec.AuditRules[i].Match = rule.Match
 		out.Spec.AuditRules[i].Summary = rule.Summary
 	}
 
 	out.Spec.EventRules = make([]ActivityPolicyRule, len(in.Spec.EventRules))
 	for i, rule := range in.Spec.EventRules {
+		out.Spec.EventRules[i].Name = rule.Name
+		out.Spec.EventRules[i].Description = rule.Description
 		out.Spec.EventRules[i].Match = rule.Match
 		out.Spec.EventRules[i].Summary = rule.Summary
 	}
