@@ -87,6 +87,16 @@ export type { RulePreviewPanelProps } from './components/RulePreviewPanel';
 export { CelEditor } from './components/CelEditor';
 export type { CelEditorProps } from './components/CelEditor';
 
+// Components - ReindexJob
+export { ReindexJobList } from './components/ReindexJobList';
+export type { ReindexJobListProps } from './components/ReindexJobList';
+export { ReindexJobDetailView } from './components/ReindexJobDetailView';
+export type { ReindexJobDetailViewProps } from './components/ReindexJobDetailView';
+export { ReindexJobCreate } from './components/ReindexJobCreate';
+export type { ReindexJobCreateProps } from './components/ReindexJobCreate';
+export { ReindexJobDialog } from './components/ReindexJobDialog';
+export type { ReindexJobDialogProps } from './components/ReindexJobDialog';
+
 // UI Components (shadcn/ui based)
 export {
   Select,
@@ -217,6 +227,13 @@ export type {
   UsePolicyPreviewResult,
 } from './hooks/usePolicyPreview';
 
+// Hooks - ReindexJob
+export { useReindexJobs } from './hooks/useReindexJobs';
+export type {
+  UseReindexJobsOptions,
+  UseReindexJobsResult,
+} from './hooks/useReindexJobs';
+
 // API Client
 export { ActivityApiClient } from './api/client';
 export type { ApiClientConfig } from './api/client';
@@ -317,3 +334,22 @@ export type {
 } from './types/policy';
 
 export { POLICY_FILTER_FIELDS } from './types/policy';
+
+// Types - ReindexJob
+export type {
+  ReindexJob,
+  ReindexJobSpec,
+  ReindexJobStatus,
+  ReindexJobPhase,
+  ReindexJobListResource,
+  ReindexTimeRange,
+  ReindexPolicySelector,
+  CreateReindexJobParams,
+} from './types/reindex';
+
+export {
+  isReindexJobTerminal,
+  isReindexJobRunning,
+  getReindexJobStatusMessage,
+  getReindexJobDuration,
+} from './types/reindex';

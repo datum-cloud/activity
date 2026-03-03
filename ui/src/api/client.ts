@@ -28,6 +28,11 @@ import type {
   EventQuery,
   EventQuerySpec,
 } from '../types/k8s-event';
+import type {
+  ReindexJob,
+  ReindexJobListResource,
+  ReindexJobSpec,
+} from '../types/reindex';
 
 /**
  * API Group information from Kubernetes discovery
@@ -849,6 +854,167 @@ export class ActivityApiClient {
             if (line.trim()) {
               try {
                 const event = JSON.parse(line) as WatchEvent<K8sEvent>;
+                options?.onEvent?.(event);
+              } catch (parseError) {
+                console.warn('Failed to parse watch event:', parseError, line);
+              }
+            }
+          }
+        }
+      } catch (error) {
+        if ((error as Error).name === 'AbortError') {
+          options?.onClose?.();
+          return;
+        }
+        options?.onError?.(error as Error);
+      }
+    };
+
+    // Start watching in background
+    startWatch();
+
+    return {
+      stop: () => abortController.abort(),
+    };
+  }
+
+  // ReindexJob API Methods
+
+  /**
+   * List all ReindexJobs
+   */
+  async listReindexJobs(): Promise<ReindexJobListResource> {
+    const response = await this.fetch(
+      '/apis/activity.miloapis.com/v1alpha1/reindexjobs'
+    );
+    return this.parseJson(response);
+  }
+
+  /**
+   * Get a specific ReindexJob by name
+   */
+  async getReindexJob(name: string): Promise<ReindexJob> {
+    const response = await this.fetch(
+      `/apis/activity.miloapis.com/v1alpha1/reindexjobs/${name}`
+    );
+    return this.parseJson(response);
+  }
+
+  /**
+   * Create a new ReindexJob
+   * @param name Job name
+   * @param spec Job specification
+   */
+  async createReindexJob(
+    name: string,
+    spec: ReindexJobSpec
+  ): Promise<ReindexJob> {
+    const job: ReindexJob = {
+      apiVersion: 'activity.miloapis.com/v1alpha1',
+      kind: 'ReindexJob',
+      metadata: { name },
+      spec,
+    };
+
+    const response = await this.fetch(
+      '/apis/activity.miloapis.com/v1alpha1/reindexjobs',
+      {
+        method: 'POST',
+        body: JSON.stringify(job),
+      }
+    );
+
+    return this.parseJson(response);
+  }
+
+  /**
+   * Delete a ReindexJob by name
+   */
+  async deleteReindexJob(name: string): Promise<void> {
+    await this.fetch(
+      `/apis/activity.miloapis.com/v1alpha1/reindexjobs/${name}`,
+      { method: 'DELETE' }
+    );
+  }
+
+  /**
+   * Watch ReindexJobs in real-time using the Kubernetes watch API.
+   * Returns a stop function and provides callbacks for handling events.
+   *
+   * @param options - Watch options
+   * @returns Object with stop function
+   */
+  watchReindexJobs(
+    options?: {
+      /** Resource version to start watching from */
+      resourceVersion?: string;
+      /** Callback when an event is received */
+      onEvent?: (event: WatchEvent<ReindexJob>) => void;
+      /** Callback when an error occurs */
+      onError?: (error: Error) => void;
+      /** Callback when the connection closes */
+      onClose?: () => void;
+    }
+  ): { stop: () => void } {
+    const abortController = new AbortController();
+
+    // Build URL with watch=true
+    const searchParams = new URLSearchParams();
+    searchParams.set('watch', 'true');
+
+    if (options?.resourceVersion) searchParams.set('resourceVersion', options.resourceVersion);
+
+    const queryString = searchParams.toString();
+    const path = `/apis/activity.miloapis.com/v1alpha1/reindexjobs?${queryString}`;
+    const url = `${this.config.baseUrl}${path}`;
+
+    const headers: Record<string, string> = {
+      'Accept': 'application/json',
+    };
+
+    if (this.config.token) {
+      headers['Authorization'] = `Bearer ${this.config.token}`;
+    }
+
+    // Start the watch connection
+    const startWatch = async () => {
+      try {
+        const response = await this.config.fetch!(url, {
+          headers,
+          signal: abortController.signal,
+        });
+
+        if (!response.ok) {
+          const error = await response.text();
+          throw new Error(`Watch request failed: ${response.status} ${error}`);
+        }
+
+        if (!response.body) {
+          throw new Error('Response body is not available');
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+
+          if (done) {
+            options?.onClose?.();
+            break;
+          }
+
+          buffer += decoder.decode(value, { stream: true });
+
+          // Process complete lines (newline-delimited JSON)
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+          for (const line of lines) {
+            if (line.trim()) {
+              try {
+                const event = JSON.parse(line) as WatchEvent<ReindexJob>;
                 options?.onEvent?.(event);
               } catch (parseError) {
                 console.warn('Failed to parse watch event:', parseError, line);

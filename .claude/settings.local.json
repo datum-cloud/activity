@@ -12,7 +12,8 @@
       "Bash(task generate:*)",
       "Bash(grep:*)",
       "Bash(gh pr checks:*)",
-      "Bash(gh api:*)"
+      "Bash(gh api:*)",
+      "Bash(git cherry-pick:*)"
     ]
   }
 }
