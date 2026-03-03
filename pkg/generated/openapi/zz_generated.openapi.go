@@ -64,6 +64,14 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreviewInputResult":  schema_pkg_apis_activity_v1alpha1_PolicyPreviewInputResult(ref),
 		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreviewSpec":         schema_pkg_apis_activity_v1alpha1_PolicyPreviewSpec(ref),
 		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreviewStatus":       schema_pkg_apis_activity_v1alpha1_PolicyPreviewStatus(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexConfig":             schema_pkg_apis_activity_v1alpha1_ReindexConfig(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexJob":                schema_pkg_apis_activity_v1alpha1_ReindexJob(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexJobList":            schema_pkg_apis_activity_v1alpha1_ReindexJobList(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexJobSpec":            schema_pkg_apis_activity_v1alpha1_ReindexJobSpec(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexJobStatus":          schema_pkg_apis_activity_v1alpha1_ReindexJobStatus(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexPolicySelector":     schema_pkg_apis_activity_v1alpha1_ReindexPolicySelector(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexProgress":           schema_pkg_apis_activity_v1alpha1_ReindexProgress(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexTimeRange":          schema_pkg_apis_activity_v1alpha1_ReindexTimeRange(ref),
 		v1.BoundObjectReference{}.OpenAPIModelName():                                    schema_k8sio_api_authentication_v1_BoundObjectReference(ref),
 		v1.SelfSubjectReview{}.OpenAPIModelName():                                       schema_k8sio_api_authentication_v1_SelfSubjectReview(ref),
 		v1.SelfSubjectReviewStatus{}.OpenAPIModelName():                                 schema_k8sio_api_authentication_v1_SelfSubjectReviewStatus(ref),
@@ -2432,6 +2440,376 @@ func schema_pkg_apis_activity_v1alpha1_PolicyPreviewStatus(ref common.ReferenceC
 		},
 		Dependencies: []string{
 			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.Activity", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.PolicyPreviewInputResult"},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_ReindexConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ReindexConfig contains processing configuration options.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"batchSize": {
+						SchemaProps: spec.SchemaProps{
+							Description: "BatchSize is the number of events to process per batch. Larger batches are faster but use more memory. Default: 1000",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"rateLimit": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RateLimit is the maximum events per second to process. Prevents overwhelming ClickHouse. Default: 100",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"dryRun": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DryRun previews changes without writing activities. Useful for estimating impact before execution. Default: false",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_ReindexJob(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ReindexJob triggers re-processing of historical audit logs and events through current ActivityPolicy rules. Use this to fix policy bugs retroactively, add coverage for new policies, or refine activity summaries after policy improvements.\n\nReindexJob is a one-shot resource: once completed or failed, it cannot be re-run. Create a new ReindexJob for subsequent re-indexing operations.\n\nKUBERNETES EVENT LIMITATION:\n\nWhen a Kubernetes Event is updated (e.g., count incremented from 1 to 5), it retains the same UID. Re-indexing will produce ONE activity per Event UID, reflecting the Event's final state. Historical activity occurrences from earlier Event states are lost.\n\nExample: Event \"pod-oom\" fires 5 times (count=5) → Re-indexing produces 1 activity (not 5)\n\nMitigation: Scope re-indexing to audit logs only via spec.policySelector to preserve activities from earlier Event occurrences.\n\nExample:\n\n\tkubectl apply -f - <<EOF\n\tapiVersion: activity.miloapis.com/v1alpha1\n\tkind: ReindexJob\n\tmetadata:\n\t  name: fix-policy-bug-2026-02-27\n\tspec:\n\t  timeRange:\n\t    startTime: \"now-7d\"       # last 7 days (or use absolute: \"2026-02-25T00:00:00Z\")\n\t    endTime: \"now\"            # defaults to \"now\" if omitted\n\t  policySelector:\n\t    names: [\"httpproxy-policy\"]\n\tEOF\n\n\tkubectl get reindexjobs -w  # Watch progress",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ObjectMeta{}.OpenAPIModelName()),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexJobSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexJobStatus"),
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexJobSpec", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexJobStatus", metav1.ObjectMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_ReindexJobList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ReindexJobList is a list of ReindexJob objects",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ListMeta{}.OpenAPIModelName()),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexJob"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexJob", metav1.ListMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_ReindexJobSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ReindexJobSpec defines the parameters for a re-indexing operation.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"timeRange": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TimeRange specifies the time window of events to re-index. Events outside this range are not processed.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexTimeRange"),
+						},
+					},
+					"policySelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PolicySelector optionally limits re-indexing to specific policies. If omitted, all active ActivityPolicies are evaluated.",
+							Ref:         ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexPolicySelector"),
+						},
+					},
+					"config": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Config contains processing configuration options.",
+							Ref:         ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexConfig"),
+						},
+					},
+					"ttlSecondsAfterFinished": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TTLSecondsAfterFinished limits the lifetime of a ReindexJob after it finishes execution (either Succeeded or Failed). If set, the controller will delete the ReindexJob resource after it has been in a terminal state for this many seconds.\n\nThis field is optional. If unset, completed jobs are retained indefinitely.\n\nExample: Setting to 3600 (1 hour) allows users to inspect job results for an hour after completion, after which the job is automatically cleaned up.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
+				Required: []string{"timeRange"},
+			},
+		},
+		Dependencies: []string{
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexConfig", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexPolicySelector", "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexTimeRange"},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_ReindexJobStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ReindexJobStatus represents the current state of a ReindexJob.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"phase": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Phase is the current lifecycle phase. Values: Pending, Running, Succeeded, Failed",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Message is a human-readable description of the current state.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"progress": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Progress contains detailed progress information.",
+							Ref:         ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexProgress"),
+						},
+					},
+					"startedAt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StartedAt is when processing began.",
+							Ref:         ref(metav1.Time{}.OpenAPIModelName()),
+						},
+					},
+					"completedAt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CompletedAt is when processing finished (success or failure).",
+							Ref:         ref(metav1.Time{}.OpenAPIModelName()),
+						},
+					},
+					"conditions": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"type",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Conditions represent the latest observations of the job's state.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(metav1.Condition{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ReindexProgress", metav1.Condition{}.OpenAPIModelName(), metav1.Time{}.OpenAPIModelName()},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_ReindexPolicySelector(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ReindexPolicySelector specifies which policies to include in re-indexing.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"names": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Names is a list of ActivityPolicy names to include. Mutually exclusive with MatchLabels.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"matchLabels": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MatchLabels selects policies by label. Mutually exclusive with Names.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_ReindexProgress(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ReindexProgress contains detailed progress metrics.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"totalEvents": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TotalEvents is the estimated total events to process.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"processedEvents": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ProcessedEvents is the number of events processed so far.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"activitiesGenerated": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ActivitiesGenerated is the number of activities created.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"errors": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Errors is the count of non-fatal errors encountered.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"currentBatch": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CurrentBatch is the batch number currently being processed.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"totalBatches": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TotalBatches is the estimated total number of batches.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_ReindexTimeRange(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ReindexTimeRange specifies the time window for re-indexing.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"startTime": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StartTime is the beginning of the time range (inclusive). Must be within the ClickHouse retention window (60 days).\n\nFormat Options: - Relative: \"now-30d\", \"now-2h\", \"now-30m\" (units: s, m, h, d, w)\n  Use for recent time windows - they adjust automatically at job start.\n- Absolute: \"2026-02-01T00:00:00Z\" (RFC3339 with timezone)\n  Use for specific historical time periods.\n\nExamples:\n  \"now-7d\"                      → 7 days before job starts\n  \"2026-02-25T00:00:00Z\"        → specific time with UTC\n  \"2026-02-25T00:00:00-08:00\"   → specific time with timezone offset\n\nNote: Relative times are resolved when the job STARTS processing, not when the resource is created. This ensures consistent time ranges even if the job is queued.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"endTime": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EndTime is the end of the time range (exclusive). Defaults to \"now\" (job start time) if omitted.\n\nUses the same formats as StartTime. Must be greater than StartTime.\n\nExamples:\n  \"now\"                  → current time when job starts\n  \"2026-03-01T00:00:00Z\" → specific end point\n  \"now-1h\"               → 1 hour before job starts",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"startTime"},
+			},
+		},
 	}
 }
 

@@ -13,3 +13,7 @@ type ActivityNamespaceListerExpansion interface{}
 // ActivityPolicyListerExpansion allows custom methods to be added to
 // ActivityPolicyLister.
 type ActivityPolicyListerExpansion interface{}
+
+// ReindexJobListerExpansion allows custom methods to be added to
+// ReindexJobLister.
+type ReindexJobListerExpansion interface{}
