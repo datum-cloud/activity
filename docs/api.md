@@ -20,6 +20,7 @@ Package v1alpha1 contains API Schema definitions for the activity v1alpha1 API g
 
 
 
+
 #### Activity
 
 
@@ -513,7 +514,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `timeRange` _[FacetTimeRange](#facettimerange)_ | TimeRange limits the time window for facet aggregation.<br />If not specified, defaults to the last 7 days. |  |  |
-| `facets` _[FacetSpec](#facetspec) array_ | Facets specifies which fields to get distinct values for.<br />Each facet returns the top N values with counts.<br /><br />Supported fields:<br />  - involvedObject.kind: Resource kinds (Pod, Deployment, etc.)<br />  - involvedObject.namespace: Namespaces of involved objects<br />  - reason: Event reasons (Scheduled, Pulled, Created, etc.)<br />  - type: Event types (Normal, Warning)<br />  - source.component: Source components (kubelet, scheduler, etc.)<br />  - namespace: Event namespace |  |  |
+| `facets` _[FacetSpec](#facetspec) array_ | Facets specifies which fields to get distinct values for.<br />Each facet returns the top N values with counts.<br /><br />Supported fields:<br />  - regarding.kind: Resource kinds (Pod, Deployment, etc.)<br />  - regarding.namespace: Namespaces of regarding objects<br />  - reason: Event reasons (Scheduled, Pulled, Created, etc.)<br />  - type: Event types (Normal, Warning)<br />  - source.component: Source components (kubelet, scheduler, etc.)<br />  - namespace: Event namespace |  |  |
 
 
 #### EventFacetQueryStatus
@@ -598,7 +599,7 @@ _Appears in:_
 | `startTime` _string_ | StartTime is the beginning of your search window (inclusive).<br /><br />Format Options:<br />- Relative: "now-30d", "now-2h", "now-30m" (units: s, m, h, d, w)<br />  Use for dashboards and recurring queries - they adjust automatically.<br />- Absolute: "2024-01-01T00:00:00Z" (RFC3339 with timezone)<br />  Use for historical analysis of specific time periods.<br /><br />Maximum lookback is 60 days from now.<br /><br />Examples:<br />  "now-7d"                      → 7 days ago<br />  "2024-06-15T14:30:00-05:00"   → specific time with timezone offset |  |  |
 | `endTime` _string_ | EndTime is the end of your search window (exclusive).<br /><br />Uses the same formats as StartTime. Commonly "now" for the current moment.<br />Must be greater than StartTime.<br /><br />Examples:<br />  "now"                  → current time<br />  "2024-01-02T00:00:00Z" → specific end point |  |  |
 | `namespace` _string_ | Namespace limits results to events from a specific namespace.<br />Leave empty to query events across all namespaces. |  |  |
-| `fieldSelector` _string_ | FieldSelector filters events using standard Kubernetes field selector syntax.<br /><br />Supported Fields:<br />  metadata.name               - event name<br />  metadata.namespace          - event namespace<br />  metadata.uid                - event UID<br />  involvedObject.apiVersion   - involved resource API version<br />  involvedObject.kind         - involved resource kind (e.g., Pod, Deployment)<br />  involvedObject.namespace    - involved resource namespace<br />  involvedObject.name         - involved resource name<br />  involvedObject.uid          - involved resource UID<br />  involvedObject.fieldPath    - involved resource field path<br />  reason                      - event reason (e.g., FailedMount, Pulled)<br />  type                        - event type (Normal or Warning)<br />  source.component            - reporting component<br />  source.host                 - reporting host<br /><br />Operators: = (or ==), !=<br />Multiple conditions: comma-separated (all must match)<br /><br />Common Patterns:<br />  "type=Warning"                                  - Warning events only<br />  "involvedObject.kind=Pod"                       - Events for pods<br />  "reason=FailedMount"                            - Mount failure events<br />  "involvedObject.name=my-pod,type=Warning"       - Warnings for a specific pod |  |  |
+| `fieldSelector` _string_ | FieldSelector filters events using standard Kubernetes field selector syntax.<br /><br />Supported Fields:<br />  metadata.name               - event name<br />  metadata.namespace          - event namespace<br />  metadata.uid                - event UID<br />  regarding.apiVersion        - regarding resource API version<br />  regarding.kind              - regarding resource kind (e.g., Pod, Deployment)<br />  regarding.namespace         - regarding resource namespace<br />  regarding.name              - regarding resource name<br />  regarding.uid               - regarding resource UID<br />  regarding.fieldPath         - regarding resource field path<br />  reason                      - event reason (e.g., FailedMount, Pulled)<br />  type                        - event type (Normal or Warning)<br />  source.component            - reporting component<br />  source.host                 - reporting host<br />  reportingComponent          - reporting component (alias for source.component)<br />  reportingInstance           - reporting instance (alias for source.host)<br /><br />Operators: = (or ==), !=<br />Multiple conditions: comma-separated (all must match)<br /><br />Common Patterns:<br />  "type=Warning"                                  - Warning events only<br />  "regarding.kind=Pod"                            - Events for pods<br />  "reason=FailedMount"                            - Mount failure events<br />  "regarding.name=my-pod,type=Warning"            - Warnings for a specific pod |  |  |
 | `limit` _integer_ | Limit sets the maximum number of results per page.<br />Default: 100, Maximum: 1000.<br /><br />Use smaller values (10-50) for exploration, larger (500-1000) for data collection.<br />Use continue to fetch additional pages. |  |  |
 | `continue` _string_ | Continue is the pagination cursor for fetching additional pages.<br /><br />Leave empty for the first page. If status.continue is non-empty after a query,<br />copy that value here in a new query with identical parameters to get the next page.<br />Repeat until status.continue is empty.<br /><br />Important: Keep all other parameters (startTime, endTime, namespace, fieldSelector,<br />limit) identical across paginated requests. The cursor is opaque - copy it exactly<br />without modification. |  |  |
 
@@ -616,10 +617,30 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `results` _[Event](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#event-v1-core) array_ | Results contains matching Kubernetes Events, sorted newest-first.<br /><br />Each event follows the standard corev1.Event format with fields like:<br />  involvedObject.\{kind,name,namespace\}, reason, message, type,<br />  firstTimestamp, lastTimestamp, count, source.component<br /><br />Empty results? Try broadening your field selector or time range. |  |  |
+| `results` _[EventRecord](#eventrecord) array_ | Results contains matching Kubernetes Events, sorted newest-first.<br /><br />Each event follows the eventsv1.Event format with fields like:<br />  regarding.\{kind,name,namespace\}, reason, note, type,<br />  eventTime, series.count, reportingController<br /><br />Empty results? Try broadening your field selector or time range. |  |  |
 | `continue` _string_ | Continue is the pagination cursor.<br />Non-empty means more results are available - copy this to spec.continue for the next page.<br />Empty means you have all results. |  |  |
 | `effectiveStartTime` _string_ | EffectiveStartTime is the actual start time used for this query (RFC3339 format).<br /><br />When you use relative times like "now-7d", this shows the exact timestamp that was<br />calculated. Useful for understanding exactly what time range was queried, especially<br />for auditing, debugging, or recreating queries with absolute timestamps.<br /><br />Example: If you query with startTime="now-7d" at 2025-12-17T12:00:00Z,<br />this will be "2025-12-10T12:00:00Z". |  |  |
 | `effectiveEndTime` _string_ | EffectiveEndTime is the actual end time used for this query (RFC3339 format).<br /><br />When you use relative times like "now", this shows the exact timestamp that was<br />calculated. Useful for understanding exactly what time range was queried.<br /><br />Example: If you query with endTime="now" at 2025-12-17T12:00:00Z,<br />this will be "2025-12-17T12:00:00Z". |  |  |
+
+
+#### EventRecord
+
+
+
+EventRecord represents a Kubernetes Event returned in EventQuery results.
+This is a wrapper type registered under activity.miloapis.com/v1alpha1 that
+embeds the events.k8s.io/v1 Event to avoid OpenAPI GVK conflicts while
+preserving full event data.
+
+
+
+_Appears in:_
+- [EventQueryStatus](#eventquerystatus)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `event` _[Event](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#event-v1-events)_ | Event contains the full Kubernetes Event data in events.k8s.io/v1 format.<br />This includes fields like eventTime, regarding, note, type, reason,<br />reportingController, reportingInstance, series, and action. |  |  |
 
 
 #### FacetResult

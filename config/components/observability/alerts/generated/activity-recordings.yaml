@@ -1,116 +1,116 @@
-apiVersion: monitoring.coreos.com/v1
-kind: PrometheusRule
-metadata:
-  labels:
-    app.kubernetes.io/part-of: activity
-    monitoring: "true"
-    prometheus: activity
-  name: activity-recordings
-  namespace: activity-system
-spec:
-  groups:
-    - interval: 30s
-      name: activity-recordings
-      rules:
-        - expr: |
-            sum(rate(apiserver_request_total{job="activity-apiserver"}[5m]))
-            by (verb, resource, code)
-          record: activity:request_rate:5m
-        - expr: |
-            sum(rate(apiserver_request_total{job="activity-apiserver"}[5m]))
-          record: activity:request_rate_total:5m
-        - expr: |
-            sum(rate(apiserver_request_total{job="activity-apiserver",code=~"5.."}[5m]))
-            /
-            sum(rate(apiserver_request_total{job="activity-apiserver"}[5m]))
-          record: activity:error_rate:5m
-        - expr: |
-            histogram_quantile(0.50,
-              sum(rate(apiserver_request_duration_seconds_bucket{job="activity-apiserver"}[5m]))
-              by (le)
-            )
-          record: activity:apiserver_request_duration:p50
-        - expr: |
-            histogram_quantile(0.95,
-              sum(rate(apiserver_request_duration_seconds_bucket{job="activity-apiserver"}[5m]))
-              by (le)
-            )
-          record: activity:apiserver_request_duration:p95
-        - expr: |
-            histogram_quantile(0.99,
-              sum(rate(apiserver_request_duration_seconds_bucket{job="activity-apiserver"}[5m]))
-              by (le)
-            )
-          record: activity:apiserver_request_duration:p99
-        - expr: |
-            histogram_quantile(0.50,
-              sum(rate(activity_clickhouse_query_duration_seconds_bucket{operation="total"}[5m]))
-              by (le)
-            )
-          record: activity:query_duration:p50
-        - expr: |
-            histogram_quantile(0.95,
-              sum(rate(activity_clickhouse_query_duration_seconds_bucket{operation="total"}[5m]))
-              by (le)
-            )
-          record: activity:query_duration:p95
-        - expr: |
-            histogram_quantile(0.99,
-              sum(rate(activity_clickhouse_query_duration_seconds_bucket{operation="total"}[5m]))
-              by (le)
-            )
-          record: activity:query_duration:p99
-        - expr: |
-            sum(rate(activity_clickhouse_query_total[5m]))
-            by (status)
-          record: activity:query_rate:5m
-        - expr: |
-            sum(rate(activity_clickhouse_query_errors_total[5m]))
-            by (error_type)
-          record: activity:clickhouse_error_rate:5m
-        - expr: |
-            sum(rate(vector_component_received_events_total{component_id="nats_audit_consumer",namespace="activity-system"}[5m]))
-          record: activity:vector_throughput:5m
-        - expr: |
-            sum(rate(vector_component_sent_events_total{component_id="clickhouse_audit_events",namespace="activity-system"}[5m]))
-          record: activity:vector_writes:5m
-        - expr: |
-            sum(rate(vector_component_received_events_total{component_id="nats_audit_consumer",namespace="activity-system"}[5m]))
-            -
-            sum(rate(vector_component_sent_events_total{component_id="clickhouse_audit_events",namespace="activity-system"}[5m]))
-          record: activity:pipeline_lag:5m
-        - expr: |
-            nats_consumer_num_pending{stream_name="AUDIT_EVENTS",consumer_name="clickhouse-ingest"}
-          record: activity:nats_consumer_lag
-        - expr: |
-            rate(nats_stream_total_messages{stream_name="AUDIT_EVENTS"}[5m])
-          record: activity:nats_message_rate:5m
-        - expr: |
-            sum(rate(container_cpu_usage_seconds_total{namespace="activity-system"}[5m]))
-            by (pod)
-            /
-            sum(container_spec_cpu_quota{namespace="activity-system"} / container_spec_cpu_period{namespace="activity-system"})
-            by (pod)
-          record: activity:cpu_utilization
-        - expr: |
-            sum(container_memory_working_set_bytes{namespace="activity-system"})
-            by (pod)
-            /
-            sum(container_spec_memory_limit_bytes{namespace="activity-system"})
-            by (pod)
-          record: activity:memory_utilization
-        - expr: |
-            sum(rate(vector_component_sent_events_total{component_id="clickhouse_k8s_events",namespace="activity-system"}[5m]))
-          record: activity:vector_writes_events:5m
-        - expr: |
-            avg(rate(chi_clickhouse_table_parts_rows{chi="activity-clickhouse", database="audit", table="k8s_events", active="1"}[5m]))
-          record: activity:clickhouse_events_insert_rate:5m
-        - expr: |
-            sum(rate(chi_clickhouse_event_InsertQueryTimeMicroseconds{chi="activity-clickhouse"}[5m]))
-            /
-            clamp_min(sum(rate(chi_clickhouse_event_InsertQuery{chi="activity-clickhouse"}[5m])), 0.001)
-            / 1000000
-          record: activity:clickhouse_events_insert_latency
-        - expr: |
-            sum(rate(event_exporter_events_published_total[5m]))
-          record: activity:event_exporter_throughput:5m
+"apiVersion": "monitoring.coreos.com/v1"
+"kind": "PrometheusRule"
+"metadata":
+  "labels":
+    "app.kubernetes.io/part-of": "activity"
+    "monitoring": "true"
+    "prometheus": "activity"
+  "name": "activity-recordings"
+  "namespace": "activity-system"
+"spec":
+  "groups":
+  - "interval": "30s"
+    "name": "activity-recordings"
+    "rules":
+    - "expr": |
+        sum(rate(apiserver_request_total{job="activity-apiserver"}[5m]))
+        by (verb, resource, code)
+      "record": "activity:request_rate:5m"
+    - "expr": |
+        sum(rate(apiserver_request_total{job="activity-apiserver"}[5m]))
+      "record": "activity:request_rate_total:5m"
+    - "expr": |
+        sum(rate(apiserver_request_total{job="activity-apiserver",code=~"5.."}[5m]))
+        /
+        sum(rate(apiserver_request_total{job="activity-apiserver"}[5m]))
+      "record": "activity:error_rate:5m"
+    - "expr": |
+        histogram_quantile(0.50,
+          sum(rate(apiserver_request_duration_seconds_bucket{job="activity-apiserver"}[5m]))
+          by (le)
+        )
+      "record": "activity:apiserver_request_duration:p50"
+    - "expr": |
+        histogram_quantile(0.95,
+          sum(rate(apiserver_request_duration_seconds_bucket{job="activity-apiserver"}[5m]))
+          by (le)
+        )
+      "record": "activity:apiserver_request_duration:p95"
+    - "expr": |
+        histogram_quantile(0.99,
+          sum(rate(apiserver_request_duration_seconds_bucket{job="activity-apiserver"}[5m]))
+          by (le)
+        )
+      "record": "activity:apiserver_request_duration:p99"
+    - "expr": |
+        histogram_quantile(0.50,
+          sum(rate(activity_clickhouse_query_duration_seconds_bucket{operation="total"}[5m]))
+          by (le)
+        )
+      "record": "activity:query_duration:p50"
+    - "expr": |
+        histogram_quantile(0.95,
+          sum(rate(activity_clickhouse_query_duration_seconds_bucket{operation="total"}[5m]))
+          by (le)
+        )
+      "record": "activity:query_duration:p95"
+    - "expr": |
+        histogram_quantile(0.99,
+          sum(rate(activity_clickhouse_query_duration_seconds_bucket{operation="total"}[5m]))
+          by (le)
+        )
+      "record": "activity:query_duration:p99"
+    - "expr": |
+        sum(rate(activity_clickhouse_query_total[5m]))
+        by (status)
+      "record": "activity:query_rate:5m"
+    - "expr": |
+        sum(rate(activity_clickhouse_query_errors_total[5m]))
+        by (error_type)
+      "record": "activity:clickhouse_error_rate:5m"
+    - "expr": |
+        sum(rate(vector_component_received_events_total{component_id="nats_audit_consumer",namespace="activity-system"}[5m]))
+      "record": "activity:vector_throughput:5m"
+    - "expr": |
+        sum(rate(vector_component_sent_events_total{component_id="clickhouse_audit_events",namespace="activity-system"}[5m]))
+      "record": "activity:vector_writes:5m"
+    - "expr": |
+        sum(rate(vector_component_received_events_total{component_id="nats_audit_consumer",namespace="activity-system"}[5m]))
+        -
+        sum(rate(vector_component_sent_events_total{component_id="clickhouse_audit_events",namespace="activity-system"}[5m]))
+      "record": "activity:pipeline_lag:5m"
+    - "expr": |
+        nats_consumer_num_pending{stream_name="AUDIT_EVENTS",consumer_name="clickhouse-ingest"}
+      "record": "activity:nats_consumer_lag"
+    - "expr": |
+        rate(nats_stream_total_messages{stream_name="AUDIT_EVENTS"}[5m])
+      "record": "activity:nats_message_rate:5m"
+    - "expr": |
+        sum(rate(container_cpu_usage_seconds_total{namespace="activity-system"}[5m]))
+        by (pod)
+        /
+        sum(container_spec_cpu_quota{namespace="activity-system"} / container_spec_cpu_period{namespace="activity-system"})
+        by (pod)
+      "record": "activity:cpu_utilization"
+    - "expr": |
+        sum(container_memory_working_set_bytes{namespace="activity-system"})
+        by (pod)
+        /
+        sum(container_spec_memory_limit_bytes{namespace="activity-system"})
+        by (pod)
+      "record": "activity:memory_utilization"
+    - "expr": |
+        sum(rate(vector_component_sent_events_total{component_id="clickhouse_k8s_events",namespace="activity-system"}[5m]))
+      "record": "activity:vector_writes_events:5m"
+    - "expr": |
+        avg(rate(chi_clickhouse_table_parts_rows{chi="activity-clickhouse", database="audit", table="k8s_events", active="1"}[5m]))
+      "record": "activity:clickhouse_events_insert_rate:5m"
+    - "expr": |
+        sum(rate(chi_clickhouse_event_InsertQueryTimeMicroseconds{chi="activity-clickhouse"}[5m]))
+        /
+        clamp_min(sum(rate(chi_clickhouse_event_InsertQuery{chi="activity-clickhouse"}[5m])), 0.001)
+        / 1000000
+      "record": "activity:clickhouse_events_insert_latency"
+    - "expr": |
+        sum(rate(event_exporter_events_published_total[5m]))
+      "record": "activity:event_exporter_throughput:5m"

@@ -115,12 +115,12 @@ func GetActivityFacetColumn(field string) (string, error) {
 // EventFacetFields defines the supported fields for Kubernetes Event facet queries.
 // Keys are API field paths (as used in queries), values are human-readable descriptions.
 var EventFacetFields = map[string]string{
-	"involvedObject.kind":      "The kind of resource the event is about (Pod, Deployment, etc.)",
-	"involvedObject.namespace": "The namespace of the involved object",
-	"reason":                   "The event reason (Scheduled, Pulled, Created, etc.)",
-	"type":                     "The event type (Normal, Warning)",
-	"source.component":         "The component that generated the event (kubelet, scheduler, etc.)",
-	"namespace":                "The namespace of the event itself",
+	"regarding.kind":      "The kind of resource the event is about (Pod, Deployment, etc.)",
+	"regarding.namespace": "The namespace of the regarding object",
+	"reason":              "The event reason (Scheduled, Pulled, Created, etc.)",
+	"type":                "The event type (Normal, Warning)",
+	"source.component":    "The component that generated the event (kubelet, scheduler, etc.)",
+	"namespace":           "The namespace of the event itself",
 }
 
 // IsValidEventFacetField checks if a field is supported for event faceting.
@@ -136,12 +136,12 @@ func EventFacetFieldNames() []string {
 
 // eventFacetColumnMapping maps API field paths to ClickHouse column names for events.
 var eventFacetColumnMapping = map[string]string{
-	"involvedObject.kind":      "involved_kind",
-	"involvedObject.namespace": "involved_namespace",
-	"reason":                   "reason",
-	"type":                     "type",
-	"source.component":         "source_component",
-	"namespace":                "namespace",
+	"regarding.kind":      "involved_kind",
+	"regarding.namespace": "involved_namespace",
+	"reason":              "reason",
+	"type":                "type",
+	"source.component":    "source_component",
+	"namespace":           "namespace",
 }
 
 // GetEventFacetColumn returns the ClickHouse column name for an event facet field.

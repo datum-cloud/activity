@@ -1315,11 +1315,11 @@ type QueryEventsArgs struct {
 	// Namespace limits results to events from a specific namespace.
 	Namespace string `json:"namespace,omitempty"`
 
-	// InvolvedObjectKind filters by the kind of the involved object.
-	InvolvedObjectKind string `json:"involvedObjectKind,omitempty"`
+	// RegardingKind filters by the kind of the regarding object.
+	RegardingKind string `json:"regardingKind,omitempty"`
 
-	// InvolvedObjectName filters by the name of the involved object.
-	InvolvedObjectName string `json:"involvedObjectName,omitempty"`
+	// RegardingName filters by the name of the regarding object.
+	RegardingName string `json:"regardingName,omitempty"`
 
 	// Reason filters by event reason.
 	Reason string `json:"reason,omitempty"`
@@ -1342,11 +1342,11 @@ func (p *ToolProvider) handleQueryEvents(ctx context.Context, req *mcp.CallToolR
 
 	// Build field selector for filtering
 	var fieldSelectors []string
-	if args.InvolvedObjectKind != "" {
-		fieldSelectors = append(fieldSelectors, fmt.Sprintf("involvedObject.kind=%s", args.InvolvedObjectKind))
+	if args.RegardingKind != "" {
+		fieldSelectors = append(fieldSelectors, fmt.Sprintf("regarding.kind=%s", args.RegardingKind))
 	}
-	if args.InvolvedObjectName != "" {
-		fieldSelectors = append(fieldSelectors, fmt.Sprintf("involvedObject.name=%s", args.InvolvedObjectName))
+	if args.RegardingName != "" {
+		fieldSelectors = append(fieldSelectors, fmt.Sprintf("regarding.name=%s", args.RegardingName))
 	}
 	if args.Reason != "" {
 		fieldSelectors = append(fieldSelectors, fmt.Sprintf("reason=%s", args.Reason))
@@ -1394,9 +1394,9 @@ func (p *ToolProvider) handleQueryEvents(ctx context.Context, req *mcp.CallToolR
 			"message":   event.Note,
 		}
 
-		// eventsv1.Event uses Regarding instead of InvolvedObject
+		// eventsv1.Event uses Regarding
 		if event.Regarding.Name != "" || event.Regarding.Kind != "" {
-			eventMap["involvedObject"] = map[string]any{
+			eventMap["regarding"] = map[string]any{
 				"kind":      event.Regarding.Kind,
 				"name":      event.Regarding.Name,
 				"namespace": event.Regarding.Namespace,

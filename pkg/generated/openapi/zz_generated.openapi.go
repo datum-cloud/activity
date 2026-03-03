@@ -54,6 +54,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventQueryList":            schema_pkg_apis_activity_v1alpha1_EventQueryList(ref),
 		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventQuerySpec":            schema_pkg_apis_activity_v1alpha1_EventQuerySpec(ref),
 		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventQueryStatus":          schema_pkg_apis_activity_v1alpha1_EventQueryStatus(ref),
+		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventRecord":               schema_pkg_apis_activity_v1alpha1_EventRecord(ref),
 		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetResult":               schema_pkg_apis_activity_v1alpha1_FacetResult(ref),
 		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetSpec":                 schema_pkg_apis_activity_v1alpha1_FacetSpec(ref),
 		"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.FacetTimeRange":            schema_pkg_apis_activity_v1alpha1_FacetTimeRange(ref),
@@ -1694,7 +1695,7 @@ func schema_pkg_apis_activity_v1alpha1_EventFacetQuery(ref common.ReferenceCallb
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "EventFacetQuery is an ephemeral resource for getting distinct field values from Kubernetes Events. Use this to power autocomplete, filter dropdowns, and faceted search in UIs.\n\nThe query returns counts for each distinct value, allowing you to show both available options and their frequency.\n\nExample:\n\n\tapiVersion: activity.miloapis.com/v1alpha1\n\tkind: EventFacetQuery\n\tmetadata:\n\t  name: get-facets\n\tspec:\n\t  timeRange:\n\t    start: \"now-7d\"\n\t  facets:\n\t    - field: involvedObject.kind\n\t      limit: 10\n\t    - field: reason\n\t    - field: type",
+				Description: "EventFacetQuery is an ephemeral resource for getting distinct field values from Kubernetes Events. Use this to power autocomplete, filter dropdowns, and faceted search in UIs.\n\nThe query returns counts for each distinct value, allowing you to show both available options and their frequency.\n\nExample:\n\n\tapiVersion: activity.miloapis.com/v1alpha1\n\tkind: EventFacetQuery\n\tmetadata:\n\t  name: get-facets\n\tspec:\n\t  timeRange:\n\t    start: \"now-7d\"\n\t  facets:\n\t    - field: regarding.kind\n\t      limit: 10\n\t    - field: reason\n\t    - field: type",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -1759,7 +1760,7 @@ func schema_pkg_apis_activity_v1alpha1_EventFacetQuerySpec(ref common.ReferenceC
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "Facets specifies which fields to get distinct values for. Each facet returns the top N values with counts.\n\nSupported fields:\n  - involvedObject.kind: Resource kinds (Pod, Deployment, etc.)\n  - involvedObject.namespace: Namespaces of involved objects\n  - reason: Event reasons (Scheduled, Pulled, Created, etc.)\n  - type: Event types (Normal, Warning)\n  - source.component: Source components (kubelet, scheduler, etc.)\n  - namespace: Event namespace",
+							Description: "Facets specifies which fields to get distinct values for. Each facet returns the top N values with counts.\n\nSupported fields:\n  - regarding.kind: Resource kinds (Pod, Deployment, etc.)\n  - regarding.namespace: Namespaces of regarding objects\n  - reason: Event reasons (Scheduled, Pulled, Created, etc.)\n  - type: Event types (Normal, Warning)\n  - source.component: Source components (kubelet, scheduler, etc.)\n  - namespace: Event namespace",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -1943,7 +1944,7 @@ func schema_pkg_apis_activity_v1alpha1_EventQuerySpec(ref common.ReferenceCallba
 					},
 					"fieldSelector": {
 						SchemaProps: spec.SchemaProps{
-							Description: "FieldSelector filters events using standard Kubernetes field selector syntax.\n\nSupported Fields:\n  metadata.name               - event name\n  metadata.namespace          - event namespace\n  metadata.uid                - event UID\n  involvedObject.apiVersion   - involved resource API version\n  involvedObject.kind         - involved resource kind (e.g., Pod, Deployment)\n  involvedObject.namespace    - involved resource namespace\n  involvedObject.name         - involved resource name\n  involvedObject.uid          - involved resource UID\n  involvedObject.fieldPath    - involved resource field path\n  reason                      - event reason (e.g., FailedMount, Pulled)\n  type                        - event type (Normal or Warning)\n  source.component            - reporting component\n  source.host                 - reporting host\n\nOperators: = (or ==), != Multiple conditions: comma-separated (all must match)\n\nCommon Patterns:\n  \"type=Warning\"                                  - Warning events only\n  \"involvedObject.kind=Pod\"                       - Events for pods\n  \"reason=FailedMount\"                            - Mount failure events\n  \"involvedObject.name=my-pod,type=Warning\"       - Warnings for a specific pod",
+							Description: "FieldSelector filters events using standard Kubernetes field selector syntax.\n\nSupported Fields:\n  metadata.name               - event name\n  metadata.namespace          - event namespace\n  metadata.uid                - event UID\n  regarding.apiVersion        - regarding resource API version\n  regarding.kind              - regarding resource kind (e.g., Pod, Deployment)\n  regarding.namespace         - regarding resource namespace\n  regarding.name              - regarding resource name\n  regarding.uid               - regarding resource UID\n  regarding.fieldPath         - regarding resource field path\n  reason                      - event reason (e.g., FailedMount, Pulled)\n  type                        - event type (Normal or Warning)\n  source.component            - reporting component\n  source.host                 - reporting host\n  reportingComponent          - reporting component (alias for source.component)\n  reportingInstance           - reporting instance (alias for source.host)\n\nOperators: = (or ==), != Multiple conditions: comma-separated (all must match)\n\nCommon Patterns:\n  \"type=Warning\"                                  - Warning events only\n  \"regarding.kind=Pod\"                            - Events for pods\n  \"reason=FailedMount\"                            - Mount failure events\n  \"regarding.name=my-pod,type=Warning\"            - Warnings for a specific pod",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -1983,13 +1984,13 @@ func schema_pkg_apis_activity_v1alpha1_EventQueryStatus(ref common.ReferenceCall
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "Results contains matching Kubernetes Events, sorted newest-first.\n\nEach event follows the standard corev1.Event format with fields like:\n  involvedObject.{kind,name,namespace}, reason, message, type,\n  firstTimestamp, lastTimestamp, count, source.component\n\nEmpty results? Try broadening your field selector or time range.",
+							Description: "Results contains matching Kubernetes Events, sorted newest-first.\n\nEach event follows the eventsv1.Event format with fields like:\n  regarding.{kind,name,namespace}, reason, note, type,\n  eventTime, series.count, reportingController\n\nEmpty results? Try broadening your field selector or time range.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(corev1.Event{}.OpenAPIModelName()),
+										Ref:     ref("go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventRecord"),
 									},
 								},
 							},
@@ -2020,7 +2021,50 @@ func schema_pkg_apis_activity_v1alpha1_EventQueryStatus(ref common.ReferenceCall
 			},
 		},
 		Dependencies: []string{
-			corev1.Event{}.OpenAPIModelName()},
+			"go.miloapis.com/activity/pkg/apis/activity/v1alpha1.EventRecord"},
+	}
+}
+
+func schema_pkg_apis_activity_v1alpha1_EventRecord(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "EventRecord represents a Kubernetes Event returned in EventQuery results. This is a wrapper type registered under activity.miloapis.com/v1alpha1 that embeds the events.k8s.io/v1 Event to avoid OpenAPI GVK conflicts while preserving full event data.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ObjectMeta{}.OpenAPIModelName()),
+						},
+					},
+					"event": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Event contains the full Kubernetes Event data in events.k8s.io/v1 format. This includes fields like eventTime, regarding, note, type, reason, reportingController, reportingInstance, series, and action.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("k8s.io/api/events/v1.Event"),
+						},
+					},
+				},
+				Required: []string{"event"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/api/events/v1.Event", metav1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
