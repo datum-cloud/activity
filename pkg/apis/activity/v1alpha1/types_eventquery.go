@@ -87,25 +87,27 @@ type EventQuerySpec struct {
 	//   metadata.name               - event name
 	//   metadata.namespace          - event namespace
 	//   metadata.uid                - event UID
-	//   involvedObject.apiVersion   - involved resource API version
-	//   involvedObject.kind         - involved resource kind (e.g., Pod, Deployment)
-	//   involvedObject.namespace    - involved resource namespace
-	//   involvedObject.name         - involved resource name
-	//   involvedObject.uid          - involved resource UID
-	//   involvedObject.fieldPath    - involved resource field path
+	//   regarding.apiVersion        - regarding resource API version
+	//   regarding.kind              - regarding resource kind (e.g., Pod, Deployment)
+	//   regarding.namespace         - regarding resource namespace
+	//   regarding.name              - regarding resource name
+	//   regarding.uid               - regarding resource UID
+	//   regarding.fieldPath         - regarding resource field path
 	//   reason                      - event reason (e.g., FailedMount, Pulled)
 	//   type                        - event type (Normal or Warning)
 	//   source.component            - reporting component
 	//   source.host                 - reporting host
+	//   reportingComponent          - reporting component (alias for source.component)
+	//   reportingInstance           - reporting instance (alias for source.host)
 	//
 	// Operators: = (or ==), !=
 	// Multiple conditions: comma-separated (all must match)
 	//
 	// Common Patterns:
 	//   "type=Warning"                                  - Warning events only
-	//   "involvedObject.kind=Pod"                       - Events for pods
+	//   "regarding.kind=Pod"                            - Events for pods
 	//   "reason=FailedMount"                            - Mount failure events
-	//   "involvedObject.name=my-pod,type=Warning"       - Warnings for a specific pod
+	//   "regarding.name=my-pod,type=Warning"            - Warnings for a specific pod
 	//
 	// +optional
 	FieldSelector string `json:"fieldSelector,omitempty"`

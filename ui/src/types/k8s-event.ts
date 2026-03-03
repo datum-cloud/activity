@@ -119,7 +119,7 @@ export interface K8sEventList {
 export interface K8sEventListParams {
   /** Namespace to list events from (empty for all namespaces) */
   namespace?: string;
-  /** Field selector for filtering (e.g., "involvedObject.name=my-pod") */
+  /** Field selector for filtering (e.g., "regarding.name=my-pod") */
   fieldSelector?: string;
   /** Label selector for filtering */
   labelSelector?: string;
@@ -177,32 +177,32 @@ export interface EventFilterField {
 
 /**
  * Available filter fields for Kubernetes Events
- * These map to field selectors supported by the API (core/v1 Event)
+ * These map to field selectors supported by the API (events.k8s.io/v1)
  */
 export const EVENT_FILTER_FIELDS: EventFilterField[] = [
   {
-    name: 'involvedObject.kind',
+    name: 'regarding.kind',
     type: 'string',
     description: 'Kind of the object this event is about',
     examples: [
-      'involvedObject.kind=Pod',
-      'involvedObject.kind=Deployment',
+      'regarding.kind=Pod',
+      'regarding.kind=Deployment',
     ],
   },
   {
-    name: 'involvedObject.name',
+    name: 'regarding.name',
     type: 'string',
     description: 'Name of the object this event is about',
     examples: [
-      'involvedObject.name=my-pod',
+      'regarding.name=my-pod',
     ],
   },
   {
-    name: 'involvedObject.namespace',
+    name: 'regarding.namespace',
     type: 'string',
     description: 'Namespace of the object this event is about',
     examples: [
-      'involvedObject.namespace=default',
+      'regarding.namespace=default',
     ],
   },
   {
@@ -247,11 +247,11 @@ export const EVENT_FILTER_FIELDS: EventFilterField[] = [
 
 /**
  * Event facet fields available for querying
- * These are the fields supported by EventFacetQuery (core/v1 Event)
+ * These are the fields supported by EventFacetQuery (events.k8s.io/v1)
  */
 export const EVENT_FACET_FIELDS = [
-  'involvedObject.kind',
-  'involvedObject.namespace',
+  'regarding.kind',
+  'regarding.namespace',
   'reason',
   'type',
   'source.component',

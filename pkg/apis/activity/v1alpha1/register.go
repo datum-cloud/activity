@@ -65,13 +65,13 @@ func EventFieldLabelConversionFunc(label, value string) (string, string, error) 
 		"metadata.uid":
 		return label, value, nil
 
-	// Involved object fields (commonly used with field selectors)
-	case "involvedObject.apiVersion",
-		"involvedObject.kind",
-		"involvedObject.namespace",
-		"involvedObject.name",
-		"involvedObject.uid",
-		"involvedObject.fieldPath":
+	// Regarding object fields (commonly used with field selectors)
+	case "regarding.apiVersion",
+		"regarding.kind",
+		"regarding.namespace",
+		"regarding.name",
+		"regarding.uid",
+		"regarding.fieldPath":
 		return label, value, nil
 
 	// Event classification
@@ -100,12 +100,12 @@ var SupportedEventFieldSelectors = []string{
 	"metadata.name",
 	"metadata.namespace",
 	"metadata.uid",
-	"involvedObject.apiVersion",
-	"involvedObject.kind",
-	"involvedObject.namespace",
-	"involvedObject.name",
-	"involvedObject.uid",
-	"involvedObject.fieldPath",
+	"regarding.apiVersion",
+	"regarding.kind",
+	"regarding.namespace",
+	"regarding.name",
+	"regarding.uid",
+	"regarding.fieldPath",
 	"reason",
 	"type",
 	"source.component",
