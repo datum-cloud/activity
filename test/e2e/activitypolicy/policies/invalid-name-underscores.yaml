@@ -1,0 +1,12 @@
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: test-invalid-name-underscores
+spec:
+  resource:
+    apiGroup: apps
+    kind: Deployment
+  auditRules:
+    - name: "create_rule"
+      match: "verb == 'create'"
+      summary: "{{ actor }} created deployment"

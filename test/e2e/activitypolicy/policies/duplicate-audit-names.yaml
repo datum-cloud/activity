@@ -1,0 +1,15 @@
+apiVersion: activity.miloapis.com/v1alpha1
+kind: ActivityPolicy
+metadata:
+  name: test-duplicate-audit-names
+spec:
+  resource:
+    apiGroup: apps
+    kind: Deployment
+  auditRules:
+    - name: same-name
+      match: "verb == 'create'"
+      summary: "{{ actor }} created deployment"
+    - name: same-name
+      match: "verb == 'delete'"
+      summary: "{{ actor }} deleted deployment"

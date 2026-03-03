@@ -1,23 +1,66 @@
 import { test, expect } from '@playwright/test';
+import { mockEventQueryAPI, mockEventFacetQueryAPI, type MockK8sEvent } from './helpers/api-mocks';
 
 /**
  * E2E tests for EventsFeedFilters component
  * Tests the filter UI interactions including adding filters, selecting values, and clearing filters
  */
 
+// Sample events for mocking
+const mockEvents: MockK8sEvent[] = [
+  {
+    metadata: { name: 'event-1', namespace: 'default', uid: 'uid-1', creationTimestamp: '2024-01-01T10:00:00Z' },
+    involvedObject: { apiVersion: 'v1', kind: 'Pod', name: 'web-app-abc123', namespace: 'default' },
+    reason: 'Scheduled',
+    message: 'Successfully assigned default/web-app-abc123 to node-1',
+    type: 'Normal',
+    source: { component: 'kube-scheduler' },
+    firstTimestamp: '2024-01-01T10:00:00Z',
+    lastTimestamp: '2024-01-01T10:00:00Z',
+    count: 1,
+  },
+  {
+    metadata: { name: 'event-2', namespace: 'default', uid: 'uid-2', creationTimestamp: '2024-01-01T10:01:00Z' },
+    involvedObject: { apiVersion: 'v1', kind: 'Pod', name: 'web-app-abc123', namespace: 'default' },
+    reason: 'Pulled',
+    message: 'Container image "nginx:latest" already present on machine',
+    type: 'Normal',
+    source: { component: 'kubelet' },
+    firstTimestamp: '2024-01-01T10:01:00Z',
+    lastTimestamp: '2024-01-01T10:01:00Z',
+    count: 1,
+  },
+  {
+    metadata: { name: 'event-3', namespace: 'kube-system', uid: 'uid-3', creationTimestamp: '2024-01-01T10:02:00Z' },
+    involvedObject: { apiVersion: 'apps/v1', kind: 'Deployment', name: 'coredns', namespace: 'kube-system' },
+    reason: 'ScalingReplicaSet',
+    message: 'Scaled up replica set coredns-abc123 to 2',
+    type: 'Normal',
+    source: { component: 'deployment-controller' },
+    firstTimestamp: '2024-01-01T10:02:00Z',
+    lastTimestamp: '2024-01-01T10:02:00Z',
+    count: 1,
+  },
+];
+
 test.describe('EventsFeedFilters', () => {
   test.beforeEach(async ({ page }) => {
+    // Set up mocks for event queries and facets
+    await mockEventQueryAPI(page, mockEvents);
+    await mockEventFacetQueryAPI(page);
+
     // Navigate to the Events page
     await page.goto('/events');
 
-    // Wait for the filters UI to be ready (don't use networkidle - app has persistent connections)
-    await page.getByRole('button', { name: /\+ (Add )?Filters/i }).waitFor({ state: 'visible' });
+    // Wait for the page to load (look for any content indicating the page loaded)
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(500);
   });
 
   test('"+ Add Filters" button opens dropdown', async ({ page }) => {
-    // Find and click the Add Filters button
-    const addFiltersButton = page.getByRole('button', { name: /\+ (Add )?Filters/i });
-    await expect(addFiltersButton).toBeVisible();
+    // Find and click the Add Filters button (Plus icon + "Add Filters" text)
+    const addFiltersButton = page.getByRole('button', { name: /(Add )?Filters/i });
+    await expect(addFiltersButton).toBeVisible({ timeout: 10000 });
 
     await addFiltersButton.click();
 
@@ -25,7 +68,7 @@ test.describe('EventsFeedFilters', () => {
     const popover = page.locator('[data-radix-popper-content-wrapper]').first();
     await expect(popover).toBeVisible();
 
-    // Verify filter options are present (use exact: true where needed)
+    // Verify filter options are present
     await expect(page.getByRole('button', { name: 'Kind' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Reason' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Namespace' })).toBeVisible();
@@ -34,7 +77,8 @@ test.describe('EventsFeedFilters', () => {
 
   test('Selecting a filter adds a chip with popover open', async ({ page }) => {
     // Click Add Filters button
-    const addFiltersButton = page.getByRole('button', { name: /\+ (Add )?Filters/i });
+    const addFiltersButton = page.getByRole('button', { name: /(Add )?Filters/i });
+    await expect(addFiltersButton).toBeVisible({ timeout: 10000 });
     await addFiltersButton.click();
 
     // Wait for dropdown to be visible
@@ -47,7 +91,7 @@ test.describe('EventsFeedFilters', () => {
     // Wait for React to process state update and render the chip
     await page.waitForTimeout(300);
 
-    // Verify a filter chip labeled "Kind:" appears (look for text containing "Kind:")
+    // Verify a filter chip labeled "Kind:" appears
     const kindChip = page.locator('button:has-text("Kind:")');
     await expect(kindChip).toBeVisible({ timeout: 5000 });
 
@@ -58,7 +102,8 @@ test.describe('EventsFeedFilters', () => {
 
   test('Selecting values updates the chip', async ({ page }) => {
     // Add Kind filter
-    const addFiltersButton = page.getByRole('button', { name: /\+ (Add )?Filters/i });
+    const addFiltersButton = page.getByRole('button', { name: /(Add )?Filters/i });
+    await expect(addFiltersButton).toBeVisible({ timeout: 10000 });
     await addFiltersButton.click();
     await page.getByRole('button', { name: 'Kind' }).click();
 
@@ -91,7 +136,8 @@ test.describe('EventsFeedFilters', () => {
 
   test('Clicking existing filter chip reopens popover', async ({ page }) => {
     // Add a filter and select a value
-    const addFiltersButton = page.getByRole('button', { name: /\+ (Add )?Filters/i });
+    const addFiltersButton = page.getByRole('button', { name: /(Add )?Filters/i });
+    await expect(addFiltersButton).toBeVisible({ timeout: 10000 });
     await addFiltersButton.click();
     await page.getByRole('button', { name: 'Kind' }).click();
 
@@ -130,7 +176,8 @@ test.describe('EventsFeedFilters', () => {
 
   test('X button clears the filter', async ({ page }) => {
     // Add a filter and select a value
-    const addFiltersButton = page.getByRole('button', { name: /\+ (Add )?Filters/i });
+    const addFiltersButton = page.getByRole('button', { name: /(Add )?Filters/i });
+    await expect(addFiltersButton).toBeVisible({ timeout: 10000 });
     await addFiltersButton.click();
     await page.getByRole('button', { name: 'Kind' }).click();
 
@@ -162,7 +209,8 @@ test.describe('EventsFeedFilters', () => {
 
   test('Closing popover without selecting shows empty filter chip', async ({ page }) => {
     // Click Add Filters
-    const addFiltersButton = page.getByRole('button', { name: /\+ (Add )?Filters/i });
+    const addFiltersButton = page.getByRole('button', { name: /(Add )?Filters/i });
+    await expect(addFiltersButton).toBeVisible({ timeout: 10000 });
     await addFiltersButton.click();
 
     // Wait for dropdown
@@ -184,7 +232,8 @@ test.describe('EventsFeedFilters', () => {
 
   test('Filter chip shows selected value', async ({ page }) => {
     // Add Kind filter
-    const addFiltersButton = page.getByRole('button', { name: /\+ (Add )?Filters/i });
+    const addFiltersButton = page.getByRole('button', { name: /(Add )?Filters/i });
+    await expect(addFiltersButton).toBeVisible({ timeout: 10000 });
     await addFiltersButton.click();
 
     // Wait for dropdown
@@ -205,25 +254,19 @@ test.describe('EventsFeedFilters', () => {
 
     if (optionCount > 0) {
       const firstOption = options.first();
-      const optionText = await firstOption.textContent();
 
       // Click to select
       await firstOption.click();
 
       // Verify chip still visible with selected value
       await expect(kindChip).toBeVisible();
-
-      // The chip should show the selected value
-      if (optionText) {
-        // Just verify the chip is still there after selection
-        await expect(kindChip).toBeVisible();
-      }
     }
   });
 
   test('Filter dropdown shows all available filter types', async ({ page }) => {
     // Open Add Filters dropdown
-    const addFiltersButton = page.getByRole('button', { name: /\+ (Add )?Filters/i });
+    const addFiltersButton = page.getByRole('button', { name: /(Add )?Filters/i });
+    await expect(addFiltersButton).toBeVisible({ timeout: 10000 });
     await addFiltersButton.click();
 
     // Wait for dropdown
@@ -234,12 +277,13 @@ test.describe('EventsFeedFilters', () => {
     await expect(page.getByRole('button', { name: 'Reason' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Namespace' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Source', exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Resource Name' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Resource Name', exact: true })).toBeVisible();
   });
 
   test('Search functionality works in typeahead filters', async ({ page }) => {
     // Add Kind filter
-    const addFiltersButton = page.getByRole('button', { name: /\+ (Add )?Filters/i });
+    const addFiltersButton = page.getByRole('button', { name: /(Add )?Filters/i });
+    await expect(addFiltersButton).toBeVisible({ timeout: 10000 });
     await addFiltersButton.click();
     await page.getByRole('button', { name: 'Kind' }).click();
 

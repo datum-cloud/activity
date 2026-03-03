@@ -1,0 +1,63 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: create-policy-with-descriptions
+spec:
+  description: |
+    Test that optional rule descriptions are preserved and returned correctly.
+    Verifies both name and description fields are stored and retrieved.
+  steps:
+  - name: create-policy-with-named-and-described-rules
+    try:
+    - apply:
+        resource:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          metadata:
+            name: test-described-rules
+          spec:
+            resource:
+              apiGroup: batch
+              kind: Job
+            auditRules:
+              - name: create-job
+                description: "Triggers when a new Job resource is created"
+                match: "verb == 'create'"
+                summary: "{{ actor }} created job {{ objectRef.name }}"
+              - name: delete-job
+                description: "Triggers when a Job resource is deleted"
+                match: "verb == 'delete'"
+                summary: "{{ actor }} deleted job {{ objectRef.name }}"
+    - assert:
+        resource:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          metadata:
+            name: test-described-rules
+          spec:
+            resource:
+              apiGroup: batch
+              kind: Job
+            auditRules:
+              - name: create-job
+                description: "Triggers when a new Job resource is created"
+                match: "verb == 'create'"
+                summary: "{{ actor }} created job {{ objectRef.name }}"
+              - name: delete-job
+                description: "Triggers when a Job resource is deleted"
+                match: "verb == 'delete'"
+                summary: "{{ actor }} deleted job {{ objectRef.name }}"
+          status:
+            conditions:
+              - type: Ready
+                status: "True"
+    catch:
+    - describe:
+        apiVersion: activity.miloapis.com/v1alpha1
+        kind: ActivityPolicy
+    finally:
+    - delete:
+        ref:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          name: test-described-rules

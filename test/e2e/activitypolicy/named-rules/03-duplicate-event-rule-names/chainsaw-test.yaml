@@ -1,0 +1,19 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: duplicate-event-rule-names
+spec:
+  description: |
+    Test that duplicate names within eventRules are rejected.
+    Each rule within eventRules must have a unique name.
+  steps:
+  - name: reject-duplicate-event-rule-names
+    try:
+    - apply:
+        file: ../../policies/duplicate-event-names.yaml
+        expect:
+        - check:
+            ($error != null): true
+    - script:
+        content: |
+          echo "Verified that duplicate names in eventRules are rejected"

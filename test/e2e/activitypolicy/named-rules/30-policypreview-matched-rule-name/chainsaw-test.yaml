@@ -1,0 +1,78 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: policypreview-matched-rule-name
+spec:
+  description: |
+    Verify that PolicyPreview returns MatchedRuleName in results when a named rule matches.
+    PolicyPreview is an ephemeral (create-only) resource, so we must verify the response
+    from the create operation directly rather than using assert.
+  steps:
+  - name: create-preview-and-verify-rule-name
+    try:
+    - script:
+        content: |
+          RESPONSE=$(kubectl create -o json -f - <<EOF
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: PolicyPreview
+          metadata:
+            name: test-rule-name-preview
+          spec:
+            policy:
+              resource:
+                apiGroup: apps
+                kind: Deployment
+              auditRules:
+                - name: on-create
+                  match: "verb == 'create'"
+                  summary: "{{ actor }} created deployment"
+                - name: on-delete
+                  match: "verb == 'delete'"
+                  summary: "{{ actor }} deleted deployment"
+            inputs:
+              - type: audit
+                audit:
+                  level: Request
+                  auditID: test-audit-id
+                  stage: ResponseComplete
+                  requestURI: /apis/apps/v1/namespaces/default/deployments/my-deployment
+                  verb: create
+                  user:
+                    username: test-user
+                  objectRef:
+                    apiGroup: apps
+                    resource: deployments
+                    name: my-deployment
+                    namespace: default
+          EOF
+          )
+
+          echo "PolicyPreview response:"
+          echo "$RESPONSE" | jq .
+
+          # Verify the response contains expected fields
+          INPUT_INDEX=$(echo "$RESPONSE" | jq '.status.results[0].inputIndex')
+          MATCHED=$(echo "$RESPONSE" | jq '.status.results[0].matched')
+          MATCHED_RULE_NAME=$(echo "$RESPONSE" | jq -r '.status.results[0].matchedRuleName')
+
+          echo "Checking results:"
+          echo "  inputIndex: $INPUT_INDEX (expected: 0)"
+          echo "  matched: $MATCHED (expected: true)"
+          echo "  matchedRuleName: $MATCHED_RULE_NAME (expected: on-create)"
+
+          if [ "$INPUT_INDEX" != "0" ]; then
+            echo "ERROR: inputIndex is $INPUT_INDEX, expected 0"
+            exit 1
+          fi
+
+          if [ "$MATCHED" != "true" ]; then
+            echo "ERROR: matched is $MATCHED, expected true"
+            exit 1
+          fi
+
+          if [ "$MATCHED_RULE_NAME" != "on-create" ]; then
+            echo "ERROR: matchedRuleName is '$MATCHED_RULE_NAME', expected 'on-create'"
+            exit 1
+          fi
+
+          echo "SUCCESS: PolicyPreview returned correct matchedRuleName"

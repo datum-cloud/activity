@@ -46,7 +46,7 @@ export default defineConfig({
   webServer: {
     command: 'cd example && npm run dev',
     url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false, // Always restart to pick up source changes
     stdout: 'ignore',
     stderr: 'pipe',
     timeout: 120 * 1000, // 2 minutes for server to start

@@ -1,0 +1,117 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: mixed-rules-audit-and-event
+spec:
+  description: |
+    Test policy with both audit and event rules.
+    Verifies that policies can contain both audit and event rules with proper names,
+    and that all rules are stored correctly.
+  steps:
+  - name: create-policy-with-mixed-rules
+    try:
+    - apply:
+        resource:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          metadata:
+            name: test-policy-mixed-rules
+          spec:
+            resource:
+              apiGroup: apps
+              kind: Deployment
+            auditRules:
+            - name: create-rule
+              description: "Handles resource creation events"
+              match: "verb == 'create'"
+              summary: "{{ actor }} created {{ link('Deployment ' + objectRef.name, responseObject) }}"
+            - name: delete-rule
+              description: "Handles resource deletion events"
+              match: "verb == 'delete'"
+              summary: "{{ actor }} deleted Deployment {{ objectRef.name }}"
+            eventRules:
+            - name: programmed-event
+              description: "Handles programmed status events"
+              match: "event.reason == 'Programmed'"
+              summary: "{{ link('Deployment ' + event.regarding.name, event.regarding) }} is now programmed"
+            - name: failed-event
+              description: "Handles failure events"
+              match: "event.reason.startsWith('Failed')"
+              summary: "{{ link('Deployment ' + event.regarding.name, event.regarding) }} failed: {{ event.note }}"
+    - assert:
+        resource:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          metadata:
+            name: test-policy-mixed-rules
+          spec:
+            resource:
+              apiGroup: apps
+              kind: Deployment
+            auditRules:
+            - name: create-rule
+              match: "verb == 'create'"
+            - name: delete-rule
+              match: "verb == 'delete'"
+            eventRules:
+            - name: programmed-event
+              match: "event.reason == 'Programmed'"
+            - name: failed-event
+              match: "event.reason.startsWith('Failed')"
+    - script:
+        content: |
+          echo "Verified that policy with 2 audit rules and 2 event rules is stored correctly"
+
+  - name: verify-status-ready
+    try:
+    - assert:
+        resource:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          metadata:
+            name: test-policy-mixed-rules
+          status:
+            conditions:
+            - type: Ready
+              status: "True"
+              reason: Valid
+    - script:
+        content: |
+          echo "Verified that mixed rules policy shows Ready=True status"
+
+  - name: verify-names-unique-across-rule-types
+    try:
+    - apply:
+        resource:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          metadata:
+            name: test-policy-same-names-different-types
+          spec:
+            resource:
+              apiGroup: apps
+              kind: StatefulSet
+            auditRules:
+            - name: shared-name
+              match: "verb == 'create'"
+              summary: "{{ actor }} created statefulset"
+            eventRules:
+            - name: shared-name
+              match: "event.reason == 'Programmed'"
+              summary: "StatefulSet is programmed"
+    - script:
+        content: |
+          echo "Verified that same name can be used across auditRules and eventRules"
+
+  - name: cleanup
+    try:
+    - delete:
+        ref:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          name: test-policy-mixed-rules
+    - delete:
+        ref:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          name: test-policy-same-names-different-types

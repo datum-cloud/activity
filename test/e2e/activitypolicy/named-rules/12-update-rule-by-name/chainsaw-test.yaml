@@ -1,0 +1,86 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: update-rule-by-name
+spec:
+  description: |
+    Test updating a specific rule by name using server-side apply.
+    Verifies that only the targeted rule changes while others remain unchanged.
+  steps:
+  - name: create-policy-with-multiple-rules
+    try:
+    - apply:
+        resource:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          metadata:
+            name: test-update-rule
+          spec:
+            resource:
+              apiGroup: ""
+              kind: Service
+            auditRules:
+              - name: create-service
+                match: "verb == 'create'"
+                summary: "{{ actor }} created service {{ objectRef.name }}"
+              - name: update-service
+                match: "verb in ['update', 'patch']"
+                summary: "{{ actor }} updated service {{ objectRef.name }}"
+              - name: delete-service
+                match: "verb == 'delete'"
+                summary: "{{ actor }} deleted service {{ objectRef.name }}"
+    - assert:
+        resource:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          metadata:
+            name: test-update-rule
+          status:
+            conditions:
+              - type: Ready
+                status: "True"
+  - name: update-only-update-rule
+    try:
+    - script:
+        content: |
+          kubectl apply --server-side --force-conflicts -f - <<EOF
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          metadata:
+            name: test-update-rule
+          spec:
+            resource:
+              apiGroup: ""
+              kind: Service
+            auditRules:
+              - name: update-service
+                match: "verb in ['update', 'patch']"
+                summary: "{{ actor }} modified service {{ objectRef.name }}"
+          EOF
+    - assert:
+        resource:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          metadata:
+            name: test-update-rule
+          spec:
+            auditRules:
+              - name: create-service
+                match: "verb == 'create'"
+                summary: "{{ actor }} created service {{ objectRef.name }}"
+              - name: update-service
+                match: "verb in ['update', 'patch']"
+                summary: "{{ actor }} modified service {{ objectRef.name }}"
+              - name: delete-service
+                match: "verb == 'delete'"
+                summary: "{{ actor }} deleted service {{ objectRef.name }}"
+    catch:
+    - describe:
+        apiVersion: activity.miloapis.com/v1alpha1
+        kind: ActivityPolicy
+    finally:
+    - delete:
+        ref:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: ActivityPolicy
+          name: test-update-rule
