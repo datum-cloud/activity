@@ -1,5 +1,8 @@
 # ActivityPolicies for rbac.authorization.k8s.io Kubernetes API group
 # Resources: ClusterRole, ClusterRoleBinding, Role, RoleBinding
+#
+# These policies only generate activities for write operations (create, update, patch, delete).
+# Read operations (get, list, watch) are excluded as they don't represent meaningful state changes.
 
 ---
 apiVersion: activity.miloapis.com/v1alpha1
@@ -11,14 +14,15 @@ spec:
     apiGroup: rbac.authorization.k8s.io
     kind: ClusterRole
   auditRules:
-    - match: "audit.verb == 'create'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} created cluster role {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb == 'delete'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed cluster role {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb in ['update', 'patch']"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated cluster role {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "true"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified cluster role {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - name: create
+      match: "verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} defined cluster-wide permissions {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
+    - name: delete
+      match: "verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed cluster-wide permissions {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
+    - name: update
+      match: "verb in ['update', 'patch']"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} changed cluster-wide permissions {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
 
 ---
 apiVersion: activity.miloapis.com/v1alpha1
@@ -30,14 +34,15 @@ spec:
     apiGroup: rbac.authorization.k8s.io
     kind: ClusterRoleBinding
   auditRules:
-    - match: "audit.verb == 'create'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} granted cluster permissions {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb == 'delete'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} revoked cluster permissions {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb in ['update', 'patch']"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated cluster permissions {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "true"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified cluster permissions {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - name: create
+      match: "verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} granted cluster-wide access {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
+    - name: delete
+      match: "verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} revoked cluster-wide access {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
+    - name: update
+      match: "verb in ['update', 'patch']"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} changed cluster-wide access {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
 
 ---
 apiVersion: activity.miloapis.com/v1alpha1
@@ -49,14 +54,15 @@ spec:
     apiGroup: rbac.authorization.k8s.io
     kind: Role
   auditRules:
-    - match: "audit.verb == 'create'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} created role {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb == 'delete'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed role {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb in ['update', 'patch']"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated role {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "true"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified role {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - name: create
+      match: "verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} defined permissions {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
+    - name: delete
+      match: "verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} removed permissions {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
+    - name: update
+      match: "verb in ['update', 'patch']"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} changed permissions {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
 
 ---
 apiVersion: activity.miloapis.com/v1alpha1
@@ -68,11 +74,12 @@ spec:
     apiGroup: rbac.authorization.k8s.io
     kind: RoleBinding
   auditRules:
-    - match: "audit.verb == 'create'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} granted permissions {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb == 'delete'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} revoked permissions {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "audit.verb in ['update', 'patch']"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated permissions {{ link(audit.objectRef.name, audit.objectRef) }}"
-    - match: "true"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} modified permissions {{ link(audit.objectRef.name, audit.objectRef) }}"
+    - name: create
+      match: "verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} granted access {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
+    - name: delete
+      match: "verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} revoked access {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
+    - name: update
+      match: "verb in ['update', 'patch']"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} changed access {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"

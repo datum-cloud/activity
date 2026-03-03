@@ -221,8 +221,8 @@ func TestIntegration_PolicyPreview(t *testing.T) {
 				},
 				AuditRules: []v1alpha1.ActivityPolicyRule{
 					{
-						Match:   `audit.verb == "create"`,
-						Summary: "{{ actor }} created pod {{ audit.objectRef.name }}",
+						Match:   `verb == "create"`,
+						Summary: "{{ actor }} created pod {{ objectRef.name }}",
 					},
 				},
 			},
