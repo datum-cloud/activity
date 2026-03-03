@@ -26,9 +26,13 @@ export interface ActivityPolicyResource {
  * Matches events and generates summaries
  */
 export interface ActivityPolicyRule {
+  /** Unique name for this rule within the policy */
+  name: string;
+  /** Optional human-readable description of what this rule does */
+  description?: string;
   /**
    * CEL expression to match events
-   * For audit rules: access via `audit.*` (e.g., `audit.verb == "create"`)
+   * For audit rules: use top-level fields (e.g., `verb == "create"`, `objectRef.namespace == "default"`)
    * For event rules: access via `event.*` (e.g., `event.reason == "Ready"`)
    */
   match: string;
@@ -198,13 +202,28 @@ export interface PolicyPreviewPolicySpec {
 }
 
 /**
+ * Auto-fetch configuration for PolicyPreview
+ * Mutually exclusive with manual inputs
+ */
+export interface AutoFetchSpec {
+  /** Maximum samples to fetch (default: 10, max: 50) */
+  limit?: number;
+  /** Time range to search (e.g., "1h", "24h", "7d") - default: "24h" */
+  timeRange?: string;
+  /** What to fetch: "audit", "events", or "both" - default: "both" */
+  sources?: 'audit' | 'events' | 'both';
+}
+
+/**
  * Specification for a PolicyPreview request
  */
 export interface PolicyPreviewSpec {
   /** The policy to test */
   policy: PolicyPreviewPolicySpec;
-  /** The inputs to test against (supports multiple) */
-  inputs: PolicyPreviewInput[];
+  /** The inputs to test against (supports multiple) - optional if autoFetch is set */
+  inputs?: PolicyPreviewInput[];
+  /** Auto-fetch spec - mutually exclusive with inputs */
+  autoFetch?: AutoFetchSpec;
   /** Optional kind label override */
   kindLabel?: string;
   /** Optional kind label plural override */
@@ -275,6 +294,8 @@ export interface PolicyPreviewStatus {
   results?: PolicyPreviewInputResult[];
   /** General error message if preview failed entirely */
   error?: string;
+  /** Auto-fetched inputs (populated when autoFetch is used) */
+  fetchedInputs?: PolicyPreviewInput[];
 
   // Legacy single-input fields (for backwards compatibility)
   /** @deprecated Use results[].matched */

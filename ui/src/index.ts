@@ -74,10 +74,18 @@ export { PolicyRuleList } from './components/PolicyRuleList';
 export type { PolicyRuleListProps } from './components/PolicyRuleList';
 export { PolicyRuleEditor } from './components/PolicyRuleEditor';
 export type { PolicyRuleEditorProps } from './components/PolicyRuleEditor';
+export { PolicyRuleEditorDialog } from './components/PolicyRuleEditorDialog';
+export type { PolicyRuleEditorDialogProps } from './components/PolicyRuleEditorDialog';
+export { PolicyRuleListItem } from './components/PolicyRuleListItem';
+export type { PolicyRuleListItemProps } from './components/PolicyRuleListItem';
 export { PolicyResourceForm } from './components/PolicyResourceForm';
 export type { PolicyResourceFormProps } from './components/PolicyResourceForm';
 export { SampleInputTemplates, AUDIT_TEMPLATES, EVENT_TEMPLATES } from './components/SampleInputTemplates';
 export type { SampleInputTemplatesProps } from './components/SampleInputTemplates';
+export { RulePreviewPanel } from './components/RulePreviewPanel';
+export type { RulePreviewPanelProps } from './components/RulePreviewPanel';
+export { CelEditor } from './components/CelEditor';
+export type { CelEditorProps } from './components/CelEditor';
 
 // UI Components (shadcn/ui based)
 export {
@@ -161,6 +169,7 @@ export type { TimeRangeDropdownProps, TimeRangePreset } from './components/ui/ti
 export { cn } from './lib/utils';
 export { ApiError, parseApiError, NetworkError, defaultErrorFormatter } from './lib/errors';
 export type { ApiErrorResponse } from './lib/errors';
+export { extractFieldPaths, extractFieldPathsFromMany } from './lib/extractFieldPaths';
 
 // Hooks - Audit Log Query (existing)
 export { useAuditLogQuery } from './hooks/useAuditLogQuery';
@@ -300,6 +309,7 @@ export type {
   PolicyPreviewInputType,
   PolicyPreviewStatus,
   PolicyPreviewPolicySpec,
+  AutoFetchSpec,
   KubernetesEvent,
   PolicyGroup,
   SampleInputTemplate,

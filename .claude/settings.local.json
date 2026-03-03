@@ -10,7 +10,9 @@
       "Bash(git commit:*)",
       "Bash(git push:*)",
       "Bash(task generate:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(gh pr checks:*)",
+      "Bash(gh api:*)"
     ]
   }
 }
