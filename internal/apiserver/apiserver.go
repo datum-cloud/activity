@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
+	eventsv1 "k8s.io/api/events/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -51,6 +53,17 @@ func init() {
 		&metav1.APIGroup{},
 		&metav1.APIResourceList{},
 	)
+
+	// Register core/v1 types (Events) for legacy API support
+	// Using AddToScheme ensures proper registration with all metadata
+	if err := corev1.AddToScheme(Scheme); err != nil {
+		panic(fmt.Sprintf("failed to add core/v1 to scheme: %v", err))
+	}
+
+	// Register events.k8s.io/v1 types for the newer Events API
+	if err := eventsv1.AddToScheme(Scheme); err != nil {
+		panic(fmt.Sprintf("failed to add events.k8s.io/v1 to scheme: %v", err))
+	}
 }
 
 // ExtraConfig extends the generic apiserver configuration with activity-specific settings.

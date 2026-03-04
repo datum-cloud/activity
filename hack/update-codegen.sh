@@ -55,7 +55,8 @@ go run k8s.io/kube-openapi/cmd/openapi-gen \
   "k8s.io/apiserver/pkg/apis/audit/v1" \
   "k8s.io/api/authentication/v1" \
   "k8s.io/api/authorization/v1" \
-  "k8s.io/api/core/v1"
+  "k8s.io/api/core/v1" \
+  "k8s.io/api/events/v1"
 
 echo ""
 echo "Code generation complete!"

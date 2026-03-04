@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "@remix-run/react";
+import { useState, useEffect, useCallback } from "react";
+import { useNavigate, useSearchParams } from "@remix-run/react";
 import {
   ActivityFeed,
   ActivityApiClient,
@@ -8,8 +8,14 @@ import {
   defaultResourceLinkResolver,
   defaultErrorFormatter,
 } from "@miloapis/activity-ui";
+import type { ActivityFeedFilters, TimeRange } from "@miloapis/activity-ui";
 import { EventDetailModal } from "~/components/EventDetailModal";
 import { AppLayout } from "~/components/AppLayout";
+import {
+  deserializeActivityState,
+  serializeActivityState,
+  type ActivityFeedUrlState,
+} from "~/lib/url-state";
 
 /**
  * Custom error formatter that adds organization-specific messaging
@@ -42,10 +48,28 @@ const customErrorFormatter: ErrorFormatter = (error) => {
  */
 export default function ActivityFeedPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [client, setClient] = useState<ActivityApiClient | null>(null);
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(
     null
   );
+
+  // Initialize state from URL or use defaults
+  const urlState = deserializeActivityState(searchParams);
+  const [initialFilters] = useState<ActivityFeedFilters>(() => ({
+    changeSource: (urlState.changeSource as ActivityFeedFilters["changeSource"]) || "all",
+    search: urlState.search,
+    resourceKinds: urlState.resourceKinds,
+    actorNames: urlState.actorNames,
+    apiGroups: urlState.apiGroups,
+    resourceNamespaces: urlState.resourceNamespaces,
+    resourceName: urlState.resourceName,
+  }));
+
+  const [initialTimeRange] = useState<TimeRange>(() => ({
+    start: urlState.startTime || "now-7d",
+    end: urlState.endTime,
+  }));
 
   useEffect(() => {
     // Check if in production environment
@@ -75,6 +99,28 @@ export default function ActivityFeedPage() {
     setSelectedActivity(activity);
   };
 
+  // Update URL when filters or time range change
+  const handleFiltersChange = useCallback(
+    (filters: ActivityFeedFilters, timeRange: TimeRange) => {
+      const newState: ActivityFeedUrlState = {
+        changeSource: filters.changeSource,
+        search: filters.search,
+        resourceKinds: filters.resourceKinds,
+        actorNames: filters.actorNames,
+        apiGroups: filters.apiGroups,
+        resourceNamespaces: filters.resourceNamespaces,
+        resourceName: filters.resourceName,
+        startTime: timeRange.start,
+        endTime: timeRange.end,
+      };
+
+      const params = serializeActivityState(newState);
+      // Use replace to avoid cluttering history
+      setSearchParams(params, { replace: true });
+    },
+    [setSearchParams]
+  );
+
   return (
     <AppLayout>
       {client && (
@@ -83,7 +129,9 @@ export default function ActivityFeedPage() {
           onActivityClick={handleActivityClick}
           resourceLinkResolver={defaultResourceLinkResolver}
           onCreatePolicy={() => navigate("/policies")}
-          initialTimeRange={{ start: "now-7d" }}
+          initialTimeRange={initialTimeRange}
+          initialFilters={initialFilters}
+          onFiltersChange={handleFiltersChange}
           pageSize={30}
           showFilters={true}
           infiniteScroll={true}

@@ -28,7 +28,6 @@ export { ActivityFeedItemSkeleton } from './components/ActivityFeedItemSkeleton'
 export type { ActivityFeedItemSkeletonProps } from './components/ActivityFeedItemSkeleton';
 export { ActivityFeedSummary } from './components/ActivityFeedSummary';
 export type { ActivityFeedSummaryProps, ResourceLinkClickHandler } from './components/ActivityFeedSummary';
-export { ActivityFeedFilters } from './components/ActivityFeedFilters';
 export type { ActivityFeedFiltersProps } from './components/ActivityFeedFilters';
 export { ChangeSourceToggle } from './components/ChangeSourceToggle';
 export type { ChangeSourceToggleProps, ChangeSourceOption } from './components/ChangeSourceToggle';
@@ -46,7 +45,6 @@ export { EventFeedItem } from './components/EventFeedItem';
 export type { EventFeedItemProps } from './components/EventFeedItem';
 export { EventFeedItemSkeleton } from './components/EventFeedItemSkeleton';
 export type { EventFeedItemSkeletonProps } from './components/EventFeedItemSkeleton';
-export { EventsFeedFilters } from './components/EventsFeedFilters';
 export type { EventsFeedFiltersProps } from './components/EventsFeedFilters';
 export { EventTypeToggle } from './components/EventTypeToggle';
 export type { EventTypeToggleProps, EventTypeOption } from './components/EventTypeToggle';
@@ -194,6 +192,7 @@ export { useActivityFeed } from './hooks/useActivityFeed';
 export type {
   UseActivityFeedOptions,
   UseActivityFeedResult,
+  ActivityFeedFilters,
   ActivityFeedFilters as ActivityFeedFilterState,
   TimeRange,
 } from './hooks/useActivityFeed';
@@ -205,7 +204,9 @@ export { useEventsFeed } from './hooks/useEventsFeed';
 export type {
   UseEventsFeedOptions,
   UseEventsFeedResult,
+  EventsFeedFilters,
   EventsFeedFilters as EventsFeedFilterState,
+  TimeRange as EventsTimeRange,
 } from './hooks/useEventsFeed';
 export { useEventFacets } from './hooks/useEventFacets';
 export type { UseEventFacetsResult } from './hooks/useEventFacets';
