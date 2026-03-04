@@ -24,7 +24,7 @@ spec:
             - name: create-rule
               description: "Handles resource creation events"
               match: "verb == 'create'"
-              summary: "{{ actor }} created {{ link('Deployment ' + objectRef.name, responseObject) }}"
+              summary: "{{ actor }} created Deployment {{ objectRef.name }}"
             - name: delete-rule
               description: "Handles resource deletion events"
               match: "verb == 'delete'"
