@@ -63,6 +63,8 @@ export interface ActivityFeedProps {
    * Set to 'none' to explicitly disable any max-height constraint.
    */
   maxHeight?: string;
+  /** Callback invoked when filters or time range change (useful for URL state management) */
+  onFiltersChange?: (filters: FilterState, timeRange: TimeRange) => void;
 }
 
 /**
@@ -91,6 +93,7 @@ export function ActivityFeed({
   onEffectiveTimeRangeChange,
   errorFormatter,
   maxHeight,
+  onFiltersChange: onFiltersChangeProp,
 }: ActivityFeedProps) {
   // Merge resourceUid into initial filters if provided
   const mergedInitialFilters: FilterState = {
@@ -189,16 +192,18 @@ export function ActivityFeed({
   const handleFiltersChange = useCallback(
     (newFilters: FilterState) => {
       setFilters(newFilters);
+      onFiltersChangeProp?.(newFilters, timeRange);
     },
-    [setFilters]
+    [setFilters, onFiltersChangeProp, timeRange]
   );
 
   // Handle time range changes - refresh is automatic via the hook
   const handleTimeRangeChange = useCallback(
     (newTimeRange: TimeRange) => {
       setTimeRange(newTimeRange);
+      onFiltersChangeProp?.(filters, newTimeRange);
     },
-    [setTimeRange]
+    [setTimeRange, onFiltersChangeProp, filters]
   );
 
   // Handle manual load more click

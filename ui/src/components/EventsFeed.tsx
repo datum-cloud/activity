@@ -53,6 +53,8 @@ export interface EventsFeedProps {
   onEffectiveTimeRangeChange?: EffectiveTimeRangeCallback;
   /** Custom error formatter for customizing error messages */
   errorFormatter?: ErrorFormatter;
+  /** Callback invoked when filters or time range change (useful for URL state management) */
+  onFiltersChange?: (filters: FilterState, timeRange: TimeRange) => void;
 }
 
 /**
@@ -76,6 +78,7 @@ export function EventsFeed({
   enableStreaming = false,
   onEffectiveTimeRangeChange,
   errorFormatter,
+  onFiltersChange: onFiltersChangeProp,
 }: EventsFeedProps) {
   // Merge namespace into initial filters if provided
   const mergedInitialFilters: FilterState = {
@@ -153,16 +156,18 @@ export function EventsFeed({
   const handleFiltersChange = useCallback(
     (newFilters: FilterState) => {
       setFilters(newFilters);
+      onFiltersChangeProp?.(newFilters, timeRange);
     },
-    [setFilters]
+    [setFilters, onFiltersChangeProp, timeRange]
   );
 
   // Handle time range changes - refresh is automatic via the hook
   const handleTimeRangeChange = useCallback(
     (newTimeRange: TimeRange) => {
       setTimeRange(newTimeRange);
+      onFiltersChangeProp?.(filters, newTimeRange);
     },
-    [setTimeRange]
+    [setTimeRange, onFiltersChangeProp, filters]
   );
 
   // Handle manual load more click
