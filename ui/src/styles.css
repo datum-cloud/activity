@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+/* Use JS config for content scanning */
+@config "../tailwind.config.js";
+
+@custom-variant dark (&:is(.dark *, [data-theme="dark"] *));
+
+/* Define spacing variable for Tailwind v4 utilities */
+@theme {
+  --spacing: 0.25rem;
+}
