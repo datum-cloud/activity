@@ -64,6 +64,26 @@ func init() {
 	if err := eventsv1.AddToScheme(Scheme); err != nil {
 		panic(fmt.Sprintf("failed to add events.k8s.io/v1 to scheme: %v", err))
 	}
+
+	// Register field label conversion functions for Events so field selectors like
+	// "regarding.kind=Pod" work correctly. Without this, the API machinery rejects
+	// field selectors that aren't in the default allowed list (only metadata fields).
+	//
+	// Note: Aggregated API servers maintain their own runtime.Scheme separate from
+	// kube-apiserver's scheme. We must explicitly register field label conversion
+	// functions here even though kube-apiserver may have similar registrations.
+
+	// Register for core/v1 Events (legacy API)
+	coreEventGVK := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Event"}
+	if err := Scheme.AddFieldLabelConversionFunc(coreEventGVK, v1alpha1.EventFieldLabelConversionFunc); err != nil {
+		panic(fmt.Sprintf("failed to register field label conversion for core/v1 Events: %v", err))
+	}
+
+	// Register for events.k8s.io/v1 Events (newer API)
+	eventsV1GVK := schema.GroupVersionKind{Group: "events.k8s.io", Version: "v1", Kind: "Event"}
+	if err := Scheme.AddFieldLabelConversionFunc(eventsV1GVK, v1alpha1.EventFieldLabelConversionFunc); err != nil {
+		panic(fmt.Sprintf("failed to register field label conversion for events.k8s.io/v1 Events: %v", err))
+	}
 }
 
 // ExtraConfig extends the generic apiserver configuration with activity-specific settings.
