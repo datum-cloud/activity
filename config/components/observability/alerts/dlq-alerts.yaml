@@ -30,7 +30,7 @@ spec:
             summary: "DLQ is growing - messages not being processed"
             description: "DLQ is receiving {{ $value }} events/sec for 15+ minutes. Events are failing processing faster than retry can handle."
             impact: "Failed events accumulating - may indicate systematic policy issue or processor problem"
-            runbook_url: "https://docs.datum.cloud/activity/runbooks/dlq-growth"
+            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/dlq/dlq-growth.md"
 
         # DLQ Publish Errors
         - alert: DLQPublishErrors
@@ -44,7 +44,7 @@ spec:
             summary: "Failed to publish events to DLQ"
             description: "{{ $value }} DLQ publish errors/sec. Events may be lost entirely."
             impact: "Failed events not being captured - complete data loss for affected events"
-            runbook_url: "https://docs.datum.cloud/activity/runbooks/dlq-publish-errors"
+            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/dlq/dlq-publish-errors.md"
 
         # High Retry Count Events
         - alert: DLQHighRetryCount
@@ -59,7 +59,7 @@ spec:
             summary: "DLQ events with excessive retry attempts"
             description: "{{ $value }} events have exceeded the high retry threshold for {{ $labels.api_group }}/{{ $labels.kind }}."
             impact: "Events failing persistently - policy or cluster issue preventing recovery"
-            runbook_url: "https://docs.datum.cloud/activity/runbooks/dlq-high-retry-count"
+            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/dlq/dlq-high-retry-count.md"
 
     # =========================================================================
     # DLQ Retry Effectiveness
@@ -84,7 +84,7 @@ spec:
             summary: "DLQ retry success rate is low"
             description: "{{ $value | humanizePercentage }} of retry attempts are failing. Events not recovering after retry."
             impact: "Automatic retry not effective - manual intervention may be required"
-            runbook_url: "https://docs.datum.cloud/activity/runbooks/dlq-retry-failing"
+            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/dlq/dlq-retry-failing.md"
 
     # =========================================================================
     # Per-Policy DLQ Alerts - Policy Owner Responsibility
@@ -106,4 +106,4 @@ spec:
             summary: "ActivityPolicy {{ $labels.policy_name }} sending events to DLQ"
             description: "Policy {{ $labels.policy_name }} for {{ $labels.api_group }}/{{ $labels.kind }} has {{ $value }} events/sec failing with {{ $labels.error_type }}."
             impact: "Activities not being generated for this resource type - users see incomplete timeline"
-            runbook_url: "https://docs.datum.cloud/activity/runbooks/policy-dlq-errors"
+            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/dlq/policy-dlq-errors.md"
