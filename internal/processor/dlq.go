@@ -22,7 +22,7 @@ var (
 			Name:      "events_published_total",
 			Help:      "Total number of events published to the dead-letter queue",
 		},
-		[]string{"event_type", "api_group", "kind", "error_type"},
+		[]string{"event_type", "api_group", "kind", "error_type", "policy_name"},
 	)
 
 	dlqPublishLatency = prometheus.NewHistogram(
@@ -141,6 +141,10 @@ type DeadLetterEvent struct {
 	// PolicyName is the name of the ActivityPolicy that failed evaluation.
 	PolicyName string `json:"policyName"`
 
+	// PolicyVersion is the policy.Generation when the failure occurred.
+	// Used to trigger immediate retry when the policy is updated.
+	PolicyVersion int64 `json:"policyVersion"`
+
 	// RuleIndex is the index of the rule within the policy that failed.
 	// -1 indicates the error occurred before rule evaluation.
 	RuleIndex int `json:"ruleIndex"`
@@ -153,6 +157,16 @@ type DeadLetterEvent struct {
 
 	// Resource contains information about the target resource.
 	Resource *DeadLetterResource `json:"resource,omitempty"`
+
+	// RetryCount tracks how many times this event has been retried.
+	RetryCount int `json:"retryCount"`
+
+	// LastRetryAt is when the last retry attempt occurred.
+	LastRetryAt *metav1.Time `json:"lastRetryAt,omitempty"`
+
+	// NextRetryAfter is when the event becomes eligible for the next retry.
+	// Nil means the event has not been retried yet.
+	NextRetryAfter *metav1.Time `json:"nextRetryAfter,omitempty"`
 }
 
 // DeadLetterTenant contains tenant information for a dead-lettered event.
@@ -212,12 +226,14 @@ func DefaultDLQConfig() DLQConfig {
 // DLQPublisher publishes failed events to the dead-letter queue.
 type DLQPublisher interface {
 	// PublishAuditFailure publishes a failed audit event to the DLQ.
+	// policyVersion should be the policy.Generation when available, or 0 if no policy.
 	// Returns nil if the DLQ is disabled.
-	PublishAuditFailure(ctx context.Context, payload json.RawMessage, policyName string, ruleIndex int, errorType ErrorType, err error, resource *DeadLetterResource, tenant *DeadLetterTenant) error
+	PublishAuditFailure(ctx context.Context, payload json.RawMessage, policyName string, policyVersion int64, ruleIndex int, errorType ErrorType, err error, resource *DeadLetterResource, tenant *DeadLetterTenant) error
 
 	// PublishEventFailure publishes a failed Kubernetes event to the DLQ.
+	// policyVersion should be the policy.Generation when available, or 0 if no policy.
 	// Returns nil if the DLQ is disabled.
-	PublishEventFailure(ctx context.Context, payload json.RawMessage, policyName string, ruleIndex int, errorType ErrorType, err error, resource *DeadLetterResource, tenant *DeadLetterTenant) error
+	PublishEventFailure(ctx context.Context, payload json.RawMessage, policyName string, policyVersion int64, ruleIndex int, errorType ErrorType, err error, resource *DeadLetterResource, tenant *DeadLetterTenant) error
 }
 
 // NATSDLQPublisher implements DLQPublisher using NATS JetStream.
@@ -240,17 +256,17 @@ func NewDLQPublisher(js nats.JetStreamContext, config DLQConfig) DLQPublisher {
 }
 
 // PublishAuditFailure publishes a failed audit event to the DLQ.
-func (p *NATSDLQPublisher) PublishAuditFailure(ctx context.Context, payload json.RawMessage, policyName string, ruleIndex int, errorType ErrorType, err error, resource *DeadLetterResource, tenant *DeadLetterTenant) error {
-	return p.publish(ctx, EventTypeAudit, payload, policyName, ruleIndex, errorType, err, resource, tenant)
+func (p *NATSDLQPublisher) PublishAuditFailure(ctx context.Context, payload json.RawMessage, policyName string, policyVersion int64, ruleIndex int, errorType ErrorType, err error, resource *DeadLetterResource, tenant *DeadLetterTenant) error {
+	return p.publish(ctx, EventTypeAudit, payload, policyName, policyVersion, ruleIndex, errorType, err, resource, tenant)
 }
 
 // PublishEventFailure publishes a failed Kubernetes event to the DLQ.
-func (p *NATSDLQPublisher) PublishEventFailure(ctx context.Context, payload json.RawMessage, policyName string, ruleIndex int, errorType ErrorType, err error, resource *DeadLetterResource, tenant *DeadLetterTenant) error {
-	return p.publish(ctx, EventTypeK8sEvent, payload, policyName, ruleIndex, errorType, err, resource, tenant)
+func (p *NATSDLQPublisher) PublishEventFailure(ctx context.Context, payload json.RawMessage, policyName string, policyVersion int64, ruleIndex int, errorType ErrorType, err error, resource *DeadLetterResource, tenant *DeadLetterTenant) error {
+	return p.publish(ctx, EventTypeK8sEvent, payload, policyName, policyVersion, ruleIndex, errorType, err, resource, tenant)
 }
 
 // publish publishes a dead-letter event to NATS.
-func (p *NATSDLQPublisher) publish(ctx context.Context, eventType EventType, payload json.RawMessage, policyName string, ruleIndex int, errorType ErrorType, originalErr error, resource *DeadLetterResource, tenant *DeadLetterTenant) error {
+func (p *NATSDLQPublisher) publish(ctx context.Context, eventType EventType, payload json.RawMessage, policyName string, policyVersion int64, ruleIndex int, errorType ErrorType, originalErr error, resource *DeadLetterResource, tenant *DeadLetterTenant) error {
 	// Safely extract error message
 	errMsg := ""
 	if originalErr != nil {
@@ -263,10 +279,14 @@ func (p *NATSDLQPublisher) publish(ctx context.Context, eventType EventType, pay
 		Error:           errMsg,
 		ErrorType:       errorType,
 		PolicyName:      policyName,
+		PolicyVersion:   policyVersion,
 		RuleIndex:       ruleIndex,
 		Timestamp:       metav1.Now(),
 		Resource:        resource,
 		Tenant:          tenant,
+		RetryCount:      0,
+		LastRetryAt:     nil,
+		NextRetryAfter:  nil,
 	}
 
 	data, err := json.Marshal(dlEvent)
@@ -308,6 +328,7 @@ func (p *NATSDLQPublisher) publish(ctx context.Context, eventType EventType, pay
 		apiGroup,
 		kind,
 		string(errorType),
+		policyName,
 	).Inc()
 
 	klog.V(2).InfoS("Published event to DLQ",
@@ -324,10 +345,10 @@ func (p *NATSDLQPublisher) publish(ctx context.Context, eventType EventType, pay
 // noopDLQPublisher is a no-op implementation when DLQ is disabled.
 type noopDLQPublisher struct{}
 
-func (p *noopDLQPublisher) PublishAuditFailure(ctx context.Context, payload json.RawMessage, policyName string, ruleIndex int, errorType ErrorType, err error, resource *DeadLetterResource, tenant *DeadLetterTenant) error {
+func (p *noopDLQPublisher) PublishAuditFailure(ctx context.Context, payload json.RawMessage, policyName string, policyVersion int64, ruleIndex int, errorType ErrorType, err error, resource *DeadLetterResource, tenant *DeadLetterTenant) error {
 	return nil
 }
 
-func (p *noopDLQPublisher) PublishEventFailure(ctx context.Context, payload json.RawMessage, policyName string, ruleIndex int, errorType ErrorType, err error, resource *DeadLetterResource, tenant *DeadLetterTenant) error {
+func (p *noopDLQPublisher) PublishEventFailure(ctx context.Context, payload json.RawMessage, policyName string, policyVersion int64, ruleIndex int, errorType ErrorType, err error, resource *DeadLetterResource, tenant *DeadLetterTenant) error {
 	return nil
 }

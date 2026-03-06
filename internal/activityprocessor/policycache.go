@@ -8,8 +8,6 @@ import (
 	"sync"
 
 	"github.com/google/cel-go/cel"
-	"github.com/google/cel-go/common/types"
-	"github.com/google/cel-go/common/types/ref"
 	"k8s.io/klog/v2"
 
 	internalcel "go.miloapis.com/activity/internal/cel"
@@ -390,45 +388,15 @@ func compileSummaryTemplate(env *cel.Env, template string) ([]compiledTemplate, 
 }
 
 // auditEnvironment creates a CEL environment for audit rule expressions.
+// Uses the shared environment from internal/cel package.
 func auditEnvironment() (*cel.Env, error) {
-	auditType := cel.MapType(cel.StringType, cel.DynType)
-	actorRefType := cel.MapType(cel.StringType, cel.DynType)
-
-	return cel.NewEnv(
-		cel.Variable("audit", auditType),
-		cel.Variable("actor", cel.StringType),
-		cel.Variable("actorRef", actorRefType),
-		cel.Function("link",
-			cel.Overload("link_string_dyn",
-				[]*cel.Type{cel.StringType, cel.DynType},
-				cel.StringType,
-				cel.BinaryBinding(func(displayText, resourceRef ref.Val) ref.Val {
-					return types.String(fmt.Sprintf("%v", displayText.Value()))
-				}),
-			),
-		),
-	)
+	return internalcel.NewAuditEnvironment(nil)
 }
 
 // eventEnvironment creates a CEL environment for event rule expressions.
+// Uses the shared environment from internal/cel package.
 func eventEnvironment() (*cel.Env, error) {
-	eventType := cel.MapType(cel.StringType, cel.DynType)
-	actorRefType := cel.MapType(cel.StringType, cel.DynType)
-
-	return cel.NewEnv(
-		cel.Variable("event", eventType),
-		cel.Variable("actor", cel.StringType),
-		cel.Variable("actorRef", actorRefType),
-		cel.Function("link",
-			cel.Overload("link_string_dyn",
-				[]*cel.Type{cel.StringType, cel.DynType},
-				cel.StringType,
-				cel.BinaryBinding(func(displayText, resourceRef ref.Val) ref.Val {
-					return types.String(fmt.Sprintf("%v", displayText.Value()))
-				}),
-			),
-		),
-	)
+	return internalcel.NewEventEnvironment(nil)
 }
 
 // EvaluateAuditRules evaluates audit rules against an audit event using pre-compiled programs.
@@ -438,11 +406,7 @@ func (r *CompiledRule) EvaluateAuditMatch(auditMap map[string]any) (bool, error)
 		return false, nil
 	}
 
-	vars := map[string]any{
-		"audit":    auditMap,
-		"actor":    extractString(auditMap, "user", "username"),
-		"actorRef": buildActorRef(auditMap),
-	}
+	vars := internalcel.BuildAuditVars(auditMap)
 
 	out, _, err := r.MatchProgram.Eval(vars)
 	if err != nil {
@@ -481,11 +445,7 @@ func (r *CompiledRule) EvaluateEventMatch(eventMap map[string]any) (bool, error)
 		return false, nil
 	}
 
-	vars := map[string]any{
-		"event":    eventMap,
-		"actor":    extractEventActor(eventMap),
-		"actorRef": buildEventActorRef(eventMap),
-	}
+	vars := internalcel.BuildEventVars(eventMap)
 
 	out, _, err := r.MatchProgram.Eval(vars)
 	if err != nil {
@@ -498,72 +458,6 @@ func (r *CompiledRule) EvaluateEventMatch(eventMap map[string]any) (bool, error)
 	}
 
 	return result, nil
-}
-
-// Helper functions for building CEL variables
-
-func extractString(m map[string]any, keys ...string) string {
-	current := m
-	for i, key := range keys {
-		if i == len(keys)-1 {
-			if v, ok := current[key].(string); ok {
-				return v
-			}
-			return ""
-		}
-		if nested, ok := current[key].(map[string]any); ok {
-			current = nested
-		} else {
-			return ""
-		}
-	}
-	return ""
-}
-
-func buildActorRef(auditMap map[string]any) map[string]any {
-	username := extractString(auditMap, "user", "username")
-	if username == "" {
-		return map[string]any{"type": "unknown", "name": ""}
-	}
-
-	actorType := "user"
-	if strings.HasPrefix(username, "system:serviceaccount:") {
-		actorType = "serviceaccount"
-	} else if strings.HasPrefix(username, "system:") {
-		actorType = "system"
-	}
-
-	return map[string]any{"type": actorType, "name": username}
-}
-
-func extractEventActor(eventMap map[string]any) string {
-	if controller := extractString(eventMap, "reportingController"); controller != "" {
-		return controller
-	}
-	return extractString(eventMap, "source", "component")
-}
-
-func buildEventActorRef(eventMap map[string]any) map[string]any {
-	controller := extractEventActor(eventMap)
-	return map[string]any{"type": "controller", "name": controller}
-}
-
-// BuildAuditVars builds the variables map for audit rule evaluation.
-func BuildAuditVars(auditMap map[string]any) map[string]any {
-	return map[string]any{
-		"audit":    auditMap,
-		"actor":    extractString(auditMap, "user", "username"),
-		"actorRef": buildActorRef(auditMap),
-	}
-}
-
-// BuildEventVars builds the variables map for event rule evaluation.
-func BuildEventVars(eventMap map[string]any) map[string]any {
-	return map[string]any{
-		"event":    eventMap,
-		"actor":    extractEventActor(eventMap),
-		"actorRef": buildEventActorRef(eventMap),
-	}
 }
 
 // MatchEvent implements processor.EventPolicyLookup.
@@ -608,6 +502,7 @@ func (c *PolicyCache) MatchEvent(apiGroup, kind string, eventMap map[string]any)
 
 				return &processor.MatchedPolicy{
 					PolicyName: policy.Name,
+					Generation: policy.OriginalPolicy.Generation,
 					APIGroup:   policy.APIGroup,
 					Kind:       policy.Kind,
 					Summary:    summary,

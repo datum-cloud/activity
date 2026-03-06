@@ -1,0 +1,525 @@
+package activityprocessor
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"math"
+	"sync"
+	"time"
+
+	"github.com/nats-io/nats.go"
+	"github.com/prometheus/client_golang/prometheus"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
+
+	"go.miloapis.com/activity/internal/processor"
+	"go.miloapis.com/activity/pkg/apis/activity/v1alpha1"
+)
+
+var (
+	dlqRetryAttemptsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "activity_processor",
+			Subsystem: "dlq_retry",
+			Name:      "attempts_total",
+			Help:      "Total number of DLQ retry attempts",
+		},
+		[]string{"trigger", "api_group", "kind", "result"},
+	)
+
+	dlqRetryBatchDuration = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: "activity_processor",
+			Subsystem: "dlq_retry",
+			Name:      "batch_duration_seconds",
+			Help:      "Duration of DLQ retry batch processing",
+			Buckets:   prometheus.DefBuckets,
+		},
+		[]string{"trigger"},
+	)
+
+	dlqEventsHighRetryTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "activity_processor",
+			Subsystem: "dlq_retry",
+			Name:      "events_high_retry_total",
+			Help:      "Total number of DLQ events that reached high retry threshold",
+		},
+		[]string{"api_group", "kind", "policy_name"},
+	)
+)
+
+func init() {
+	metrics.Registry.MustRegister(
+		dlqRetryAttemptsTotal,
+		dlqRetryBatchDuration,
+		dlqEventsHighRetryTotal,
+	)
+}
+
+// DLQRetryConfig holds configuration for the DLQ retry controller.
+type DLQRetryConfig struct {
+	// Enabled controls whether automatic retry is enabled.
+	Enabled bool
+	// Interval is how often to check for retry-eligible events.
+	Interval time.Duration
+	// BatchSize is how many events to process per batch.
+	BatchSize int
+	// BackoffBase is the initial backoff duration.
+	BackoffBase time.Duration
+	// BackoffMultiplier is the exponential multiplier (typically 2.0).
+	BackoffMultiplier float64
+	// BackoffMax is the maximum backoff duration.
+	BackoffMax time.Duration
+	// AlertThreshold triggers metrics when retry count exceeds this.
+	AlertThreshold int
+	// AuditRetrySubject is the subject to republish audit events to.
+	AuditRetrySubject string
+	// EventRetrySubject is the subject to republish Kubernetes events to.
+	EventRetrySubject string
+}
+
+// DefaultDLQRetryConfig returns sensible defaults for DLQ retry.
+func DefaultDLQRetryConfig() DLQRetryConfig {
+	return DLQRetryConfig{
+		Enabled:           true,
+		Interval:          5 * time.Minute,
+		BatchSize:         100,
+		BackoffBase:       1 * time.Minute,
+		BackoffMultiplier: 2.0,
+		BackoffMax:        24 * time.Hour,
+		AlertThreshold:    10,
+		AuditRetrySubject: "audit.k8s.retry",
+		EventRetrySubject: "events.retry",
+	}
+}
+
+// DLQRetryController manages automatic retry of dead-letter queue events.
+type DLQRetryController struct {
+	js     nats.JetStreamContext
+	config DLQRetryConfig
+
+	auditStreamName  string
+	eventStreamName  string
+	dlqStreamName    string
+	dlqSubjectPrefix string
+
+	// mu protects concurrent access during policy-triggered retries
+	mu sync.Mutex
+
+	// activeRetries tracks which policies have active retry operations
+	// to prevent concurrent retries for the same policy
+	activeRetries   map[string]bool
+	activeRetriesMu sync.Mutex
+}
+
+// NewDLQRetryController creates a new DLQ retry controller.
+func NewDLQRetryController(
+	js nats.JetStreamContext,
+	config DLQRetryConfig,
+	auditStreamName string,
+	eventStreamName string,
+	dlqStreamName string,
+	dlqSubjectPrefix string,
+) *DLQRetryController {
+	return &DLQRetryController{
+		js:               js,
+		config:           config,
+		auditStreamName:  auditStreamName,
+		eventStreamName:  eventStreamName,
+		dlqStreamName:    dlqStreamName,
+		dlqSubjectPrefix: dlqSubjectPrefix,
+		activeRetries:    make(map[string]bool),
+	}
+}
+
+// Start begins the retry controller with periodic retry.
+func (c *DLQRetryController) Start(ctx context.Context) error {
+	if !c.config.Enabled {
+		klog.Info("DLQ retry controller is disabled")
+		return nil
+	}
+
+	klog.InfoS("Starting DLQ retry controller",
+		"interval", c.config.Interval,
+		"batchSize", c.config.BatchSize,
+		"backoffBase", c.config.BackoffBase,
+		"backoffMax", c.config.BackoffMax,
+	)
+
+	ticker := time.NewTicker(c.config.Interval)
+	defer ticker.Stop()
+
+	// Initial run
+	c.periodicRetry(ctx)
+
+	for {
+		select {
+		case <-ctx.Done():
+			klog.Info("DLQ retry controller stopping")
+			return nil
+		case <-ticker.C:
+			c.periodicRetry(ctx)
+		}
+	}
+}
+
+// periodicRetry processes a batch of retry-eligible DLQ events.
+func (c *DLQRetryController) periodicRetry(ctx context.Context) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	start := time.Now()
+	processed, succeeded, failed := c.processRetryBatch(ctx, "periodic", nil)
+	dlqRetryBatchDuration.WithLabelValues("periodic").Observe(time.Since(start).Seconds())
+
+	if processed > 0 {
+		klog.InfoS("Completed periodic DLQ retry batch",
+			"processed", processed,
+			"succeeded", succeeded,
+			"failed", failed,
+			"duration", time.Since(start),
+		)
+	}
+}
+
+// RetryForPolicy triggers immediate retry for events that match a specific policy.
+// This is called when an ActivityPolicy is updated.
+func (c *DLQRetryController) RetryForPolicy(ctx context.Context, policy *v1alpha1.ActivityPolicy) {
+	if !c.config.Enabled || policy == nil {
+		return
+	}
+
+	// Check if retry is already in progress for this policy
+	c.activeRetriesMu.Lock()
+	if c.activeRetries[policy.Name] {
+		c.activeRetriesMu.Unlock()
+		klog.V(2).InfoS("Retry already in progress for policy, skipping",
+			"policy", policy.Name)
+		return
+	}
+	c.activeRetries[policy.Name] = true
+	c.activeRetriesMu.Unlock()
+
+	defer func() {
+		c.activeRetriesMu.Lock()
+		delete(c.activeRetries, policy.Name)
+		c.activeRetriesMu.Unlock()
+	}()
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	start := time.Now()
+
+	// Build subject filter for this policy's resource type
+	apiGroup := policy.Spec.Resource.APIGroup
+	if apiGroup == "" {
+		apiGroup = "core"
+	}
+	kind := policy.Spec.Resource.Kind
+
+	filter := &retryFilter{
+		apiGroup:         apiGroup,
+		kind:             kind,
+		policyName:       policy.Name,
+		maxPolicyVersion: policy.Generation, // Only retry events from older policy versions
+	}
+
+	processed, succeeded, failed := c.processRetryBatch(ctx, "policy_update", filter)
+	dlqRetryBatchDuration.WithLabelValues("policy_update").Observe(time.Since(start).Seconds())
+
+	if processed > 0 {
+		klog.InfoS("Completed policy-triggered DLQ retry",
+			"policy", policy.Name,
+			"apiGroup", apiGroup,
+			"kind", kind,
+			"processed", processed,
+			"succeeded", succeeded,
+			"failed", failed,
+			"duration", time.Since(start),
+		)
+	}
+}
+
+// retryFilter defines criteria for filtering DLQ events.
+type retryFilter struct {
+	apiGroup         string
+	kind             string
+	policyName       string
+	maxPolicyVersion int64 // Only retry events with PolicyVersion < this
+}
+
+// extractResourceInfo extracts apiGroup and kind from a DeadLetterEvent.
+// Returns "core" for empty apiGroup and "unknown" for missing values.
+func extractResourceInfo(event *processor.DeadLetterEvent) (apiGroup, kind string) {
+	apiGroup = "unknown"
+	kind = "unknown"
+	if event.Resource != nil {
+		if event.Resource.APIGroup != "" {
+			apiGroup = event.Resource.APIGroup
+		} else {
+			apiGroup = "core"
+		}
+		if event.Resource.Kind != "" {
+			kind = event.Resource.Kind
+		}
+	}
+	return apiGroup, kind
+}
+
+// processRetryBatch fetches and processes retry-eligible DLQ events.
+func (c *DLQRetryController) processRetryBatch(ctx context.Context, trigger string, filter *retryFilter) (processed, succeeded, failed int) {
+	// Build subject filter
+	subject := fmt.Sprintf("%s.>", c.dlqSubjectPrefix)
+	if filter != nil {
+		// Filter by specific apiGroup and kind
+		subject = fmt.Sprintf("%s.*.%s.%s", c.dlqSubjectPrefix, filter.apiGroup, filter.kind)
+	}
+
+	// Create ephemeral consumer for this batch
+	sub, err := c.js.PullSubscribe(
+		subject,
+		"", // Durable name empty = ephemeral
+		nats.BindStream(c.dlqStreamName),
+	)
+	if err != nil {
+		klog.ErrorS(err, "Failed to create DLQ consumer", "subject", subject)
+		return 0, 0, 0
+	}
+	defer func() {
+		if err := sub.Unsubscribe(); err != nil {
+			klog.ErrorS(err, "Failed to unsubscribe from DLQ consumer")
+		}
+	}()
+
+	// Fetch batch of messages
+	// Note: We use an ephemeral consumer that's destroyed after this batch.
+	// NAKed messages return to the stream and will be available to the next
+	// ephemeral consumer on the next retry interval. This is less efficient
+	// than server-side filtering but simpler to implement correctly.
+	msgs, err := sub.Fetch(c.config.BatchSize, nats.MaxWait(5*time.Second))
+	if err != nil && err != nats.ErrTimeout {
+		klog.ErrorS(err, "Failed to fetch DLQ messages", "subject", subject)
+		return 0, 0, 0
+	}
+
+	now := time.Now()
+
+	for _, msg := range msgs {
+		processed++
+
+		// Parse the DLQ event
+		var dlEvent processor.DeadLetterEvent
+		if err := json.Unmarshal(msg.Data, &dlEvent); err != nil {
+			klog.ErrorS(err, "Failed to unmarshal DLQ event")
+			if ackErr := msg.Ack(); ackErr != nil {
+				klog.ErrorS(ackErr, "Failed to ack corrupt DLQ event")
+			}
+			failed++
+			continue
+		}
+
+		// Extract resource info for metrics
+		apiGroup, kind := extractResourceInfo(&dlEvent)
+
+		// Check filter criteria
+		if filter != nil {
+			// For policy-triggered retry, only retry events that:
+			// 1. Match the policy name (if specified)
+			// 2. Failed on an older policy version
+			if filter.policyName != "" && dlEvent.PolicyName != filter.policyName {
+				if nakErr := msg.Nak(); nakErr != nil {
+					klog.ErrorS(nakErr, "Failed to NAK DLQ message")
+				}
+				continue
+			}
+			if filter.maxPolicyVersion > 0 && dlEvent.PolicyVersion >= filter.maxPolicyVersion {
+				// Event failed on same or newer policy version, skip
+				if nakErr := msg.Nak(); nakErr != nil {
+					klog.ErrorS(nakErr, "Failed to NAK DLQ message")
+				}
+				continue
+			}
+		} else {
+			// For periodic retry, check backoff eligibility
+			if !c.isEligibleForRetry(&dlEvent, now) {
+				if nakErr := msg.Nak(); nakErr != nil {
+					klog.ErrorS(nakErr, "Failed to NAK DLQ message")
+				}
+				continue
+			}
+		}
+
+		// Attempt to republish
+		if err := c.republishEvent(ctx, &dlEvent); err != nil {
+			klog.ErrorS(err, "Failed to republish DLQ event",
+				"eventType", dlEvent.Type,
+				"policy", dlEvent.PolicyName,
+				"retryCount", dlEvent.RetryCount,
+			)
+			dlqRetryAttemptsTotal.WithLabelValues(trigger, apiGroup, kind, "failed").Inc()
+			failed++
+
+			// Update retry metadata and republish to DLQ
+			// Only ACK if metadata update succeeds, otherwise NAK to prevent data loss
+			if err := c.updateAndRepublishMetadata(ctx, &dlEvent, now); err != nil {
+				klog.ErrorS(err, "Failed to update retry metadata, NAKing to preserve event")
+				if nakErr := msg.Nak(); nakErr != nil {
+					klog.ErrorS(nakErr, "Failed to NAK DLQ message after metadata update failure")
+				}
+				continue
+			}
+			if ackErr := msg.Ack(); ackErr != nil {
+				klog.ErrorS(ackErr, "Failed to ack DLQ message after metadata update")
+			}
+			continue
+		}
+
+		// Success - ack the DLQ message
+		if ackErr := msg.Ack(); ackErr != nil {
+			klog.ErrorS(ackErr, "Failed to ack successfully retried DLQ message")
+		}
+		dlqRetryAttemptsTotal.WithLabelValues(trigger, apiGroup, kind, "succeeded").Inc()
+		succeeded++
+
+		klog.V(2).InfoS("Successfully retried DLQ event",
+			"eventType", dlEvent.Type,
+			"policy", dlEvent.PolicyName,
+			"retryCount", dlEvent.RetryCount,
+		)
+	}
+
+	return processed, succeeded, failed
+}
+
+// isEligibleForRetry checks if an event's backoff has expired.
+func (c *DLQRetryController) isEligibleForRetry(event *processor.DeadLetterEvent, now time.Time) bool {
+	// First retry is always eligible
+	if event.NextRetryAfter == nil {
+		return true
+	}
+	return now.After(event.NextRetryAfter.Time)
+}
+
+// republishEvent sends the original payload back to the source stream for reprocessing.
+// The retry subjects (audit.k8s.retry and events.retry) must be captured by the corresponding
+// NATS stream consumers. Ensure that:
+// - AUDIT_LOGS stream includes subject "audit.k8s.retry" in its subject filter
+// - EVENTS stream includes subject "events.retry" in its subject filter
+// Without this configuration, retried events will not be picked up by processors.
+func (c *DLQRetryController) republishEvent(ctx context.Context, event *processor.DeadLetterEvent) error {
+	// Determine target stream based on event type
+	var targetStream string
+	var subject string
+
+	switch event.Type {
+	case processor.EventTypeAudit:
+		targetStream = c.auditStreamName
+		subject = c.config.AuditRetrySubject
+	case processor.EventTypeK8sEvent:
+		targetStream = c.eventStreamName
+		subject = c.config.EventRetrySubject
+	default:
+		return fmt.Errorf("unknown event type: %s", event.Type)
+	}
+
+	// Use message ID for deduplication - include policy name and payload hash
+	// to ensure uniqueness across different policies and payloads
+	payloadHash := computePayloadHash(event.OriginalPayload)
+	msgID := fmt.Sprintf("dlq-retry-%s-%s-%s-%s-%d",
+		event.Type,
+		event.PolicyName,
+		payloadHash,
+		event.Timestamp.Format(time.RFC3339Nano),
+		event.RetryCount+1,
+	)
+
+	_, err := c.js.Publish(
+		subject,
+		event.OriginalPayload,
+		nats.MsgId(msgID),
+		nats.ExpectStream(targetStream),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to publish to %s: %w", targetStream, err)
+	}
+
+	return nil
+}
+
+// updateAndRepublishMetadata updates retry metadata and republishes to DLQ.
+// Returns an error if the update fails - caller should NAK the original message.
+func (c *DLQRetryController) updateAndRepublishMetadata(ctx context.Context, event *processor.DeadLetterEvent, now time.Time) error {
+	// Update retry metadata
+	event.RetryCount++
+	nowTime := metav1.NewTime(now)
+	event.LastRetryAt = &nowTime
+
+	// Calculate next retry time
+	backoff := c.calculateBackoff(event.RetryCount)
+	nextRetry := metav1.NewTime(now.Add(backoff))
+	event.NextRetryAfter = &nextRetry
+
+	// Track high retry count events
+	if event.RetryCount >= c.config.AlertThreshold {
+		apiGroup, kind := extractResourceInfo(event)
+		dlqEventsHighRetryTotal.WithLabelValues(apiGroup, kind, event.PolicyName).Inc()
+	}
+
+	// Republish updated event to DLQ
+	data, err := json.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("failed to marshal updated DLQ event: %w", err)
+	}
+
+	// Build subject for updated event
+	apiGroup, kind := extractResourceInfo(event)
+	subject := fmt.Sprintf("%s.%s.%s.%s", c.dlqSubjectPrefix, event.Type, apiGroup, kind)
+
+	// Use message ID for deduplication to prevent duplicates in DLQ
+	// Include policy name and payload hash for global uniqueness
+	payloadHash := computePayloadHash(event.OriginalPayload)
+	msgID := fmt.Sprintf("dlq-%s-%s-%s-%s-%d",
+		event.Type,
+		event.PolicyName,
+		payloadHash,
+		event.Timestamp.Format(time.RFC3339Nano),
+		event.RetryCount,
+	)
+
+	_, err = c.js.Publish(subject, data, nats.MsgId(msgID))
+	if err != nil {
+		return fmt.Errorf("failed to republish updated DLQ event: %w", err)
+	}
+	return nil
+}
+
+// calculateBackoff computes exponential backoff: min(base * multiplier^retryCount, max)
+func (c *DLQRetryController) calculateBackoff(retryCount int) time.Duration {
+	// Cap exponent to prevent overflow (2^40 minutes = ~2 million years)
+	if retryCount > 40 {
+		return c.config.BackoffMax
+	}
+
+	// Exponential backoff: base * multiplier^retryCount
+	multiplier := math.Pow(c.config.BackoffMultiplier, float64(retryCount))
+	backoff := time.Duration(float64(c.config.BackoffBase) * multiplier)
+
+	// Cap at maximum (also handles potential overflow to negative)
+	if backoff > c.config.BackoffMax || backoff < 0 {
+		return c.config.BackoffMax
+	}
+	return backoff
+}
+
+// computePayloadHash computes a short hash of the payload for message ID uniqueness.
+// Returns the first 8 characters of the SHA256 hash (32 bits of entropy).
+func computePayloadHash(payload []byte) string {
+	hash := sha256.Sum256(payload)
+	return hex.EncodeToString(hash[:4]) // 4 bytes = 8 hex characters
+}
