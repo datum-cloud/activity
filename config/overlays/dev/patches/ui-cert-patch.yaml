@@ -1,0 +1,18 @@
+# Patch activity-ui deployment to use the local CA issuer and CA secret
+# This is needed because the dev environment uses activity-ca-issuer (namespaced Issuer)
+# instead of datum-control-plane (ClusterIssuer) used in production.
+- op: replace
+  path: /spec/template/spec/volumes/1
+  value:
+    name: activity-apiserver-ca
+    secret:
+      secretName: activity-ca-secret
+      items:
+        - key: ca.crt
+          path: ca.crt
+- op: replace
+  path: /spec/template/spec/volumes/2/csi/volumeAttributes/csi.cert-manager.io~1issuer-name
+  value: activity-ca-issuer
+- op: replace
+  path: /spec/template/spec/volumes/2/csi/volumeAttributes/csi.cert-manager.io~1issuer-kind
+  value: Issuer
