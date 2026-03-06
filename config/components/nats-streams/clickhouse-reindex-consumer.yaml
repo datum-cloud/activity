@@ -20,7 +20,7 @@ spec:
   replayPolicy: instant
 
   # Filter subject: all reindex activities
-  filterSubject: reindex.activities.>
+  filterSubject: activity_miloapis_com_reindex.>
 
   # Max delivery attempts: unlimited (-1)
   maxDeliver: -1

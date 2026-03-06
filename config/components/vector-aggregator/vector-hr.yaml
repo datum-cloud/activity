@@ -132,7 +132,7 @@ spec:
           url: nats://nats.nats-system.svc.cluster.local:4222
 
           # Subject filter for reindexed activities
-          subject: reindex.activities.>
+          subject: activity_miloapis_com_reindex.>
 
           # JetStream configuration
           jetstream:
