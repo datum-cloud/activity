@@ -45,17 +45,19 @@ type ManagerOptions struct {
 	JobClient client.Client
 
 	// ReindexJob configuration
-	ReindexJobNamespace      string
-	ReindexServiceAccount    string
-	ReindexMemoryLimit       string
-	ReindexCPULimit          string
-	MaxConcurrentReindexJobs int
-	ActivityImage            string
-	NATSURL                  string
-	NATSTLSEnabled           bool
-	NATSTLSCertFile          string
-	NATSTLSKeyFile           string
-	NATSTLSCAFile            string
+	ReindexJobNamespace       string
+	ReindexServiceAccount     string
+	ReindexMemoryLimit        string
+	ReindexCPULimit           string
+	MaxConcurrentReindexJobs  int
+	ActivityImage             string
+	WorkerKubeconfigSecret    string
+	WorkerKubeconfigSecretKey string
+	NATSURL                   string
+	NATSTLSEnabled            bool
+	NATSTLSCertFile           string
+	NATSTLSKeyFile            string
+	NATSTLSCAFile             string
 }
 
 // ActivityPolicyGVR is the GroupVersionResource for ActivityPolicy.
@@ -99,22 +101,24 @@ func NewManager(config *rest.Config, options ManagerOptions) (ctrl.Manager, erro
 
 	// Create and register the ReindexJob reconciler
 	reindexReconciler := &ReindexJobReconciler{
-		Client:                mgr.GetClient(),
-		JobClient:             options.JobClient,
-		Scheme:                mgr.GetScheme(),
-		JetStream:             options.JetStream,
-		Recorder:              mgr.GetEventRecorderFor("reindexjob-controller"),
-		JobNamespace:          options.ReindexJobNamespace,
-		ActivityImage:         options.ActivityImage,
-		ReindexServiceAccount: options.ReindexServiceAccount,
-		ReindexMemoryLimit:    options.ReindexMemoryLimit,
-		ReindexCPULimit:       options.ReindexCPULimit,
-		MaxConcurrentJobs:     options.MaxConcurrentReindexJobs,
-		NATSURL:               options.NATSURL,
-		NATSTLSEnabled:        options.NATSTLSEnabled,
-		NATSTLSCertFile:       options.NATSTLSCertFile,
-		NATSTLSKeyFile:        options.NATSTLSKeyFile,
-		NATSTLSCAFile:         options.NATSTLSCAFile,
+		Client:                    mgr.GetClient(),
+		JobClient:                 options.JobClient,
+		Scheme:                    mgr.GetScheme(),
+		JetStream:                 options.JetStream,
+		Recorder:                  mgr.GetEventRecorderFor("reindexjob-controller"),
+		JobNamespace:              options.ReindexJobNamespace,
+		ActivityImage:             options.ActivityImage,
+		ReindexServiceAccount:     options.ReindexServiceAccount,
+		ReindexMemoryLimit:        options.ReindexMemoryLimit,
+		ReindexCPULimit:           options.ReindexCPULimit,
+		MaxConcurrentJobs:         options.MaxConcurrentReindexJobs,
+		WorkerKubeconfigSecret:    options.WorkerKubeconfigSecret,
+		WorkerKubeconfigSecretKey: options.WorkerKubeconfigSecretKey,
+		NATSURL:                   options.NATSURL,
+		NATSTLSEnabled:            options.NATSTLSEnabled,
+		NATSTLSCertFile:           options.NATSTLSCertFile,
+		NATSTLSKeyFile:            options.NATSTLSKeyFile,
+		NATSTLSCAFile:             options.NATSTLSCAFile,
 	}
 
 	if err := reindexReconciler.SetupWithManager(mgr, options.Workers); err != nil {

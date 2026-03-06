@@ -93,11 +93,18 @@ type ReindexJobReconciler struct {
 	ReindexMemoryLimit    string
 	ReindexCPULimit       string
 	MaxConcurrentJobs     int
-	NATSURL               string
-	NATSTLSEnabled        bool
-	NATSTLSCertFile       string
-	NATSTLSKeyFile        string
-	NATSTLSCAFile         string
+
+	// Kubeconfig for worker pods to connect to the API server (Milo)
+	// If set, the kubeconfig will be mounted into worker pods
+	WorkerKubeconfigSecret    string // Secret name containing kubeconfig
+	WorkerKubeconfigSecretKey string // Key in the secret (default: "kubeconfig")
+
+	// NATS configuration for worker pods
+	NATSURL        string
+	NATSTLSEnabled bool
+	NATSTLSCertFile string
+	NATSTLSKeyFile  string
+	NATSTLSCAFile   string
 }
 
 // +kubebuilder:rbac:groups=activity.miloapis.com,resources=reindexjobs,verbs=get;list;watch;update;patch;delete
@@ -360,13 +367,49 @@ func (r *ReindexJobReconciler) buildJobForReindexJob(reindexJob *v1alpha1.Reinde
 		resourceRequirements.Limits[corev1.ResourceCPU] = cpuQty
 	}
 
+	// Build volume mounts and volumes for the container
+	var volumeMounts []corev1.VolumeMount
+	var volumes []corev1.Volume
+
+	// Add kubeconfig if configured
+	if r.WorkerKubeconfigSecret != "" {
+		kubeconfigKey := r.WorkerKubeconfigSecretKey
+		if kubeconfigKey == "" {
+			kubeconfigKey = "kubeconfig"
+		}
+		kubeconfigPath := "/etc/kubernetes/kubeconfig"
+
+		args = append(args, "--kubeconfig="+kubeconfigPath)
+
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{
+			Name:      "kubeconfig",
+			MountPath: "/etc/kubernetes",
+			ReadOnly:  true,
+		})
+
+		volumes = append(volumes, corev1.Volume{
+			Name: "kubeconfig",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: r.WorkerKubeconfigSecret,
+					Items: []corev1.KeyToPath{
+						{
+							Key:  kubeconfigKey,
+							Path: "kubeconfig",
+						},
+					},
+				},
+			},
+		})
+	}
+
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-job", reindexJob.Name),
 			Namespace: r.JobNamespace,
 			Labels: map[string]string{
-				"app":                                  "activity-reindex",
-				"reindex.activity.miloapis.com/job":    reindexJob.Name,
+				"app":                               "activity-reindex",
+				"reindex.activity.miloapis.com/job": reindexJob.Name,
 			},
 		},
 		Spec: batchv1.JobSpec{
@@ -391,12 +434,14 @@ func (r *ReindexJobReconciler) buildJobForReindexJob(reindexJob *v1alpha1.Reinde
 							Type: corev1.SeccompProfileTypeRuntimeDefault,
 						},
 					},
+					Volumes: volumes,
 					Containers: []corev1.Container{
 						{
-							Name:      "reindex",
-							Image:     r.ActivityImage,
-							Args:      args,
-							Resources: resourceRequirements,
+							Name:         "reindex",
+							Image:        r.ActivityImage,
+							Args:         args,
+							Resources:    resourceRequirements,
+							VolumeMounts: volumeMounts,
 							SecurityContext: &corev1.SecurityContext{
 								AllowPrivilegeEscalation: ptr.To(false),
 								ReadOnlyRootFilesystem:   ptr.To(true),

@@ -42,6 +42,10 @@ type ControllerManagerOptions struct {
 	ReindexCPULimit          string
 	MaxConcurrentReindexJobs int
 	ActivityImage            string
+
+	// Worker kubeconfig for connecting to Milo API server
+	WorkerKubeconfigSecret    string
+	WorkerKubeconfigSecretKey string
 }
 
 // NewControllerManagerOptions creates options with default values.
@@ -99,6 +103,10 @@ func (o *ControllerManagerOptions) AddFlags(fs *pflag.FlagSet) {
 		"Maximum number of concurrent ReindexJobs allowed.")
 	fs.StringVar(&o.ActivityImage, "activity-image", o.ActivityImage,
 		"Container image for activity binary used by ReindexJob workers.")
+	fs.StringVar(&o.WorkerKubeconfigSecret, "worker-kubeconfig-secret", o.WorkerKubeconfigSecret,
+		"Secret name containing kubeconfig for worker pods to connect to Milo API server.")
+	fs.StringVar(&o.WorkerKubeconfigSecretKey, "worker-kubeconfig-secret-key", o.WorkerKubeconfigSecretKey,
+		"Key in the kubeconfig secret (default: 'kubeconfig').")
 }
 
 // NewControllerManagerCommand creates the controller-manager subcommand.
@@ -178,21 +186,23 @@ func RunControllerManager(options *ControllerManagerOptions) error {
 	}
 
 	managerOpts := controller.ManagerOptions{
-		Workers:                  options.Workers,
-		MetricsAddr:              options.MetricsAddr,
-		HealthProbeAddr:          options.HealthProbeAddr,
-		JobClient:                jobClient,
-		ReindexJobNamespace:      options.ReindexJobNamespace,
-		ReindexServiceAccount:    options.ReindexServiceAccount,
-		ReindexMemoryLimit:       options.ReindexMemoryLimit,
-		ReindexCPULimit:          options.ReindexCPULimit,
-		MaxConcurrentReindexJobs: options.MaxConcurrentReindexJobs,
-		ActivityImage:            options.ActivityImage,
-		NATSURL:                  options.NATSURL,
-		NATSTLSEnabled:           options.NATSTLSEnabled,
-		NATSTLSCertFile:          options.NATSTLSCertFile,
-		NATSTLSKeyFile:           options.NATSTLSKeyFile,
-		NATSTLSCAFile:            options.NATSTLSCAFile,
+		Workers:                   options.Workers,
+		MetricsAddr:               options.MetricsAddr,
+		HealthProbeAddr:           options.HealthProbeAddr,
+		JobClient:                 jobClient,
+		ReindexJobNamespace:       options.ReindexJobNamespace,
+		ReindexServiceAccount:     options.ReindexServiceAccount,
+		ReindexMemoryLimit:        options.ReindexMemoryLimit,
+		ReindexCPULimit:           options.ReindexCPULimit,
+		MaxConcurrentReindexJobs:  options.MaxConcurrentReindexJobs,
+		ActivityImage:             options.ActivityImage,
+		WorkerKubeconfigSecret:    options.WorkerKubeconfigSecret,
+		WorkerKubeconfigSecretKey: options.WorkerKubeconfigSecretKey,
+		NATSURL:                   options.NATSURL,
+		NATSTLSEnabled:            options.NATSTLSEnabled,
+		NATSTLSCertFile:           options.NATSTLSCertFile,
+		NATSTLSKeyFile:            options.NATSTLSKeyFile,
+		NATSTLSCAFile:             options.NATSTLSCAFile,
 	}
 
 	// Initialize NATS JetStream connection
