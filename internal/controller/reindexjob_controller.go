@@ -460,9 +460,11 @@ func (r *ReindexJobReconciler) SetupWithManager(mgr ctrl.Manager, maxConcurrentR
 	}
 	klog.InfoS("NATS stream verified", "stream", stream.Config.Name, "subjects", stream.Config.Subjects)
 
+	// Note: We don't use Owns(&batchv1.Job{}) because Jobs are created in the
+	// infrastructure cluster while the manager watches Milo. Instead, we poll
+	// for Job status using RequeueAfter in the reconcile loop.
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.ReindexJob{}).
-		Owns(&batchv1.Job{}).
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: maxConcurrentReconciles,
 		}).
