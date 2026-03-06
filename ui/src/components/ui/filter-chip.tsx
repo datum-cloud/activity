@@ -58,17 +58,21 @@ export function FilterChip({
 }: FilterChipProps) {
   const [open, setOpen] = React.useState(false);
   const hasAutoOpenedRef = React.useRef(false);
+  const wasEverOpenRef = React.useRef(false);
 
   // When autoOpen becomes true, open the popover
   React.useEffect(() => {
     if (autoOpen && !hasAutoOpenedRef.current) {
-      // Small delay to ensure the AddFilterDropdown's popover has fully closed
+      // Delay to ensure the AddFilterDropdown's popover has fully closed
       // before opening this one. This prevents the new popover from being
       // immediately closed by residual click/focus events from the dropdown.
-      setTimeout(() => {
-        setOpen(true);
-        hasAutoOpenedRef.current = true;
-      }, 50);
+      hasAutoOpenedRef.current = true;
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          setOpen(true);
+          wasEverOpenRef.current = true;
+        }, 500);
+      });
     }
   }, [autoOpen]);
 
@@ -76,7 +80,11 @@ export function FilterChip({
   const handleOpenChange = React.useCallback(
     (newOpen: boolean) => {
       setOpen(newOpen);
-      if (!newOpen && onPopoverClose) {
+      if (newOpen) {
+        wasEverOpenRef.current = true;
+      }
+      // Only call onPopoverClose if the popover was actually opened at some point
+      if (!newOpen && onPopoverClose && wasEverOpenRef.current) {
         onPopoverClose();
       }
     },

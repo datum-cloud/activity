@@ -287,7 +287,7 @@ export function ActivityFeedItem({
       className={cn(
         'cursor-pointer transition-all duration-200',
         'hover:border-gray-300 hover:shadow-sm hover:-translate-y-px dark:hover:border-gray-600',
-        compact ? 'p-3 mb-3' : 'p-4 mb-3',
+        compact ? 'p-1.5 mb-1' : 'p-4 mb-3',
         isSelected && 'border-rose-300 bg-rose-50 shadow-md dark:border-rose-600 dark:bg-rose-950/50',
         isNew && 'border-l-4 border-l-green-500 bg-green-50/50 dark:border-l-green-400 dark:bg-green-950/30',
         className

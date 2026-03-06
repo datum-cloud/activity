@@ -23,6 +23,7 @@ components:
   - ../../components/k8s-event-exporter            # Kubernetes events → NATS
   - ../../components/tracing
   - ../../components/observability            # ServiceMonitors, alerts, dashboards
+  - ../../components/ui
 
 # Note: The following HA components are excluded for dev environments:
 # - clickhouse-keeper       # Replaced by clickhouse-keeper-standalone (1 replica)

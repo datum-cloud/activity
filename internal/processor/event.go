@@ -141,7 +141,7 @@ func (p *EventProcessor) processMessage(ctx context.Context, msg *nats.Msg) erro
 		// Publish to DLQ - unmarshal errors are unrecoverable
 		// Tenant is nil for events as they don't have user context
 		if dlqErr := p.dlqPublisher.PublishEventFailure(
-			ctx, rawPayload, "", -1, ErrorTypeUnmarshal, err, nil, nil,
+			ctx, rawPayload, "", 0, -1, ErrorTypeUnmarshal, err, nil, nil,
 		); dlqErr != nil {
 			klog.ErrorS(dlqErr, "Failed to publish to DLQ")
 			return fmt.Errorf("failed to unmarshal event: %w", err)
@@ -190,6 +190,7 @@ func (p *EventProcessor) processMessage(ctx context.Context, msg *nats.Msg) erro
 		// Extract policy context from error if available
 		errorType := ErrorTypeCELSummary // Default to summary since match errors are logged and skipped
 		policyName := ""
+		policyVersion := int64(0)
 		ruleIndex := -1
 
 		var policyErr *PolicyEvaluationError
@@ -201,7 +202,7 @@ func (p *EventProcessor) processMessage(ctx context.Context, msg *nats.Msg) erro
 		// Publish to DLQ
 		// Tenant is nil for events as they don't have user context
 		if dlqErr := p.dlqPublisher.PublishEventFailure(
-			ctx, rawPayload, policyName, ruleIndex, errorType, err, dlqResource, nil,
+			ctx, rawPayload, policyName, policyVersion, ruleIndex, errorType, err, dlqResource, nil,
 		); dlqErr != nil {
 			klog.ErrorS(dlqErr, "Failed to publish to DLQ, NAKing message")
 			return fmt.Errorf("failed to match event against policies: %w", err)
