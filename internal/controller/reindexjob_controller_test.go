@@ -207,6 +207,7 @@ func TestCountRunningJobs(t *testing.T) {
 
 	reconciler := &ReindexJobReconciler{
 		Client:       fakeClient,
+		JobClient:    fakeClient,
 		JobNamespace: "activity-system",
 	}
 
@@ -236,6 +237,7 @@ func TestGetJobForReindexJob(t *testing.T) {
 
 	reconciler := &ReindexJobReconciler{
 		Client:       fakeClient,
+		JobClient:    fakeClient,
 		JobNamespace: "activity-system",
 	}
 
@@ -264,8 +266,9 @@ func TestCheckJobStatus(t *testing.T) {
 	recorder := record.NewFakeRecorder(10)
 
 	reconciler := &ReindexJobReconciler{
-		Client:   fakeClient,
-		Recorder: recorder,
+		Client:    fakeClient,
+		JobClient: fakeClient,
+		Recorder:  recorder,
 	}
 
 	t.Run("job still running", func(t *testing.T) {

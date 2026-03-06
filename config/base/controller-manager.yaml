@@ -81,6 +81,7 @@ spec:
         - --reindex-cpu-limit=$(REINDEX_CPU_LIMIT)
         - --max-concurrent-reindex-jobs=$(MAX_CONCURRENT_REINDEX_JOBS)
         - --activity-image=$(ACTIVITY_IMAGE)
+        - --reindex-job-template-configmap=$(REINDEX_JOB_TEMPLATE_CONFIGMAP)
         - -v=$(LOG_LEVEL)
         env:
         - name: KUBECONFIG
@@ -115,6 +116,8 @@ spec:
           value: "1000m"
         - name: MAX_CONCURRENT_REINDEX_JOBS
           value: "1"
+        - name: REINDEX_JOB_TEMPLATE_CONFIGMAP
+          value: ""  # Optional: namespace/name of ConfigMap containing job template
         - name: CLICKHOUSE_ADDRESS
           valueFrom:
             secretKeyRef:

@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# This component enables ConfigMap-based Job template configuration for ReindexJob workers.
+# It adds:
+# - A ConfigMap containing the Job template (with CSI volume for kubeconfig)
+# - A patch to configure the controller-manager to use the template
+# - RBAC to allow the controller-manager to read the ConfigMap
+
+resources:
+  - configmap.yaml
+  - rbac.yaml
+
+patches:
+  - path: patch-controller-manager.yaml
+    target:
+      kind: Deployment
+      name: activity-controller-manager

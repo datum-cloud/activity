@@ -15,7 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -81,22 +80,30 @@ func init() {
 // ReindexJobReconciler reconciles ReindexJob resources.
 type ReindexJobReconciler struct {
 	client.Client
+	JobClient client.Client
 	Scheme    *runtime.Scheme
 	JetStream nats.JetStreamContext
 	Recorder  record.EventRecorder
 
 	// Configuration for Kubernetes Jobs
-	JobNamespace         string
-	ActivityImage        string
+	JobNamespace          string
+	ActivityImage         string
 	ReindexServiceAccount string
-	ReindexMemoryLimit   string
-	ReindexCPULimit      string
-	MaxConcurrentJobs    int
-	NATSURL              string
-	NATSTLSEnabled       bool
-	NATSTLSCertFile      string
-	NATSTLSKeyFile       string
-	NATSTLSCAFile        string
+	ReindexMemoryLimit    string
+	ReindexCPULimit       string
+	MaxConcurrentJobs     int
+
+	// JobTemplate is the PodTemplateSpec used as a base for worker Jobs.
+	// This allows operators to configure volumes, security context, etc.
+	// If nil, a minimal default template is used.
+	JobTemplate *corev1.PodTemplateSpec
+
+	// NATS configuration for worker pods
+	NATSURL         string
+	NATSTLSEnabled  bool
+	NATSTLSCertFile string
+	NATSTLSKeyFile  string
+	NATSTLSCAFile   string
 }
 
 // +kubebuilder:rbac:groups=activity.miloapis.com,resources=reindexjobs,verbs=get;list;watch;update;patch;delete
@@ -256,8 +263,8 @@ func (r *ReindexJobReconciler) startJob(ctx context.Context, job *v1alpha1.Reind
 	// 1. handleDeletion() which deletes Jobs by label when ReindexJob is deleted
 	// 2. Job TTL (TTLSecondsAfterFinished: 300) for automatic cleanup of completed Jobs
 
-	// Create the Job
-	if err := r.Create(ctx, k8sJob); err != nil {
+	// Create the Job using JobClient (infrastructure cluster)
+	if err := r.JobClient.Create(ctx, k8sJob); err != nil {
 		logger.Error(err, "failed to create Job")
 		return ctrl.Result{}, err
 	}
@@ -313,33 +320,24 @@ func (r *ReindexJobReconciler) startJob(ctx context.Context, job *v1alpha1.Reind
 
 // buildJobForReindexJob creates a Kubernetes Job spec for executing the ReindexJob.
 func (r *ReindexJobReconciler) buildJobForReindexJob(reindexJob *v1alpha1.ReindexJob) (*batchv1.Job, error) {
-	// Build worker command arguments
-	args := []string{
+	// Build controller-managed arguments (appended after template args)
+	controllerArgs := []string{
 		"reindex-worker",
 		reindexJob.Name,
 		"--nats-url=" + r.NATSURL,
 	}
 
 	if r.NATSTLSEnabled {
-		args = append(args, "--nats-tls-enabled=true")
+		controllerArgs = append(controllerArgs, "--nats-tls-enabled=true")
 		if r.NATSTLSCertFile != "" {
-			args = append(args, "--nats-tls-cert-file="+r.NATSTLSCertFile)
+			controllerArgs = append(controllerArgs, "--nats-tls-cert-file="+r.NATSTLSCertFile)
 		}
 		if r.NATSTLSKeyFile != "" {
-			args = append(args, "--nats-tls-key-file="+r.NATSTLSKeyFile)
+			controllerArgs = append(controllerArgs, "--nats-tls-key-file="+r.NATSTLSKeyFile)
 		}
 		if r.NATSTLSCAFile != "" {
-			args = append(args, "--nats-tls-ca-file="+r.NATSTLSCAFile)
+			controllerArgs = append(controllerArgs, "--nats-tls-ca-file="+r.NATSTLSCAFile)
 		}
-
-		// TODO: Add volume mounts for TLS certificates when TLS is enabled.
-		// This requires mounting the same volumes used by the controller-manager
-		// (typically a Secret for cert/key and ConfigMap for CA).
-		// The simplest approach: Add fields to ReindexJobReconciler for the
-		// secret/configmap names, or require that TLS files be baked into the
-		// container image.
-		// Note: Current dev/staging environments do not use NATS TLS, so this
-		// is not blocking for initial deployment.
 	}
 
 	// Build resource requirements
@@ -359,57 +357,21 @@ func (r *ReindexJobReconciler) buildJobForReindexJob(reindexJob *v1alpha1.Reinde
 		resourceRequirements.Limits[corev1.ResourceCPU] = cpuQty
 	}
 
-	job := &batchv1.Job{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-job", reindexJob.Name),
-			Namespace: r.JobNamespace,
-			Labels: map[string]string{
-				"app":                                  "activity-reindex",
-				"reindex.activity.miloapis.com/job":    reindexJob.Name,
-			},
-		},
-		Spec: batchv1.JobSpec{
-			BackoffLimit:            ptr.To(int32(3)),
-			TTLSecondsAfterFinished: ptr.To(int32(300)),
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						"app":                               "activity-reindex",
-						"reindex.activity.miloapis.com/job": reindexJob.Name,
-					},
-				},
-				Spec: corev1.PodSpec{
-					RestartPolicy:      corev1.RestartPolicyOnFailure,
-					ServiceAccountName: r.ReindexServiceAccount,
-					SecurityContext: &corev1.PodSecurityContext{
-						RunAsNonRoot: ptr.To(true),
-						RunAsUser:    ptr.To(int64(65532)),
-						RunAsGroup:   ptr.To(int64(65532)),
-						FSGroup:      ptr.To(int64(65532)),
-						SeccompProfile: &corev1.SeccompProfile{
-							Type: corev1.SeccompProfileTypeRuntimeDefault,
-						},
-					},
-					Containers: []corev1.Container{
-						{
-							Name:      "reindex",
-							Image:     r.ActivityImage,
-							Args:      args,
-							Resources: resourceRequirements,
-							SecurityContext: &corev1.SecurityContext{
-								AllowPrivilegeEscalation: ptr.To(false),
-								ReadOnlyRootFilesystem:   ptr.To(true),
-								RunAsNonRoot:             ptr.To(true),
-								Capabilities: &corev1.Capabilities{
-									Drop: []corev1.Capability{"ALL"},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
+	// Use configured template or default
+	template := r.JobTemplate
+	if template == nil {
+		template = DefaultJobTemplate()
 	}
+
+	// Build and return the Job using the template merge function
+	job := MergeJobTemplate(template, JobBuildOptions{
+		ReindexJobName:       reindexJob.Name,
+		JobNamespace:         r.JobNamespace,
+		ActivityImage:        r.ActivityImage,
+		ControllerArgs:       controllerArgs,
+		ResourceRequirements: resourceRequirements,
+		ServiceAccountName:   r.ReindexServiceAccount,
+	})
 
 	return job, nil
 }
@@ -418,14 +380,14 @@ func (r *ReindexJobReconciler) buildJobForReindexJob(reindexJob *v1alpha1.Reinde
 func (r *ReindexJobReconciler) getJobForReindexJob(ctx context.Context, reindexJob *v1alpha1.ReindexJob) (*batchv1.Job, error) {
 	jobName := fmt.Sprintf("%s-job", reindexJob.Name)
 	var job batchv1.Job
-	err := r.Get(ctx, client.ObjectKey{Namespace: r.JobNamespace, Name: jobName}, &job)
+	err := r.JobClient.Get(ctx, client.ObjectKey{Namespace: r.JobNamespace, Name: jobName}, &job)
 	return &job, err
 }
 
 // countRunningJobs returns the number of currently running reindex Jobs.
 func (r *ReindexJobReconciler) countRunningJobs(ctx context.Context) (int, error) {
 	var jobList batchv1.JobList
-	if err := r.List(ctx, &jobList, client.InNamespace(r.JobNamespace), client.MatchingLabels{
+	if err := r.JobClient.List(ctx, &jobList, client.InNamespace(r.JobNamespace), client.MatchingLabels{
 		"app": "activity-reindex",
 	}); err != nil {
 		return 0, err
@@ -481,7 +443,7 @@ func (r *ReindexJobReconciler) handleDeletion(ctx context.Context, reindexJob *v
 	job, err := r.getJobForReindexJob(ctx, reindexJob)
 	if err == nil {
 		logger.Info("Deleting Job for deleted ReindexJob", "reindexJob", reindexJob.Name, "job", job.Name)
-		if err := r.Delete(ctx, job); client.IgnoreNotFound(err) != nil {
+		if err := r.JobClient.Delete(ctx, job); client.IgnoreNotFound(err) != nil {
 			return ctrl.Result{}, err
 		}
 	}

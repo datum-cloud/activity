@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: activity-controller-manager
+  namespace: activity-system
+spec:
+  template:
+    spec:
+      containers:
+        - name: manager
+          args:
+            - --kubeconfig=$(KUBECONFIG)
+            - --workers=$(WORKERS)
+            - --metrics-addr=$(METRICS_ADDR)
+            - --health-probe-addr=$(HEALTH_PROBE_ADDR)
+            - --nats-url=$(NATS_URL)
+            - --nats-tls-enabled=$(NATS_TLS_ENABLED)
+            - --nats-tls-cert-file=$(NATS_TLS_CERT_FILE)
+            - --nats-tls-key-file=$(NATS_TLS_KEY_FILE)
+            - --nats-tls-ca-file=$(NATS_TLS_CA_FILE)
+            - --reindex-job-namespace=$(REINDEX_JOB_NAMESPACE)
+            - --reindex-service-account=$(REINDEX_SERVICE_ACCOUNT)
+            - --reindex-memory-limit=$(REINDEX_MEMORY_LIMIT)
+            - --reindex-cpu-limit=$(REINDEX_CPU_LIMIT)
+            - --max-concurrent-reindex-jobs=$(MAX_CONCURRENT_REINDEX_JOBS)
+            - --activity-image=$(ACTIVITY_IMAGE)
+            - --reindex-job-template-configmap=$(REINDEX_JOB_TEMPLATE_CONFIGMAP)
+            - -v=$(LOG_LEVEL)
+          env:
+            - name: REINDEX_JOB_TEMPLATE_CONFIGMAP
+              value: "activity-system/activity-reindex-job-template"

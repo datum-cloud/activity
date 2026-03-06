@@ -6,6 +6,7 @@ import (
 
 	"github.com/nats-io/nats.go"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -13,6 +14,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
@@ -40,6 +42,8 @@ type ManagerOptions struct {
 	HealthProbeAddr string
 	// JetStream is the NATS JetStream context for publishing activities (required)
 	JetStream nats.JetStreamContext
+	// JobClient is the Kubernetes client for Job operations in the infrastructure cluster
+	JobClient client.Client
 
 	// ReindexJob configuration
 	ReindexJobNamespace      string
@@ -53,6 +57,10 @@ type ManagerOptions struct {
 	NATSTLSCertFile          string
 	NATSTLSKeyFile           string
 	NATSTLSCAFile            string
+
+	// JobTemplate is the PodTemplateSpec for reindex worker Jobs.
+	// If nil, a default template is used.
+	JobTemplate *corev1.PodTemplateSpec
 }
 
 // ActivityPolicyGVR is the GroupVersionResource for ActivityPolicy.
@@ -97,6 +105,7 @@ func NewManager(config *rest.Config, options ManagerOptions) (ctrl.Manager, erro
 	// Create and register the ReindexJob reconciler
 	reindexReconciler := &ReindexJobReconciler{
 		Client:                mgr.GetClient(),
+		JobClient:             options.JobClient,
 		Scheme:                mgr.GetScheme(),
 		JetStream:             options.JetStream,
 		Recorder:              mgr.GetEventRecorderFor("reindexjob-controller"),
@@ -106,6 +115,7 @@ func NewManager(config *rest.Config, options ManagerOptions) (ctrl.Manager, erro
 		ReindexMemoryLimit:    options.ReindexMemoryLimit,
 		ReindexCPULimit:       options.ReindexCPULimit,
 		MaxConcurrentJobs:     options.MaxConcurrentReindexJobs,
+		JobTemplate:           options.JobTemplate,
 		NATSURL:               options.NATSURL,
 		NATSTLSEnabled:        options.NATSTLSEnabled,
 		NATSTLSCertFile:       options.NATSTLSCertFile,

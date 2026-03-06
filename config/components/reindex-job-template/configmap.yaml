@@ -1,0 +1,62 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: activity-reindex-job-template
+  namespace: activity-system
+data:
+  # template.yaml contains a PodTemplateSpec that configures how ReindexJob worker pods are created.
+  # The controller merges this template with dynamic values (image, args, labels).
+  #
+  # Template-configurable fields (preserved from this template):
+  # - Volumes (including CSI volumes for kubeconfig)
+  # - VolumeMounts for the 'reindex' container
+  # - ServiceAccountName
+  # - SecurityContext (pod and container)
+  # - NodeSelector, Tolerations, Affinity
+  # - InitContainers, additional containers (sidecars)
+  #
+  # Controller-managed fields (always set by controller, cannot be overridden):
+  # - Job name, namespace
+  # - Container image (from --activity-image flag)
+  # - Container args (template args first, then controller args appended)
+  # - Labels: app=activity-reindex, reindex.activity.miloapis.com/job={name}
+  # - BackoffLimit: 3
+  # - TTLSecondsAfterFinished: 300
+  template.yaml: |
+    spec:
+      serviceAccountName: activity-reindex-worker
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - name: kubeconfig
+          csi:
+            driver: cert-manager.io/csi
+            volumeAttributes:
+              csi.cert-manager.io/issuer-name: milo-client-issuer
+              csi.cert-manager.io/issuer-kind: ClusterIssuer
+              csi.cert-manager.io/common-name: activity-reindex-worker
+              csi.cert-manager.io/key-usages: client auth
+              csi.cert-manager.io/duration: 1h
+              csi.cert-manager.io/fs-group: "65532"
+      containers:
+        - name: reindex
+          # Template args are placed first, controller args (reindex-worker, job-name, --nats-url, etc.) appended
+          args:
+            - --kubeconfig=/etc/kubernetes/kubeconfig
+          volumeMounts:
+            - name: kubeconfig
+              mountPath: /etc/kubernetes
+              readOnly: true
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 65532
+            capabilities:
+              drop:
+                - ALL

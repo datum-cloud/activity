@@ -15,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -33,6 +34,10 @@ type ReindexWorkerOptions struct {
 	// The ReindexJob resource name
 	JobName string
 
+	// Kubeconfig for connecting to the API server where ReindexJob resources live.
+	// If empty, uses in-cluster config.
+	Kubeconfig string
+
 	// NATS configuration (required for publishing activities)
 	NATSURL        string
 	NATSTLSEnabled bool
@@ -48,6 +53,10 @@ func NewReindexWorkerOptions() *ReindexWorkerOptions {
 
 // AddFlags adds reindex worker flags to the command.
 func (o *ReindexWorkerOptions) AddFlags(fs *pflag.FlagSet) {
+	// Kubernetes API flags
+	fs.StringVar(&o.Kubeconfig, "kubeconfig", o.Kubeconfig,
+		"Path to kubeconfig file for connecting to the API server. If empty, uses in-cluster config.")
+
 	// NATS flags (required)
 	fs.StringVar(&o.NATSURL, "nats-url", o.NATSURL,
 		"NATS server URL (e.g., nats://localhost:4222). Required.")
@@ -96,10 +105,21 @@ func RunReindexWorker(ctx context.Context, options *ReindexWorkerOptions) error 
 
 	klog.InfoS("Starting reindex worker", "job", options.JobName)
 
-	// Build in-cluster Kubernetes client
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		return fmt.Errorf("failed to get in-cluster config: %w", err)
+	// Build Kubernetes client config
+	var config *rest.Config
+	var err error
+	if options.Kubeconfig != "" {
+		config, err = clientcmd.BuildConfigFromFlags("", options.Kubeconfig)
+		if err != nil {
+			return fmt.Errorf("failed to build config from kubeconfig: %w", err)
+		}
+		klog.InfoS("Using kubeconfig", "path", options.Kubeconfig)
+	} else {
+		config, err = rest.InClusterConfig()
+		if err != nil {
+			return fmt.Errorf("failed to get in-cluster config: %w", err)
+		}
+		klog.InfoS("Using in-cluster config")
 	}
 
 	// Create Kubernetes client
