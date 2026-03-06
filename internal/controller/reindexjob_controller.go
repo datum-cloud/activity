@@ -15,7 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -94,14 +93,14 @@ type ReindexJobReconciler struct {
 	ReindexCPULimit       string
 	MaxConcurrentJobs     int
 
-	// Kubeconfig for worker pods to connect to the API server (Milo)
-	// If set, the kubeconfig will be mounted into worker pods
-	WorkerKubeconfigSecret    string // Secret name containing kubeconfig
-	WorkerKubeconfigSecretKey string // Key in the secret (default: "kubeconfig")
+	// JobTemplate is the PodTemplateSpec used as a base for worker Jobs.
+	// This allows operators to configure volumes, security context, etc.
+	// If nil, a minimal default template is used.
+	JobTemplate *corev1.PodTemplateSpec
 
 	// NATS configuration for worker pods
-	NATSURL        string
-	NATSTLSEnabled bool
+	NATSURL         string
+	NATSTLSEnabled  bool
 	NATSTLSCertFile string
 	NATSTLSKeyFile  string
 	NATSTLSCAFile   string
@@ -321,33 +320,24 @@ func (r *ReindexJobReconciler) startJob(ctx context.Context, job *v1alpha1.Reind
 
 // buildJobForReindexJob creates a Kubernetes Job spec for executing the ReindexJob.
 func (r *ReindexJobReconciler) buildJobForReindexJob(reindexJob *v1alpha1.ReindexJob) (*batchv1.Job, error) {
-	// Build worker command arguments
-	args := []string{
+	// Build controller-managed arguments (appended after template args)
+	controllerArgs := []string{
 		"reindex-worker",
 		reindexJob.Name,
 		"--nats-url=" + r.NATSURL,
 	}
 
 	if r.NATSTLSEnabled {
-		args = append(args, "--nats-tls-enabled=true")
+		controllerArgs = append(controllerArgs, "--nats-tls-enabled=true")
 		if r.NATSTLSCertFile != "" {
-			args = append(args, "--nats-tls-cert-file="+r.NATSTLSCertFile)
+			controllerArgs = append(controllerArgs, "--nats-tls-cert-file="+r.NATSTLSCertFile)
 		}
 		if r.NATSTLSKeyFile != "" {
-			args = append(args, "--nats-tls-key-file="+r.NATSTLSKeyFile)
+			controllerArgs = append(controllerArgs, "--nats-tls-key-file="+r.NATSTLSKeyFile)
 		}
 		if r.NATSTLSCAFile != "" {
-			args = append(args, "--nats-tls-ca-file="+r.NATSTLSCAFile)
+			controllerArgs = append(controllerArgs, "--nats-tls-ca-file="+r.NATSTLSCAFile)
 		}
-
-		// TODO: Add volume mounts for TLS certificates when TLS is enabled.
-		// This requires mounting the same volumes used by the controller-manager
-		// (typically a Secret for cert/key and ConfigMap for CA).
-		// The simplest approach: Add fields to ReindexJobReconciler for the
-		// secret/configmap names, or require that TLS files be baked into the
-		// container image.
-		// Note: Current dev/staging environments do not use NATS TLS, so this
-		// is not blocking for initial deployment.
 	}
 
 	// Build resource requirements
@@ -367,95 +357,21 @@ func (r *ReindexJobReconciler) buildJobForReindexJob(reindexJob *v1alpha1.Reinde
 		resourceRequirements.Limits[corev1.ResourceCPU] = cpuQty
 	}
 
-	// Build volume mounts and volumes for the container
-	var volumeMounts []corev1.VolumeMount
-	var volumes []corev1.Volume
-
-	// Add kubeconfig if configured
-	if r.WorkerKubeconfigSecret != "" {
-		kubeconfigKey := r.WorkerKubeconfigSecretKey
-		if kubeconfigKey == "" {
-			kubeconfigKey = "kubeconfig"
-		}
-		kubeconfigPath := "/etc/kubernetes/kubeconfig"
-
-		args = append(args, "--kubeconfig="+kubeconfigPath)
-
-		volumeMounts = append(volumeMounts, corev1.VolumeMount{
-			Name:      "kubeconfig",
-			MountPath: "/etc/kubernetes",
-			ReadOnly:  true,
-		})
-
-		volumes = append(volumes, corev1.Volume{
-			Name: "kubeconfig",
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: r.WorkerKubeconfigSecret,
-					Items: []corev1.KeyToPath{
-						{
-							Key:  kubeconfigKey,
-							Path: "kubeconfig",
-						},
-					},
-				},
-			},
-		})
+	// Use configured template or default
+	template := r.JobTemplate
+	if template == nil {
+		template = DefaultJobTemplate()
 	}
 
-	job := &batchv1.Job{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-job", reindexJob.Name),
-			Namespace: r.JobNamespace,
-			Labels: map[string]string{
-				"app":                               "activity-reindex",
-				"reindex.activity.miloapis.com/job": reindexJob.Name,
-			},
-		},
-		Spec: batchv1.JobSpec{
-			BackoffLimit:            ptr.To(int32(3)),
-			TTLSecondsAfterFinished: ptr.To(int32(300)),
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						"app":                               "activity-reindex",
-						"reindex.activity.miloapis.com/job": reindexJob.Name,
-					},
-				},
-				Spec: corev1.PodSpec{
-					RestartPolicy:      corev1.RestartPolicyOnFailure,
-					ServiceAccountName: r.ReindexServiceAccount,
-					SecurityContext: &corev1.PodSecurityContext{
-						RunAsNonRoot: ptr.To(true),
-						RunAsUser:    ptr.To(int64(65532)),
-						RunAsGroup:   ptr.To(int64(65532)),
-						FSGroup:      ptr.To(int64(65532)),
-						SeccompProfile: &corev1.SeccompProfile{
-							Type: corev1.SeccompProfileTypeRuntimeDefault,
-						},
-					},
-					Volumes: volumes,
-					Containers: []corev1.Container{
-						{
-							Name:         "reindex",
-							Image:        r.ActivityImage,
-							Args:         args,
-							Resources:    resourceRequirements,
-							VolumeMounts: volumeMounts,
-							SecurityContext: &corev1.SecurityContext{
-								AllowPrivilegeEscalation: ptr.To(false),
-								ReadOnlyRootFilesystem:   ptr.To(true),
-								RunAsNonRoot:             ptr.To(true),
-								Capabilities: &corev1.Capabilities{
-									Drop: []corev1.Capability{"ALL"},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
+	// Build and return the Job using the template merge function
+	job := MergeJobTemplate(template, JobBuildOptions{
+		ReindexJobName:       reindexJob.Name,
+		JobNamespace:         r.JobNamespace,
+		ActivityImage:        r.ActivityImage,
+		ControllerArgs:       controllerArgs,
+		ResourceRequirements: resourceRequirements,
+		ServiceAccountName:   r.ReindexServiceAccount,
+	})
 
 	return job, nil
 }

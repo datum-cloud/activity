@@ -1,14 +1,17 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/nats-io/nats.go"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
@@ -21,11 +24,11 @@ import (
 
 // ControllerManagerOptions contains configuration for the controller manager.
 type ControllerManagerOptions struct {
-	Kubeconfig    string
-	JobKubeconfig string
-	MasterURL     string
-	Workers       int
-	MetricsAddr   string
+	Kubeconfig      string
+	JobKubeconfig   string
+	MasterURL       string
+	Workers         int
+	MetricsAddr     string
 	HealthProbeAddr string
 
 	// NATS configuration (required)
@@ -43,9 +46,9 @@ type ControllerManagerOptions struct {
 	MaxConcurrentReindexJobs int
 	ActivityImage            string
 
-	// Worker kubeconfig for connecting to Milo API server
-	WorkerKubeconfigSecret    string
-	WorkerKubeconfigSecretKey string
+	// JobTemplateConfigMap specifies the ConfigMap containing the Job template.
+	// Format: namespace/name. If not set, a default template is used.
+	JobTemplateConfigMap string
 }
 
 // NewControllerManagerOptions creates options with default values.
@@ -103,10 +106,10 @@ func (o *ControllerManagerOptions) AddFlags(fs *pflag.FlagSet) {
 		"Maximum number of concurrent ReindexJobs allowed.")
 	fs.StringVar(&o.ActivityImage, "activity-image", o.ActivityImage,
 		"Container image for activity binary used by ReindexJob workers.")
-	fs.StringVar(&o.WorkerKubeconfigSecret, "worker-kubeconfig-secret", o.WorkerKubeconfigSecret,
-		"Secret name containing kubeconfig for worker pods to connect to Milo API server.")
-	fs.StringVar(&o.WorkerKubeconfigSecretKey, "worker-kubeconfig-secret-key", o.WorkerKubeconfigSecretKey,
-		"Key in the kubeconfig secret (default: 'kubeconfig').")
+	fs.StringVar(&o.JobTemplateConfigMap, "reindex-job-template-configmap", o.JobTemplateConfigMap,
+		"ConfigMap containing the Job template for reindex workers (format: namespace/name). "+
+			"The ConfigMap should have a 'template.yaml' key with a PodTemplateSpec. "+
+			"If not set, a default template is used.")
 }
 
 // NewControllerManagerCommand creates the controller-manager subcommand.
@@ -185,24 +188,39 @@ func RunControllerManager(options *ControllerManagerOptions) error {
 		return fmt.Errorf("failed to create Job client: %w", err)
 	}
 
+	// Load Job template from ConfigMap if specified
+	var jobTemplate *corev1.PodTemplateSpec
+	if options.JobTemplateConfigMap != "" {
+		namespace, name, parseErr := parseNamespacedName(options.JobTemplateConfigMap)
+		if parseErr != nil {
+			return fmt.Errorf("invalid --reindex-job-template-configmap value: %w", parseErr)
+		}
+
+		ctx := context.Background()
+		jobTemplate, err = controller.LoadJobTemplate(ctx, jobClient, namespace, name)
+		if err != nil {
+			return fmt.Errorf("failed to load job template: %w", err)
+		}
+		klog.Info("Loaded job template from ConfigMap", "namespace", namespace, "name", name)
+	}
+
 	managerOpts := controller.ManagerOptions{
-		Workers:                   options.Workers,
-		MetricsAddr:               options.MetricsAddr,
-		HealthProbeAddr:           options.HealthProbeAddr,
-		JobClient:                 jobClient,
-		ReindexJobNamespace:       options.ReindexJobNamespace,
-		ReindexServiceAccount:     options.ReindexServiceAccount,
-		ReindexMemoryLimit:        options.ReindexMemoryLimit,
-		ReindexCPULimit:           options.ReindexCPULimit,
-		MaxConcurrentReindexJobs:  options.MaxConcurrentReindexJobs,
-		ActivityImage:             options.ActivityImage,
-		WorkerKubeconfigSecret:    options.WorkerKubeconfigSecret,
-		WorkerKubeconfigSecretKey: options.WorkerKubeconfigSecretKey,
-		NATSURL:                   options.NATSURL,
-		NATSTLSEnabled:            options.NATSTLSEnabled,
-		NATSTLSCertFile:           options.NATSTLSCertFile,
-		NATSTLSKeyFile:            options.NATSTLSKeyFile,
-		NATSTLSCAFile:             options.NATSTLSCAFile,
+		Workers:                  options.Workers,
+		MetricsAddr:              options.MetricsAddr,
+		HealthProbeAddr:          options.HealthProbeAddr,
+		JobClient:                jobClient,
+		ReindexJobNamespace:      options.ReindexJobNamespace,
+		ReindexServiceAccount:    options.ReindexServiceAccount,
+		ReindexMemoryLimit:       options.ReindexMemoryLimit,
+		ReindexCPULimit:          options.ReindexCPULimit,
+		MaxConcurrentReindexJobs: options.MaxConcurrentReindexJobs,
+		ActivityImage:            options.ActivityImage,
+		JobTemplate:              jobTemplate,
+		NATSURL:                  options.NATSURL,
+		NATSTLSEnabled:           options.NATSTLSEnabled,
+		NATSTLSCertFile:          options.NATSTLSCertFile,
+		NATSTLSKeyFile:           options.NATSTLSKeyFile,
+		NATSTLSCAFile:            options.NATSTLSCAFile,
 	}
 
 	// Initialize NATS JetStream connection
@@ -276,4 +294,16 @@ func RunControllerManager(options *ControllerManagerOptions) error {
 
 	klog.Info("Controller manager shutdown complete")
 	return nil
+}
+
+// parseNamespacedName parses a string in the format "namespace/name" into its components.
+func parseNamespacedName(s string) (namespace, name string, err error) {
+	parts := strings.SplitN(s, "/", 2)
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("expected format 'namespace/name', got %q", s)
+	}
+	if parts[0] == "" || parts[1] == "" {
+		return "", "", fmt.Errorf("namespace and name cannot be empty in %q", s)
+	}
+	return parts[0], parts[1], nil
 }

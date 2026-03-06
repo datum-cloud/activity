@@ -1,0 +1,24 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: activity-controller-manager-job-template
+  namespace: activity-system
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["activity-reindex-job-template"]
+    verbs: ["get", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: activity-controller-manager-job-template
+  namespace: activity-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: activity-controller-manager-job-template
+subjects:
+  - kind: ServiceAccount
+    name: activity-controller-manager
+    namespace: activity-system
