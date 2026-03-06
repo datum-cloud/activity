@@ -274,6 +274,7 @@ func TestBuildActivityFromEvent(t *testing.T) {
 
 	matched := &MatchedPolicy{
 		PolicyName: "core-pods",
+		Generation: 1,
 		APIGroup:   "",
 		Kind:       "Pod",
 		Summary:    "Pod my-pod was scheduled",

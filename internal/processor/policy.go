@@ -22,6 +22,8 @@ type PolicyRule interface {
 type MatchedPolicy struct {
 	// PolicyName is the name of the matching policy.
 	PolicyName string
+	// Generation is the policy generation (version) that produced this match.
+	Generation int64
 	// APIGroup is the API group of the target resource.
 	APIGroup string
 	// Kind is the kind of the target resource.

@@ -12,6 +12,8 @@ resources:
 
   # Alert rules (complete manual file with all component alerts)
   - alerts/activity-alerts.yaml
+  # DLQ-specific alerts
+  - alerts/dlq-alerts.yaml
   # Recording rules (generated from Jsonnet mixin)
   - alerts/generated/activity-recordings.yaml
 

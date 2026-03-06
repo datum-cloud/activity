@@ -247,6 +247,17 @@ type Config struct {
 	DLQStreamName    string // NATS stream name for DLQ (e.g., "ACTIVITY_DEAD_LETTER")
 	DLQSubjectPrefix string // Subject prefix for DLQ messages (e.g., "activity.dlq")
 
+	// DLQ retry configuration
+	DLQRetryEnabled           bool          // Enable automatic retry of DLQ events
+	DLQRetryInterval          time.Duration // Interval between retry batches
+	DLQRetryBatchSize         int           // Number of events to process per retry batch
+	DLQRetryBackoffBase       time.Duration // Initial backoff duration
+	DLQRetryBackoffMultiplier float64       // Exponential backoff multiplier
+	DLQRetryBackoffMax        time.Duration // Maximum backoff duration
+	DLQRetryAlertThreshold    int           // Retry count threshold for alerts
+	DLQRetryAuditSubject      string        // Subject for republishing audit events from DLQ
+	DLQRetryEventSubject      string        // Subject for republishing Kubernetes events from DLQ
+
 	// Processing configuration
 	Workers    int           // Number of concurrent workers
 	BatchSize  int           // Messages to fetch per batch
@@ -268,10 +279,17 @@ func DefaultConfig() Config {
 		NATSEventConsumer:   "activity-event-processor",
 		OutputStreamName:    "ACTIVITIES",
 		OutputSubjectPrefix: "activities",
-		DLQEnabled:          true,
-		DLQStreamName:       "ACTIVITY_DEAD_LETTER",
-		DLQSubjectPrefix:    "activity.dlq",
-		Workers:             4,
+		DLQEnabled:                true,
+		DLQStreamName:             "ACTIVITY_DEAD_LETTER",
+		DLQSubjectPrefix:          "activity.dlq",
+		DLQRetryEnabled:           true,
+		DLQRetryInterval:          5 * time.Minute,
+		DLQRetryBatchSize:         100,
+		DLQRetryBackoffBase:       1 * time.Minute,
+		DLQRetryBackoffMultiplier: 2.0,
+		DLQRetryBackoffMax:        24 * time.Hour,
+		DLQRetryAlertThreshold:    10,
+		Workers:                   4,
 		BatchSize:           100,
 		AckWait:             30 * time.Second,
 		MaxDeliver:          5,
@@ -305,6 +323,9 @@ type Processor struct {
 
 	// dlqPublisher publishes failed events to the dead-letter queue.
 	dlqPublisher processor.DLQPublisher
+
+	// dlqRetryController handles automatic retry of DLQ events.
+	dlqRetryController *DLQRetryController
 
 	wg     sync.WaitGroup
 	ctx    context.Context
@@ -505,6 +526,41 @@ func (p *Processor) Start(ctx context.Context) error {
 		klog.InfoS("Dead-letter queue enabled",
 			"stream", dlqConfig.StreamName,
 			"subjectPrefix", dlqConfig.SubjectPrefix,
+		)
+	}
+
+	// Initialize DLQ retry controller
+	if p.config.DLQRetryEnabled && dlqConfig.Enabled {
+		retryConfig := DLQRetryConfig{
+			Enabled:           p.config.DLQRetryEnabled,
+			Interval:          p.config.DLQRetryInterval,
+			BatchSize:         p.config.DLQRetryBatchSize,
+			BackoffBase:       p.config.DLQRetryBackoffBase,
+			BackoffMultiplier: p.config.DLQRetryBackoffMultiplier,
+			BackoffMax:        p.config.DLQRetryBackoffMax,
+			AlertThreshold:    p.config.DLQRetryAlertThreshold,
+			AuditRetrySubject: p.config.DLQRetryAuditSubject,
+			EventRetrySubject: p.config.DLQRetryEventSubject,
+		}
+		p.dlqRetryController = NewDLQRetryController(
+			js,
+			retryConfig,
+			p.config.NATSStreamName,
+			p.config.NATSEventStream,
+			dlqConfig.StreamName,
+			dlqConfig.SubjectPrefix,
+		)
+
+		p.wg.Add(1)
+		go func() {
+			defer p.wg.Done()
+			if err := p.dlqRetryController.Start(ctx); err != nil {
+				klog.ErrorS(err, "DLQ retry controller failed")
+			}
+		}()
+		klog.InfoS("DLQ retry controller started",
+			"interval", retryConfig.Interval,
+			"batchSize", retryConfig.BatchSize,
 		)
 	}
 
@@ -778,6 +834,17 @@ func (p *Processor) onPolicyUpdate(oldObj, newObj any) {
 				"wasReady", wasReady,
 				"isReady", isReady,
 			)
+
+			// Trigger DLQ retry for events that failed on this policy
+			// Check context before spawning to avoid races during shutdown
+			if p.dlqRetryController != nil {
+				select {
+				case <-p.ctx.Done():
+					// Processor is shutting down, don't start new retries
+				default:
+					go p.dlqRetryController.RetryForPolicy(p.ctx, newPolicy)
+				}
+			}
 		}
 	} else if wasReady {
 		klog.InfoS("ActivityPolicy no longer ready, removed from processing",
@@ -881,7 +948,7 @@ func (p *Processor) processMessage(msg *nats.Msg) error {
 		// Publish to DLQ - unmarshal errors are unrecoverable
 		// Tenant is nil since we couldn't unmarshal the event
 		if dlqErr := p.dlqPublisher.PublishAuditFailure(
-			p.ctx, rawPayload, "", -1, processor.ErrorTypeUnmarshal, err, nil, nil,
+			p.ctx, rawPayload, "", 0, -1, processor.ErrorTypeUnmarshal, err, nil, nil,
 		); dlqErr != nil {
 			klog.ErrorS(dlqErr, "Failed to publish to DLQ")
 			return fmt.Errorf("failed to unmarshal audit event: %w", err)
@@ -928,7 +995,7 @@ func (p *Processor) processMessage(msg *nats.Msg) error {
 			dlqResource.Kind = kind
 		}
 		if dlqErr := p.dlqPublisher.PublishAuditFailure(
-			p.ctx, rawPayload, "", -1, processor.ErrorTypeUnmarshal, err, dlqResource, dlqTenant,
+			p.ctx, rawPayload, "", 0, -1, processor.ErrorTypeUnmarshal, err, dlqResource, dlqTenant,
 		); dlqErr != nil {
 			klog.ErrorS(dlqErr, "Failed to publish to DLQ")
 			return fmt.Errorf("failed to convert audit to map: %w", err)
@@ -984,8 +1051,12 @@ func (p *Processor) processMessage(msg *nats.Msg) error {
 			}
 
 			// Publish to DLQ
+			policyVersion := int64(0)
+			if policy.OriginalPolicy != nil {
+				policyVersion = policy.OriginalPolicy.Generation
+			}
 			if dlqErr := p.dlqPublisher.PublishAuditFailure(
-				p.ctx, rawPayload, policy.Name, ruleIndex, errorType, err, dlqResource, dlqTenant,
+				p.ctx, rawPayload, policy.Name, policyVersion, ruleIndex, errorType, err, dlqResource, dlqTenant,
 			); dlqErr != nil {
 				klog.ErrorS(dlqErr, "Failed to publish to DLQ, NAKing message")
 				auditEventsErrored.WithLabelValues("evaluate").Inc()

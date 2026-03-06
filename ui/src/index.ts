@@ -1,3 +1,6 @@
+// Import styles for Tailwind CSS extraction
+import './styles.css';
+
 // Components - Audit Log Query (existing)
 export { FilterBuilder } from './components/FilterBuilder';
 export { FilterBuilderWithAutocomplete } from './components/FilterBuilderWithAutocomplete';

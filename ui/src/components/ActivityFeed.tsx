@@ -231,13 +231,13 @@ export function ActivityFeed({
   // Build container classes - use flex layout to properly fill available space
   // flex-1 min-h-0 allows the Card to fill parent flex container and enable child scrolling
   const containerClasses = compact
-    ? `flex-1 min-h-0 flex flex-col p-2 shadow-none border-border ${className}`
+    ? `flex-1 min-h-0 flex flex-col p-1 shadow-none border-border ${className}`
     : `flex-1 min-h-0 flex flex-col p-3 ${className}`;
 
   // Build list classes - use flex-1 min-h-0 for flex-based scrolling
   // Parent containers must have proper height constraints (h-screen/h-full + overflow-hidden)
   const effectiveMaxHeight = maxHeight === 'none' ? undefined : maxHeight;
-  const listClasses = 'flex-1 min-h-0 overflow-y-auto pr-2';
+  const listClasses = 'flex-1 min-h-0 overflow-y-auto pr-2 flex flex-col';
 
   return (
     <Card className={containerClasses}>
@@ -364,7 +364,7 @@ export function ActivityFeed({
       )}
 
       {/* Activity List */}
-      <div className={listClasses} ref={scrollContainerRef} style={effectiveMaxHeight ? { maxHeight: effectiveMaxHeight } : undefined}>
+      <div className={listClasses} ref={scrollContainerRef} style={{ gap: compact ? '0.25rem' : '0.5rem', ...(effectiveMaxHeight ? { maxHeight: effectiveMaxHeight } : {}) }}>
         {/* Skeleton Loading State - show when loading and no items yet */}
         {isLoading && activities.length === 0 && (
           <>

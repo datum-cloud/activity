@@ -19,7 +19,7 @@ func TestParseFieldSelector_RegardingFields(t *testing.T) {
 		{
 			name:           "regarding.kind",
 			selector:       "regarding.kind=Pod",
-			expectedColumn: "involved_kind",
+			expectedColumn: "regarding_kind",
 			expectedOp:     FieldSelectorEqual,
 			expectedValue:  "Pod",
 			wantErr:        false,
@@ -27,7 +27,7 @@ func TestParseFieldSelector_RegardingFields(t *testing.T) {
 		{
 			name:           "regarding.namespace",
 			selector:       "regarding.namespace=default",
-			expectedColumn: "involved_namespace",
+			expectedColumn: "regarding_namespace",
 			expectedOp:     FieldSelectorEqual,
 			expectedValue:  "default",
 			wantErr:        false,
@@ -35,7 +35,7 @@ func TestParseFieldSelector_RegardingFields(t *testing.T) {
 		{
 			name:           "regarding.name",
 			selector:       "regarding.name=my-pod",
-			expectedColumn: "involved_name",
+			expectedColumn: "regarding_name",
 			expectedOp:     FieldSelectorEqual,
 			expectedValue:  "my-pod",
 			wantErr:        false,
@@ -43,7 +43,7 @@ func TestParseFieldSelector_RegardingFields(t *testing.T) {
 		{
 			name:           "regarding.uid",
 			selector:       "regarding.uid=123e4567-e89b-12d3-a456-426614174000",
-			expectedColumn: "involved_uid",
+			expectedColumn: "regarding_uid",
 			expectedOp:     FieldSelectorEqual,
 			expectedValue:  "123e4567-e89b-12d3-a456-426614174000",
 			wantErr:        false,
@@ -51,7 +51,7 @@ func TestParseFieldSelector_RegardingFields(t *testing.T) {
 		{
 			name:           "regarding.apiVersion",
 			selector:       "regarding.apiVersion=apps/v1",
-			expectedColumn: "involved_api_version",
+			expectedColumn: "regarding_api_version",
 			expectedOp:     FieldSelectorEqual,
 			expectedValue:  "apps/v1",
 			wantErr:        false,
@@ -59,7 +59,7 @@ func TestParseFieldSelector_RegardingFields(t *testing.T) {
 		{
 			name:           "regarding.fieldPath",
 			selector:       "regarding.fieldPath=spec.containers{nginx}",
-			expectedColumn: "involved_field_path",
+			expectedColumn: "regarding_field_path",
 			expectedOp:     FieldSelectorEqual,
 			expectedValue:  "spec.containers{nginx}",
 			wantErr:        false,
@@ -90,10 +90,10 @@ func TestParseFieldSelector_RegardingWithMultipleFields(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, terms, 3)
 
-	assert.Equal(t, "involved_kind", terms[0].Column)
+	assert.Equal(t, "regarding_kind", terms[0].Column)
 	assert.Equal(t, "Pod", terms[0].Value)
 
-	assert.Equal(t, "involved_namespace", terms[1].Column)
+	assert.Equal(t, "regarding_namespace", terms[1].Column)
 	assert.Equal(t, "default", terms[1].Value)
 
 	assert.Equal(t, "type", terms[2].Column)
@@ -106,7 +106,7 @@ func TestParseFieldSelector_RegardingWithNotEqual(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, terms, 1)
 
-	assert.Equal(t, "involved_kind", terms[0].Column)
+	assert.Equal(t, "regarding_kind", terms[0].Column)
 	assert.Equal(t, FieldSelectorNotEqual, terms[0].Operator)
 	assert.Equal(t, "ConfigMap", terms[0].Value)
 }
@@ -116,12 +116,12 @@ func TestResolveEventFieldSelector_RegardingFields(t *testing.T) {
 		field    string
 		expected string
 	}{
-		{"regarding.kind", "involved_kind"},
-		{"regarding.namespace", "involved_namespace"},
-		{"regarding.name", "involved_name"},
-		{"regarding.uid", "involved_uid"},
-		{"regarding.apiVersion", "involved_api_version"},
-		{"regarding.fieldPath", "involved_field_path"},
+		{"regarding.kind", "regarding_kind"},
+		{"regarding.namespace", "regarding_namespace"},
+		{"regarding.name", "regarding_name"},
+		{"regarding.uid", "regarding_uid"},
+		{"regarding.apiVersion", "regarding_api_version"},
+		{"regarding.fieldPath", "regarding_field_path"},
 	}
 
 	for _, tt := range tests {

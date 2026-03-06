@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/google/cel-go/cel"
-	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 )
 
@@ -34,77 +33,15 @@ const (
 var summaryTemplateRegex = regexp.MustCompile(`\{\{\s*(.+?)\s*\}\}`)
 
 // auditEnvironment creates a CEL environment for audit rule expressions.
-// Available variables match AuditLogQuery filter format: verb, objectRef, user, responseStatus, etc.
-// Also available: actor, actorRef for convenience.
-// If collector is non-nil, link() calls will capture link information.
+// Wraps NewAuditEnvironment for internal use.
 func auditEnvironment(collector *linkCollector) (*cel.Env, error) {
-	objectRefType := cel.MapType(cel.StringType, cel.DynType)
-	userType := cel.MapType(cel.StringType, cel.DynType)
-	responseStatusType := cel.MapType(cel.StringType, cel.DynType)
-	actorRefType := cel.MapType(cel.StringType, cel.DynType)
-
-	return cel.NewEnv(
-		// Core audit fields - match AuditLogQuery filter format
-		cel.Variable("verb", cel.StringType),
-		cel.Variable("objectRef", objectRefType),
-		cel.Variable("user", userType),
-		cel.Variable("responseStatus", responseStatusType),
-
-		// Convenience variables
-		cel.Variable("actor", cel.StringType),
-		cel.Variable("actorRef", actorRefType),
-
-		// Also expose "kind" for convenience (extracted from objectRef)
-		cel.Variable("kind", cel.StringType),
-
-		// link function declaration with implementation: link(displayText string, resourceRef map) -> string
-		// Returns the display text and optionally captures link info in the collector.
-		cel.Function("link",
-			cel.Overload("link_string_dyn",
-				[]*cel.Type{cel.StringType, cel.DynType},
-				cel.StringType,
-				cel.BinaryBinding(func(displayText, resourceRef ref.Val) ref.Val {
-					text := fmt.Sprintf("%v", displayText.Value())
-					if collector != nil {
-						collector.addLink(text, resourceRef.Value())
-					}
-					return types.String(text)
-				}),
-			),
-		),
-	)
+	return NewAuditEnvironment(collector)
 }
 
 // eventEnvironment creates a CEL environment for event rule expressions.
-// Available variables: event (full Kubernetes event), actor, actorRef
-// If collector is non-nil, link() calls will capture link information.
+// Wraps NewEventEnvironment for internal use.
 func eventEnvironment(collector *linkCollector) (*cel.Env, error) {
-	// The event variable is a map containing the full Kubernetes Event
-	eventType := cel.MapType(cel.StringType, cel.DynType)
-	// The actorRef variable is a map with {type, name} for linking
-	actorRefType := cel.MapType(cel.StringType, cel.DynType)
-
-	return cel.NewEnv(
-		cel.Variable("event", eventType),
-		cel.Variable("actor", cel.StringType),
-		cel.Variable("actorRef", actorRefType),
-
-		// link function declaration with implementation: link(displayText string, resourceRef map) -> string
-		// Returns the display text and optionally captures link info in the collector.
-		cel.Function("link",
-			cel.Overload("link_string_dyn",
-				[]*cel.Type{cel.StringType, cel.DynType},
-				cel.StringType,
-				cel.BinaryBinding(func(displayText, resourceRef ref.Val) ref.Val {
-					text := fmt.Sprintf("%v", displayText.Value())
-					if collector != nil {
-						collector.addLink(text, resourceRef.Value())
-					}
-					return types.String(text)
-				}),
-			),
-		),
-	)
+	return NewEventEnvironment(collector)
 }
 
 // ValidatePolicyExpression validates a CEL expression used in an ActivityPolicy rule.
@@ -209,9 +146,9 @@ func formatPolicyError(err error, context string) error {
 	// Check for common error patterns and provide helpful messages
 	if strings.Contains(errStr, "undeclared reference") {
 		return fmt.Errorf("invalid %s expression: %s. "+
-			"For audit rules: verb, objectRef.namespace, objectRef.name, user.username, responseStatus.code, actor, kind. "+
-			"For event rules: event.reason, event.type, event.regarding.name, actor. "+
-			"Also available: actorRef, link()", context, errStr)
+			"For audit rules: verb, objectRef, user, responseStatus, responseObject, requestObject, actor, actorRef, kind. "+
+			"For event rules: event.reason, event.type, event.regarding.name, actor, actorRef. "+
+			"Also available: link(displayText, resourceRef)", context, errStr)
 	}
 
 	if strings.Contains(errStr, "found no matching overload") {
@@ -280,7 +217,7 @@ func EvaluateAuditMatchMap(expression string, auditMap map[string]interface{}) (
 		return false, fmt.Errorf("failed to create program: %w", err)
 	}
 
-	out, _, err := prg.Eval(buildAuditVars(auditMap))
+	out, _, err := prg.Eval(BuildAuditVars(auditMap))
 	if err != nil {
 		return false, fmt.Errorf("failed to evaluate match expression: %w", err)
 	}
@@ -291,53 +228,6 @@ func EvaluateAuditMatchMap(expression string, auditMap map[string]interface{}) (
 	}
 
 	return result, nil
-}
-
-// buildAuditVars creates the CEL variable map for audit evaluation.
-// Variables are flattened to match AuditLogQuery filter format.
-func buildAuditVars(auditMap map[string]interface{}) map[string]interface{} {
-	vars := map[string]interface{}{
-		"actor":    extractString(auditMap, "user", "username"),
-		"actorRef": buildActorRef(auditMap),
-	}
-
-	// Flatten audit fields to top level
-	if v, ok := auditMap["verb"]; ok {
-		vars["verb"] = v
-	} else {
-		vars["verb"] = ""
-	}
-
-	if v, ok := auditMap["objectRef"]; ok {
-		vars["objectRef"] = v
-		// Extract kind for convenience
-		if objRef, ok := v.(map[string]interface{}); ok {
-			if kind, ok := objRef["resource"].(string); ok {
-				vars["kind"] = kind
-			} else {
-				vars["kind"] = ""
-			}
-		} else {
-			vars["kind"] = ""
-		}
-	} else {
-		vars["objectRef"] = map[string]interface{}{}
-		vars["kind"] = ""
-	}
-
-	if v, ok := auditMap["user"]; ok {
-		vars["user"] = v
-	} else {
-		vars["user"] = map[string]interface{}{}
-	}
-
-	if v, ok := auditMap["responseStatus"]; ok {
-		vars["responseStatus"] = v
-	} else {
-		vars["responseStatus"] = map[string]interface{}{}
-	}
-
-	return vars
 }
 
 // EvaluateAuditSummary evaluates a summary template against an audit log entry.
@@ -357,7 +247,7 @@ func EvaluateAuditSummaryMap(template string, auditMap map[string]interface{}) (
 		return "", nil, fmt.Errorf("failed to create audit environment: %w", err)
 	}
 
-	result, err := evaluateSummaryTemplate(env, template, buildAuditVars(auditMap))
+	result, err := evaluateSummaryTemplate(env, template, BuildAuditVars(auditMap))
 	if err != nil {
 		return "", nil, err
 	}
@@ -381,11 +271,7 @@ func EvaluateEventMatch(expression string, event map[string]interface{}) (bool, 
 		return false, fmt.Errorf("failed to create program: %w", err)
 	}
 
-	out, _, err := prg.Eval(map[string]interface{}{
-		"event":    event,
-		"actor":    extractString(event, "reportingController"),
-		"actorRef": buildEventActorRef(event),
-	})
+	out, _, err := prg.Eval(BuildEventVars(event))
 	if err != nil {
 		return false, fmt.Errorf("failed to evaluate match expression: %w", err)
 	}
@@ -406,13 +292,7 @@ func EvaluateEventSummary(template string, event map[string]interface{}) (string
 		return "", nil, fmt.Errorf("failed to create event environment: %w", err)
 	}
 
-	vars := map[string]interface{}{
-		"event":    event,
-		"actor":    extractString(event, "reportingController"),
-		"actorRef": buildEventActorRef(event),
-	}
-
-	result, err := evaluateSummaryTemplate(env, template, vars)
+	result, err := evaluateSummaryTemplate(env, template, BuildEventVars(event))
 	if err != nil {
 		return "", nil, err
 	}
@@ -463,63 +343,4 @@ func toMap(v interface{}) (map[string]interface{}, error) {
 	// For structured types, we'd need to use reflection or JSON marshaling
 	// For now, return an error for unsupported types
 	return nil, fmt.Errorf("unsupported type for map conversion: %T", v)
-}
-
-// extractString extracts a nested string value from a map.
-func extractString(m map[string]interface{}, keys ...string) string {
-	current := m
-	for i, key := range keys {
-		if i == len(keys)-1 {
-			// Last key - expect string
-			if v, ok := current[key].(string); ok {
-				return v
-			}
-			return ""
-		}
-		// Not last key - expect nested map
-		if nested, ok := current[key].(map[string]interface{}); ok {
-			current = nested
-		} else {
-			return ""
-		}
-	}
-	return ""
-}
-
-// buildActorRef builds an actor reference map from audit user info.
-// Returns a map with {type, name} structure matching the Activity actor format.
-func buildActorRef(auditMap map[string]interface{}) map[string]interface{} {
-	username := extractString(auditMap, "user", "username")
-	if username == "" {
-		return map[string]interface{}{
-			"type": "unknown",
-			"name": "",
-		}
-	}
-
-	// Determine actor type based on username pattern
-	actorType := "user"
-	if strings.HasPrefix(username, "system:serviceaccount:") {
-		actorType = "serviceaccount"
-	} else if strings.HasPrefix(username, "system:") {
-		actorType = "system"
-	}
-
-	return map[string]interface{}{
-		"type": actorType,
-		"name": username,
-	}
-}
-
-// buildEventActorRef builds an actor reference map from a Kubernetes event.
-func buildEventActorRef(event map[string]interface{}) map[string]interface{} {
-	controller := extractString(event, "reportingController")
-	if controller == "" {
-		controller = extractString(event, "source", "component")
-	}
-
-	return map[string]interface{}{
-		"type": "controller",
-		"name": controller,
-	}
 }

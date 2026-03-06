@@ -136,8 +136,8 @@ func EventFacetFieldNames() []string {
 
 // eventFacetColumnMapping maps API field paths to ClickHouse column names for events.
 var eventFacetColumnMapping = map[string]string{
-	"regarding.kind":      "involved_kind",
-	"regarding.namespace": "involved_namespace",
+	"regarding.kind":      "regarding_kind",
+	"regarding.namespace": "regarding_namespace",
 	"reason":              "reason",
 	"type":                "type",
 	"source.component":    "source_component",
@@ -166,17 +166,17 @@ func GetEventFieldValue(event *corev1.Event, column string) string {
 		return event.Name
 	case "uid":
 		return string(event.UID)
-	case "involved_api_version":
+	case "regarding_api_version":
 		return event.InvolvedObject.APIVersion
-	case "involved_kind":
+	case "regarding_kind":
 		return event.InvolvedObject.Kind
-	case "involved_namespace":
+	case "regarding_namespace":
 		return event.InvolvedObject.Namespace
-	case "involved_name":
+	case "regarding_name":
 		return event.InvolvedObject.Name
-	case "involved_uid":
+	case "regarding_uid":
 		return string(event.InvolvedObject.UID)
-	case "involved_field_path":
+	case "regarding_field_path":
 		return event.InvolvedObject.FieldPath
 	case "reason":
 		return event.Reason

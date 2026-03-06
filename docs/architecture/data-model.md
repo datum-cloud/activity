@@ -129,13 +129,13 @@ CREATE TABLE audit.k8s_events (
     name String,
     uid String,
 
-    -- Involved object (the resource the event is about)
-    involved_api_group LowCardinality(String),  -- e.g., "apps", "networking.k8s.io"
-    involved_api_version LowCardinality(String),
-    involved_kind LowCardinality(String),       -- e.g., "Pod", "Deployment"
-    involved_namespace LowCardinality(String),
-    involved_name String,
-    involved_uid String,
+    -- Regarding object (the resource the event is about)
+    regarding_api_group LowCardinality(String),  -- e.g., "apps", "networking.k8s.io"
+    regarding_api_version LowCardinality(String),
+    regarding_kind LowCardinality(String),       -- e.g., "Pod", "Deployment"
+    regarding_namespace LowCardinality(String),
+    regarding_name String,
+    regarding_uid String,
 
     -- Event classification
     reason LowCardinality(String),   -- e.g., "Scheduled", "Pulling", "Created"
@@ -147,7 +147,7 @@ CREATE TABLE audit.k8s_events (
 
 ) ENGINE = ReplicatedReplacingMergeTree(inserted_at)
 PARTITION BY toYYYYMMDD(last_timestamp)
-ORDER BY (scope_type, scope_name, last_timestamp, involved_api_group, involved_kind, type, uid)
+ORDER BY (scope_type, scope_name, last_timestamp, regarding_api_group, regarding_kind, type, uid)
 TTL last_timestamp + INTERVAL 60 DAY DELETE;
 ```
 
@@ -176,10 +176,10 @@ The table is optimized for four primary query patterns:
 | Index | Type | Columns | Purpose |
 |-------|------|---------|---------|
 | `idx_scope_name_bloom` | bloom_filter | `scope_name` | Tenant filtering |
-| `idx_involved_api_group` | set | `involved_api_group` | API group queries |
-| `idx_involved_kind_set` | set | `involved_kind` | Resource type filtering |
-| `idx_involved_name_bloom` | bloom_filter | `involved_name` | Resource name lookups |
-| `idx_involved_uid_bloom` | bloom_filter | `involved_uid` | Resource UID lookups |
+| `idx_regarding_api_group` | set | `regarding_api_group` | API group queries |
+| `idx_regarding_kind_set` | set | `regarding_kind` | Resource type filtering |
+| `idx_regarding_name_bloom` | bloom_filter | `regarding_name` | Resource name lookups |
+| `idx_regarding_uid_bloom` | bloom_filter | `regarding_uid` | Resource UID lookups |
 | `idx_reason_set` | set | `reason` | Event reason filtering |
 | `idx_type_set` | set | `type` | Normal vs Warning |
 | `idx_source_component` | set | `source_component` | Controller/component filtering |
@@ -192,19 +192,19 @@ Three projections provide optimized sort orders:
 -- Platform-wide queries (sorted by time across all tenants)
 PROJECTION platform_query_projection (
     SELECT * ORDER BY (last_timestamp, scope_type, scope_name,
-                       involved_api_group, involved_kind, type, uid)
+                       regarding_api_group, regarding_kind, type, uid)
 )
 
--- API group/resource queries (sorted by involved object type)
-PROJECTION involved_object_query_projection (
-    SELECT * ORDER BY (involved_api_group, involved_kind, scope_type,
+-- API group/resource queries (sorted by regarding object type)
+PROJECTION regarding_object_query_projection (
+    SELECT * ORDER BY (regarding_api_group, regarding_kind, scope_type,
                        scope_name, last_timestamp, type, uid)
 )
 
 -- Source component queries (by generating controller/component)
 PROJECTION source_query_projection (
     SELECT * ORDER BY (source_component, last_timestamp, scope_type,
-                       scope_name, involved_api_group, involved_kind, type, uid)
+                       scope_name, regarding_api_group, regarding_kind, type, uid)
 )
 ```
 

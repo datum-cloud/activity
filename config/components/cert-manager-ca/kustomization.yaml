@@ -5,7 +5,7 @@ resources:
   - ca-certificate.yaml
   - issuer.yaml
 
-# Patches to update the deployment to use the namespaced CA issuer
+# Patches to update deployments to use the namespaced CA issuer
 patches:
   - target:
       kind: Deployment

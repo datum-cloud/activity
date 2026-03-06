@@ -45,6 +45,17 @@ type ProcessorOptions struct {
 	DLQStreamName    string
 	DLQSubjectPrefix string
 
+	// DLQ retry configuration
+	DLQRetryEnabled           bool
+	DLQRetryInterval          time.Duration
+	DLQRetryBatchSize         int
+	DLQRetryBackoffBase       time.Duration
+	DLQRetryBackoffMultiplier float64
+	DLQRetryBackoffMax        time.Duration
+	DLQRetryAlertThreshold    int
+	DLQRetryAuditSubject      string
+	DLQRetryEventSubject      string
+
 	// Processing configuration
 	Workers   int
 	BatchSize int
@@ -64,10 +75,19 @@ func NewProcessorOptions() *ProcessorOptions {
 		NATSEventConsumer:    "activity-event-processor",
 		OutputStreamName:     "ACTIVITIES",
 		OutputSubjectPrefix:  "activities",
-		DLQEnabled:           true,
-		DLQStreamName:        "ACTIVITY_DEAD_LETTER",
-		DLQSubjectPrefix:     "activity.dlq",
-		Workers:              4,
+		DLQEnabled:                true,
+		DLQStreamName:             "ACTIVITY_DEAD_LETTER",
+		DLQSubjectPrefix:          "activity.dlq",
+		DLQRetryEnabled:           true,
+		DLQRetryInterval:          5 * time.Minute,
+		DLQRetryBatchSize:         100,
+		DLQRetryBackoffBase:       1 * time.Minute,
+		DLQRetryBackoffMultiplier: 2.0,
+		DLQRetryBackoffMax:        24 * time.Hour,
+		DLQRetryAlertThreshold:    10,
+		DLQRetryAuditSubject:      "audit.k8s.retry",
+		DLQRetryEventSubject:      "events.retry",
+		Workers:                   4,
 		BatchSize:            100,
 		AckWait:              30 * time.Second,
 		HealthProbeAddr:      ":8081",
@@ -115,6 +135,26 @@ func (o *ProcessorOptions) AddFlags(fs *pflag.FlagSet) {
 		"NATS JetStream stream name for dead-letter queue.")
 	fs.StringVar(&o.DLQSubjectPrefix, "dlq-subject-prefix", o.DLQSubjectPrefix,
 		"Subject prefix for dead-letter queue messages.")
+
+	// DLQ retry flags
+	fs.BoolVar(&o.DLQRetryEnabled, "dlq-retry-enabled", o.DLQRetryEnabled,
+		"Enable automatic retry of DLQ events.")
+	fs.DurationVar(&o.DLQRetryInterval, "dlq-retry-interval", o.DLQRetryInterval,
+		"Interval between DLQ retry batches.")
+	fs.IntVar(&o.DLQRetryBatchSize, "dlq-retry-batch-size", o.DLQRetryBatchSize,
+		"Number of DLQ events to process per retry batch.")
+	fs.DurationVar(&o.DLQRetryBackoffBase, "dlq-retry-backoff-base", o.DLQRetryBackoffBase,
+		"Initial backoff duration for DLQ retries.")
+	fs.Float64Var(&o.DLQRetryBackoffMultiplier, "dlq-retry-backoff-multiplier", o.DLQRetryBackoffMultiplier,
+		"Exponential backoff multiplier for DLQ retries.")
+	fs.DurationVar(&o.DLQRetryBackoffMax, "dlq-retry-backoff-max", o.DLQRetryBackoffMax,
+		"Maximum backoff duration for DLQ retries.")
+	fs.IntVar(&o.DLQRetryAlertThreshold, "dlq-retry-alert-threshold", o.DLQRetryAlertThreshold,
+		"Retry count threshold that triggers alerting metrics.")
+	fs.StringVar(&o.DLQRetryAuditSubject, "dlq-retry-audit-subject", o.DLQRetryAuditSubject,
+		"NATS subject for republishing audit events from DLQ.")
+	fs.StringVar(&o.DLQRetryEventSubject, "dlq-retry-event-subject", o.DLQRetryEventSubject,
+		"NATS subject for republishing Kubernetes events from DLQ.")
 
 	// Processing flags
 	fs.IntVar(&o.Workers, "workers", o.Workers,
@@ -188,10 +228,19 @@ func RunProcessor(options *ProcessorOptions) error {
 		NATSTLSCertFile:      options.NATSTLSCertFile,
 		NATSTLSKeyFile:       options.NATSTLSKeyFile,
 		NATSTLSCAFile:        options.NATSTLSCAFile,
-		DLQEnabled:           options.DLQEnabled,
-		DLQStreamName:        options.DLQStreamName,
-		DLQSubjectPrefix:     options.DLQSubjectPrefix,
-		Workers:              options.Workers,
+		DLQEnabled:                options.DLQEnabled,
+		DLQStreamName:             options.DLQStreamName,
+		DLQSubjectPrefix:          options.DLQSubjectPrefix,
+		DLQRetryEnabled:           options.DLQRetryEnabled,
+		DLQRetryInterval:          options.DLQRetryInterval,
+		DLQRetryBatchSize:         options.DLQRetryBatchSize,
+		DLQRetryBackoffBase:       options.DLQRetryBackoffBase,
+		DLQRetryBackoffMultiplier: options.DLQRetryBackoffMultiplier,
+		DLQRetryBackoffMax:        options.DLQRetryBackoffMax,
+		DLQRetryAlertThreshold:    options.DLQRetryAlertThreshold,
+		DLQRetryAuditSubject:      options.DLQRetryAuditSubject,
+		DLQRetryEventSubject:      options.DLQRetryEventSubject,
+		Workers:                   options.Workers,
 		BatchSize:            options.BatchSize,
 		AckWait:              options.AckWait,
 		MaxDeliver:           5,

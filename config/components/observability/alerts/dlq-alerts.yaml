@@ -1,0 +1,109 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: dlq-alerts
+  namespace: activity-system
+  labels:
+    prometheus: activity
+    app.kubernetes.io/part-of: activity
+    monitoring: "true"
+spec:
+  groups:
+    # =========================================================================
+    # DLQ Health Alerts - Platform SRE Ownership
+    # =========================================================================
+    - name: dlq-health
+      interval: 30s
+      rules:
+        # DLQ Growing - Queue Not Draining
+        - alert: DLQQueueGrowing
+          expr: |
+            rate(activity_processor_dlq_events_published_total[5m]) > 0.1
+            AND
+            increase(activity_processor_dlq_events_published_total[15m]) > 100
+          for: 15m
+          labels:
+            severity: warning
+            component: activity-processor
+            team: platform-sre
+          annotations:
+            summary: "DLQ is growing - messages not being processed"
+            description: "DLQ is receiving {{ $value }} events/sec for 15+ minutes. Events are failing processing faster than retry can handle."
+            impact: "Failed events accumulating - may indicate systematic policy issue or processor problem"
+            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/dlq/dlq-growth.md"
+
+        # DLQ Publish Errors
+        - alert: DLQPublishErrors
+          expr: rate(activity_processor_dlq_publish_errors_total[5m]) > 0.1
+          for: 10m
+          labels:
+            severity: warning
+            component: activity-processor
+            team: platform-sre
+          annotations:
+            summary: "Failed to publish events to DLQ"
+            description: "{{ $value }} DLQ publish errors/sec. Events may be lost entirely."
+            impact: "Failed events not being captured - complete data loss for affected events"
+            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/dlq/dlq-publish-errors.md"
+
+        # High Retry Count Events
+        - alert: DLQHighRetryCount
+          expr: |
+            increase(activity_processor_dlq_retry_events_high_retry_total[1h]) > 10
+          for: 1h
+          labels:
+            severity: warning
+            component: activity-processor
+            team: platform-sre
+          annotations:
+            summary: "DLQ events with excessive retry attempts"
+            description: "{{ $value }} events have exceeded the high retry threshold for {{ $labels.api_group }}/{{ $labels.kind }}."
+            impact: "Events failing persistently - policy or cluster issue preventing recovery"
+            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/dlq/dlq-high-retry-count.md"
+
+    # =========================================================================
+    # DLQ Retry Effectiveness
+    # =========================================================================
+    - name: dlq-retry
+      interval: 60s
+      rules:
+        # Retry Not Succeeding
+        - alert: DLQRetryIneffective
+          expr: |
+            (
+              sum(rate(activity_processor_dlq_retry_attempts_total{result="failed"}[15m]))
+              /
+              sum(rate(activity_processor_dlq_retry_attempts_total[15m]))
+            ) > 0.8
+          for: 30m
+          labels:
+            severity: warning
+            component: activity-processor
+            team: platform-sre
+          annotations:
+            summary: "DLQ retry success rate is low"
+            description: "{{ $value | humanizePercentage }} of retry attempts are failing. Events not recovering after retry."
+            impact: "Automatic retry not effective - manual intervention may be required"
+            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/dlq/dlq-retry-failing.md"
+
+    # =========================================================================
+    # Per-Policy DLQ Alerts - Policy Owner Responsibility
+    # =========================================================================
+    - name: dlq-policy-errors
+      interval: 60s
+      rules:
+        # Policy Sending Events to DLQ
+        - alert: ActivityPolicyDLQErrors
+          expr: |
+            sum by (policy_name, api_group, kind, error_type) (
+              rate(activity_processor_dlq_events_published_total{policy_name!=""}[10m])
+            ) > 0.1
+          for: 15m
+          labels:
+            severity: warning
+            component: activity-processor
+          annotations:
+            summary: "ActivityPolicy {{ $labels.policy_name }} sending events to DLQ"
+            description: "Policy {{ $labels.policy_name }} for {{ $labels.api_group }}/{{ $labels.kind }} has {{ $value }} events/sec failing with {{ $labels.error_type }}."
+            impact: "Activities not being generated for this resource type - users see incomplete timeline"
+            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/dlq/policy-dlq-errors.md"

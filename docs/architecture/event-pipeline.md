@@ -69,7 +69,7 @@ See [Data Model](./data-model.md) for the `events` table schema.
 Events are published to subjects using a flat tenant model:
 
 ```
-events.<tenant_type>.<tenant_name>.<api_group_kind>.<namespace>.<involved_name>
+events.<tenant_type>.<tenant_name>.<api_group_kind>.<namespace>.<regarding_name>
 ```
 
 The kind is fully qualified with the API group using `_` as a separator. Dots in

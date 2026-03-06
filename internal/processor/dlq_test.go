@@ -78,14 +78,14 @@ func TestNoopDLQPublisher(t *testing.T) {
 	testErr := errors.New("test error")
 
 	t.Run("PublishAuditFailure returns nil", func(t *testing.T) {
-		err := publisher.PublishAuditFailure(ctx, payload, "policy", 0, ErrorTypeCELMatch, testErr, nil, nil)
+		err := publisher.PublishAuditFailure(ctx, payload, "policy", 1, 0, ErrorTypeCELMatch, testErr, nil, nil)
 		if err != nil {
 			t.Errorf("PublishAuditFailure() returned error: %v", err)
 		}
 	})
 
 	t.Run("PublishEventFailure returns nil", func(t *testing.T) {
-		err := publisher.PublishEventFailure(ctx, payload, "policy", 0, ErrorTypeCELMatch, testErr, nil, nil)
+		err := publisher.PublishEventFailure(ctx, payload, "policy", 1, 0, ErrorTypeCELMatch, testErr, nil, nil)
 		if err != nil {
 			t.Errorf("PublishEventFailure() returned error: %v", err)
 		}

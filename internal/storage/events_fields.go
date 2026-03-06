@@ -15,12 +15,12 @@ var EventsFieldSelectors = map[string]string{
 	"metadata.uid":       "uid",
 
 	// Regarding object fields (events/v1)
-	"regarding.apiVersion": "involved_api_version",
-	"regarding.kind":       "involved_kind",
-	"regarding.namespace":  "involved_namespace",
-	"regarding.name":       "involved_name",
-	"regarding.uid":        "involved_uid",
-	"regarding.fieldPath":  "involved_field_path",
+	"regarding.apiVersion": "regarding_api_version",
+	"regarding.kind":       "regarding_kind",
+	"regarding.namespace":  "regarding_namespace",
+	"regarding.name":       "regarding_name",
+	"regarding.uid":        "regarding_uid",
+	"regarding.fieldPath":  "regarding_field_path",
 
 	// Event classification
 	"reason": "reason",
