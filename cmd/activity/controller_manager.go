@@ -13,6 +13,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"go.miloapis.com/activity/internal/controller"
@@ -20,10 +21,11 @@ import (
 
 // ControllerManagerOptions contains configuration for the controller manager.
 type ControllerManagerOptions struct {
-	Kubeconfig      string
-	MasterURL       string
-	Workers         int
-	MetricsAddr     string
+	Kubeconfig    string
+	JobKubeconfig string
+	MasterURL     string
+	Workers       int
+	MetricsAddr   string
 	HealthProbeAddr string
 
 	// NATS configuration (required)
@@ -60,7 +62,9 @@ func NewControllerManagerOptions() *ControllerManagerOptions {
 // AddFlags adds controller manager flags to the command.
 func (o *ControllerManagerOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.Kubeconfig, "kubeconfig", o.Kubeconfig,
-		"Path to a kubeconfig file. Only required if out-of-cluster.")
+		"Path to a kubeconfig file for Milo API server. Only required if out-of-cluster.")
+	fs.StringVar(&o.JobKubeconfig, "job-kubeconfig", o.JobKubeconfig,
+		"Path to a kubeconfig file for infrastructure cluster where Jobs run. If not set, uses --kubeconfig or in-cluster config.")
 	fs.StringVar(&o.MasterURL, "master", o.MasterURL,
 		"The address of the Kubernetes API server. Overrides any value in kubeconfig.")
 	fs.IntVar(&o.Workers, "workers", o.Workers,
@@ -129,7 +133,7 @@ func RunControllerManager(options *ControllerManagerOptions) error {
 
 	klog.Info("Starting Activity Controller Manager")
 
-	// Build the client configuration
+	// Build the client configuration for Milo API server (ReindexJob, ActivityPolicy)
 	var config *rest.Config
 	var err error
 
@@ -139,13 +143,45 @@ func RunControllerManager(options *ControllerManagerOptions) error {
 		config, err = rest.InClusterConfig()
 	}
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to build config for Milo API server: %w", err)
+	}
+
+	// Build the client configuration for infrastructure cluster (Jobs)
+	// Priority: --job-kubeconfig > in-cluster config > same as main config
+	var jobConfig *rest.Config
+	if options.JobKubeconfig != "" {
+		// Use explicit kubeconfig for Job operations
+		jobConfig, err = clientcmd.BuildConfigFromFlags("", options.JobKubeconfig)
+		if err != nil {
+			return fmt.Errorf("failed to build config from --job-kubeconfig: %w", err)
+		}
+		klog.Info("Using explicit kubeconfig for Job operations", "path", options.JobKubeconfig)
+	} else if inClusterConfig, inClusterErr := rest.InClusterConfig(); inClusterErr == nil {
+		// Running in a cluster - use in-cluster config for Jobs
+		// This allows the controller to create Jobs in the infrastructure cluster
+		// while connecting to Milo for ReindexJob CRs
+		jobConfig = inClusterConfig
+		klog.Info("Using in-cluster config for Job operations")
+	} else {
+		// Not in a cluster and no --job-kubeconfig - use same config as main client
+		// This is the typical dev environment scenario
+		jobConfig = config
+		klog.Info("Using same kubeconfig for Job operations (dev mode)")
+	}
+
+	// Create a client for Job operations
+	jobClient, err := client.New(jobConfig, client.Options{
+		Scheme: controller.Scheme,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create Job client: %w", err)
 	}
 
 	managerOpts := controller.ManagerOptions{
 		Workers:                  options.Workers,
 		MetricsAddr:              options.MetricsAddr,
 		HealthProbeAddr:          options.HealthProbeAddr,
+		JobClient:                jobClient,
 		ReindexJobNamespace:      options.ReindexJobNamespace,
 		ReindexServiceAccount:    options.ReindexServiceAccount,
 		ReindexMemoryLimit:       options.ReindexMemoryLimit,

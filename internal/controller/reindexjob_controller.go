@@ -81,22 +81,23 @@ func init() {
 // ReindexJobReconciler reconciles ReindexJob resources.
 type ReindexJobReconciler struct {
 	client.Client
+	JobClient client.Client
 	Scheme    *runtime.Scheme
 	JetStream nats.JetStreamContext
 	Recorder  record.EventRecorder
 
 	// Configuration for Kubernetes Jobs
-	JobNamespace         string
-	ActivityImage        string
+	JobNamespace          string
+	ActivityImage         string
 	ReindexServiceAccount string
-	ReindexMemoryLimit   string
-	ReindexCPULimit      string
-	MaxConcurrentJobs    int
-	NATSURL              string
-	NATSTLSEnabled       bool
-	NATSTLSCertFile      string
-	NATSTLSKeyFile       string
-	NATSTLSCAFile        string
+	ReindexMemoryLimit    string
+	ReindexCPULimit       string
+	MaxConcurrentJobs     int
+	NATSURL               string
+	NATSTLSEnabled        bool
+	NATSTLSCertFile       string
+	NATSTLSKeyFile        string
+	NATSTLSCAFile         string
 }
 
 // +kubebuilder:rbac:groups=activity.miloapis.com,resources=reindexjobs,verbs=get;list;watch;update;patch;delete
@@ -256,8 +257,8 @@ func (r *ReindexJobReconciler) startJob(ctx context.Context, job *v1alpha1.Reind
 	// 1. handleDeletion() which deletes Jobs by label when ReindexJob is deleted
 	// 2. Job TTL (TTLSecondsAfterFinished: 300) for automatic cleanup of completed Jobs
 
-	// Create the Job
-	if err := r.Create(ctx, k8sJob); err != nil {
+	// Create the Job using JobClient (infrastructure cluster)
+	if err := r.JobClient.Create(ctx, k8sJob); err != nil {
 		logger.Error(err, "failed to create Job")
 		return ctrl.Result{}, err
 	}
@@ -418,14 +419,14 @@ func (r *ReindexJobReconciler) buildJobForReindexJob(reindexJob *v1alpha1.Reinde
 func (r *ReindexJobReconciler) getJobForReindexJob(ctx context.Context, reindexJob *v1alpha1.ReindexJob) (*batchv1.Job, error) {
 	jobName := fmt.Sprintf("%s-job", reindexJob.Name)
 	var job batchv1.Job
-	err := r.Get(ctx, client.ObjectKey{Namespace: r.JobNamespace, Name: jobName}, &job)
+	err := r.JobClient.Get(ctx, client.ObjectKey{Namespace: r.JobNamespace, Name: jobName}, &job)
 	return &job, err
 }
 
 // countRunningJobs returns the number of currently running reindex Jobs.
 func (r *ReindexJobReconciler) countRunningJobs(ctx context.Context) (int, error) {
 	var jobList batchv1.JobList
-	if err := r.List(ctx, &jobList, client.InNamespace(r.JobNamespace), client.MatchingLabels{
+	if err := r.JobClient.List(ctx, &jobList, client.InNamespace(r.JobNamespace), client.MatchingLabels{
 		"app": "activity-reindex",
 	}); err != nil {
 		return 0, err
@@ -481,7 +482,7 @@ func (r *ReindexJobReconciler) handleDeletion(ctx context.Context, reindexJob *v
 	job, err := r.getJobForReindexJob(ctx, reindexJob)
 	if err == nil {
 		logger.Info("Deleting Job for deleted ReindexJob", "reindexJob", reindexJob.Name, "job", job.Name)
-		if err := r.Delete(ctx, job); client.IgnoreNotFound(err) != nil {
+		if err := r.JobClient.Delete(ctx, job); client.IgnoreNotFound(err) != nil {
 			return ctrl.Result{}, err
 		}
 	}
