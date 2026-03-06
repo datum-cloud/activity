@@ -17,7 +17,7 @@ const (
 	ReindexStreamName = "ACTIVITIES_REINDEX"
 
 	// ReindexSubjectPrefix is the subject prefix for reindexed activities
-	ReindexSubjectPrefix = "reindex.activities"
+	ReindexSubjectPrefix = "activity_miloapis_com_reindex"
 
 	// Default retry configuration
 	defaultMaxRetries     = 3
