@@ -1,0 +1,133 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: vector-alerts
+  namespace: activity-system
+  labels:
+    prometheus: activity
+    app.kubernetes.io/part-of: activity
+    monitoring: "true"
+spec:
+  groups:
+    # =========================================================================
+    # Vector Aggregator Health - NATS to ClickHouse Pipeline
+    # =========================================================================
+    - name: vector-aggregator
+      interval: 30s
+      rules:
+        # NATS Source Stalled - Detects lame duck mode disconnection issue
+        # All NATS sources stopped receiving - strong signal of connection failure
+        - alert: VectorAllNATSSourcesStalled
+          expr: |
+            sum(rate(vector_component_received_events_total{component_type="nats"}[5m])) == 0
+          for: 5m
+          labels:
+            severity: critical
+            component: vector-aggregator
+            issue: nats-reconnect
+          annotations:
+            summary: "All Vector NATS sources stopped - likely lame duck reconnection failure"
+            description: "No NATS sources are receiving events. This typically indicates Vector's NATS connection did not recover after server entered lame duck mode."
+            runbook: "Restart vector-aggregator pods: kubectl rollout restart statefulset/vector-aggregator -n activity-system"
+            issue_link: "https://github.com/datum-cloud/activity/issues/82"
+
+        # NATS Source Stalled with backlog confirmation (requires NATS metrics)
+        - alert: VectorNATSSourceStalledWithBacklog
+          expr: |
+            (
+              sum(rate(vector_component_received_events_total{component_type="nats"}[5m])) == 0
+            )
+            AND ON()
+            (
+              sum(nats_jetstream_consumer_num_pending{consumer=~"clickhouse-ingest.*"}) > 100
+            )
+          for: 5m
+          labels:
+            severity: critical
+            component: vector-aggregator
+            issue: nats-reconnect
+          annotations:
+            summary: "Vector NATS stalled with message backlog"
+            description: "Vector not receiving from NATS but messages are pending in JetStream. Confirms reconnection failure."
+            runbook: "Restart vector-aggregator pods: kubectl rollout restart statefulset/vector-aggregator -n activity-system"
+
+        # Individual NATS source not receiving - more granular detection
+        - alert: VectorNATSAuditSourceStopped
+          expr: |
+            rate(vector_component_received_events_total{component_id="nats_audit_consumer"}[10m]) == 0
+          for: 10m
+          labels:
+            severity: warning
+            component: vector-aggregator
+            source: nats_audit_consumer
+          annotations:
+            summary: "Vector audit event source stopped receiving"
+            description: "The nats_audit_consumer source has not received events for 10+ minutes."
+            impact: "Audit events not flowing to ClickHouse"
+
+        - alert: VectorNATSActivitiesSourceStopped
+          expr: |
+            rate(vector_component_received_events_total{component_id="nats_activities_consumer"}[10m]) == 0
+          for: 10m
+          labels:
+            severity: warning
+            component: vector-aggregator
+            source: nats_activities_consumer
+          annotations:
+            summary: "Vector activities source stopped receiving"
+            description: "The nats_activities_consumer source has not received events for 10+ minutes."
+            impact: "Activities not flowing to ClickHouse"
+
+        - alert: VectorNATSEventsSourceStopped
+          expr: |
+            rate(vector_component_received_events_total{component_id="nats_events_consumer"}[10m]) == 0
+          for: 10m
+          labels:
+            severity: warning
+            component: vector-aggregator
+            source: nats_events_consumer
+          annotations:
+            summary: "Vector events source stopped receiving"
+            description: "The nats_events_consumer source has not received events for 10+ minutes."
+            impact: "Kubernetes events not flowing to ClickHouse"
+
+        # Vector component errors - early warning
+        - alert: VectorComponentErrors
+          expr: |
+            rate(vector_component_errors_total{component_type="nats"}[5m]) > 0.1
+          for: 5m
+          labels:
+            severity: warning
+            component: vector-aggregator
+          annotations:
+            summary: "Vector NATS component experiencing errors"
+            description: "{{ $labels.component_id }} has {{ $value | humanize }} errors/sec"
+            impact: "Potential data loss or pipeline degradation"
+
+        # ClickHouse sink backpressure - buffer filling up
+        - alert: VectorClickHouseSinkBackpressure
+          expr: |
+            vector_buffer_events{component_type="clickhouse"} > 50000
+          for: 10m
+          labels:
+            severity: warning
+            component: vector-aggregator
+          annotations:
+            summary: "Vector ClickHouse sink buffer filling up"
+            description: "{{ $value }} events buffered for {{ $labels.component_id }}. ClickHouse may be slow or unavailable."
+            impact: "Risk of data loss if buffer fills completely"
+
+        # Vector pod not ready
+        - alert: VectorAggregatorNotReady
+          expr: |
+            kube_statefulset_status_replicas_ready{statefulset="vector-aggregator", namespace="activity-system"}
+            <
+            kube_statefulset_status_replicas{statefulset="vector-aggregator", namespace="activity-system"}
+          for: 5m
+          labels:
+            severity: warning
+            component: vector-aggregator
+          annotations:
+            summary: "Vector aggregator pods not ready"
+            description: "{{ $value }} vector-aggregator pods are not ready"
+            impact: "Reduced pipeline capacity"

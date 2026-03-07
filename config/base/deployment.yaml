@@ -66,6 +66,10 @@ spec:
         - --logging-format=$(LOGGING_FORMAT)
         - --tracing-config-file=$(TRACING_CONFIG_FILE)
         - --etcd-servers=$(ETCD_SERVERS)
+        - --etcd-prefix=$(ETCD_PREFIX)
+        - --etcd-cafile=$(ETCD_CAFILE)
+        - --etcd-certfile=$(ETCD_CERTFILE)
+        - --etcd-keyfile=$(ETCD_KEYFILE)
         - --activities-nats-url=$(ACTIVITIES_NATS_URL)
         - --activities-nats-stream=$(ACTIVITIES_NATS_STREAM)
         - --activities-nats-subject-prefix=$(ACTIVITIES_NATS_SUBJECT_PREFIX)
@@ -130,6 +134,14 @@ spec:
           value: ""
         - name: ETCD_SERVERS
           value: "http://etcd.activity-system.svc.cluster.local:2379"
+        - name: ETCD_PREFIX
+          value: "/registry/activity.miloapis.com"
+        - name: ETCD_CAFILE
+          value: ""
+        - name: ETCD_CERTFILE
+          value: ""
+        - name: ETCD_KEYFILE
+          value: ""
         # NATS configuration for Activities Watch API (empty = Watch API disabled)
         - name: ACTIVITIES_NATS_URL
           value: ""

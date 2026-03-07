@@ -14,6 +14,8 @@ resources:
   - alerts/activity-alerts.yaml
   # DLQ-specific alerts
   - alerts/dlq-alerts.yaml
+  # Vector aggregator alerts (NATS reconnection detection)
+  - alerts/vector-alerts.yaml
   # Recording rules (generated from Jsonnet mixin)
   - alerts/generated/activity-recordings.yaml
 
