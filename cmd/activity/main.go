@@ -23,6 +23,8 @@ import (
 	"k8s.io/component-base/logs"
 	logsapi "k8s.io/component-base/logs/api/v1"
 	"k8s.io/klog/v2"
+	openapiutil "k8s.io/kube-openapi/pkg/util"
+	"k8s.io/kube-openapi/pkg/validation/spec"
 
 	// Register JSON logging format
 	_ "k8s.io/component-base/logs/json/register"
@@ -273,11 +275,21 @@ func (o *ActivityServerOptions) Config() (*activityapiserver.Config, error) {
 	genericConfig.OpenAPIV3Config = genericapiserver.DefaultOpenAPIV3Config(openapi.GetOpenAPIDefinitions, namer)
 	genericConfig.OpenAPIV3Config.Info.Title = "Activity"
 	genericConfig.OpenAPIV3Config.Info.Version = version.Version
+	// Override GetDefinitionName to use REST-friendly naming for SSA compatibility.
+	// This ensures the OpenAPI schema names match what the TypeConverter expects.
+	genericConfig.OpenAPIV3Config.GetDefinitionName = func(name string) (string, spec.Extensions) {
+		friendlyName, extensions := namer.GetDefinitionName(name)
+		return openapiutil.ToRESTFriendlyName(friendlyName), extensions
+	}
 
 	// Configure OpenAPI v2
 	genericConfig.OpenAPIConfig = genericapiserver.DefaultOpenAPIConfig(openapi.GetOpenAPIDefinitions, namer)
 	genericConfig.OpenAPIConfig.Info.Title = "Activity"
 	genericConfig.OpenAPIConfig.Info.Version = version.Version
+	genericConfig.OpenAPIConfig.GetDefinitionName = func(name string) (string, spec.Extensions) {
+		friendlyName, extensions := namer.GetDefinitionName(name)
+		return openapiutil.ToRESTFriendlyName(friendlyName), extensions
+	}
 
 	if err := o.RecommendedOptions.ApplyTo(genericConfig); err != nil {
 		return nil, fmt.Errorf("failed to apply recommended options: %w", err)
