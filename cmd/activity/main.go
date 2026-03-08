@@ -23,8 +23,6 @@ import (
 	"k8s.io/component-base/logs"
 	logsapi "k8s.io/component-base/logs/api/v1"
 	"k8s.io/klog/v2"
-	openapiutil "k8s.io/kube-openapi/pkg/util"
-	"k8s.io/kube-openapi/pkg/validation/spec"
 
 	// Register JSON logging format
 	_ "k8s.io/component-base/logs/json/register"
@@ -271,25 +269,20 @@ func (o *ActivityServerOptions) Config() (*activityapiserver.Config, error) {
 	// Set effective version to match the Kubernetes version we're built against.
 	genericConfig.EffectiveVersion = basecompatibility.NewEffectiveVersionFromString("1.34", "", "")
 
+	// Use GetOpenAPIDefinitionsWithRESTFriendlyKeys which transforms definition keys to
+	// match what the DefinitionNamer expects. This is required because:
+	// - openapi-gen generates keys using Go module paths (e.g., "go.miloapis.com/...")
+	// - DefinitionNamer uses scheme.ToOpenAPIDefinitionName() which returns REST-friendly names (e.g., "com.miloapis.go...")
+	// - Without matching keys, GVK extensions aren't added and SSA fails with "no corresponding type"
 	namer := apiopenapi.NewDefinitionNamer(activityapiserver.Scheme)
-	genericConfig.OpenAPIV3Config = genericapiserver.DefaultOpenAPIV3Config(openapi.GetOpenAPIDefinitions, namer)
+	genericConfig.OpenAPIV3Config = genericapiserver.DefaultOpenAPIV3Config(openapi.GetOpenAPIDefinitionsWithRESTFriendlyKeys, namer)
 	genericConfig.OpenAPIV3Config.Info.Title = "Activity"
 	genericConfig.OpenAPIV3Config.Info.Version = version.Version
-	// Override GetDefinitionName to use REST-friendly naming for SSA compatibility.
-	// This ensures the OpenAPI schema names match what the TypeConverter expects.
-	genericConfig.OpenAPIV3Config.GetDefinitionName = func(name string) (string, spec.Extensions) {
-		friendlyName, extensions := namer.GetDefinitionName(name)
-		return openapiutil.ToRESTFriendlyName(friendlyName), extensions
-	}
 
 	// Configure OpenAPI v2
-	genericConfig.OpenAPIConfig = genericapiserver.DefaultOpenAPIConfig(openapi.GetOpenAPIDefinitions, namer)
+	genericConfig.OpenAPIConfig = genericapiserver.DefaultOpenAPIConfig(openapi.GetOpenAPIDefinitionsWithRESTFriendlyKeys, namer)
 	genericConfig.OpenAPIConfig.Info.Title = "Activity"
 	genericConfig.OpenAPIConfig.Info.Version = version.Version
-	genericConfig.OpenAPIConfig.GetDefinitionName = func(name string) (string, spec.Extensions) {
-		friendlyName, extensions := namer.GetDefinitionName(name)
-		return openapiutil.ToRESTFriendlyName(friendlyName), extensions
-	}
 
 	if err := o.RecommendedOptions.ApplyTo(genericConfig); err != nil {
 		return nil, fmt.Errorf("failed to apply recommended options: %w", err)
