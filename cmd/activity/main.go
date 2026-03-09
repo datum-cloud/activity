@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -23,6 +24,9 @@ import (
 	"k8s.io/component-base/logs"
 	logsapi "k8s.io/component-base/logs/api/v1"
 	"k8s.io/klog/v2"
+	openapicommon "k8s.io/kube-openapi/pkg/common"
+	openapiutil "k8s.io/kube-openapi/pkg/util"
+	"k8s.io/kube-openapi/pkg/validation/spec"
 
 	// Register JSON logging format
 	_ "k8s.io/component-base/logs/json/register"
@@ -269,20 +273,58 @@ func (o *ActivityServerOptions) Config() (*activityapiserver.Config, error) {
 	// Set effective version to match the Kubernetes version we're built against.
 	genericConfig.EffectiveVersion = basecompatibility.NewEffectiveVersionFromString("1.34", "", "")
 
-	// Use GetOpenAPIDefinitionsWithRESTFriendlyKeys which transforms definition keys to
-	// match what the DefinitionNamer expects. This is required because:
-	// - openapi-gen generates keys using Go module paths (e.g., "go.miloapis.com/...")
-	// - DefinitionNamer uses scheme.ToOpenAPIDefinitionName() which returns REST-friendly names (e.g., "com.miloapis.go...")
-	// - Without matching keys, GVK extensions aren't added and SSA fails with "no corresponding type"
+	// Configure OpenAPI for SSA compatibility.
+	//
+	// The DefinitionNamer in k8s.io/apiserver uses scheme.ToOpenAPIDefinitionName() which
+	// returns REST-friendly names (e.g., "com.miloapis.go.activity..."). GVK extensions
+	// are only returned when the name matches what's in DefinitionNamer's internal map.
+	//
+	// The OpenAPI builder uses reflection to get type names (Go module paths like
+	// "go.miloapis.com/activity/...") and looks them up in the definitions map. So
+	// definition keys must remain in Go module path format for lookups to work.
+	//
+	// Our approach:
+	// 1. GetOpenAPIDefinitionsWithUnstructured keeps keys in Go module path format
+	// 2. Custom GetDefinitionName transforms Go module paths to REST-friendly format
+	//    before looking up in DefinitionNamer (to get GVK extensions)
+	// 3. The builder's internal ref callback uses GetDefinitionName, so $refs in the
+	//    final spec use REST-friendly names matching the definition names
 	namer := apiopenapi.NewDefinitionNamer(activityapiserver.Scheme)
-	genericConfig.OpenAPIV3Config = genericapiserver.DefaultOpenAPIV3Config(openapi.GetOpenAPIDefinitionsWithRESTFriendlyKeys, namer)
+
+	// Custom GetDefinitionName that transforms Go module paths to REST-friendly format
+	// before looking up in DefinitionNamer. This ensures GVK extensions are returned.
+	getDefinitionName := func(name string) (string, spec.Extensions) {
+		if strings.Contains(name, "/") {
+			// Go module path - transform to REST-friendly format to match
+			// what DefinitionNamer expects (from scheme.ToOpenAPIDefinitionName)
+			name = openapiutil.ToRESTFriendlyName(name)
+		}
+		return namer.GetDefinitionName(name)
+	}
+
+	// OpenAPI v3 config
+	genericConfig.OpenAPIV3Config = genericapiserver.DefaultOpenAPIV3Config(openapi.GetOpenAPIDefinitionsWithUnstructured, namer)
 	genericConfig.OpenAPIV3Config.Info.Title = "Activity"
 	genericConfig.OpenAPIV3Config.Info.Version = version.Version
+	genericConfig.OpenAPIV3Config.GetDefinitionName = getDefinitionName
+	// Re-compute Definitions with our custom getDefinitionName so $refs use REST-friendly names.
+	// DefaultOpenAPIV3Config computes Definitions with the original namer, but we need refs
+	// to match our transformed definition names for SSA TypeConverter lookups.
+	genericConfig.OpenAPIV3Config.Definitions = openapi.GetOpenAPIDefinitionsWithUnstructured(func(name string) spec.Ref {
+		defName, _ := getDefinitionName(name)
+		return spec.MustCreateRef("#/components/schemas/" + openapicommon.EscapeJsonPointer(defName))
+	})
 
-	// Configure OpenAPI v2
-	genericConfig.OpenAPIConfig = genericapiserver.DefaultOpenAPIConfig(openapi.GetOpenAPIDefinitionsWithRESTFriendlyKeys, namer)
+	// OpenAPI v2 config
+	genericConfig.OpenAPIConfig = genericapiserver.DefaultOpenAPIConfig(openapi.GetOpenAPIDefinitionsWithUnstructured, namer)
 	genericConfig.OpenAPIConfig.Info.Title = "Activity"
 	genericConfig.OpenAPIConfig.Info.Version = version.Version
+	genericConfig.OpenAPIConfig.GetDefinitionName = getDefinitionName
+	// Re-compute Definitions for v2 as well
+	genericConfig.OpenAPIConfig.Definitions = openapi.GetOpenAPIDefinitionsWithUnstructured(func(name string) spec.Ref {
+		defName, _ := getDefinitionName(name)
+		return spec.MustCreateRef("#/definitions/" + openapicommon.EscapeJsonPointer(defName))
+	})
 
 	if err := o.RecommendedOptions.ApplyTo(genericConfig); err != nil {
 		return nil, fmt.Errorf("failed to apply recommended options: %w", err)
