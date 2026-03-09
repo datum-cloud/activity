@@ -228,10 +228,11 @@ export function ActivityFeedItem({
         {/* Event content card */}
         <div
           className={cn(
-            'flex-1 border border-border rounded-lg transition-all duration-200',
-            'hover:border-gray-300 hover:shadow-sm hover:-translate-y-px dark:hover:border-gray-600',
+            'flex-1 border border-border rounded-lg transition-all duration-200 bg-card',
+            'shadow-sm hover:shadow-md hover:-translate-y-0.5',
+            'hover:border-primary/30 dark:hover:border-primary/40',
             compact ? 'p-2 mb-2' : 'p-2.5 mb-2',
-            isSelected && 'border-rose-300 bg-rose-50/50 dark:border-rose-600 dark:bg-rose-950/30'
+            isSelected && 'border-primary bg-primary/5 ring-1 ring-primary/20 dark:bg-primary/10'
           )}
         >
           {/* Single row layout */}
@@ -286,9 +287,10 @@ export function ActivityFeedItem({
     <Card
       className={cn(
         'cursor-pointer transition-all duration-200',
-        'hover:border-gray-300 hover:shadow-sm hover:-translate-y-px dark:hover:border-gray-600',
+        'shadow-sm hover:shadow-md hover:-translate-y-0.5',
+        'hover:border-primary/30 dark:hover:border-primary/40',
         compact ? 'p-1.5 mb-1' : 'p-4 mb-3',
-        isSelected && 'border-rose-300 bg-rose-50 shadow-md dark:border-rose-600 dark:bg-rose-950/50',
+        isSelected && 'border-primary bg-primary/5 shadow-md ring-1 ring-primary/20 dark:bg-primary/10',
         isNew && 'border-l-4 border-l-green-500 bg-green-50/50 dark:border-l-green-400 dark:bg-green-950/30',
         className
       )}

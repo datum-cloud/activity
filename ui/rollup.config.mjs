@@ -3,7 +3,6 @@ import commonjs from '@rollup/plugin-commonjs';
 import typescript from '@rollup/plugin-typescript';
 import peerDepsExternal from 'rollup-plugin-peer-deps-external';
 import postcss from 'rollup-plugin-postcss';
-import tailwindcss from '@tailwindcss/postcss';
 import autoprefixer from 'autoprefixer';
 
 export default {
@@ -38,10 +37,11 @@ export default {
       noEmitOnError: false,
     }),
     postcss({
-      extract: 'styles.css',
+      // Don't extract CSS - host app provides Tailwind
+      // This avoids CSS layer conflicts with host applications
+      inject: false,
       minimize: true,
       plugins: [
-        tailwindcss(),
         autoprefixer(),
       ],
     }),

@@ -1,11 +1,13 @@
-@import "tailwindcss";
-
-/* Use JS config for content scanning */
-@config "../tailwind.config.js";
-
-@custom-variant dark (&:is(.dark *, [data-theme="dark"] *));
-
-/* Define spacing variable for Tailwind v4 utilities */
-@theme {
-  --spacing: 0.25rem;
-}
+/*
+ * activity-ui CSS
+ *
+ * This package uses Tailwind CSS utility classes. The host application
+ * must have Tailwind CSS configured to generate the necessary styles.
+ *
+ * This file is intentionally minimal - we do NOT import the full Tailwind
+ * framework here to avoid CSS layer conflicts with host applications.
+ *
+ * Required Tailwind configuration in host app:
+ * - darkMode: ["class", '[data-theme="dark"]']
+ * - Content scanning must include node_modules/@datum-cloud/activity-ui
+ */
