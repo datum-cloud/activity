@@ -2,38 +2,25 @@ package openapi
 
 import (
 	common "k8s.io/kube-openapi/pkg/common"
-	"k8s.io/kube-openapi/pkg/util"
 	spec "k8s.io/kube-openapi/pkg/validation/spec"
 )
 
-// GetOpenAPIDefinitionsWithRESTFriendlyKeys wraps the generated GetOpenAPIDefinitions
-// and transforms all definition keys to REST-friendly format.
+// GetOpenAPIDefinitionsWithUnstructured wraps the generated GetOpenAPIDefinitions
+// and adds the Unstructured type definition which doesn't carry +k8s:openapi-gen markers.
 //
-// This is required because:
-// 1. The openapi-gen tool generates definition keys using Go module paths (e.g., "go.miloapis.com/activity/...")
-// 2. The DefinitionNamer in k8s.io/apiserver v0.35+ uses scheme.ToOpenAPIDefinitionName() which returns REST-friendly names (e.g., "com.miloapis.go.activity...")
-// 3. When GetDefinitionName is called during OpenAPI schema building, the keys don't match
-// 4. This causes GVK extensions (x-kubernetes-group-version-kind) to not be added
-// 5. Without GVK extensions, Server-Side Apply (SSA) fails with "no corresponding type" errors
+// IMPORTANT: This function does NOT transform keys. Keys remain in their original format
+// (Go module paths like "go.miloapis.com/activity/...") because the OpenAPI builder uses
+// reflection to get type names and looks them up in the definitions map.
 //
-// By transforming keys to REST-friendly format, we ensure the keys match what the DefinitionNamer expects.
-func GetOpenAPIDefinitionsWithRESTFriendlyKeys(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
+// For GVK extensions (required for SSA), the GetDefinitionName function must transform
+// Go module paths to REST-friendly format before looking up in DefinitionNamer. This
+// transformation is done in main.go's getDefinitionName wrapper.
+func GetOpenAPIDefinitionsWithUnstructured(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	originalDefs := GetOpenAPIDefinitions(ref)
-	transformedDefs := make(map[string]common.OpenAPIDefinition, len(originalDefs))
 
-	for key, def := range originalDefs {
-		// Transform the key to REST-friendly format
-		// e.g., "go.miloapis.com/activity/pkg/apis/activity/v1alpha1.ActivityPolicy"
-		// becomes "com.miloapis.go.activity.pkg.apis.activity.v1alpha1.ActivityPolicy"
-		restFriendlyKey := util.ToRESTFriendlyName(key)
-		transformedDefs[restFriendlyKey] = def
-	}
-
-	// Also add the missing definition for unstructured.Unstructured which is a
-	// special Kubernetes type that does not carry +k8s:openapi-gen markers.
-	// This is needed when types reference unstructured objects.
-	unstructuredKey := util.ToRESTFriendlyName("k8s.io/apimachinery/pkg/apis/meta/v1/unstructured.Unstructured")
-	transformedDefs[unstructuredKey] = common.OpenAPIDefinition{
+	// Add the Unstructured type which doesn't carry +k8s:openapi-gen markers
+	// Use the Go module path format to match how other definitions are keyed
+	originalDefs["k8s.io/apimachinery/pkg/apis/meta/v1/unstructured.Unstructured"] = common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Description: "Unstructured represents a Kubernetes resource as an arbitrary JSON object.",
@@ -47,5 +34,5 @@ func GetOpenAPIDefinitionsWithRESTFriendlyKeys(ref common.ReferenceCallback) map
 		},
 	}
 
-	return transformedDefs
+	return originalDefs
 }
