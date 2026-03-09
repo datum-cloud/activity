@@ -4,32 +4,43 @@
 @source "../../../src/**/*.{ts,tsx}";
 
 @theme {
-  /* Datum Brand Colors */
-  --color-canyon-clay: hsl(0 27% 70%);        /* #C49D9D - Warm rose/clay */
-  --color-aurora-moss: hsl(67 89% 79%);       /* #E6F59E - Light moss green */
-  --color-datum-dark: hsl(213 59% 12%);       /* #0C1D31 - Deep blue-black */
-  --color-datum-blue: hsl(217 91% 60%);       /* #3b82f6 - Datum blue */
+  /* Datum Brand Colors - Full Palette */
+  --color-midnight-fjord: #0C1D31;            /* Dark navy - text/foreground */
+  --color-aurora-moss: #E6F59F;               /* Light yellow-green - accents */
+  --color-blush-quartz: #ECD0D0;              /* Soft rose - warning/error states */
+  --color-canyon-clay: #BF9595;               /* Muted mauve - badges */
+  --color-pine-forge: #4D6356;                /* Forest green - primary actions */
+  --color-glacier-mist-600: #F6F6F5;          /* Off-white - background */
+  --color-glacier-mist-700: #EFEFED;          /* Off-white mid */
+  --color-glacier-mist-800: #E8E7E4;          /* Off-white dark */
+
+  /* Chart Colors - Brand-based Data Visualization Palette */
+  --color-chart-1: hsl(146 21% 38%);          /* Pine Forge variant */
+  --color-chart-2: hsl(67 89% 79%);           /* Aurora Moss */
+  --color-chart-3: hsl(0 18% 66%);            /* Canyon Clay */
+  --color-chart-4: hsl(213 59% 12%);          /* Midnight Fjord */
+  --color-chart-5: hsl(0 28% 87%);            /* Blush Quartz */
 
   /* Theme colors based on Datum brand - Light mode defaults */
-  --color-background: hsl(0 0% 100%);
-  --color-foreground: hsl(213 59% 12%);       /* Datum dark */
-  --color-card: hsl(0 0% 100%);
+  --color-background: hsl(40 10% 93%);        /* Glacier Mist - warmer, more distinct */
+  --color-foreground: hsl(213 59% 12%);       /* Midnight Fjord */
+  --color-card: hsl(0 0% 100%);               /* Pure white - stands out from background */
   --color-card-foreground: hsl(213 59% 12%);
   --color-popover: hsl(0 0% 100%);
   --color-popover-foreground: hsl(213 59% 12%);
-  --color-primary: hsl(0 27% 70%);            /* Canyon Clay */
-  --color-primary-foreground: hsl(213 59% 12%);
-  --color-secondary: hsl(67 89% 79%);         /* Aurora Moss */
+  --color-primary: hsl(146 21% 32%);          /* Pine Forge - darker for better contrast */
+  --color-primary-foreground: hsl(0 0% 100%);
+  --color-secondary: hsl(67 70% 70%);         /* Aurora Moss - slightly darker */
   --color-secondary-foreground: hsl(213 59% 12%);
-  --color-muted: hsl(0 0% 96%);
-  --color-muted-foreground: hsl(213 20% 45%);
-  --color-accent: hsl(67 89% 79%);            /* Aurora Moss accent */
+  --color-muted: hsl(40 10% 90%);             /* Glacier Mist - matches background */
+  --color-muted-foreground: hsl(213 30% 30%); /* Much darker for readability */
+  --color-accent: hsl(67 70% 70%);            /* Aurora Moss accent */
   --color-accent-foreground: hsl(213 59% 12%);
-  --color-destructive: hsl(0 84% 60%);
-  --color-destructive-foreground: hsl(0 0% 98%);
-  --color-border: hsl(0 0% 90%);
-  --color-input: hsl(0 0% 90%);
-  --color-ring: hsl(0 27% 70%);               /* Canyon Clay */
+  --color-destructive: hsl(0 50% 55%);        /* More visible red for errors */
+  --color-destructive-foreground: hsl(0 0% 100%);
+  --color-border: hsl(213 15% 75%);           /* Blue-gray border - more visible */
+  --color-input: hsl(213 15% 75%);
+  --color-ring: hsl(146 21% 32%);             /* Pine Forge */
 
   --radius-lg: 0.5rem;
   --radius-md: calc(0.5rem - 2px);
@@ -47,24 +58,37 @@
 
   /* Dark mode theme overrides */
   .dark {
-    --color-background: hsl(213 25% 10%);
+    --color-background: hsl(213 30% 8%);
     --color-foreground: hsl(0 0% 95%);
-    --color-card: hsl(213 25% 13%);
+    --color-card: hsl(213 25% 14%);
     --color-card-foreground: hsl(0 0% 95%);
-    --color-popover: hsl(213 25% 13%);
+    --color-popover: hsl(213 25% 14%);
     --color-popover-foreground: hsl(0 0% 95%);
-    --color-primary: hsl(0 27% 65%);            /* Canyon Clay - slightly adjusted */
+    --color-primary: hsl(146 25% 50%);          /* Pine Forge - brighter for dark mode */
     --color-primary-foreground: hsl(0 0% 98%);
-    --color-secondary: hsl(67 60% 45%);         /* Aurora Moss - darkened for contrast */
-    --color-secondary-foreground: hsl(0 0% 98%);
+    --color-secondary: hsl(67 50% 50%);         /* Aurora Moss - adjusted for contrast */
+    --color-secondary-foreground: hsl(213 59% 12%);
     --color-muted: hsl(213 25% 18%);
-    --color-muted-foreground: hsl(213 15% 65%);
-    --color-accent: hsl(67 60% 45%);            /* Aurora Moss - darkened */
-    --color-accent-foreground: hsl(0 0% 98%);
-    --color-destructive: hsl(0 72% 51%);
+    --color-muted-foreground: hsl(213 15% 70%);
+    --color-accent: hsl(67 50% 50%);            /* Aurora Moss */
+    --color-accent-foreground: hsl(213 59% 12%);
+    --color-destructive: hsl(0 60% 55%);        /* Visible red for dark mode */
     --color-destructive-foreground: hsl(0 0% 98%);
-    --color-border: hsl(213 25% 22%);
-    --color-input: hsl(213 25% 22%);
-    --color-ring: hsl(0 27% 65%);               /* Canyon Clay */
+    --color-border: hsl(213 20% 30%);           /* More visible border in dark mode */
+    --color-input: hsl(213 20% 30%);
+    --color-ring: hsl(146 25% 50%);             /* Pine Forge */
+  }
+}
+
+/* Feed item visual enhancement */
+@layer components {
+  /* Add subtle shadow to cards for depth */
+  .shadow-card {
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.08);
+  }
+
+  /* Hover state for interactive cards */
+  .shadow-card-hover:hover {
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
   }
 }
