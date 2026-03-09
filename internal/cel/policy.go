@@ -1,6 +1,7 @@
 package cel
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -301,7 +302,10 @@ func EvaluateEventSummary(template string, event map[string]interface{}) (string
 
 // evaluateSummaryTemplate evaluates a summary template with the given variables.
 // Links are captured by the linkCollector in the CEL environment during evaluation.
+// If any CEL expression in the template fails to compile or evaluate, an error is
+// returned so the caller can route the event to the dead-letter queue for retry.
 func evaluateSummaryTemplate(env *cel.Env, template string, vars map[string]interface{}) (string, error) {
+	var evalErrors []error
 	result := summaryTemplateRegex.ReplaceAllStringFunc(template, func(match string) string {
 		// Extract the expression from {{ expression }}
 		submatches := summaryTemplateRegex.FindStringSubmatch(match)
@@ -315,21 +319,28 @@ func evaluateSummaryTemplate(env *cel.Env, template string, vars map[string]inte
 		// The link() function in the environment will capture links automatically
 		ast, issues := env.Compile(expr)
 		if issues != nil && issues.Err() != nil {
+			evalErrors = append(evalErrors, fmt.Errorf("compile %q: %w", expr, issues.Err()))
 			return fmt.Sprintf("[ERROR: %v]", issues.Err())
 		}
 
 		prg, err := env.Program(ast)
 		if err != nil {
+			evalErrors = append(evalErrors, fmt.Errorf("program %q: %w", expr, err))
 			return fmt.Sprintf("[ERROR: %v]", err)
 		}
 
 		out, _, err := prg.Eval(vars)
 		if err != nil {
+			evalErrors = append(evalErrors, fmt.Errorf("eval %q: %w", expr, err))
 			return fmt.Sprintf("[ERROR: %v]", err)
 		}
 
 		return fmt.Sprintf("%v", out.Value())
 	})
+
+	if len(evalErrors) > 0 {
+		return result, fmt.Errorf("summary template evaluation failed: %w", errors.Join(evalErrors...))
+	}
 
 	return result, nil
 }
