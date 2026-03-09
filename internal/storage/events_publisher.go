@@ -10,57 +10,11 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go"
-	"github.com/prometheus/client_golang/prometheus"
 	eventsv1 "k8s.io/api/events/v1"
 	"k8s.io/klog/v2"
-	"sigs.k8s.io/controller-runtime/pkg/metrics"
+
+	activitymetrics "go.miloapis.com/activity/internal/metrics"
 )
-
-var (
-	eventsPublishedTotal = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Namespace: "activity_apiserver",
-			Name:      "events_published_total",
-			Help:      "Total number of Kubernetes events published to NATS by the activity apiserver",
-		},
-		[]string{"namespace", "reason"},
-	)
-
-	eventsPublishErrorsTotal = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Namespace: "activity_apiserver",
-			Name:      "events_publish_errors_total",
-			Help:      "Total number of errors publishing events to NATS from the activity apiserver",
-		},
-	)
-
-	eventsNATSConnectionStatus = prometheus.NewGauge(
-		prometheus.GaugeOpts{
-			Namespace: "activity_apiserver",
-			Name:      "events_nats_connection_status",
-			Help:      "NATS connection status for events publisher (1 = connected, 0 = disconnected)",
-		},
-	)
-
-	eventsPublishLatencySeconds = prometheus.NewHistogram(
-		prometheus.HistogramOpts{
-			Namespace: "activity_apiserver",
-			Name:      "events_publish_latency_seconds",
-			Help:      "Latency of NATS publish operations for events",
-			Buckets:   prometheus.DefBuckets,
-		},
-	)
-)
-
-func init() {
-	// Use controller-runtime's registry so metrics are exposed alongside other metrics.
-	metrics.Registry.MustRegister(
-		eventsPublishedTotal,
-		eventsPublishErrorsTotal,
-		eventsNATSConnectionStatus,
-		eventsPublishLatencySeconds,
-	)
-}
 
 // EventsPublisher publishes Kubernetes Events to NATS JetStream.
 // This allows the activity-apiserver to publish events that Vector will
@@ -130,11 +84,11 @@ func NewEventsPublisher(config EventsPublisherConfig) (*EventsPublisher, error) 
 			if err != nil {
 				klog.ErrorS(err, "Events NATS publisher disconnected")
 			}
-			eventsNATSConnectionStatus.Set(0)
+			activitymetrics.EventsNATSConnectionStatus.Set(0)
 		}),
 		nats.ReconnectHandler(func(nc *nats.Conn) {
 			klog.Info("Events NATS publisher reconnected", "url", nc.ConnectedUrl())
-			eventsNATSConnectionStatus.Set(1)
+			activitymetrics.EventsNATSConnectionStatus.Set(1)
 		}),
 	}
 
@@ -177,7 +131,7 @@ func NewEventsPublisher(config EventsPublisherConfig) (*EventsPublisher, error) 
 	)
 
 	// Set connection status to 1 (connected)
-	eventsNATSConnectionStatus.Set(1)
+	activitymetrics.EventsNATSConnectionStatus.Set(1)
 
 	return &EventsPublisher{
 		js:            js,
@@ -199,7 +153,7 @@ func (p *EventsPublisher) Publish(ctx context.Context, event *eventsv1.Event) er
 	// Serialize event to JSON
 	data, err := json.Marshal(event)
 	if err != nil {
-		eventsPublishErrorsTotal.Inc()
+		activitymetrics.EventsPublishErrorsTotal.Inc()
 		return fmt.Errorf("failed to marshal event: %w", err)
 	}
 
@@ -220,13 +174,13 @@ func (p *EventsPublisher) Publish(ctx context.Context, event *eventsv1.Event) er
 		nats.Context(ctx),
 	)
 	if err != nil {
-		eventsPublishErrorsTotal.Inc()
+		activitymetrics.EventsPublishErrorsTotal.Inc()
 		return fmt.Errorf("failed to publish event to NATS: %w", err)
 	}
 
 	// Record metrics
-	eventsPublishLatencySeconds.Observe(time.Since(start).Seconds())
-	eventsPublishedTotal.WithLabelValues(event.Namespace, event.Reason).Inc()
+	activitymetrics.EventsPublishLatencySeconds.Observe(time.Since(start).Seconds())
+	activitymetrics.EventsPublishedTotal.WithLabelValues(event.Namespace, event.Reason).Inc()
 
 	klog.V(4).InfoS("Published event to NATS",
 		"namespace", event.Namespace,

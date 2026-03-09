@@ -116,6 +116,48 @@ var (
 			Buckets: []float64{60, 300, 900, 3600, 21600, 86400, 259200, 604800, 1209600, 2592000},
 		},
 	)
+
+	// EventsPublishedTotal tracks the total number of Kubernetes events published to NATS
+	EventsPublishedTotal = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Namespace:      namespace,
+			Name:           "events_published_total",
+			Help:           "Total number of Kubernetes events published to NATS",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"namespace", "reason"},
+	)
+
+	// EventsPublishErrorsTotal tracks errors publishing events to NATS
+	EventsPublishErrorsTotal = metrics.NewCounter(
+		&metrics.CounterOpts{
+			Namespace:      namespace,
+			Name:           "events_publish_errors_total",
+			Help:           "Total number of errors publishing events to NATS",
+			StabilityLevel: metrics.ALPHA,
+		},
+	)
+
+	// EventsNATSConnectionStatus tracks NATS connection status for the events publisher
+	EventsNATSConnectionStatus = metrics.NewGauge(
+		&metrics.GaugeOpts{
+			Namespace:      namespace,
+			Name:           "events_nats_connection_status",
+			Help:           "NATS connection status for events publisher (1 = connected, 0 = disconnected)",
+			StabilityLevel: metrics.ALPHA,
+		},
+	)
+
+	// EventsPublishLatencySeconds tracks latency of NATS publish operations for events
+	EventsPublishLatencySeconds = metrics.NewHistogram(
+		&metrics.HistogramOpts{
+			Namespace:      namespace,
+			Name:           "events_publish_latency_seconds",
+			Help:           "Latency of NATS publish operations for events",
+			StabilityLevel: metrics.ALPHA,
+			Buckets:        metrics.DefBuckets,
+		},
+	)
 )
 
 // init registers all custom metrics with the legacy registry
@@ -131,5 +173,9 @@ func init() {
 		AuditLogQueriesByScope,
 		AuditLogQueryLookbackDuration,
 		AuditLogQueryTimeRange,
+		EventsPublishedTotal,
+		EventsPublishErrorsTotal,
+		EventsNATSConnectionStatus,
+		EventsPublishLatencySeconds,
 	)
 }
