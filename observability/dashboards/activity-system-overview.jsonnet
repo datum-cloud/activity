@@ -44,7 +44,7 @@ local queries = {
   auditPipelineErrors: 'sum(rate(vector_component_errors_total{namespace="activity-system"}[5m])) or vector(0)',
   eventsPipelineErrors: '(sum(rate(event_exporter_publish_errors_total[5m])) or vector(0)) + (sum(rate(vector_component_errors_total{component_id="clickhouse_k8s_events"}[5m])) or vector(0))',
   // Using NATS errors + skipped events as proxy for processor errors
-  processorErrors: '(sum(rate(activity_processor_nats_errors_total[5m])) or vector(0)) + (sum(rate(activity_processor_events_skipped_total[5m])) or vector(0))',
+  processorErrors: '(sum(rate(activity_processor_nats_errors_total[5m])) or vector(0)) + (sum(rate(activity_processor_audit_events_skipped_total[5m])) or vector(0))',
   // Using apiserver 5xx errors as proxy for query errors
   queryErrors: 'sum(rate(apiserver_request_total{job="activity-apiserver",code=~"5.."}[5m])) or vector(0)',
 
