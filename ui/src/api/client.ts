@@ -192,7 +192,6 @@ export class ActivityApiClient {
     if (params?.search) searchParams.set('search', params.search);
     if (params?.start) searchParams.set('start', params.start);
     if (params?.end) searchParams.set('end', params.end);
-    if (params?.changeSource) searchParams.set('changeSource', params.changeSource);
     if (params?.limit) searchParams.set('limit', String(params.limit));
     if (params?.continue) searchParams.set('continue', params.continue);
 
@@ -298,7 +297,6 @@ export class ActivityApiClient {
     if (params?.search) searchParams.set('search', params.search);
     if (params?.start) searchParams.set('start', params.start);
     if (params?.end) searchParams.set('end', params.end);
-    if (params?.changeSource) searchParams.set('changeSource', params.changeSource);
     if (options?.resourceVersion) searchParams.set('resourceVersion', options.resourceVersion);
 
     const queryString = searchParams.toString();
@@ -400,7 +398,6 @@ export class ActivityApiClient {
     if (params?.search) searchParams.set('search', params.search);
     if (params?.start) searchParams.set('start', params.start);
     if (params?.end) searchParams.set('end', params.end);
-    if (params?.changeSource) searchParams.set('changeSource', params.changeSource);
     if (resourceVersion) searchParams.set('resourceVersion', resourceVersion);
 
     const queryString = searchParams.toString();

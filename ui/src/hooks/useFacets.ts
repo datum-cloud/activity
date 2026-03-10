@@ -4,6 +4,13 @@ import type { FacetValue } from '../types/activity';
 import type { TimeRange, ActivityFeedFilters } from './useActivityFeed';
 
 /**
+ * Escape a value for safe interpolation into a CEL string literal.
+ */
+function celEscape(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+/**
  * Build CEL filter expression from filter options for facet queries.
  * This allows facet dropdowns to show only values relevant to the current filter selection.
  */
@@ -12,20 +19,20 @@ function buildFacetFilter(filters: ActivityFeedFilters): string | undefined {
 
   // Change source filter
   if (filters.changeSource && filters.changeSource !== 'all') {
-    conditions.push(`spec.changeSource == "${filters.changeSource}"`);
+    conditions.push(`spec.changeSource == "${celEscape(filters.changeSource)}"`);
   }
 
   // Resource UID filter (for resource-specific views)
   if (filters.resourceUid) {
-    conditions.push(`spec.resource.uid == "${filters.resourceUid}"`);
+    conditions.push(`spec.resource.uid == "${celEscape(filters.resourceUid)}"`);
   }
 
   // Resource kinds filter (multi-select)
   if (filters.resourceKinds && filters.resourceKinds.length > 0) {
     if (filters.resourceKinds.length === 1) {
-      conditions.push(`spec.resource.kind == "${filters.resourceKinds[0]}"`);
+      conditions.push(`spec.resource.kind == "${celEscape(filters.resourceKinds[0])}"`);
     } else {
-      const kindConditions = filters.resourceKinds.map((k) => `spec.resource.kind == "${k}"`);
+      const kindConditions = filters.resourceKinds.map((k) => `spec.resource.kind == "${celEscape(k)}"`);
       conditions.push(`(${kindConditions.join(' || ')})`);
     }
   }
@@ -33,9 +40,9 @@ function buildFacetFilter(filters: ActivityFeedFilters): string | undefined {
   // Actor names filter (multi-select)
   if (filters.actorNames && filters.actorNames.length > 0) {
     if (filters.actorNames.length === 1) {
-      conditions.push(`spec.actor.name == "${filters.actorNames[0]}"`);
+      conditions.push(`spec.actor.name == "${celEscape(filters.actorNames[0])}"`);
     } else {
-      const actorConditions = filters.actorNames.map((a) => `spec.actor.name == "${a}"`);
+      const actorConditions = filters.actorNames.map((a) => `spec.actor.name == "${celEscape(a)}"`);
       conditions.push(`(${actorConditions.join(' || ')})`);
     }
   }
@@ -43,9 +50,9 @@ function buildFacetFilter(filters: ActivityFeedFilters): string | undefined {
   // API groups filter (multi-select)
   if (filters.apiGroups && filters.apiGroups.length > 0) {
     if (filters.apiGroups.length === 1) {
-      conditions.push(`spec.resource.apiGroup == "${filters.apiGroups[0]}"`);
+      conditions.push(`spec.resource.apiGroup == "${celEscape(filters.apiGroups[0])}"`);
     } else {
-      const groupConditions = filters.apiGroups.map((g) => `spec.resource.apiGroup == "${g}"`);
+      const groupConditions = filters.apiGroups.map((g) => `spec.resource.apiGroup == "${celEscape(g)}"`);
       conditions.push(`(${groupConditions.join(' || ')})`);
     }
   }
@@ -53,9 +60,9 @@ function buildFacetFilter(filters: ActivityFeedFilters): string | undefined {
   // Resource namespaces filter (multi-select)
   if (filters.resourceNamespaces && filters.resourceNamespaces.length > 0) {
     if (filters.resourceNamespaces.length === 1) {
-      conditions.push(`spec.resource.namespace == "${filters.resourceNamespaces[0]}"`);
+      conditions.push(`spec.resource.namespace == "${celEscape(filters.resourceNamespaces[0])}"`);
     } else {
-      const nsConditions = filters.resourceNamespaces.map((ns) => `spec.resource.namespace == "${ns}"`);
+      const nsConditions = filters.resourceNamespaces.map((ns) => `spec.resource.namespace == "${celEscape(ns)}"`);
       conditions.push(`(${nsConditions.join(' || ')})`);
     }
   }

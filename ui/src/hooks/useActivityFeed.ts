@@ -105,23 +105,36 @@ export interface UseActivityFeedResult {
 }
 
 /**
- * Build CEL filter expression from filter options for ActivityQuery
- * Note: changeSource is handled as a spec field, not in the CEL filter
+ * Escape a value for safe interpolation into a CEL string literal.
+ * Prevents injection via values containing backslashes or double quotes.
+ */
+function celEscape(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+/**
+ * Build CEL filter expression from filter options for ActivityQuery.
+ * All filters are expressed as CEL — the API no longer accepts dedicated filter fields.
  */
 function buildCelFilter(filters: ActivityFeedFilters): string | undefined {
   const conditions: string[] = [];
 
+  // Change source filter
+  if (filters.changeSource && filters.changeSource !== 'all') {
+    conditions.push(`spec.changeSource == "${celEscape(filters.changeSource)}"`);
+  }
+
   // Resource UID filter (for resource-specific views)
   if (filters.resourceUid) {
-    conditions.push(`spec.resource.uid == "${filters.resourceUid}"`);
+    conditions.push(`spec.resource.uid == "${celEscape(filters.resourceUid)}"`);
   }
 
   // Resource kinds filter (multi-select)
   if (filters.resourceKinds && filters.resourceKinds.length > 0) {
     if (filters.resourceKinds.length === 1) {
-      conditions.push(`spec.resource.kind == "${filters.resourceKinds[0]}"`);
+      conditions.push(`spec.resource.kind == "${celEscape(filters.resourceKinds[0])}"`);
     } else {
-      const kindConditions = filters.resourceKinds.map((k) => `spec.resource.kind == "${k}"`);
+      const kindConditions = filters.resourceKinds.map((k) => `spec.resource.kind == "${celEscape(k)}"`);
       conditions.push(`(${kindConditions.join(' || ')})`);
     }
   }
@@ -129,9 +142,9 @@ function buildCelFilter(filters: ActivityFeedFilters): string | undefined {
   // Actor names filter (multi-select)
   if (filters.actorNames && filters.actorNames.length > 0) {
     if (filters.actorNames.length === 1) {
-      conditions.push(`spec.actor.name == "${filters.actorNames[0]}"`);
+      conditions.push(`spec.actor.name == "${celEscape(filters.actorNames[0])}"`);
     } else {
-      const actorConditions = filters.actorNames.map((a) => `spec.actor.name == "${a}"`);
+      const actorConditions = filters.actorNames.map((a) => `spec.actor.name == "${celEscape(a)}"`);
       conditions.push(`(${actorConditions.join(' || ')})`);
     }
   }
@@ -139,24 +152,24 @@ function buildCelFilter(filters: ActivityFeedFilters): string | undefined {
   // API groups filter (multi-select)
   if (filters.apiGroups && filters.apiGroups.length > 0) {
     if (filters.apiGroups.length === 1) {
-      conditions.push(`spec.resource.apiGroup == "${filters.apiGroups[0]}"`);
+      conditions.push(`spec.resource.apiGroup == "${celEscape(filters.apiGroups[0])}"`);
     } else {
-      const groupConditions = filters.apiGroups.map((g) => `spec.resource.apiGroup == "${g}"`);
+      const groupConditions = filters.apiGroups.map((g) => `spec.resource.apiGroup == "${celEscape(g)}"`);
       conditions.push(`(${groupConditions.join(' || ')})`);
     }
   }
 
   // Resource name filter (partial match)
   if (filters.resourceName) {
-    conditions.push(`spec.resource.name.contains("${filters.resourceName}")`);
+    conditions.push(`spec.resource.name.contains("${celEscape(filters.resourceName)}")`);
   }
 
   // Resource namespaces filter (multi-select)
   if (filters.resourceNamespaces && filters.resourceNamespaces.length > 0) {
     if (filters.resourceNamespaces.length === 1) {
-      conditions.push(`spec.resource.namespace == "${filters.resourceNamespaces[0]}"`);
+      conditions.push(`spec.resource.namespace == "${celEscape(filters.resourceNamespaces[0])}"`);
     } else {
-      const nsConditions = filters.resourceNamespaces.map((ns) => `spec.resource.namespace == "${ns}"`);
+      const nsConditions = filters.resourceNamespaces.map((ns) => `spec.resource.namespace == "${celEscape(ns)}"`);
       conditions.push(`(${nsConditions.join(' || ')})`);
     }
   }
@@ -211,11 +224,6 @@ export function useActivityFeed({
         endTime: timeRange.end || 'now',
         limit: pageSize,
       };
-
-      // Add changeSource as a spec field (not in CEL filter)
-      if (filters.changeSource && filters.changeSource !== 'all') {
-        spec.changeSource = filters.changeSource;
-      }
 
       // Add search
       if (filters.search) {
@@ -422,39 +430,8 @@ export function useActivityFeed({
 
     try {
       const spec = buildQuerySpec();
-      console.log('[ActivityFeed] Query spec:', spec);
-
       const result = await client.createActivityQuery(spec);
-
-      // Debug: Log API response structure in detail
-      console.log('[ActivityFeed] ========== RESPONSE DEBUG ==========');
-      console.log('[ActivityFeed] result:', result);
-      console.log('[ActivityFeed] typeof result:', typeof result);
-      console.log('[ActivityFeed] result is null?', result === null);
-      console.log('[ActivityFeed] result is undefined?', result === undefined);
-
-      if (result && typeof result === 'object') {
-        console.log('[ActivityFeed] Object.keys(result):', Object.keys(result));
-        console.log('[ActivityFeed] result.status:', result.status);
-        console.log('[ActivityFeed] typeof result.status:', typeof result.status);
-
-        if (result.status && typeof result.status === 'object') {
-          console.log('[ActivityFeed] Object.keys(result.status):', Object.keys(result.status));
-          console.log('[ActivityFeed] result.status.results:', result.status.results);
-          console.log('[ActivityFeed] Array.isArray(result.status.results):', Array.isArray(result.status.results));
-
-          if (result.status.results) {
-            console.log('[ActivityFeed] result.status.results.length:', result.status.results.length);
-            console.log('[ActivityFeed] First item:', result.status.results[0]);
-          }
-        }
-      }
-
-      // Log what we're about to set
       const activitiesArray = result.status?.results || [];
-      console.log('[ActivityFeed] ===================================');
-      console.log('[ActivityFeed] Final activities array length:', activitiesArray.length);
-      console.log('[ActivityFeed] Will set activities state with:', activitiesArray);
 
       setActivities(activitiesArray);
       setContinueCursor(result.status?.continue);
