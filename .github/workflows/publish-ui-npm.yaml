@@ -2,6 +2,8 @@ name: Publish UI to NPM
 
 on:
   push:
+    branches:
+      - main
 
 jobs:
   publish:
