@@ -40,7 +40,6 @@ local allPanels = util.grid.wrapPanels([
   + stat.queryOptions.withTargets([
     prometheus.new(
       datasource,
-      // Note: Using events_received_total (the actual metric name in running code)
       'sum(rate(activity_processor_events_received_total[5m]))'
     )
     + prometheus.withLegendFormat('Events/s'),
@@ -79,7 +78,6 @@ local allPanels = util.grid.wrapPanels([
   + stat.queryOptions.withTargets([
     prometheus.new(
       datasource,
-      // Note: Using events_errored_total (actual metric name). Falls back to 0 if no errors occurred.
       '(sum(rate(activity_processor_events_errored_total[5m])) or vector(0)) / (sum(rate(activity_processor_events_received_total[5m])) or vector(1)) * 100'
     )
     + prometheus.withLegendFormat('Error %'),
@@ -133,7 +131,6 @@ local allPanels = util.grid.wrapPanels([
   + timeSeries.queryOptions.withTargets([
     prometheus.new(
       datasource,
-      // Note: Using events_received_total with api_group label (actual metric structure)
       'sum(rate(activity_processor_events_received_total[5m])) by (api_group)'
     )
     + prometheus.withLegendFormat('{{api_group}}'),
@@ -156,7 +153,6 @@ local allPanels = util.grid.wrapPanels([
   + timeSeries.queryOptions.withTargets([
     prometheus.new(
       datasource,
-      // Note: Using events_evaluated_total (actual metric name)
       'sum(rate(activity_processor_events_evaluated_total[5m]))'
     )
     + prometheus.withLegendFormat('Evaluated'),
@@ -184,7 +180,6 @@ local allPanels = util.grid.wrapPanels([
   + timeSeries.queryOptions.withTargets([
     prometheus.new(
       datasource,
-      // Note: Using events_skipped_total (actual metric name)
       'sum(rate(activity_processor_events_skipped_total[5m])) by (reason)'
     )
     + prometheus.withLegendFormat('{{reason}}'),
@@ -421,7 +416,6 @@ local allPanels = util.grid.wrapPanels([
   + timeSeries.queryOptions.withTargets([
     prometheus.new(
       datasource,
-      // Note: Using events_errored_total (actual metric name). May show no data if no errors occurred.
       'sum(rate(activity_processor_events_errored_total[5m])) by (error_type) or vector(0)'
     )
     + prometheus.withLegendFormat('{{error_type}}'),

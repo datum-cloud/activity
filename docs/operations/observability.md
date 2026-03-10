@@ -157,13 +157,12 @@ Exposed on port 8081 at `/metrics` endpoint.
 
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
-| `activity_processor_audit_events_received_total` | counter | `api_group`, `resource` | Audit events received from NATS |
-| `activity_processor_k8s_events_received_total` | counter | `namespace`, `reason` | Cluster events received from NATS |
-| `activity_processor_audit_events_evaluated_total` | counter | `policy_name`, `api_group`, `kind`, `matched` | Events evaluated against policies |
-| `activity_processor_audit_events_skipped_total` | counter | `reason` | Events skipped during processing |
-| `activity_processor_audit_events_errored_total` | counter | `error_type` | Events that failed processing |
+| `activity_processor_events_received_total` | counter | `source`, `api_group`, `resource` | Events received from NATS (`source` is `audit_log` or `control_plane_event`) |
+| `activity_processor_events_evaluated_total` | counter | `source`, `policy_name`, `api_group`, `kind`, `matched` | Events evaluated against policies |
+| `activity_processor_events_skipped_total` | counter | `source`, `reason` | Events skipped during processing |
+| `activity_processor_events_errored_total` | counter | `source`, `error_type` | Events that failed processing |
 | `activity_processor_activities_generated_total` | counter | `policy_name`, `api_group`, `kind` | Activities successfully generated |
-| `activity_processor_audit_event_processing_duration_seconds` | histogram | `policy_name` | Time to process an event |
+| `activity_processor_event_processing_duration_seconds` | histogram | `source`, `policy_name` | Time to process an event |
 
 **Skip reasons:**
 - `no_matching_policy` - No policy matched the event
@@ -255,21 +254,24 @@ kubectl exec -n activity-system <pod-name> -- wget -qO- http://localhost:8081/me
 Example queries:
 
 ```promql
-# Event processing rate
-rate(activity_processor_audit_events_received_total[5m])
+# Event processing rate (all sources)
+rate(activity_processor_events_received_total[5m])
+
+# Audit log event processing rate only
+rate(activity_processor_events_received_total{source="audit_log"}[5m])
 
 # Activity generation rate
 rate(activity_processor_activities_generated_total[5m])
 
-# Error rate percentage
-sum(rate(activity_processor_audit_events_errored_total[5m]))
+# Error rate percentage (all sources)
+sum(rate(activity_processor_events_errored_total[5m]))
 /
-sum(rate(activity_processor_audit_events_received_total[5m]))
+sum(rate(activity_processor_events_received_total[5m]))
 * 100
 
 # Processing latency p99
 histogram_quantile(0.99,
-  sum(rate(activity_processor_audit_event_processing_duration_seconds_bucket[5m])) by (le)
+  sum(rate(activity_processor_event_processing_duration_seconds_bucket[5m])) by (le)
 )
 
 # Active policies
@@ -851,22 +853,21 @@ Complete list of panels and queries:
 
 | Panel | Query | Purpose |
 |-------|-------|---------|
-| Event Processing Rate | `sum(rate(activity_processor_audit_events_received_total[5m]))` | Incoming event volume |
+| Event Processing Rate | `sum(rate(activity_processor_events_received_total[5m]))` | Incoming event volume (all sources) |
 | Activity Generation Rate | `sum(rate(activity_processor_activities_generated_total[5m]))` | Output activity volume |
-| Error Rate | `sum(rate(..._errored_total[5m])) / sum(rate(..._received_total[5m])) * 100` | Processing health |
+| Error Rate | `sum(rate(activity_processor_events_errored_total[5m])) / sum(rate(activity_processor_events_received_total[5m])) * 100` | Processing health |
 | Active Policies | `activity_processor_active_policies` | Policy cache state |
-| Events by Type | `sum(rate(..._audit_events_received_total[5m]))` | Event type breakdown |
-|  | `sum(rate(..._k8s_events_received_total[5m]))` |  |
-| Events Evaluated vs Generated | `sum(rate(..._evaluated_total[5m]))` | Conversion efficiency |
-|  | `sum(rate(..._generated_total[5m]))` |  |
-| Skipped Events by Reason | `sum(rate(..._skipped_total[5m])) by (reason)` | Skip reason breakdown |
-| Processing Duration p99 by Policy | `histogram_quantile(0.99, sum(rate(..._duration_seconds_bucket[5m])) by (policy_name, le))` | Policy performance |
+| Events by API Group | `sum(rate(activity_processor_events_received_total[5m])) by (api_group)` | Event breakdown by API group |
+| Events Evaluated vs Generated | `sum(rate(activity_processor_events_evaluated_total[5m]))` | Conversion efficiency |
+|  | `sum(rate(activity_processor_activities_generated_total[5m]))` |  |
+| Skipped Events by Reason | `sum(rate(activity_processor_events_skipped_total[5m])) by (reason)` | Skip reason breakdown |
+| Processing Duration p99 by Policy | `histogram_quantile(0.99, sum(rate(activity_processor_event_processing_duration_seconds_bucket[5m])) by (policy, le))` | Policy performance |
 | NATS Connection Status | `min(activity_processor_nats_connection_status)` | Connection health |
 | NATS Disconnects | `sum(activity_processor_nats_disconnects_total)` | Disconnect count |
-| NATS Publish Latency p99 | `histogram_quantile(0.99, sum(rate(..._publish_latency_seconds_bucket[5m])) by (le))` | Publish performance |
-| Messages Published Rate | `sum(rate(..._messages_published_total[5m]))` | NATS throughput |
+| NATS Publish Latency p99 | `histogram_quantile(0.99, sum(rate(activity_processor_nats_publish_latency_seconds_bucket[5m])) by (le))` | Publish performance |
+| Messages Published Rate | `sum(rate(activity_processor_nats_messages_published_total[5m]))` | NATS throughput |
 | Active Workers | `sum(activity_processor_active_workers)` | Concurrency level |
-| Error Types Breakdown | `sum(rate(..._errored_total[5m])) by (error_type)` | Error classification |
+| Error Types Breakdown | `sum(rate(activity_processor_events_errored_total[5m])) by (error_type)` | Error classification |
 
 ## Deployment Configuration
 
@@ -966,7 +967,7 @@ kubectl port-forward -n monitoring svc/prometheus 9090:9090
 
 # Query specific metric
 # Navigate to http://localhost:9090/graph
-# Enter: activity_processor_audit_events_received_total
+# Enter: activity_processor_events_received_total
 ```
 
 ### Alerts Not Firing
