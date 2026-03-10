@@ -29,15 +29,6 @@ func NewTablePrinter(printFlags *genericclioptions.PrintFlags, ioStreams generic
 
 // PrintTable prints a table to the output stream
 func (p *TablePrinter) PrintTable(table *metav1.Table) error {
-	// If no-headers flag is set, remove the first row (headers)
-	if p.NoHeaders && len(table.Rows) > 0 {
-		table = &metav1.Table{
-			TypeMeta:          table.TypeMeta,
-			ColumnDefinitions: table.ColumnDefinitions,
-			Rows:              table.Rows, // Skip header handling, let printer do it
-		}
-	}
-
 	tablePrinter := printers.NewTablePrinter(printers.PrintOptions{
 		WithNamespace: false,
 		Wide:          true,

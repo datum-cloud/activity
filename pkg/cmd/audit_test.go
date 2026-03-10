@@ -223,11 +223,10 @@ func TestEventsToTable(t *testing.T) {
 	now := metav1.NewMicroTime(time.Date(2026, 2, 21, 15, 30, 0, 0, time.UTC))
 
 	tests := []struct {
-		name           string
-		events         []auditv1.Event
-		includeHeaders bool
-		wantRows       int
-		wantColumns    int
+		name        string
+		events      []auditv1.Event
+		wantRows    int
+		wantColumns int
 	}{
 		{
 			name: "single event",
@@ -248,7 +247,6 @@ func TestEventsToTable(t *testing.T) {
 					},
 				},
 			},
-			includeHeaders: true,
 			wantRows:       1,
 			wantColumns:    5,
 		},
@@ -285,14 +283,12 @@ func TestEventsToTable(t *testing.T) {
 					},
 				},
 			},
-			includeHeaders: true,
 			wantRows:       2,
 			wantColumns:    5,
 		},
 		{
 			name:           "empty events",
 			events:         []auditv1.Event{},
-			includeHeaders: true,
 			wantRows:       0,
 			wantColumns:    5,
 		},
@@ -314,7 +310,6 @@ func TestEventsToTable(t *testing.T) {
 					},
 				},
 			},
-			includeHeaders: true,
 			wantRows:       1,
 			wantColumns:    5,
 		},
@@ -322,7 +317,7 @@ func TestEventsToTable(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			table := eventsToTable(tt.events, tt.includeHeaders)
+			table := eventsToTable(tt.events)
 
 			assert.NotNil(t, table)
 			assert.Equal(t, "Table", table.Kind)

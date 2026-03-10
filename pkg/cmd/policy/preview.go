@@ -162,16 +162,13 @@ func (o *PreviewOptions) Run(ctx context.Context) error {
 		return err
 	}
 
-	// Dry run mode - just validate the policy
-	if o.DryRun {
-		fmt.Fprintf(o.Out, "Policy syntax is valid.\n")
-		return nil
-	}
-
-	// Read inputs
-	inputs, err := o.readInputs()
-	if err != nil {
-		return err
+	// Read inputs (empty for dry-run — server compiles CEL and returns errors)
+	var inputs []activityv1alpha1.PolicyPreviewInput
+	if !o.DryRun {
+		inputs, err = o.readInputs()
+		if err != nil {
+			return err
+		}
 	}
 
 	// Create preview request
@@ -192,6 +189,16 @@ func (o *PreviewOptions) Run(ctx context.Context) error {
 	result, err := client.ActivityV1alpha1().PolicyPreviews().Create(ctx, preview, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("preview failed: %w", err)
+	}
+
+	// Dry-run: server compiled the CEL rules; report any compilation errors.
+	if o.DryRun {
+		if result.Status.Error != "" {
+			fmt.Fprintf(o.ErrOut, "Error: %s\n", result.Status.Error)
+			return fmt.Errorf("policy syntax is invalid")
+		}
+		fmt.Fprintf(o.Out, "Policy syntax is valid.\n")
+		return nil
 	}
 
 	return o.printResults(result)
@@ -255,7 +262,10 @@ func (o *PreviewOptions) readInlineAudit() ([]activityv1alpha1.PolicyPreviewInpu
 	var auditEvent auditv1.Event
 
 	if err := json.Unmarshal([]byte(o.InputAudit), &auditEvent); err != nil {
-		return nil, fmt.Errorf("failed to parse audit event JSON: %w\nProvide a valid JSON audit event, e.g., {\"verb\":\"create\",\"user\":{\"username\":\"alice\"}}", err)
+		if o.ErrOut != nil {
+			fmt.Fprintf(o.ErrOut, "Hint: provide a valid JSON audit event, e.g., {\"verb\":\"create\",\"user\":{\"username\":\"alice\"}}\n")
+		}
+		return nil, fmt.Errorf("failed to parse audit event JSON: %w", err)
 	}
 
 	input := activityv1alpha1.PolicyPreviewInput{
@@ -302,7 +312,8 @@ func (o *PreviewOptions) printTable(result *activityv1alpha1.PolicyPreview) erro
 		Rows: make([]metav1.TableRow, 0, len(result.Status.Results)),
 	}
 
-	for i, res := range result.Status.Results {
+	activityIdx := 0
+	for _, res := range result.Status.Results {
 		inputDesc := fmt.Sprintf("Input #%d", res.InputIndex+1)
 		matched := "yes"
 		if !res.Matched {
@@ -317,12 +328,9 @@ func (o *PreviewOptions) printTable(result *activityv1alpha1.PolicyPreview) erro
 		summaryOrError := "-"
 		if res.Error != "" {
 			summaryOrError = fmt.Sprintf("ERROR: %s", res.Error)
-		} else if res.Matched && i < len(result.Status.Activities) {
-			// Find the corresponding activity
-			for _, activity := range result.Status.Activities {
-				summaryOrError = activity.Spec.Summary
-				break
-			}
+		} else if res.Matched && activityIdx < len(result.Status.Activities) {
+			summaryOrError = result.Status.Activities[activityIdx].Spec.Summary
+			activityIdx++
 		}
 
 		row := metav1.TableRow{

@@ -6,10 +6,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	eventsv1 "k8s.io/api/events/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
+	activityv1alpha1 "go.miloapis.com/activity/pkg/apis/activity/v1alpha1"
 	"go.miloapis.com/activity/pkg/cmd/common"
 )
 
@@ -18,8 +20,8 @@ func TestEventsOptions_buildFieldSelector(t *testing.T) {
 		name          string
 		eventType     string
 		reason        string
-		involvedKind  string
-		involvedName  string
+		regardingKind string
+		regardingName string
 		fieldSelector string
 		want          string
 	}{
@@ -38,14 +40,14 @@ func TestEventsOptions_buildFieldSelector(t *testing.T) {
 			want:   "reason=FailedMount",
 		},
 		{
-			name:         "involved kind only",
-			involvedKind: "Pod",
-			want:         "involvedObject.kind=Pod",
+			name:          "regarding kind only",
+			regardingKind: "Pod",
+			want:          "regarding.kind=Pod",
 		},
 		{
-			name:         "involved name only",
-			involvedName: "my-pod",
-			want:         "involvedObject.name=my-pod",
+			name:          "regarding name only",
+			regardingName: "my-pod",
+			want:          "regarding.name=my-pod",
 		},
 		{
 			name:      "multiple shorthand selectors",
@@ -54,12 +56,12 @@ func TestEventsOptions_buildFieldSelector(t *testing.T) {
 			want:      "type=Warning,reason=FailedMount",
 		},
 		{
-			name:         "all shorthand selectors",
-			eventType:    "Warning",
-			reason:       "BackOff",
-			involvedKind: "Pod",
-			involvedName: "crashing-pod",
-			want:         "type=Warning,reason=BackOff,involvedObject.kind=Pod,involvedObject.name=crashing-pod",
+			name:          "all shorthand selectors",
+			eventType:     "Warning",
+			reason:        "BackOff",
+			regardingKind: "Pod",
+			regardingName: "crashing-pod",
+			want:          "type=Warning,reason=BackOff,regarding.kind=Pod,regarding.name=crashing-pod",
 		},
 		{
 			name:          "explicit selector only",
@@ -76,10 +78,10 @@ func TestEventsOptions_buildFieldSelector(t *testing.T) {
 			name:          "all selectors",
 			eventType:     "Warning",
 			reason:        "FailedMount",
-			involvedKind:  "Pod",
-			involvedName:  "my-pod",
+			regardingKind: "Pod",
+			regardingName: "my-pod",
 			fieldSelector: "metadata.namespace=default",
-			want:          "type=Warning,reason=FailedMount,involvedObject.kind=Pod,involvedObject.name=my-pod,metadata.namespace=default",
+			want:          "type=Warning,reason=FailedMount,regarding.kind=Pod,regarding.name=my-pod,metadata.namespace=default",
 		},
 	}
 
@@ -88,8 +90,8 @@ func TestEventsOptions_buildFieldSelector(t *testing.T) {
 			o := &EventsOptions{
 				Type:          tt.eventType,
 				Reason:        tt.reason,
-				InvolvedKind:  tt.involvedKind,
-				InvolvedName:  tt.involvedName,
+				RegardingKind: tt.regardingKind,
+				RegardingName: tt.regardingName,
 				FieldSelector: tt.fieldSelector,
 			}
 
@@ -101,15 +103,15 @@ func TestEventsOptions_buildFieldSelector(t *testing.T) {
 
 func TestEventsOptions_Validate(t *testing.T) {
 	tests := []struct {
-		name         string
-		timeRange    common.TimeRangeFlags
-		pagination   common.PaginationFlags
-		eventType    string
-		reason       string
-		involvedKind string
-		involvedName string
-		wantErr      bool
-		errMsg       string
+		name          string
+		timeRange     common.TimeRangeFlags
+		pagination    common.PaginationFlags
+		eventType     string
+		reason        string
+		regardingKind string
+		regardingName string
+		wantErr       bool
+		errMsg        string
 	}{
 		{
 			name: "valid options",
@@ -210,7 +212,7 @@ func TestEventsOptions_Validate(t *testing.T) {
 			errMsg:  "invalid --reason value",
 		},
 		{
-			name: "invalid involved-kind - contains comma",
+			name: "invalid regarding-kind - contains comma",
 			timeRange: common.TimeRangeFlags{
 				StartTime: "now-24h",
 				EndTime:   "now",
@@ -218,12 +220,12 @@ func TestEventsOptions_Validate(t *testing.T) {
 			pagination: common.PaginationFlags{
 				Limit: 25,
 			},
-			involvedKind: "Pod,Deployment",
-			wantErr:      true,
-			errMsg:       "invalid --involved-kind value",
+			regardingKind: "Pod,Deployment",
+			wantErr:       true,
+			errMsg:        "invalid --regarding-kind value",
 		},
 		{
-			name: "invalid involved-name - field selector injection",
+			name: "invalid regarding-name - field selector injection",
 			timeRange: common.TimeRangeFlags{
 				StartTime: "now-24h",
 				EndTime:   "now",
@@ -231,21 +233,21 @@ func TestEventsOptions_Validate(t *testing.T) {
 			pagination: common.PaginationFlags{
 				Limit: 25,
 			},
-			involvedName: "pod-name,type=Warning",
-			wantErr:      true,
-			errMsg:       "invalid --involved-name value",
+			regardingName: "pod-name,type=Warning",
+			wantErr:       true,
+			errMsg:        "invalid --regarding-name value",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			o := &EventsOptions{
-				TimeRange:    tt.timeRange,
-				Pagination:   tt.pagination,
-				Type:         tt.eventType,
-				Reason:       tt.reason,
-				InvolvedKind: tt.involvedKind,
-				InvolvedName: tt.involvedName,
+				TimeRange:     tt.timeRange,
+				Pagination:    tt.pagination,
+				Type:          tt.eventType,
+				Reason:        tt.reason,
+				RegardingKind: tt.regardingKind,
+				RegardingName: tt.regardingName,
 			}
 
 			err := o.Validate()
@@ -260,86 +262,69 @@ func TestEventsOptions_Validate(t *testing.T) {
 	}
 }
 
+func makeEventRecord(eventTime metav1.MicroTime, eventType, reason string, regarding corev1.ObjectReference, note string) activityv1alpha1.EventRecord {
+	return activityv1alpha1.EventRecord{
+		Event: eventsv1.Event{
+			EventTime: eventTime,
+			Type:      eventType,
+			Reason:    reason,
+			Regarding: regarding,
+			Note:      note,
+		},
+	}
+}
+
 func TestKubeEventsToTable(t *testing.T) {
-	now := metav1.NewTime(time.Date(2026, 2, 21, 15, 30, 0, 0, time.UTC))
+	now := metav1.NewMicroTime(time.Date(2026, 2, 21, 15, 30, 0, 0, time.UTC))
 
 	tests := []struct {
-		name           string
-		events         []corev1.Event
-		includeHeaders bool
-		wantRows       int
-		wantColumns    int
+		name        string
+		events      []activityv1alpha1.EventRecord
+		wantRows    int
+		wantColumns int
 	}{
 		{
 			name: "single event",
-			events: []corev1.Event{
-				{
-					LastTimestamp: now,
-					Type:          "Warning",
-					Reason:        "FailedMount",
-					InvolvedObject: corev1.ObjectReference{
-						Kind:      "Pod",
-						Name:      "my-pod",
-						Namespace: "default",
-					},
-					Message: "Unable to mount volume",
-				},
+			events: []activityv1alpha1.EventRecord{
+				makeEventRecord(now, "Warning", "FailedMount", corev1.ObjectReference{
+					Kind:      "Pod",
+					Name:      "my-pod",
+					Namespace: "default",
+				}, "Unable to mount volume"),
 			},
-			includeHeaders: true,
 			wantRows:       1,
 			wantColumns:    5,
 		},
 		{
 			name: "multiple events",
-			events: []corev1.Event{
-				{
-					LastTimestamp: now,
-					Type:          "Normal",
-					Reason:        "Pulled",
-					InvolvedObject: corev1.ObjectReference{
-						Kind: "Pod",
-						Name: "app-pod",
-					},
-					Message: "Successfully pulled image",
-				},
-				{
-					LastTimestamp: now,
-					Type:          "Warning",
-					Reason:        "BackOff",
-					InvolvedObject: corev1.ObjectReference{
-						Kind:      "Pod",
-						Name:      "crash-pod",
-						Namespace: "production",
-					},
-					Message: "Back-off restarting failed container",
-				},
+			events: []activityv1alpha1.EventRecord{
+				makeEventRecord(now, "Normal", "Pulled", corev1.ObjectReference{
+					Kind: "Pod",
+					Name: "app-pod",
+				}, "Successfully pulled image"),
+				makeEventRecord(now, "Warning", "BackOff", corev1.ObjectReference{
+					Kind:      "Pod",
+					Name:      "crash-pod",
+					Namespace: "production",
+				}, "Back-off restarting failed container"),
 			},
-			includeHeaders: true,
 			wantRows:       2,
 			wantColumns:    5,
 		},
 		{
 			name:           "empty events",
-			events:         []corev1.Event{},
-			includeHeaders: true,
+			events:         []activityv1alpha1.EventRecord{},
 			wantRows:       0,
 			wantColumns:    5,
 		},
 		{
 			name: "event with long message",
-			events: []corev1.Event{
-				{
-					LastTimestamp: now,
-					Type:          "Warning",
-					Reason:        "FailedScheduling",
-					InvolvedObject: corev1.ObjectReference{
-						Kind: "Pod",
-						Name: "pending-pod",
-					},
-					Message: "This is a very long message that exceeds the 80 character limit and should be truncated when displayed in the table format to ensure readability",
-				},
+			events: []activityv1alpha1.EventRecord{
+				makeEventRecord(now, "Warning", "FailedScheduling", corev1.ObjectReference{
+					Kind: "Pod",
+					Name: "pending-pod",
+				}, "This is a very long message that exceeds the 80 character limit and should be truncated when displayed in the table format to ensure readability"),
 			},
-			includeHeaders: true,
 			wantRows:       1,
 			wantColumns:    5,
 		},
@@ -347,7 +332,7 @@ func TestKubeEventsToTable(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			table := kubeEventsToTable(tt.events, tt.includeHeaders)
+			table := kubeEventsToTable(tt.events)
 
 			assert.NotNil(t, table)
 			assert.Equal(t, "Table", table.Kind)
@@ -364,27 +349,21 @@ func TestKubeEventsToTable(t *testing.T) {
 }
 
 func TestKubeEventsToRows(t *testing.T) {
-	now := metav1.NewTime(time.Date(2026, 2, 21, 15, 30, 0, 0, time.UTC))
+	now := metav1.NewMicroTime(time.Date(2026, 2, 21, 15, 30, 0, 0, time.UTC))
 
 	tests := []struct {
 		name      string
-		events    []corev1.Event
+		events    []activityv1alpha1.EventRecord
 		wantCells [][]interface{}
 	}{
 		{
 			name: "event with namespace",
-			events: []corev1.Event{
-				{
-					LastTimestamp: now,
-					Type:          "Warning",
-					Reason:        "FailedMount",
-					InvolvedObject: corev1.ObjectReference{
-						Kind:      "Pod",
-						Name:      "my-pod",
-						Namespace: "production",
-					},
-					Message: "Unable to mount volume",
-				},
+			events: []activityv1alpha1.EventRecord{
+				makeEventRecord(now, "Warning", "FailedMount", corev1.ObjectReference{
+					Kind:      "Pod",
+					Name:      "my-pod",
+					Namespace: "production",
+				}, "Unable to mount volume"),
 			},
 			wantCells: [][]interface{}{
 				{"2026-02-21T15:30:00Z", "Warning", "FailedMount", "production/Pod/my-pod", "Unable to mount volume"},
@@ -392,17 +371,11 @@ func TestKubeEventsToRows(t *testing.T) {
 		},
 		{
 			name: "event without namespace",
-			events: []corev1.Event{
-				{
-					LastTimestamp: now,
-					Type:          "Normal",
-					Reason:        "NodeReady",
-					InvolvedObject: corev1.ObjectReference{
-						Kind: "Node",
-						Name: "node-1",
-					},
-					Message: "Node is ready",
-				},
+			events: []activityv1alpha1.EventRecord{
+				makeEventRecord(now, "Normal", "NodeReady", corev1.ObjectReference{
+					Kind: "Node",
+					Name: "node-1",
+				}, "Node is ready"),
 			},
 			wantCells: [][]interface{}{
 				{"2026-02-21T15:30:00Z", "Normal", "NodeReady", "Node/node-1", "Node is ready"},
@@ -410,35 +383,23 @@ func TestKubeEventsToRows(t *testing.T) {
 		},
 		{
 			name: "event with long message truncated",
-			events: []corev1.Event{
-				{
-					LastTimestamp: now,
-					Type:          "Warning",
-					Reason:        "LongMessage",
-					InvolvedObject: corev1.ObjectReference{
-						Kind: "Pod",
-						Name: "test-pod",
-					},
-					Message: "This is a very long message that exceeds the 80 character limit and should be truncated",
-				},
+			events: []activityv1alpha1.EventRecord{
+				makeEventRecord(now, "Warning", "LongMessage", corev1.ObjectReference{
+					Kind: "Pod",
+					Name: "test-pod",
+				}, "This is a very long message that exceeds the 80 character limit and should be truncated"),
 			},
 			wantCells: [][]interface{}{
 				{"2026-02-21T15:30:00Z", "Warning", "LongMessage", "Pod/test-pod", "This is a very long message that exceeds the 80 character limit and should be..."},
 			},
 		},
 		{
-			name: "event with EventTime instead of LastTimestamp",
-			events: []corev1.Event{
-				{
-					EventTime: metav1.NewMicroTime(now.Time),
-					Type:      "Normal",
-					Reason:    "Created",
-					InvolvedObject: corev1.ObjectReference{
-						Kind: "Pod",
-						Name: "new-pod",
-					},
-					Message: "Pod created",
-				},
+			name: "event with EventTime",
+			events: []activityv1alpha1.EventRecord{
+				makeEventRecord(now, "Normal", "Created", corev1.ObjectReference{
+					Kind: "Pod",
+					Name: "new-pod",
+				}, "Pod created"),
 			},
 			wantCells: [][]interface{}{
 				{"2026-02-21T15:30:00Z", "Normal", "Created", "Pod/new-pod", "Pod created"},

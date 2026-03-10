@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
-	corev1 "k8s.io/api/core/v1"
+	eventsv1 "k8s.io/api/events/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/cli-runtime/pkg/printers"
@@ -25,8 +26,8 @@ type EventsOptions struct {
 	FieldSelector  string
 	Type           string
 	Reason         string
-	InvolvedKind   string
-	InvolvedName   string
+	RegardingKind  string
+	RegardingName  string
 
 	// Common flags
 	TimeRange  common.TimeRangeFlags
@@ -78,9 +79,9 @@ Field Selectors:
   Supported fields:
     - type: Normal or Warning
     - reason: Event reason (FailedMount, Pulled, etc.)
-    - involvedObject.kind: Pod, Deployment, etc.
-    - involvedObject.name: Specific object name
-    - involvedObject.namespace: Namespace of involved object
+    - regarding.kind: Pod, Deployment, etc.
+    - regarding.name: Specific object name
+    - regarding.namespace: Namespace of regarding object
 
 Examples:
   # Recent events (last 24 hours)
@@ -90,7 +91,7 @@ Examples:
   kubectl activity events --start-time "now-7d" --type Warning
 
   # Events for a specific pod
-  kubectl activity events --involved-name my-pod --involved-kind Pod
+  kubectl activity events --regarding-name my-pod --regarding-kind Pod
 
   # Mount failures
   kubectl activity events --reason FailedMount
@@ -99,7 +100,7 @@ Examples:
   kubectl activity events -n production
 
   # Use standard field selector
-  kubectl activity events --field-selector "involvedObject.kind=Pod,type=Warning"
+  kubectl activity events --field-selector "regarding.kind=Pod,type=Warning"
 
   # Discover what reasons exist
   kubectl activity events --suggest reason
@@ -127,8 +128,8 @@ Examples:
 	cmd.Flags().StringVar(&o.FieldSelector, "field-selector", "", "Standard Kubernetes field selector")
 	cmd.Flags().StringVar(&o.Type, "type", "", "Filter by event type: Normal, Warning")
 	cmd.Flags().StringVar(&o.Reason, "reason", "", "Filter by event reason (e.g., FailedMount, Pulled)")
-	cmd.Flags().StringVar(&o.InvolvedKind, "involved-kind", "", "Filter by involved object kind (Pod, Deployment)")
-	cmd.Flags().StringVar(&o.InvolvedName, "involved-name", "", "Filter by involved object name")
+	cmd.Flags().StringVar(&o.RegardingKind, "regarding-kind", "", "Filter by regarding object kind (Pod, Deployment)")
+	cmd.Flags().StringVar(&o.RegardingName, "regarding-name", "", "Filter by regarding object name")
 
 	// Add printer flags
 	o.PrintFlags.AddFlags(cmd)
@@ -168,14 +169,14 @@ func (o *EventsOptions) Validate() error {
 			return fmt.Errorf("invalid --reason value: %w", err)
 		}
 	}
-	if o.InvolvedKind != "" {
-		if _, err := common.EscapeFieldSelectorValue(o.InvolvedKind); err != nil {
-			return fmt.Errorf("invalid --involved-kind value: %w", err)
+	if o.RegardingKind != "" {
+		if _, err := common.EscapeFieldSelectorValue(o.RegardingKind); err != nil {
+			return fmt.Errorf("invalid --regarding-kind value: %w", err)
 		}
 	}
-	if o.InvolvedName != "" {
-		if _, err := common.EscapeFieldSelectorValue(o.InvolvedName); err != nil {
-			return fmt.Errorf("invalid --involved-name value: %w", err)
+	if o.RegardingName != "" {
+		if _, err := common.EscapeFieldSelectorValue(o.RegardingName); err != nil {
+			return fmt.Errorf("invalid --regarding-name value: %w", err)
 		}
 	}
 
@@ -217,31 +218,19 @@ func (o *EventsOptions) buildFieldSelector() string {
 	if o.Reason != "" {
 		selectors = append(selectors, fmt.Sprintf("reason=%s", o.Reason))
 	}
-	if o.InvolvedKind != "" {
-		selectors = append(selectors, fmt.Sprintf("involvedObject.kind=%s", o.InvolvedKind))
+	if o.RegardingKind != "" {
+		selectors = append(selectors, fmt.Sprintf("regarding.kind=%s", o.RegardingKind))
 	}
-	if o.InvolvedName != "" {
-		selectors = append(selectors, fmt.Sprintf("involvedObject.name=%s", o.InvolvedName))
+	if o.RegardingName != "" {
+		selectors = append(selectors, fmt.Sprintf("regarding.name=%s", o.RegardingName))
 	}
 
 	// Combine with explicit field selector
-	combined := ""
-	if len(selectors) > 0 {
-		combined = selectors[0]
-		for i := 1; i < len(selectors); i++ {
-			combined = combined + "," + selectors[i]
-		}
-	}
-
 	if o.FieldSelector != "" {
-		if combined != "" {
-			combined = combined + "," + o.FieldSelector
-		} else {
-			combined = o.FieldSelector
-		}
+		selectors = append(selectors, o.FieldSelector)
 	}
 
-	return combined
+	return strings.Join(selectors, ",")
 }
 
 // runSinglePage executes a single query
@@ -274,7 +263,7 @@ func (o *EventsOptions) runSinglePage(ctx context.Context, client *clientset.Cli
 
 // runAllPages fetches all pages of results
 func (o *EventsOptions) runAllPages(ctx context.Context, client *clientset.Clientset) error {
-	var allEvents []corev1.Event
+	var allEvents []activityv1alpha1.EventRecord
 	continueAfter := ""
 	pageNum := 1
 	totalCount := 0
@@ -313,12 +302,12 @@ func (o *EventsOptions) runAllPages(ctx context.Context, client *clientset.Clien
 
 		if isTableOutput {
 			if pageNum == 1 {
-				table := kubeEventsToTable(result.Status.Results, !o.Output.NoHeaders)
+				table := kubeEventsToTable(result.Status.Results)
 				if err := tablePrinter.PrintObj(table, o.Out); err != nil {
 					return err
 				}
 			} else {
-				table := kubeEventsToTable(result.Status.Results, false)
+				table := kubeEventsToTable(result.Status.Results)
 				if err := tablePrinter.PrintObj(table, o.Out); err != nil {
 					return err
 				}
@@ -340,7 +329,7 @@ func (o *EventsOptions) runAllPages(ctx context.Context, client *clientset.Clien
 		if err != nil {
 			return fmt.Errorf("failed to create printer: %w", err)
 		}
-		if err := printKubeEvents(allEvents, printer, o.Out); err != nil {
+		if err := printEventRecords(allEvents, printer, o.Out); err != nil {
 			return err
 		}
 	}
@@ -362,12 +351,12 @@ func (o *EventsOptions) printResults(result *activityv1alpha1.EventQuery) error 
 		return fmt.Errorf("failed to create printer: %w", err)
 	}
 
-	return printKubeEvents(result.Status.Results, printer, o.Out)
+	return printEventRecords(result.Status.Results, printer, o.Out)
 }
 
 // printTable prints events as a formatted table
-func (o *EventsOptions) printTable(events []corev1.Event, continueToken string) error {
-	table := kubeEventsToTable(events, !o.Output.NoHeaders)
+func (o *EventsOptions) printTable(events []activityv1alpha1.EventRecord, continueToken string) error {
+	table := kubeEventsToTable(events)
 	tablePrinter := common.CreateTablePrinter(o.Output.NoHeaders)
 
 	if err := tablePrinter.PrintObj(table, o.Out); err != nil {
@@ -380,8 +369,8 @@ func (o *EventsOptions) printTable(events []corev1.Event, continueToken string) 
 	return nil
 }
 
-// kubeEventsToTable converts Kubernetes events to a Table object
-func kubeEventsToTable(events []corev1.Event, includeHeaders bool) *metav1.Table {
+// kubeEventsToTable converts EventRecords to a Table object
+func kubeEventsToTable(events []activityv1alpha1.EventRecord) *metav1.Table {
 	table := &metav1.Table{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Table",
@@ -391,7 +380,7 @@ func kubeEventsToTable(events []corev1.Event, includeHeaders bool) *metav1.Table
 			{Name: "Last Seen", Type: "string", Description: "Last occurrence time"},
 			{Name: "Type", Type: "string", Description: "Event type"},
 			{Name: "Reason", Type: "string", Description: "Event reason"},
-			{Name: "Object", Type: "string", Description: "Involved object"},
+			{Name: "Object", Type: "string", Description: "Regarding object"},
 			{Name: "Message", Type: "string", Description: "Event message"},
 		},
 		Rows: kubeEventsToRows(events),
@@ -399,26 +388,26 @@ func kubeEventsToTable(events []corev1.Event, includeHeaders bool) *metav1.Table
 	return table
 }
 
-// kubeEventsToRows converts Kubernetes events to table rows
-func kubeEventsToRows(events []corev1.Event) []metav1.TableRow {
+// kubeEventsToRows converts EventRecords to table rows
+func kubeEventsToRows(events []activityv1alpha1.EventRecord) []metav1.TableRow {
 	rows := make([]metav1.TableRow, 0, len(events))
 	for i := range events {
+		ev := &events[i].Event
+
 		lastSeen := ""
-		if !events[i].LastTimestamp.IsZero() {
-			lastSeen = events[i].LastTimestamp.Format("2006-01-02T15:04:05Z")
-		} else if !events[i].EventTime.IsZero() {
-			lastSeen = events[i].EventTime.Format("2006-01-02T15:04:05Z")
+		if !ev.EventTime.IsZero() {
+			lastSeen = ev.EventTime.Format("2006-01-02T15:04:05Z")
 		}
 
-		eventType := events[i].Type
-		reason := events[i].Reason
+		eventType := ev.Type
+		reason := ev.Reason
 
-		object := fmt.Sprintf("%s/%s", events[i].InvolvedObject.Kind, events[i].InvolvedObject.Name)
-		if events[i].InvolvedObject.Namespace != "" {
-			object = events[i].InvolvedObject.Namespace + "/" + object
+		object := fmt.Sprintf("%s/%s", ev.Regarding.Kind, ev.Regarding.Name)
+		if ev.Regarding.Namespace != "" {
+			object = ev.Regarding.Namespace + "/" + object
 		}
 
-		message := events[i].Message
+		message := ev.Note
 		// Truncate long messages
 		if len(message) > 80 {
 			message = message[:77] + "..."
@@ -432,14 +421,19 @@ func kubeEventsToRows(events []corev1.Event) []metav1.TableRow {
 	return rows
 }
 
-// printKubeEvents prints Kubernetes events using the configured printer
-func printKubeEvents(events []corev1.Event, printer printers.ResourcePrinter, out io.Writer) error {
-	eventList := &corev1.EventList{
+// printEventRecords prints EventRecords using the configured printer by extracting
+// the underlying eventsv1.Event list
+func printEventRecords(records []activityv1alpha1.EventRecord, printer printers.ResourcePrinter, out io.Writer) error {
+	items := make([]eventsv1.Event, 0, len(records))
+	for i := range records {
+		items = append(items, records[i].Event)
+	}
+	eventList := &eventsv1.EventList{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "EventList",
-			APIVersion: "v1",
+			APIVersion: "events.k8s.io/v1",
 		},
-		Items: events,
+		Items: items,
 	}
 	return printer.PrintObj(eventList, out)
 }

@@ -289,13 +289,13 @@ func (o *AuditOptions) runAllPages(ctx context.Context, client *clientset.Client
 		// For table output, print each page as we get it
 		if isTableOutput {
 			if pageNum == 1 {
-				table := eventsToTable(result.Status.Results, !o.Output.NoHeaders)
+				table := eventsToTable(result.Status.Results)
 				if err := tablePrinter.PrintObj(table, o.Out); err != nil {
 					return err
 				}
 			} else {
 				// Print without header for subsequent pages
-				table := eventsToTable(result.Status.Results, false)
+				table := eventsToTable(result.Status.Results)
 				if err := tablePrinter.PrintObj(table, o.Out); err != nil {
 					return err
 				}
@@ -345,7 +345,7 @@ func (o *AuditOptions) printResults(result *activityv1alpha1.AuditLogQuery) erro
 
 // printTable prints events as a formatted table
 func (o *AuditOptions) printTable(events []auditv1.Event, continueToken string) error {
-	table := eventsToTable(events, !o.Output.NoHeaders)
+	table := eventsToTable(events)
 	tablePrinter := common.CreateTablePrinter(o.Output.NoHeaders)
 
 	if err := tablePrinter.PrintObj(table, o.Out); err != nil {
@@ -359,7 +359,7 @@ func (o *AuditOptions) printTable(events []auditv1.Event, continueToken string) 
 }
 
 // eventsToTable converts audit events to a Table object
-func eventsToTable(events []auditv1.Event, includeHeaders bool) *metav1.Table {
+func eventsToTable(events []auditv1.Event) *metav1.Table {
 	table := &metav1.Table{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Table",
@@ -381,7 +381,12 @@ func eventsToTable(events []auditv1.Event, includeHeaders bool) *metav1.Table {
 func eventsToRows(events []auditv1.Event) []metav1.TableRow {
 	rows := make([]metav1.TableRow, 0, len(events))
 	for i := range events {
-		timestamp := events[i].StageTimestamp.Format("2006-01-02T15:04:05Z")
+		timestamp := "<unknown>"
+		if !events[i].StageTimestamp.IsZero() {
+			timestamp = events[i].StageTimestamp.Format("2006-01-02T15:04:05Z")
+		} else if !events[i].RequestReceivedTimestamp.IsZero() {
+			timestamp = events[i].RequestReceivedTimestamp.Format("2006-01-02T15:04:05Z")
+		}
 		verb := events[i].Verb
 		username := events[i].User.Username
 

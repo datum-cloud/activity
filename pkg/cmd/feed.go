@@ -168,6 +168,9 @@ func (o *FeedOptions) Complete(cmd *cobra.Command) error {
 func (o *FeedOptions) Validate() error {
 	if o.Watch {
 		// Watch mode doesn't use time range
+		if o.Filter != "" {
+			return fmt.Errorf("--filter is not supported in watch mode; use field selector flags (--namespace, --actor, --kind, --change-source) for server-side filtering in watch mode")
+		}
 		return nil
 	}
 
@@ -255,7 +258,6 @@ func (o *FeedOptions) runSinglePage(ctx context.Context, client *clientset.Clien
 		Spec: activityv1alpha1.ActivityQuerySpec{
 			StartTime: o.TimeRange.StartTime,
 			EndTime:   o.TimeRange.EndTime,
-			Namespace: o.Namespace,
 			Filter:    o.buildFilter(),
 			Search:    o.Search,
 			Limit:     o.Pagination.Limit,
@@ -296,7 +298,6 @@ func (o *FeedOptions) runAllPages(ctx context.Context, client *clientset.Clients
 			Spec: activityv1alpha1.ActivityQuerySpec{
 				StartTime: o.TimeRange.StartTime,
 				EndTime:   o.TimeRange.EndTime,
-				Namespace: o.Namespace,
 				Filter:    o.buildFilter(),
 				Search:    o.Search,
 				Limit:     o.Pagination.Limit,
@@ -317,12 +318,12 @@ func (o *FeedOptions) runAllPages(ctx context.Context, client *clientset.Clients
 
 		if isTableOutput {
 			if pageNum == 1 {
-				table := activitiesToTable(result.Status.Results, !o.Output.NoHeaders)
+				table := activitiesToTable(result.Status.Results)
 				if err := tablePrinter.PrintObj(table, o.Out); err != nil {
 					return err
 				}
 			} else {
-				table := activitiesToTable(result.Status.Results, false)
+				table := activitiesToTable(result.Status.Results)
 				if err := tablePrinter.PrintObj(table, o.Out); err != nil {
 					return err
 				}
@@ -456,7 +457,8 @@ func (o *FeedOptions) matchesClientSideFilters(activity *activityv1alpha1.Activi
 
 // printResults outputs the query results in the specified format
 func (o *FeedOptions) printResults(result *activityv1alpha1.ActivityQuery) error {
-	// Check for summary output format
+	// "summary" is a custom format not known to the Kubernetes printer framework, so
+	// it must be handled before calling CreatePrinter — which would reject unknown formats.
 	if o.PrintFlags.OutputFormat != nil && *o.PrintFlags.OutputFormat == "summary" {
 		return o.printSummary(result.Status.Results)
 	}
@@ -475,7 +477,7 @@ func (o *FeedOptions) printResults(result *activityv1alpha1.ActivityQuery) error
 
 // printTable prints activities as a formatted table
 func (o *FeedOptions) printTable(activities []activityv1alpha1.Activity, continueToken string) error {
-	table := activitiesToTable(activities, !o.Output.NoHeaders)
+	table := activitiesToTable(activities)
 	tablePrinter := common.CreateTablePrinter(o.Output.NoHeaders)
 
 	if err := tablePrinter.PrintObj(table, o.Out); err != nil {
@@ -499,7 +501,7 @@ func (o *FeedOptions) printSummary(activities []activityv1alpha1.Activity) error
 }
 
 // activitiesToTable converts activities to a Table object
-func activitiesToTable(activities []activityv1alpha1.Activity, includeHeaders bool) *metav1.Table {
+func activitiesToTable(activities []activityv1alpha1.Activity) *metav1.Table {
 	table := &metav1.Table{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Table",

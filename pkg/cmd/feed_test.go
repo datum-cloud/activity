@@ -385,11 +385,10 @@ func TestActivitiesToTable(t *testing.T) {
 	now := metav1.NewTime(time.Date(2026, 2, 21, 15, 30, 0, 0, time.UTC))
 
 	tests := []struct {
-		name           string
-		activities     []activityv1alpha1.Activity
-		includeHeaders bool
-		wantRows       int
-		wantColumns    int
+		name        string
+		activities  []activityv1alpha1.Activity
+		wantRows    int
+		wantColumns int
 	}{
 		{
 			name: "single activity",
@@ -407,7 +406,6 @@ func TestActivitiesToTable(t *testing.T) {
 					},
 				},
 			},
-			includeHeaders: true,
 			wantRows:       1,
 			wantColumns:    4,
 		},
@@ -439,14 +437,12 @@ func TestActivitiesToTable(t *testing.T) {
 					},
 				},
 			},
-			includeHeaders: true,
 			wantRows:       2,
 			wantColumns:    4,
 		},
 		{
 			name:           "empty activities",
 			activities:     []activityv1alpha1.Activity{},
-			includeHeaders: true,
 			wantRows:       0,
 			wantColumns:    4,
 		},
@@ -466,7 +462,6 @@ func TestActivitiesToTable(t *testing.T) {
 					},
 				},
 			},
-			includeHeaders: true,
 			wantRows:       1,
 			wantColumns:    4,
 		},
@@ -474,7 +469,7 @@ func TestActivitiesToTable(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			table := activitiesToTable(tt.activities, tt.includeHeaders)
+			table := activitiesToTable(tt.activities)
 
 			assert.NotNil(t, table)
 			assert.Equal(t, "Table", table.Kind)
