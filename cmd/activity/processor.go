@@ -6,11 +6,12 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	logsapi "k8s.io/component-base/logs/api/v1"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"go.miloapis.com/activity/internal/activityprocessor"
 )
@@ -63,11 +64,14 @@ type ProcessorOptions struct {
 
 	// Health probe configuration
 	HealthProbeAddr string
+
+	Logs *logsapi.LoggingConfiguration
 }
 
 // NewProcessorOptions creates options with default values.
 func NewProcessorOptions() *ProcessorOptions {
 	return &ProcessorOptions{
+		Logs:                 logsapi.NewLoggingConfiguration(),
 		NATSURL:              "nats://localhost:4222",
 		NATSStreamName:       "AUDIT_EVENTS",
 		ConsumerName:         "activity-processor@activity.miloapis.com",
@@ -167,6 +171,8 @@ func (o *ProcessorOptions) AddFlags(fs *pflag.FlagSet) {
 	// Health probe flags
 	fs.StringVar(&o.HealthProbeAddr, "health-probe-addr", o.HealthProbeAddr,
 		"Address for health probe server (e.g., :8081). Set to empty to disable.")
+
+	logsapi.AddFlags(o.Logs, fs)
 }
 
 // NewProcessorCommand creates the processor subcommand.
@@ -186,9 +192,10 @@ The processor:
 - Evaluates CEL expressions to match and transform events
 - Publishes activities to NATS for downstream consumption (Vector writes to ClickHouse)`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Set up controller-runtime logging
-			ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
-
+			if err := logsapi.ValidateAndApply(options.Logs, utilfeature.DefaultMutableFeatureGate); err != nil {
+				return fmt.Errorf("failed to apply logging configuration: %w", err)
+			}
+			ctrl.SetLogger(klog.NewKlogr())
 			return RunProcessor(options)
 		},
 	}

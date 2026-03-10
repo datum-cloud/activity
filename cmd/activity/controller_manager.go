@@ -12,12 +12,13 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	logsapi "k8s.io/component-base/logs/api/v1"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"go.miloapis.com/activity/internal/controller"
 )
@@ -49,11 +50,14 @@ type ControllerManagerOptions struct {
 	// JobTemplateConfigMap specifies the ConfigMap containing the Job template.
 	// Format: namespace/name. If not set, a default template is used.
 	JobTemplateConfigMap string
+
+	Logs *logsapi.LoggingConfiguration
 }
 
 // NewControllerManagerOptions creates options with default values.
 func NewControllerManagerOptions() *ControllerManagerOptions {
 	return &ControllerManagerOptions{
+		Logs:                     logsapi.NewLoggingConfiguration(),
 		Workers:                  2,
 		MetricsAddr:              ":8080",
 		HealthProbeAddr:          ":8081",
@@ -110,6 +114,8 @@ func (o *ControllerManagerOptions) AddFlags(fs *pflag.FlagSet) {
 		"ConfigMap containing the Job template for reindex workers (format: namespace/name). "+
 			"The ConfigMap should have a 'template.yaml' key with a PodTemplateSpec. "+
 			"If not set, a default template is used.")
+
+	logsapi.AddFlags(o.Logs, fs)
 }
 
 // NewControllerManagerCommand creates the controller-manager subcommand.
@@ -123,9 +129,10 @@ func NewControllerManagerCommand() *cobra.Command {
 and reconciles the desired state. This includes managing ActivityPolicy resources
 and ensuring consistent state across the cluster.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Set up controller-runtime logging
-			ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
-
+			if err := logsapi.ValidateAndApply(options.Logs, utilfeature.DefaultMutableFeatureGate); err != nil {
+				return fmt.Errorf("failed to apply logging configuration: %w", err)
+			}
+			ctrl.SetLogger(klog.NewKlogr())
 			return RunControllerManager(options)
 		},
 	}

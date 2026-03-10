@@ -89,6 +89,7 @@ spec:
         - --batch-size=$(BATCH_SIZE)
         - --health-probe-addr=$(HEALTH_PROBE_ADDR)
         - -v=$(LOG_LEVEL)
+        - --logging-format=$(LOGGING_FORMAT)
         env:
         - name: ACTIVITY_KUBECONFIG
           value: ""
@@ -118,6 +119,8 @@ spec:
           value: ":8081"
         - name: LOG_LEVEL
           value: "2"
+        - name: LOGGING_FORMAT
+          value: "json"
         resources:
           requests:
             cpu: 100m

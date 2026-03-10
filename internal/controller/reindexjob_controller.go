@@ -325,6 +325,7 @@ func (r *ReindexJobReconciler) buildJobForReindexJob(reindexJob *v1alpha1.Reinde
 		"reindex-worker",
 		reindexJob.Name,
 		"--nats-url=" + r.NATSURL,
+		"--logging-format=json",
 	}
 
 	if r.NATSTLSEnabled {
