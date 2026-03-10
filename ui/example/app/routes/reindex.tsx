@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Outlet } from "@remix-run/react";
-import { ActivityApiClient } from "@miloapis/activity-ui";
+import { ActivityApiClient } from "@datum-cloud/activity-ui";
 import { AppLayout } from "~/components/AppLayout";
 
 /**

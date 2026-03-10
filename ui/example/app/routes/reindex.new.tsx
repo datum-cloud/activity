@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { useNavigate, useOutletContext, useSearchParams } from "@remix-run/react";
-import { ReindexJobCreate, type ActivityApiClient } from "@miloapis/activity-ui";
+import { ReindexJobCreate, type ActivityApiClient } from "@datum-cloud/activity-ui";
 
 interface OutletContext {
   client: ActivityApiClient;
