@@ -167,11 +167,8 @@ func (b *ActivityBuilder) BuildFromEvent(
 		actor.Name = "unknown"
 	}
 
-	// Extract tenant info (may not be present in events)
-	tenant := v1alpha1.ActivityTenant{
-		Type: TenantTypePlatform,
-		Name: "",
-	}
+	// Extract tenant from scope annotations; fall back to platform scope when absent.
+	tenant := ExtractTenantFromAnnotations(eventMap)
 
 	// Generate activity name
 	activityName := fmt.Sprintf("act-%s", uuid.New().String()[:8])
