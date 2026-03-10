@@ -474,6 +474,16 @@ func hasUserFilter(filter string) bool {
 		(strings.Contains(filter, "user") && (strings.Contains(filter, "==") || strings.Contains(filter, "!=")))
 }
 
+// hasAPIGroupFilter checks if the CEL filter expression contains API group fields.
+// Added for future use — not currently wired into buildActivityQuery.
+func hasAPIGroupFilter(filter string) bool {
+	if filter == "" {
+		return false
+	}
+	return strings.Contains(filter, "resource.apiGroup") ||
+		strings.Contains(filter, "api_group")
+}
+
 // hasActorFilter checks if the CEL filter expression contains actor-related fields.
 // This is used to determine whether to use the actor_query_projection for optimal performance.
 func hasActorFilter(filter string) bool {
@@ -611,35 +621,17 @@ func (s *ClickHouseStorage) buildQuery(ctx context.Context, spec v1alpha1.AuditL
 
 // ActivityQuerySpec defines the query parameters for listing activities.
 type ActivityQuerySpec struct {
-	// Namespace filters activities to a specific namespace.
-	// Empty for cluster-scoped queries.
-	Namespace string
-
 	// StartTime filters activities to those after this time.
 	StartTime string
 
 	// EndTime filters activities to those before this time.
 	EndTime string
 
-	// ChangeSource filters by change source: "human" or "system".
-	ChangeSource string
-
-	// APIGroup filters by resource API group.
-	APIGroup string
-
-	// ResourceKind filters by resource kind.
-	ResourceKind string
-
-	// ActorName filters by actor name.
-	ActorName string
-
-	// ResourceUID filters activities for a specific resource.
-	ResourceUID string
-
 	// Search performs full-text search on summaries.
 	Search string
 
 	// Filter is a CEL expression for advanced filtering.
+	// This is the sole filtering mechanism beyond time range and full-text search.
 	Filter string
 
 	// Limit is the maximum number of results to return.
@@ -768,12 +760,6 @@ func (s *ClickHouseStorage) buildActivityQuery(ctx context.Context, spec Activit
 		}
 	}
 
-	// Namespace filtering
-	if spec.Namespace != "" {
-		conditions = append(conditions, "activity_namespace = ?")
-		args = append(args, spec.Namespace)
-	}
-
 	// Time range
 	now := time.Now()
 	if spec.StartTime != "" {
@@ -794,32 +780,6 @@ func (s *ClickHouseStorage) buildActivityQuery(ctx context.Context, spec Activit
 		args = append(args, endTime)
 	}
 
-	// Field selectors
-	if spec.ChangeSource != "" {
-		conditions = append(conditions, "change_source = ?")
-		args = append(args, spec.ChangeSource)
-	}
-
-	if spec.APIGroup != "" {
-		conditions = append(conditions, "api_group = ?")
-		args = append(args, spec.APIGroup)
-	}
-
-	if spec.ResourceKind != "" {
-		conditions = append(conditions, "resource_kind = ?")
-		args = append(args, spec.ResourceKind)
-	}
-
-	if spec.ActorName != "" {
-		conditions = append(conditions, "actor_name = ?")
-		args = append(args, spec.ActorName)
-	}
-
-	if spec.ResourceUID != "" {
-		conditions = append(conditions, "resource_uid = ?")
-		args = append(args, spec.ResourceUID)
-	}
-
 	// Full-text search on summary (substring matching, case-insensitive)
 	if spec.Search != "" {
 		// Split search into terms and match any term as a substring
@@ -830,7 +790,7 @@ func (s *ClickHouseStorage) buildActivityQuery(ctx context.Context, spec Activit
 		}
 	}
 
-	// CEL filter expression
+	// CEL filter expression — the sole filtering mechanism beyond time range and search
 	if spec.Filter != "" {
 		celWhere, celArgs, err := cel.ConvertActivityToClickHouseSQL(ctx, spec.Filter)
 		if err != nil {
@@ -847,20 +807,19 @@ func (s *ClickHouseStorage) buildActivityQuery(ctx context.Context, spec Activit
 		}
 	}
 
-	// Pagination cursor
-	// The cursor logic must align with the ORDER BY clause to ensure correct pagination.
-	// Different projections have different sort orders, but timestamp and resource_uid
-	// are always present, allowing us to use them for cursor-based pagination.
+	// Pagination cursor aligned with the new time-bucketed ORDER BY clauses.
+	// The 3-level toStartOfHour pattern ensures correct pagination across hour boundaries.
 	if spec.Continue != "" {
 		cursorTime, cursorUID, err := decodeActivityCursor(spec.Continue, spec)
 		if err != nil {
 			return "", nil, err
 		}
 		// Pagination logic: continue from where we left off
-		// Since timestamp is always in the ORDER BY and resource_uid is the final tie-breaker,
-		// we can use them regardless of which projection is selected.
-		conditions = append(conditions, "(timestamp < ? OR (timestamp = ? AND resource_uid < ?))")
-		args = append(args, cursorTime, cursorTime, cursorUID)
+		// 1. Hour bucket is earlier, OR
+		// 2. Same hour bucket but timestamp is earlier, OR
+		// 3. Same timestamp but resource_uid is earlier (for tie-breaking)
+		conditions = append(conditions, "(toStartOfHour(timestamp) < toStartOfHour(?) OR (toStartOfHour(timestamp) = toStartOfHour(?) AND timestamp < ?) OR (timestamp = ? AND resource_uid < ?))")
+		args = append(args, cursorTime, cursorTime, cursorTime, cursorTime, cursorUID)
 	}
 
 	if len(conditions) > 0 {
@@ -870,26 +829,25 @@ func (s *ClickHouseStorage) buildActivityQuery(ctx context.Context, spec Activit
 	// ORDER BY must match projection/primary key sort order for ClickHouse
 	// to efficiently use indexes and projections.
 	//
-	// Primary key: (tenant_type, tenant_name, timestamp, resource_uid)
-	// Projections are designed for platform-wide (cross-tenant) queries:
-	//   - api_group_query_projection: ORDER BY (api_group, timestamp, tenant_type, tenant_name, resource_uid)
-	//   - actor_query_projection: ORDER BY (actor_name, timestamp, tenant_type, tenant_name, resource_uid)
+	// Primary key: (toStartOfHour(timestamp), timestamp, tenant_type, tenant_name, origin_id)
+	// Projections:
+	//   - platform_query_projection: (toStartOfHour(timestamp), timestamp, api_group, resource_kind, resource_uid)
+	//   - actor_query_projection:    (toStartOfHour(timestamp), timestamp, actor_name, api_group, resource_kind, resource_uid)
+	//   - actor_uid_query_projection: (toStartOfHour(timestamp), timestamp, actor_uid, api_group, resource_kind, resource_uid)
 	if scope.Type == "platform" {
-		// Platform-wide queries: select projection based on filters
-		if spec.APIGroup != "" {
-			// API group filter present: use api_group_query_projection
-			query += " ORDER BY api_group DESC, timestamp DESC, tenant_type DESC, tenant_name DESC, resource_uid DESC"
-		} else if spec.ActorName != "" || hasActorFilter(spec.Filter) {
+		if hasActorFilter(spec.Filter) {
 			// Actor filter present: use actor_query_projection
-			query += " ORDER BY actor_name DESC, timestamp DESC, tenant_type DESC, tenant_name DESC, resource_uid DESC"
+			query += " ORDER BY toStartOfHour(timestamp) DESC, timestamp DESC, actor_name DESC, api_group DESC, resource_kind DESC, resource_uid DESC"
 		} else {
-			// No specific filter: timestamp-based order (will scan partitions)
-			query += " ORDER BY timestamp DESC, tenant_type DESC, tenant_name DESC, resource_uid DESC"
+			// No actor filter: use platform_query_projection
+			query += " ORDER BY toStartOfHour(timestamp) DESC, timestamp DESC, api_group DESC, resource_kind DESC, resource_uid DESC"
 		}
+	} else if scope.Type == "user" {
+		// User-scoped: use actor_uid_query_projection to filter by UID
+		query += " ORDER BY toStartOfHour(timestamp) DESC, timestamp DESC, actor_uid DESC, api_group DESC, resource_kind DESC, resource_uid DESC"
 	} else {
-		// Tenant-scoped (organization/project) or user-scoped queries:
-		// Use primary key order for efficient index usage
-		query += " ORDER BY tenant_type DESC, tenant_name DESC, timestamp DESC, resource_uid DESC"
+		// Tenant-scoped: match hour-bucketed primary key for efficient index use
+		query += " ORDER BY toStartOfHour(timestamp) DESC, timestamp DESC, tenant_type DESC, tenant_name DESC, origin_id DESC"
 	}
 
 	// Limit
@@ -920,11 +878,7 @@ func hashActivityQueryParams(spec ActivityQuerySpec) string {
 	h.Write([]byte("|"))
 	h.Write([]byte(spec.EndTime))
 	h.Write([]byte("|"))
-	h.Write([]byte(spec.ChangeSource))
-	h.Write([]byte("|"))
-	h.Write([]byte(spec.APIGroup))
-	h.Write([]byte("|"))
-	h.Write([]byte(spec.ResourceKind))
+	h.Write([]byte(spec.Filter))
 	h.Write([]byte("|"))
 	h.Write([]byte(spec.Search))
 	h.Write([]byte("|"))

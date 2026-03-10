@@ -262,7 +262,7 @@ _Appears in:_
 | `name` _string_ | Name is a unique identifier for this rule within the policy.<br />Used for strategic merge patching and error reporting. |  |  |
 | `description` _string_ | Description is an optional human-readable description of what this rule does. |  |  |
 | `match` _string_ | Match is a CEL expression that determines if this rule applies to the input.<br />For audit rules, use the `audit` variable (e.g., "audit.verb == 'create'", "audit.objectRef.namespace == 'default'").<br />For event rules, use the `event` variable (e.g., "event.reason == 'Programmed'").<br /><br />Examples:<br />  "audit.verb == 'create'"<br />  "audit.verb in ['update', 'patch']"<br />  "event.reason.startsWith('Failed')"<br />  "true"  (fallback rule that always matches) |  |  |
-| `summary` _string_ | Summary is a CEL template for generating the activity summary.<br />Use \{\{ \}\} delimiters to embed CEL expressions within strings.<br /><br />Available variables:<br />  - For audit rules: audit (map), actor, actorRef, kind — access audit fields via audit.verb, audit.objectRef, etc.<br />  - For event rules: event, actor<br /><br />Available functions:<br />  - link(displayText, resourceRef): Creates a clickable reference<br /><br />Examples:<br />  "\{\{ actor \}\} created \{\{ link(kind + ' ' + audit.objectRef.name, audit.responseObject) \}\}"<br />  "\{\{ link(kind + ' ' + event.regarding.name, event.regarding) \}\} is now programmed" |  |  |
+| `summary` _string_ | Summary is a CEL template for generating the activity summary.<br />Use \{\{ \}\} delimiters to embed CEL expressions within strings.<br /><br />Available variables:<br />  - For audit rules: audit (map), actor, actorRef, kind<br />    Access audit fields via: audit.verb, audit.objectRef, audit.user, audit.responseStatus, audit.responseObject<br />  - For event rules: event, actor, actorRef<br /><br />Available functions:<br />  - link(displayText, resourceRef): Creates a clickable reference<br /><br />Examples:<br />  "\{\{ actor \}\} created \{\{ link(kind + ' ' + audit.objectRef.name, audit.responseObject) \}\}"<br />  "\{\{ link(kind + ' ' + event.regarding.name, event.regarding) \}\} is now programmed" |  |  |
 
 
 #### ActivityPolicySpec
@@ -280,7 +280,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `resource` _[ActivityPolicyResource](#activitypolicyresource)_ | Resource identifies the Kubernetes resource this policy applies to.<br />One ActivityPolicy should exist per resource kind. |  |  |
-| `auditRules` _[ActivityPolicyRule](#activitypolicyrule) array_ | AuditRules define how to translate audit log entries into activity summaries.<br />Rules are evaluated in order; the first matching rule wins.<br />Available variables: audit (map), actor, actorRef, kind<br />Access audit fields via: audit.verb, audit.objectRef, audit.user, audit.responseStatus, audit.responseObject, audit.requestObject |  |  |
+| `auditRules` _[ActivityPolicyRule](#activitypolicyrule) array_ | AuditRules define how to translate audit log entries into activity summaries.<br />Rules are evaluated in order; the first matching rule wins.<br />Available variables: audit (map with verb, objectRef, user, responseStatus,<br />  responseObject, requestObject), actor, actorRef, kind |  |  |
 | `eventRules` _[ActivityPolicyRule](#activitypolicyrule) array_ | EventRules define how to translate Kubernetes events into activity summaries.<br />Rules are evaluated in order; the first matching rule wins.<br />The `event` variable contains the full Kubernetes Event structure.<br />Convenience variables available: actor |  |  |
 
 
@@ -311,7 +311,39 @@ ActivityQuerySpec defines the search parameters for activities.
 
 
 Required: startTime and endTime define your search window.
-Optional: filter (CEL expression), namespace, changeSource, search, limit, continue.
+Optional: filter (CEL expression), search, limit, continue.
+
+
+CEL is the primary filtering mechanism. All dedicated filter fields have been
+removed in favor of the expressive filter field.
+
+
+Available CEL Fields:
+
+
+	spec.changeSource      - "human" or "system"
+	spec.actor.name        - who performed the action
+	spec.actor.type        - "user", "serviceaccount", "controller"
+	spec.actor.uid         - actor's unique identifier
+	spec.resource.apiGroup - resource API group (empty for core)
+	spec.resource.kind     - resource kind (Deployment, Pod, etc.)
+	spec.resource.name     - resource name
+	spec.resource.namespace - resource namespace
+	spec.resource.uid      - resource UID
+	spec.summary           - activity summary text
+	spec.origin.type       - "audit" or "event"
+	metadata.namespace     - activity namespace
+
+
+CEL Filter Examples:
+
+
+	"spec.changeSource == 'human'"
+	"spec.resource.kind == 'Deployment'"
+	"spec.actor.name.contains('admin')"
+	"spec.resource.kind in ['Deployment', 'StatefulSet']"
+	"spec.resource.apiGroup == 'networking.datumapis.com'"
+	"spec.actor.uid == 'abc123'"
 
 
 
@@ -322,14 +354,8 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `startTime` _string_ | StartTime is the beginning of your search window (inclusive).<br /><br />Format Options:<br />- Relative: "now-7d", "now-2h", "now-30m" (units: s, m, h, d, w)<br />- Absolute: "2024-01-01T00:00:00Z" (RFC3339 with timezone) |  |  |
 | `endTime` _string_ | EndTime is the end of your search window (exclusive).<br /><br />Uses the same formats as StartTime. Commonly "now" for current moment.<br />Must be greater than StartTime. |  |  |
-| `namespace` _string_ | Namespace filters activities to a specific namespace.<br />Leave empty for cluster-wide results. |  |  |
-| `changeSource` _string_ | ChangeSource filters by who initiated the change.<br /><br />Values:<br />  - "human": User actions via kubectl, API, or UI<br />  - "system": Controller reconciliation, operator actions<br /><br />Leave empty for both. |  |  |
+| `filter` _string_ | Filter narrows results using CEL (Common Expression Language).<br /><br />This is the primary filtering mechanism. See the ActivityQuerySpec godoc<br />for available fields and examples.<br /><br />Operators: ==, !=, &&, \|\|, !, in<br />String Functions: startsWith(), endsWith(), contains() |  |  |
 | `search` _string_ | Search performs full-text search on activity summaries.<br /><br />Example: "created deployment" matches activities with those words in the summary. |  |  |
-| `filter` _string_ | Filter narrows results using CEL (Common Expression Language).<br /><br />Available Fields:<br />  spec.changeSource      - "human" or "system"<br />  spec.actor.name        - who performed the action<br />  spec.actor.type        - "user", "serviceaccount", "controller"<br />  spec.actor.uid         - actor's unique identifier<br />  spec.resource.apiGroup - resource API group (empty for core)<br />  spec.resource.kind     - resource kind (Deployment, Pod, etc.)<br />  spec.resource.name     - resource name<br />  spec.resource.namespace - resource namespace<br />  spec.resource.uid      - resource UID<br />  spec.summary           - activity summary text<br />  spec.origin.type       - "audit" or "event"<br />  metadata.namespace     - activity namespace<br /><br />Operators: ==, !=, &&, \|\|, !, in<br />String Functions: startsWith(), endsWith(), contains()<br /><br />Examples:<br />  "spec.changeSource == 'human'"<br />  "spec.resource.kind == 'Deployment'"<br />  "spec.actor.name.contains('admin')"<br />  "spec.resource.kind in ['Deployment', 'StatefulSet']" |  |  |
-| `resourceKind` _string_ | ResourceKind filters by the kind of resource affected.<br /><br />Examples: "Deployment", "Pod", "ConfigMap", "HTTPProxy" |  |  |
-| `resourceUID` _string_ | ResourceUID filters activities for a specific resource by UID.<br /><br />Use this to get the full history of changes to a single resource. |  |  |
-| `apiGroup` _string_ | APIGroup filters by the API group of affected resources.<br /><br />Examples: "apps", "projectcontour.io", "" (empty for core API) |  |  |
-| `actorName` _string_ | ActorName filters by who performed the action.<br /><br />Examples: "alice@example.com", "system:serviceaccount:default:my-sa" |  |  |
 | `limit` _integer_ | Limit sets the maximum number of results per page.<br />Default: 100, Maximum: 1000. |  |  |
 | `continue` _string_ | Continue is the pagination cursor for fetching additional pages.<br /><br />Leave empty for the first page. Copy status.continue here to get the next page.<br />Keep all other parameters identical across paginated requests. |  |  |
 

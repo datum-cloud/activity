@@ -963,7 +963,7 @@ func schema_pkg_apis_activity_v1alpha1_ActivityPolicySpec(ref common.ReferenceCa
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "AuditRules define how to translate audit log entries into activity summaries. Rules are evaluated in order; the first matching rule wins. Available variables: audit (map), actor, actorRef, kind Access audit fields via: audit.verb, audit.objectRef, audit.user, audit.responseStatus, audit.responseObject, audit.requestObject Convenience variables available: actor, actorRef, kind",
+							Description: "AuditRules define how to translate audit log entries into activity summaries. Rules are evaluated in order; the first matching rule wins. Available variables: audit (map with verb, objectRef, user, responseStatus,\n  responseObject, requestObject), actor, actorRef, kind",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -1054,7 +1054,7 @@ func schema_pkg_apis_activity_v1alpha1_ActivityQuery(ref common.ReferenceCallbac
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "ActivityQuery searches for activity records.\n\nActivities are human-readable summaries of resource changes, generated from audit logs and Kubernetes events. Use this to display activity feeds, investigate changes, or filter by actor, resource type, or time range.\n\nQuick Start:\n\n\tapiVersion: activity.miloapis.com/v1alpha1\n\tkind: ActivityQuery\n\tmetadata:\n\t  name: recent-human-changes\n\tspec:\n\t  startTime: \"now-7d\"\n\t  endTime: \"now\"\n\t  changeSource: \"human\"  # filter out system noise\n\t  limit: 50\n\nTime Formats: - Relative: \"now-7d\", \"now-2h\" (great for dashboards) - Absolute: \"2024-01-01T00:00:00Z\" (great for historical analysis)",
+				Description: "ActivityQuery searches for activity records.\n\nActivities are human-readable summaries of resource changes, generated from audit logs and Kubernetes events. Use this to display activity feeds, investigate changes, or filter by actor, resource type, or time range.\n\nQuick Start:\n\n\tapiVersion: activity.miloapis.com/v1alpha1\n\tkind: ActivityQuery\n\tmetadata:\n\t  name: recent-human-changes\n\tspec:\n\t  startTime: \"now-7d\"\n\t  endTime: \"now\"\n\t  filter: \"spec.changeSource == 'human'\"  # filter out system noise\n\t  limit: 50\n\nTime Formats: - Relative: \"now-7d\", \"now-2h\" (great for dashboards) - Absolute: \"2024-01-01T00:00:00Z\" (great for historical analysis)",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -1102,7 +1102,7 @@ func schema_pkg_apis_activity_v1alpha1_ActivityQuerySpec(ref common.ReferenceCal
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "ActivityQuerySpec defines the search parameters for activities.\n\nRequired: startTime and endTime define your search window. Optional: filter (CEL expression), namespace, changeSource, search, limit, continue.",
+				Description: "ActivityQuerySpec defines the search parameters for activities.\n\nRequired: startTime and endTime define your search window. Optional: filter (CEL expression), search, limit, continue.\n\nCEL is the primary filtering mechanism. All dedicated filter fields have been removed in favor of the expressive filter field.\n\nAvailable CEL Fields:\n\n\tspec.changeSource      - \"human\" or \"system\"\n\tspec.actor.name        - who performed the action\n\tspec.actor.type        - \"user\", \"serviceaccount\", \"controller\"\n\tspec.actor.uid         - actor's unique identifier\n\tspec.resource.apiGroup - resource API group (empty for core)\n\tspec.resource.kind     - resource kind (Deployment, Pod, etc.)\n\tspec.resource.name     - resource name\n\tspec.resource.namespace - resource namespace\n\tspec.resource.uid      - resource UID\n\tspec.summary           - activity summary text\n\tspec.origin.type       - \"audit\" or \"event\"\n\tmetadata.namespace     - activity namespace\n\nCEL Filter Examples:\n\n\t\"spec.changeSource == 'human'\"\n\t\"spec.resource.kind == 'Deployment'\"\n\t\"spec.actor.name.contains('admin')\"\n\t\"spec.resource.kind in ['Deployment', 'StatefulSet']\"\n\t\"spec.resource.apiGroup == 'networking.datumapis.com'\"\n\t\"spec.actor.uid == 'abc123'\"",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"startTime": {
@@ -1121,16 +1121,9 @@ func schema_pkg_apis_activity_v1alpha1_ActivityQuerySpec(ref common.ReferenceCal
 							Format:      "",
 						},
 					},
-					"namespace": {
+					"filter": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Namespace filters activities to a specific namespace. Leave empty for cluster-wide results.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"changeSource": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ChangeSource filters by who initiated the change.\n\nValues:\n  - \"human\": User actions via kubectl, API, or UI\n  - \"system\": Controller reconciliation, operator actions\n\nLeave empty for both.",
+							Description: "Filter narrows results using CEL (Common Expression Language).\n\nThis is the primary filtering mechanism. See the ActivityQuerySpec godoc for available fields and examples.\n\nOperators: ==, !=, &&, ||, !, in String Functions: startsWith(), endsWith(), contains()",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -1138,41 +1131,6 @@ func schema_pkg_apis_activity_v1alpha1_ActivityQuerySpec(ref common.ReferenceCal
 					"search": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Search performs full-text search on activity summaries.\n\nExample: \"created deployment\" matches activities with those words in the summary.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"filter": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Filter narrows results using CEL (Common Expression Language).\n\nAvailable Fields:\n  spec.changeSource      - \"human\" or \"system\"\n  spec.actor.name        - who performed the action\n  spec.actor.type        - \"user\", \"serviceaccount\", \"controller\"\n  spec.actor.uid         - actor's unique identifier\n  spec.resource.apiGroup - resource API group (empty for core)\n  spec.resource.kind     - resource kind (Deployment, Pod, etc.)\n  spec.resource.name     - resource name\n  spec.resource.namespace - resource namespace\n  spec.resource.uid      - resource UID\n  spec.summary           - activity summary text\n  spec.origin.type       - \"audit\" or \"event\"\n  metadata.namespace     - activity namespace\n\nOperators: ==, !=, &&, ||, !, in String Functions: startsWith(), endsWith(), contains()\n\nExamples:\n  \"spec.changeSource == 'human'\"\n  \"spec.resource.kind == 'Deployment'\"\n  \"spec.actor.name.contains('admin')\"\n  \"spec.resource.kind in ['Deployment', 'StatefulSet']\"",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"resourceKind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ResourceKind filters by the kind of resource affected.\n\nExamples: \"Deployment\", \"Pod\", \"ConfigMap\", \"HTTPProxy\"",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"resourceUID": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ResourceUID filters activities for a specific resource by UID.\n\nUse this to get the full history of changes to a single resource.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiGroup": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIGroup filters by the API group of affected resources.\n\nExamples: \"apps\", \"projectcontour.io\", \"\" (empty for core API)",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"actorName": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ActorName filters by who performed the action.\n\nExamples: \"alice@example.com\", \"system:serviceaccount:default:my-sa\"",
 							Type:        []string{"string"},
 							Format:      "",
 						},
