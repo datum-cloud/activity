@@ -126,7 +126,7 @@ importers:
 
   example:
     dependencies:
-      '@miloapis/activity-ui':
+      '@datum-cloud/activity-ui':
         specifier: workspace:*
         version: link:..
       '@monaco-editor/react':
