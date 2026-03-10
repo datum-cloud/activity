@@ -5,7 +5,7 @@ on:
 
 jobs:
   publish:
-    uses: datum-cloud/actions/.github/workflows/publish-npm-package.yaml@v1.10.0
+    uses: datum-cloud/actions/.github/workflows/publish-npm-package.yaml@fix/pnpm-package-path
     with:
       package-name: "@datum-cloud/activity-ui"
       package-path: ui
