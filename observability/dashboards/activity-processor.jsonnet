@@ -423,6 +423,203 @@ local allPanels = util.grid.wrapPanels([
   + timeSeries.panelOptions.withDescription('Processing errors broken down by error type')
   + timeSeries.gridPos.withW(timeSeriesHalfWidth)
   + timeSeries.gridPos.withH(timeSeriesHeight),
+
+  // ============================================================================
+  // Row 5: Dead Letter Queue
+  // ============================================================================
+  row.new('Dead Letter Queue')
+  + row.withCollapsed(false),
+
+  stat.new('DLQ Publish Rate')
+  + stat.options.withGraphMode('area')
+  + stat.options.withColorMode('background')
+  + stat.options.reduceOptions.withCalcs(['lastNotNull'])
+  + stat.standardOptions.withUnit('ops')
+  + stat.standardOptions.withDecimals(1)
+  + stat.datasource.withType('prometheus')
+  + stat.datasource.withUid(datasource)
+  + stat.queryOptions.withTargets([
+    prometheus.new(
+      datasource,
+      'sum(rate(activity_processor_dlq_events_published_total[5m])) or vector(0)'
+    )
+    + prometheus.withLegendFormat('Events/s'),
+  ])
+  + stat.standardOptions.thresholds.withSteps([
+    { color: 'green', value: null },
+    { color: 'yellow', value: 0.1 },
+    { color: 'red', value: 1 },
+  ])
+  + stat.panelOptions.withDescription('Rate of events published to the dead letter queue per second')
+  + stat.gridPos.withW(statWidth)
+  + stat.gridPos.withH(statHeight),
+
+  stat.new('DLQ Publish Errors')
+  + stat.options.withGraphMode('area')
+  + stat.options.withColorMode('background')
+  + stat.options.reduceOptions.withCalcs(['lastNotNull'])
+  + stat.standardOptions.withUnit('ops')
+  + stat.standardOptions.withDecimals(1)
+  + stat.datasource.withType('prometheus')
+  + stat.datasource.withUid(datasource)
+  + stat.queryOptions.withTargets([
+    prometheus.new(
+      datasource,
+      'sum(rate(activity_processor_dlq_publish_errors_total[5m])) or vector(0)'
+    )
+    + prometheus.withLegendFormat('Errors/s'),
+  ])
+  + stat.standardOptions.thresholds.withSteps([
+    { color: 'green', value: null },
+    { color: 'red', value: 0.01 },
+  ])
+  + stat.panelOptions.withDescription('Rate of errors encountered when publishing to the dead letter queue')
+  + stat.gridPos.withW(statWidth)
+  + stat.gridPos.withH(statHeight),
+
+  stat.new('Retry Success Rate')
+  + stat.options.withGraphMode('area')
+  + stat.options.withColorMode('background')
+  + stat.options.reduceOptions.withCalcs(['lastNotNull'])
+  + stat.standardOptions.withUnit('percentunit')
+  + stat.standardOptions.withDecimals(1)
+  + stat.datasource.withType('prometheus')
+  + stat.datasource.withUid(datasource)
+  + stat.queryOptions.withTargets([
+    prometheus.new(
+      datasource,
+      '(sum(rate(activity_processor_dlq_retry_attempts_total{result="succeeded"}[5m])) or vector(0)) / clamp_min(sum(rate(activity_processor_dlq_retry_attempts_total[5m])), 1)'
+    )
+    + prometheus.withLegendFormat('Success Rate'),
+  ])
+  + stat.standardOptions.thresholds.withSteps([
+    { color: 'red', value: null },
+    { color: 'yellow', value: 0.8 },
+    { color: 'green', value: 0.95 },
+  ])
+  + stat.panelOptions.withDescription('Fraction of DLQ retry attempts that succeeded')
+  + stat.gridPos.withW(statWidth)
+  + stat.gridPos.withH(statHeight),
+
+  stat.new('High Retry Events')
+  + stat.options.withGraphMode('area')
+  + stat.options.withColorMode('background')
+  + stat.options.reduceOptions.withCalcs(['lastNotNull'])
+  + stat.standardOptions.withUnit('short')
+  + stat.datasource.withType('prometheus')
+  + stat.datasource.withUid(datasource)
+  + stat.queryOptions.withTargets([
+    prometheus.new(
+      datasource,
+      'sum(increase(activity_processor_dlq_retry_events_high_retry_total[1h])) or vector(0)'
+    )
+    + prometheus.withLegendFormat('Events'),
+  ])
+  + stat.standardOptions.thresholds.withSteps([
+    { color: 'green', value: null },
+    { color: 'red', value: 1 },
+  ])
+  + stat.panelOptions.withDescription('DLQ events exceeding the high retry threshold in the last hour')
+  + stat.gridPos.withW(statWidth)
+  + stat.gridPos.withH(statHeight),
+
+  timeSeries.new('DLQ Events by Error Type')
+  + timeSeries.options.legend.withDisplayMode('table')
+  + timeSeries.options.legend.withPlacement('bottom')
+  + timeSeries.options.legend.withShowLegend(true)
+  + timeSeries.options.legend.withCalcs(['lastNotNull', 'mean'])
+  + timeSeries.standardOptions.withUnit('ops')
+  + timeSeries.fieldConfig.defaults.custom.withFillOpacity(30)
+  + timeSeries.fieldConfig.defaults.custom.withShowPoints('never')
+  + timeSeries.fieldConfig.defaults.custom.stacking.withMode('normal')
+  + timeSeries.datasource.withType('prometheus')
+  + timeSeries.datasource.withUid(datasource)
+  + timeSeries.queryOptions.withTargets([
+    prometheus.new(
+      datasource,
+      'sum(rate(activity_processor_dlq_events_published_total[5m])) by (error_type)'
+    )
+    + prometheus.withLegendFormat('{{error_type}}'),
+  ])
+  + timeSeries.panelOptions.withDescription('Rate of DLQ events published, broken down by error type')
+  + timeSeries.gridPos.withW(timeSeriesHalfWidth)
+  + timeSeries.gridPos.withH(timeSeriesHeight),
+
+  timeSeries.new('DLQ Events by Policy')
+  + timeSeries.options.legend.withDisplayMode('table')
+  + timeSeries.options.legend.withPlacement('bottom')
+  + timeSeries.options.legend.withShowLegend(true)
+  + timeSeries.options.legend.withCalcs(['lastNotNull', 'mean'])
+  + timeSeries.standardOptions.withUnit('ops')
+  + timeSeries.fieldConfig.defaults.custom.withFillOpacity(30)
+  + timeSeries.fieldConfig.defaults.custom.withShowPoints('never')
+  + timeSeries.fieldConfig.defaults.custom.stacking.withMode('normal')
+  + timeSeries.datasource.withType('prometheus')
+  + timeSeries.datasource.withUid(datasource)
+  + timeSeries.queryOptions.withTargets([
+    prometheus.new(
+      datasource,
+      'label_replace(sum(rate(activity_processor_dlq_events_published_total[5m])) by (policy_name), "policy_name", "(no policy)", "policy_name", "^$")'
+    )
+    + prometheus.withLegendFormat('{{policy_name}}'),
+  ])
+  + timeSeries.panelOptions.withDescription('Rate of DLQ events published, broken down by policy name')
+  + timeSeries.gridPos.withW(timeSeriesHalfWidth)
+  + timeSeries.gridPos.withH(timeSeriesHeight),
+
+  timeSeries.new('Retry Attempts')
+  + timeSeries.options.legend.withDisplayMode('table')
+  + timeSeries.options.legend.withPlacement('bottom')
+  + timeSeries.options.legend.withShowLegend(true)
+  + timeSeries.options.legend.withCalcs(['lastNotNull', 'mean'])
+  + timeSeries.standardOptions.withUnit('ops')
+  + timeSeries.fieldConfig.defaults.custom.withFillOpacity(30)
+  + timeSeries.fieldConfig.defaults.custom.withShowPoints('never')
+  + timeSeries.fieldConfig.defaults.custom.stacking.withMode('normal')
+  + timeSeries.datasource.withType('prometheus')
+  + timeSeries.datasource.withUid(datasource)
+  + timeSeries.queryOptions.withTargets([
+    prometheus.new(
+      datasource,
+      'sum(rate(activity_processor_dlq_retry_attempts_total[5m])) by (trigger, result)'
+    )
+    + prometheus.withLegendFormat('{{trigger}} - {{result}}'),
+  ])
+  + timeSeries.panelOptions.withDescription('Rate of DLQ retry attempts, broken down by trigger source and result')
+  + timeSeries.gridPos.withW(timeSeriesHalfWidth)
+  + timeSeries.gridPos.withH(timeSeriesHeight),
+
+  timeSeries.new('DLQ Publish Latency')
+  + timeSeries.options.legend.withDisplayMode('table')
+  + timeSeries.options.legend.withPlacement('bottom')
+  + timeSeries.options.legend.withShowLegend(true)
+  + timeSeries.options.legend.withCalcs(['lastNotNull', 'mean', 'max'])
+  + timeSeries.standardOptions.withUnit('s')
+  + timeSeries.fieldConfig.defaults.custom.withFillOpacity(10)
+  + timeSeries.fieldConfig.defaults.custom.withLineWidth(2)
+  + timeSeries.fieldConfig.defaults.custom.withShowPoints('never')
+  + timeSeries.datasource.withType('prometheus')
+  + timeSeries.datasource.withUid(datasource)
+  + timeSeries.queryOptions.withTargets([
+    prometheus.new(
+      datasource,
+      'histogram_quantile(0.99, sum(rate(activity_processor_dlq_publish_latency_seconds_bucket[5m])) by (le))'
+    )
+    + prometheus.withLegendFormat('p99'),
+    prometheus.new(
+      datasource,
+      'histogram_quantile(0.95, sum(rate(activity_processor_dlq_publish_latency_seconds_bucket[5m])) by (le))'
+    )
+    + prometheus.withLegendFormat('p95'),
+    prometheus.new(
+      datasource,
+      'histogram_quantile(0.50, sum(rate(activity_processor_dlq_publish_latency_seconds_bucket[5m])) by (le))'
+    )
+    + prometheus.withLegendFormat('p50'),
+  ])
+  + timeSeries.panelOptions.withDescription('DLQ publish latency distribution (p99, p95, p50)')
+  + timeSeries.gridPos.withW(timeSeriesHalfWidth)
+  + timeSeries.gridPos.withH(timeSeriesHeight),
 ]);
 
 // Dashboard
