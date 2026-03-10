@@ -319,6 +319,113 @@ func TestExtractTenant(t *testing.T) {
 	}
 }
 
+func TestExtractTenantFromAnnotations(t *testing.T) {
+	tests := []struct {
+		name     string
+		eventMap map[string]any
+		wantType string
+		wantName string
+	}{
+		{
+			name:     "nil event map falls back to platform",
+			eventMap: nil,
+			wantType: TenantTypePlatform,
+			wantName: "",
+		},
+		{
+			name:     "no metadata falls back to platform",
+			eventMap: map[string]any{},
+			wantType: TenantTypePlatform,
+			wantName: "",
+		},
+		{
+			name: "metadata without annotations falls back to platform",
+			eventMap: map[string]any{
+				"metadata": map[string]any{
+					"uid": "event-123",
+				},
+			},
+			wantType: TenantTypePlatform,
+			wantName: "",
+		},
+		{
+			name: "annotations without scope keys fall back to platform",
+			eventMap: map[string]any{
+				"metadata": map[string]any{
+					"annotations": map[string]any{
+						"some-other-annotation": "value",
+					},
+				},
+			},
+			wantType: TenantTypePlatform,
+			wantName: "",
+		},
+		{
+			name: "project scope from annotations",
+			eventMap: map[string]any{
+				"metadata": map[string]any{
+					"annotations": map[string]any{
+						"platform.miloapis.com/scope.type": TenantTypeProject,
+						"platform.miloapis.com/scope.name": "my-project",
+					},
+				},
+			},
+			wantType: TenantTypeProject,
+			wantName: "my-project",
+		},
+		{
+			name: "organization scope from annotations",
+			eventMap: map[string]any{
+				"metadata": map[string]any{
+					"annotations": map[string]any{
+						"platform.miloapis.com/scope.type": TenantTypeOrganization,
+						"platform.miloapis.com/scope.name": "acme-corp",
+					},
+				},
+			},
+			wantType: TenantTypeOrganization,
+			wantName: "acme-corp",
+		},
+		{
+			name: "scope.type present but empty falls back to platform",
+			eventMap: map[string]any{
+				"metadata": map[string]any{
+					"annotations": map[string]any{
+						"platform.miloapis.com/scope.type": "",
+						"platform.miloapis.com/scope.name": "my-project",
+					},
+				},
+			},
+			wantType: TenantTypePlatform,
+			wantName: "",
+		},
+		{
+			name: "scope.type present but scope.name absent uses empty name",
+			eventMap: map[string]any{
+				"metadata": map[string]any{
+					"annotations": map[string]any{
+						"platform.miloapis.com/scope.type": TenantTypeProject,
+					},
+				},
+			},
+			wantType: TenantTypeProject,
+			wantName: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ExtractTenantFromAnnotations(tt.eventMap)
+			if got.Type != tt.wantType {
+				t.Errorf("ExtractTenantFromAnnotations() Type = %q, want %q", got.Type, tt.wantType)
+			}
+			if got.Name != tt.wantName {
+				t.Errorf("ExtractTenantFromAnnotations() Name = %q, want %q", got.Name, tt.wantName)
+			}
+		})
+	}
+}
+
 func TestGetNestedString(t *testing.T) {
 	tests := []struct {
 		name string

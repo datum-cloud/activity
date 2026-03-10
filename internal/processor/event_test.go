@@ -244,6 +244,110 @@ func TestNormalizeEvent(t *testing.T) {
 	}
 }
 
+func TestBuildActivityTenantFromScopeAnnotations(t *testing.T) {
+	p := &EventProcessor{}
+
+	involvedObject := map[string]any{
+		"kind":       "DNSRecord",
+		"name":       "my-record",
+		"namespace":  "project-ns",
+		"uid":        "dns-789",
+		"apiVersion": "dns.miloapis.com/v1alpha1",
+	}
+
+	matched := &MatchedPolicy{
+		PolicyName: "dns-records",
+		Generation: 1,
+		APIGroup:   "dns.miloapis.com",
+		Kind:       "DNSRecord",
+		Summary:    "DNS record created",
+	}
+
+	tests := []struct {
+		name           string
+		event          map[string]any
+		involvedObject map[string]any
+		wantTenant     string
+		wantName       string
+	}{
+		{
+			name: "project scope annotation is used",
+			event: map[string]any{
+				"metadata": map[string]any{
+					"uid": "event-001",
+					"annotations": map[string]any{
+						"platform.miloapis.com/scope.type": TenantTypeProject,
+						"platform.miloapis.com/scope.name": "my-project",
+					},
+				},
+				"reportingController": "dns-operator",
+				"regarding":           involvedObject,
+			},
+			involvedObject: involvedObject,
+			wantTenant:     TenantTypeProject,
+			wantName:       "my-project",
+		},
+		{
+			name: "organization scope annotation is used",
+			event: map[string]any{
+				"metadata": map[string]any{
+					"uid": "event-002",
+					"annotations": map[string]any{
+						"platform.miloapis.com/scope.type": TenantTypeOrganization,
+						"platform.miloapis.com/scope.name": "acme-corp",
+					},
+				},
+				"reportingController": "dns-operator",
+				"regarding":           involvedObject,
+			},
+			involvedObject: involvedObject,
+			wantTenant:     TenantTypeOrganization,
+			wantName:       "acme-corp",
+		},
+		{
+			name: "missing annotations fall back to platform scope",
+			event: map[string]any{
+				"metadata": map[string]any{
+					"uid": "event-003",
+				},
+				"reportingController": "dns-operator",
+				"regarding":           involvedObject,
+			},
+			involvedObject: involvedObject,
+			wantTenant:     TenantTypePlatform,
+			wantName:       "",
+		},
+		{
+			name: "scope annotations with nil regarding does not panic",
+			event: map[string]any{
+				"metadata": map[string]any{
+					"uid": "event-004",
+					"annotations": map[string]any{
+						"platform.miloapis.com/scope.type": TenantTypeProject,
+						"platform.miloapis.com/scope.name": "my-project",
+					},
+				},
+				"reportingController": "dns-operator",
+			},
+			involvedObject: nil,
+			wantTenant:     TenantTypeProject,
+			wantName:       "my-project",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			activity := p.buildActivity(tt.event, matched, tt.involvedObject, matched.Summary, nil)
+			if activity.Spec.Tenant.Type != tt.wantTenant {
+				t.Errorf("Tenant.Type = %q, want %q", activity.Spec.Tenant.Type, tt.wantTenant)
+			}
+			if activity.Spec.Tenant.Name != tt.wantName {
+				t.Errorf("Tenant.Name = %q, want %q", activity.Spec.Tenant.Name, tt.wantName)
+			}
+		})
+	}
+}
+
 func TestBuildActivityFromEvent(t *testing.T) {
 	p := &EventProcessor{}
 
