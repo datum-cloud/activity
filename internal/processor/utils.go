@@ -6,7 +6,16 @@ import (
 	authnv1 "k8s.io/api/authentication/v1"
 
 	"go.miloapis.com/activity/internal/cel"
+	"go.miloapis.com/activity/internal/types"
 	"go.miloapis.com/activity/pkg/apis/activity/v1alpha1"
+)
+
+// Re-export tenant type constants for use within the processor package.
+const (
+	TenantTypePlatform     = types.TenantTypePlatform
+	TenantTypeOrganization = types.TenantTypeOrganization
+	TenantTypeProject      = types.TenantTypeProject
+	TenantTypeUser         = types.TenantTypeUser
 )
 
 // KindResolver resolves a plural resource name to its Kind using API discovery.
@@ -39,7 +48,7 @@ func GetNestedString(m map[string]any, keys ...string) string {
 // ExtractTenant extracts tenant information from user extra fields.
 func ExtractTenant(user authnv1.UserInfo) v1alpha1.ActivityTenant {
 	tenant := v1alpha1.ActivityTenant{
-		Type: "platform",
+		Type: TenantTypePlatform,
 		Name: "",
 	}
 
@@ -52,17 +61,17 @@ func ExtractTenant(user authnv1.UserInfo) v1alpha1.ActivityTenant {
 		tenant.Name = parentName
 	}
 
-	// Check for organization (alternative field)
-	if tenant.Type == "platform" {
+	// Check for organization (alternative/legacy field)
+	if tenant.Type == TenantTypePlatform {
 		if org := getExtraValue(user.Extra, "organization"); org != "" {
-			tenant.Type = "organization"
+			tenant.Type = TenantTypeOrganization
 			tenant.Name = org
 		}
 	}
 
-	// Check for project (more specific than organization)
+	// Check for project (more specific than organization, legacy field)
 	if project := getExtraValue(user.Extra, "project"); project != "" {
-		tenant.Type = "project"
+		tenant.Type = TenantTypeProject
 		tenant.Name = project
 	}
 

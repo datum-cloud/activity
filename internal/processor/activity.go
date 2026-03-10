@@ -169,7 +169,7 @@ func (b *ActivityBuilder) BuildFromEvent(
 
 	// Extract tenant info (may not be present in events)
 	tenant := v1alpha1.ActivityTenant{
-		Type: "platform",
+		Type: TenantTypePlatform,
 		Name: "",
 	}
 
