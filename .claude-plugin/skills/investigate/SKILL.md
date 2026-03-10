@@ -72,7 +72,8 @@ Args:
 Tool: find_failed_operations
 Args:
   startTime: "now-1h"
-  namespace: "production"
+  resource: "deployments"    # Optional: filter by resource type
+  username: "alice@example.com"  # Optional: filter by user
 ```
 
 ### Get Resource History
@@ -81,7 +82,7 @@ Args:
 Tool: get_resource_history
 Args:
   apiGroup: "apps"
-  resource: "deployments"
+  kind: "Deployment"
   name: "my-deployment"
   namespace: "default"
 ```
@@ -154,7 +155,7 @@ spec.resource.namespace == 'production'       # Namespace
 3. **Get full timeline**:
    ```
    get_resource_history
-     resource: "secrets"
+     kind: "Secret"
      name: "my-secret"
      namespace: "production"
    ```

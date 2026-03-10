@@ -42,8 +42,8 @@ Tool: get_activity_timeline
 Args:
   startTime: "now-7d"
   endTime: "now"
-  bucketSize: "1h"           # Options: 5m, 15m, 1h, 6h, 1d
-  filter: "spec.changeSource == 'human'"
+  bucketSize: "hour"         # Options: "hour" or "day"
+  changeSource: "human"      # Optional: "human" or "system"
 ```
 
 Returns:
@@ -61,21 +61,22 @@ Returns:
 ```
 Tool: compare_activity_periods
 Args:
-  period1Start: "now-14d"
-  period1End: "now-7d"
-  period2Start: "now-7d"
-  period2End: "now"
+  baselineStart: "now-14d"
+  baselineEnd: "now-7d"
+  comparisonStart: "now-7d"
+  comparisonEnd: "now"
 ```
 
 Returns:
 ```json
 {
-  "period1": {"totalCount": 1234, "uniqueActors": 15},
-  "period2": {"totalCount": 1567, "uniqueActors": 18},
-  "change": {
-    "countPercent": 27.0,
-    "actorsPercent": 20.0
-  }
+  "baseline": {"start": "...", "end": "...", "count": 1234},
+  "comparison": {"start": "...", "end": "...", "count": 1567},
+  "changePercent": 27.0,
+  "newInComparison": ["new-user@example.com"],
+  "increasedActivity": [{"kind": "Deployment", "change": 15}],
+  "decreasedActivity": [{"kind": "ConfigMap", "change": -5}],
+  "analysis": "Activity increased 27% compared to baseline..."
 }
 ```
 
@@ -85,15 +86,18 @@ Returns:
 Tool: summarize_recent_activity
 Args:
   startTime: "now-24h"
-  namespace: "production"
+  changeSource: "human"      # Optional: "human" or "system"
+  topN: 5                    # Optional: number of top items (default 5)
 ```
 
 Returns:
 ```json
 {
+  "timeRange": {"start": "...", "end": "..."},
   "totalActivities": 234,
-  "humanActivities": 45,
-  "systemActivities": 189,
+  "humanChanges": 45,
+  "systemChanges": 189,
+  "highlights": ["45 human changes in the last 24 hours"],
   "topActors": [
     {"name": "alice@example.com", "count": 23},
     {"name": "bob@example.com", "count": 15}
@@ -102,7 +106,7 @@ Returns:
     {"kind": "Deployment", "count": 67},
     {"kind": "ConfigMap", "count": 45}
   ],
-  "failedOperations": 3
+  "recentSummaries": ["Alice created Deployment api-gateway"]
 }
 ```
 
@@ -133,13 +137,12 @@ Args:
 
 ```markdown
 # Weekly Activity Report
-Period: {{period1Start}} to {{period2End}}
+Period: {{baselineStart}} to {{comparisonEnd}}
 
 ## Summary
-- Total activities: {{totalCount}}
-- Human changes: {{humanCount}} ({{humanPercent}}%)
-- System changes: {{systemCount}}
-- Failed operations: {{failedCount}}
+- Total activities: {{totalActivities}}
+- Human changes: {{humanChanges}}
+- System changes: {{systemChanges}}
 
 ## Compared to Previous Week
 - Activity: {{changePercent > 0 ? '+' : ''}}{{changePercent}}%
@@ -176,16 +179,16 @@ Period: {{startTime}} to {{endTime}}
    get_activity_timeline
      startTime: "now-30d"
      endTime: "now-7d"
-     bucketSize: "1d"
+     bucketSize: "day"
    ```
 
 2. **Compare to recent**:
    ```
    compare_activity_periods
-     period1Start: "now-14d"
-     period1End: "now-7d"
-     period2Start: "now-7d"
-     period2End: "now"
+     baselineStart: "now-14d"
+     baselineEnd: "now-7d"
+     comparisonStart: "now-7d"
+     comparisonEnd: "now"
    ```
 
 3. **Investigate spikes**:

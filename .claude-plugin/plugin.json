@@ -20,6 +20,6 @@
   ],
   "mcp": {
     "server": "activity mcp",
-    "description": "MCP server providing 16 tools for querying audit logs, activities, events, and policies"
+    "description": "MCP server providing 14 tools for querying audit logs, activities, events, and policies"
   }
 }
