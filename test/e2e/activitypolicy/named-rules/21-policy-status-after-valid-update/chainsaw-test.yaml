@@ -22,11 +22,11 @@ spec:
               kind: Deployment
             auditRules:
             - name: create-rule
-              match: "verb == 'create'"
-              summary: "{{ actor }} created {{ objectRef.name }}"
+              match: "audit.verb == 'create'"
+              summary: "{{ actor }} created {{ audit.objectRef.name }}"
             - name: delete-rule
-              match: "verb == 'delete'"
-              summary: "{{ actor }} deleted {{ objectRef.name }}"
+              match: "audit.verb == 'delete'"
+              summary: "{{ actor }} deleted {{ audit.objectRef.name }}"
     - assert:
         resource:
           apiVersion: activity.miloapis.com/v1alpha1
@@ -56,14 +56,14 @@ spec:
               kind: Deployment
             auditRules:
             - name: create-rule
-              match: "verb == 'create'"
-              summary: "{{ actor }} created {{ objectRef.name }} successfully"
+              match: "audit.verb == 'create'"
+              summary: "{{ actor }} created {{ audit.objectRef.name }} successfully"
             - name: delete-rule
-              match: "verb == 'delete'"
-              summary: "{{ actor }} deleted {{ objectRef.name }}"
+              match: "audit.verb == 'delete'"
+              summary: "{{ actor }} deleted {{ audit.objectRef.name }}"
             - name: update-rule
-              match: "verb in ['update', 'patch']"
-              summary: "{{ actor }} modified {{ objectRef.name }}"
+              match: "audit.verb in ['update', 'patch']"
+              summary: "{{ actor }} modified {{ audit.objectRef.name }}"
     - assert:
         resource:
           apiVersion: activity.miloapis.com/v1alpha1

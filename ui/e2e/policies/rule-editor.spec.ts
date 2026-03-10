@@ -114,7 +114,7 @@ test.describe('PolicyRuleList', () => {
 
     // Fill in the form (name is a regular input, match/summary are Monaco editors)
     await page.fill('#rule-name', 'test-rule');
-    await fillMonacoEditor(page, 'cel-editor-match', 'verb == "create"');
+    await fillMonacoEditor(page, 'cel-editor-match', 'audit.verb == "create"');
     await fillMonacoEditor(page, 'cel-editor-summary', '{{ actor.name }} created a resource');
 
     // Save the rule
@@ -134,7 +134,7 @@ test.describe('PolicyRuleList', () => {
 
     // Check Monaco editor values
     const matchValue = await getMonacoEditorValue(page, 'cel-editor-match');
-    expect(matchValue).toBe('verb == "create"');
+    expect(matchValue).toBe('audit.verb == "create"');
   });
 
   test('delete button removes rule', async ({ page }) => {
@@ -145,7 +145,7 @@ test.describe('PolicyRuleList', () => {
     await page.getByRole('button', { name: 'Add Audit Rule' }).click();
 
     await page.fill('#rule-name', 'delete-me');
-    await fillMonacoEditor(page, 'cel-editor-match', 'verb == "delete"');
+    await fillMonacoEditor(page, 'cel-editor-match', 'audit.verb == "delete"');
     await fillMonacoEditor(page, 'cel-editor-summary', 'Deleted a resource');
 
     await page.getByRole('button', { name: 'Create Rule' }).click();
@@ -220,7 +220,7 @@ test.describe('PolicyRuleEditorDialog', () => {
 
     await page.fill('#rule-name', 'existing-rule');
     await page.fill('#rule-description', 'A test rule');
-    await fillMonacoEditor(page, 'cel-editor-match', 'verb == "update"');
+    await fillMonacoEditor(page, 'cel-editor-match', 'audit.verb == "update"');
     await fillMonacoEditor(page, 'cel-editor-summary', 'Updated something');
 
     await page.getByRole('button', { name: 'Create Rule' }).click();
@@ -242,7 +242,7 @@ test.describe('PolicyRuleEditorDialog', () => {
     // Verify Monaco editor values are populated
     const matchValue = await getMonacoEditorValue(page, 'cel-editor-match');
     const summaryValue = await getMonacoEditorValue(page, 'cel-editor-summary');
-    expect(matchValue).toBe('verb == "update"');
+    expect(matchValue).toBe('audit.verb == "update"');
     expect(summaryValue).toBe('Updated something');
   });
 
@@ -251,7 +251,7 @@ test.describe('PolicyRuleEditorDialog', () => {
     await page.getByRole('button', { name: 'Add Audit Rule' }).click();
 
     // Fill only match and summary (skip name)
-    await fillMonacoEditor(page, 'cel-editor-match', 'verb == "create"');
+    await fillMonacoEditor(page, 'cel-editor-match', 'audit.verb == "create"');
     await fillMonacoEditor(page, 'cel-editor-summary', 'Created something');
 
     // Try to save
@@ -288,7 +288,7 @@ test.describe('PolicyRuleEditorDialog', () => {
 
     // Fill only name and match (skip summary)
     await page.fill('#rule-name', 'test-rule');
-    await fillMonacoEditor(page, 'cel-editor-match', 'verb == "create"');
+    await fillMonacoEditor(page, 'cel-editor-match', 'audit.verb == "create"');
 
     // Try to save
     await page.getByRole('button', { name: 'Create Rule' }).click();
@@ -348,7 +348,7 @@ test.describe('PolicyRuleEditorDialog', () => {
 
     // Fill in all required fields
     await page.fill('#rule-name', 'new-rule');
-    await fillMonacoEditor(page, 'cel-editor-match', 'verb == "create"');
+    await fillMonacoEditor(page, 'cel-editor-match', 'audit.verb == "create"');
     await fillMonacoEditor(page, 'cel-editor-summary', '{{ actor.name }} created something');
 
     // Click Save
@@ -371,7 +371,7 @@ test.describe('PolicyRuleEditorDialog', () => {
 
     // Fill in fields
     await page.fill('#rule-name', 'cancel-me');
-    await fillMonacoEditor(page, 'cel-editor-match', 'verb == "create"');
+    await fillMonacoEditor(page, 'cel-editor-match', 'audit.verb == "create"');
     await fillMonacoEditor(page, 'cel-editor-summary', 'This should not be saved');
 
     // Click Cancel

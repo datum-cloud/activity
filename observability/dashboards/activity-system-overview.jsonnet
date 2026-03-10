@@ -26,6 +26,7 @@ local queries = {
   eventsPipelineStatus: '(min(event_exporter_nats_connection_status{job="k8s-event-exporter"}) and min(event_exporter_informer_synced{job="k8s-event-exporter"})) or vector(0)',
   activityGenerationStatus: '(min(up{job="activity-processor"}) and min(activity_processor_nats_connection_status{job="activity-processor"})) or vector(0)',
   storageHealth: 'min(up{job=~"clickhouse-activity-clickhouse|nats-system/nats"})',
+  dlqHealth: '(sum(increase(activity_processor_dlq_publish_errors_total[1h])) or vector(0)) == bool 0 and (sum(increase(activity_processor_dlq_retry_events_high_retry_total[1h])) or vector(0)) == bool 0',
 
   // Throughput metrics
   auditEventsRate: 'activity:vector_throughput:5m',
@@ -146,6 +147,26 @@ local allPanels =
       { color: 'red', value: null },
       { color: 'green', value: 1 },
     ]),
+
+    stat.new('DLQ Health')
+    + stat.panelOptions.withDescription('Dead letter queue health (no publish errors and no high-retry events)')
+    + stat.options.withTextMode('value_and_name')
+    + stat.options.withColorMode('background')
+    + stat.options.reduceOptions.withCalcs(['lastNotNull'])
+    + stat.datasource.withType('prometheus')
+    + stat.datasource.withUid('$datasource')
+    + stat.queryOptions.withTargets([
+      prometheus.new('$datasource', queries.dlqHealth)
+      + prometheus.withLegendFormat('Status'),
+    ])
+    + stat.standardOptions.withMappings([
+      { type: 'value', options: { '0': { text: 'Degraded', color: 'red' } } },
+      { type: 'value', options: { '1': { text: 'Healthy', color: 'green' } } },
+    ])
+    + stat.standardOptions.thresholds.withSteps([
+      { color: 'red', value: null },
+      { color: 'green', value: 1 },
+    ]),
   ], panelWidth=6, panelHeight=6, startY=1)
 
   // ============================================================================
@@ -157,7 +178,7 @@ local allPanels =
     + row.gridPos.withH(1)
     + row.gridPos.withW(24)
     + row.gridPos.withX(0)
-    + row.gridPos.withY(7),
+    + row.gridPos.withY(13),
   ]
   + util.grid.makeGrid([
     stat.new('Audit Events/sec')
@@ -223,7 +244,7 @@ local allPanels =
     + stat.standardOptions.thresholds.withSteps([
       { color: 'orange', value: null },
     ]),
-  ], panelWidth=6, panelHeight=5, startY=8)
+  ], panelWidth=6, panelHeight=5, startY=14)
 
   // ============================================================================
   // Row 3: Key Metrics
@@ -234,7 +255,7 @@ local allPanels =
     + row.gridPos.withH(1)
     + row.gridPos.withW(24)
     + row.gridPos.withX(0)
-    + row.gridPos.withY(13),
+    + row.gridPos.withY(19),
   ]
   + util.grid.makeGrid([
     timeSeries.new('Combined Pipeline Throughput')
@@ -301,7 +322,7 @@ local allPanels =
       prometheus.new('$datasource', queries.eventsPipelineLatency)
       + prometheus.withLegendFormat('Events Pipeline (p95)'),
     ]),
-  ], panelWidth=8, panelHeight=8, startY=14)
+  ], panelWidth=8, panelHeight=8, startY=20)
 
   // ============================================================================
   // Row 4: Quick Links
@@ -312,7 +333,7 @@ local allPanels =
     + row.gridPos.withH(1)
     + row.gridPos.withW(24)
     + row.gridPos.withX(0)
-    + row.gridPos.withY(22),
+    + row.gridPos.withY(28),
   ]
   + [
     text.new('Dashboard Navigation')
@@ -325,7 +346,7 @@ local allPanels =
 
       - **[Audit Log Pipeline](/d/audit-pipeline)** - Detailed audit log pipeline monitoring
       - **[Events Pipeline](/d/events-pipeline)** - K8s events collection and processing
-      - **[Activity Processor](/d/activity-processor)** - Activity generation and policy evaluation
+      - **[Activity Processor](/d/activity-processor)** - Activity generation and policy evaluation (includes DLQ monitoring)
       - **[Activity API Server](/d/activity-apiserver)** - Query API performance and usage
 
       ---
@@ -338,7 +359,7 @@ local allPanels =
     + text.gridPos.withW(24)
     + text.gridPos.withH(6)
     + text.gridPos.withX(0)
-    + text.gridPos.withY(23),
+    + text.gridPos.withY(29),
   ];
 
 // Dashboard

@@ -22,12 +22,12 @@ spec:
             auditRules:
               - name: create-job
                 description: "Triggers when a new Job resource is created"
-                match: "verb == 'create'"
-                summary: "{{ actor }} created job {{ objectRef.name }}"
+                match: "audit.verb == 'create'"
+                summary: "{{ actor }} created job {{ audit.objectRef.name }}"
               - name: delete-job
                 description: "Triggers when a Job resource is deleted"
-                match: "verb == 'delete'"
-                summary: "{{ actor }} deleted job {{ objectRef.name }}"
+                match: "audit.verb == 'delete'"
+                summary: "{{ actor }} deleted job {{ audit.objectRef.name }}"
     - assert:
         resource:
           apiVersion: activity.miloapis.com/v1alpha1
@@ -41,12 +41,12 @@ spec:
             auditRules:
               - name: create-job
                 description: "Triggers when a new Job resource is created"
-                match: "verb == 'create'"
-                summary: "{{ actor }} created job {{ objectRef.name }}"
+                match: "audit.verb == 'create'"
+                summary: "{{ actor }} created job {{ audit.objectRef.name }}"
               - name: delete-job
                 description: "Triggers when a Job resource is deleted"
-                match: "verb == 'delete'"
-                summary: "{{ actor }} deleted job {{ objectRef.name }}"
+                match: "audit.verb == 'delete'"
+                summary: "{{ actor }} deleted job {{ audit.objectRef.name }}"
           status:
             conditions:
               - type: Ready

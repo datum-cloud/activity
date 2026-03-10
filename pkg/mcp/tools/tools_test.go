@@ -277,7 +277,7 @@ func (m *mockActivityPolicyInterface) List(ctx context.Context, opts metav1.List
 				Spec: v1alpha1.ActivityPolicySpec{
 					Resource: v1alpha1.ActivityPolicyResource{APIGroup: "networking.datumapis.com", Kind: "HTTPProxy"},
 					AuditRules: []v1alpha1.ActivityPolicyRule{
-						{Match: "verb == 'create'", Summary: "{{ actor }} created HTTPProxy"},
+						{Match: "audit.verb == 'create'", Summary: "{{ actor }} created HTTPProxy"},
 					},
 				},
 				Status: v1alpha1.ActivityPolicyStatus{
@@ -1152,7 +1152,7 @@ func TestPreviewActivityPolicy(t *testing.T) {
 				Kind:     "HTTPProxy",
 			},
 			AuditRules: []v1alpha1.ActivityPolicyRule{
-				{Match: "verb == 'create'", Summary: "{{ actor }} created HTTPProxy"},
+				{Match: "audit.verb == 'create'", Summary: "{{ actor }} created HTTPProxy"},
 			},
 		},
 		Inputs: []v1alpha1.PolicyPreviewInput{

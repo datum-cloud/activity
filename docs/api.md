@@ -208,8 +208,8 @@ Example:
 	    apiGroup: networking.datumapis.com
 	    kind: HTTPProxy
 	  auditRules:
-	    - match: "verb == 'create'"
-	      summary: "{{ actor }} created {{ link(kind + ' ' + objectRef.name, responseObject) }}"
+	    - match: "audit.verb == 'create'"
+	      summary: "{{ actor }} created {{ link(kind + ' ' + audit.objectRef.name, audit.responseObject) }}"
 	  eventRules:
 	    - match: "event.reason == 'Programmed'"
 	      summary: "{{ link(kind + ' ' + event.regarding.name, event.regarding) }} is now programmed"
@@ -261,8 +261,8 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `name` _string_ | Name is a unique identifier for this rule within the policy.<br />Used for strategic merge patching and error reporting. |  |  |
 | `description` _string_ | Description is an optional human-readable description of what this rule does. |  |  |
-| `match` _string_ | Match is a CEL expression that determines if this rule applies to the input.<br />For audit rules, use top-level variables (e.g., "verb == 'create'", "objectRef.namespace == 'default'").<br />For event rules, use the `event` variable (e.g., "event.reason == 'Programmed'").<br /><br />Examples:<br />  "verb == 'create'"<br />  "verb in ['update', 'patch']"<br />  "event.reason.startsWith('Failed')"<br />  "true"  (fallback rule that always matches) |  |  |
-| `summary` _string_ | Summary is a CEL template for generating the activity summary.<br />Use \{\{ \}\} delimiters to embed CEL expressions within strings.<br /><br />Available variables:<br />  - For audit rules: verb, objectRef, user, responseStatus, responseObject, actor, actorRef, kind<br />  - For event rules: event, actor<br /><br />Available functions:<br />  - link(displayText, resourceRef): Creates a clickable reference<br /><br />Examples:<br />  "\{\{ actor \}\} created \{\{ link(kind + ' ' + objectRef.name, responseObject) \}\}"<br />  "\{\{ link(kind + ' ' + event.regarding.name, event.regarding) \}\} is now programmed" |  |  |
+| `match` _string_ | Match is a CEL expression that determines if this rule applies to the input.<br />For audit rules, use the `audit` variable (e.g., "audit.verb == 'create'", "audit.objectRef.namespace == 'default'").<br />For event rules, use the `event` variable (e.g., "event.reason == 'Programmed'").<br /><br />Examples:<br />  "audit.verb == 'create'"<br />  "audit.verb in ['update', 'patch']"<br />  "event.reason.startsWith('Failed')"<br />  "true"  (fallback rule that always matches) |  |  |
+| `summary` _string_ | Summary is a CEL template for generating the activity summary.<br />Use \{\{ \}\} delimiters to embed CEL expressions within strings.<br /><br />Available variables:<br />  - For audit rules: audit (map), actor, actorRef, kind — access audit fields via audit.verb, audit.objectRef, etc.<br />  - For event rules: event, actor<br /><br />Available functions:<br />  - link(displayText, resourceRef): Creates a clickable reference<br /><br />Examples:<br />  "\{\{ actor \}\} created \{\{ link(kind + ' ' + audit.objectRef.name, audit.responseObject) \}\}"<br />  "\{\{ link(kind + ' ' + event.regarding.name, event.regarding) \}\} is now programmed" |  |  |
 
 
 #### ActivityPolicySpec
@@ -280,7 +280,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `resource` _[ActivityPolicyResource](#activitypolicyresource)_ | Resource identifies the Kubernetes resource this policy applies to.<br />One ActivityPolicy should exist per resource kind. |  |  |
-| `auditRules` _[ActivityPolicyRule](#activitypolicyrule) array_ | AuditRules define how to translate audit log entries into activity summaries.<br />Rules are evaluated in order; the first matching rule wins.<br />Available variables: verb, objectRef, user, responseStatus, responseObject, actor, actorRef, kind<br />Convenience variables available: actor |  |  |
+| `auditRules` _[ActivityPolicyRule](#activitypolicyrule) array_ | AuditRules define how to translate audit log entries into activity summaries.<br />Rules are evaluated in order; the first matching rule wins.<br />Available variables: audit (map), actor, actorRef, kind<br />Access audit fields via: audit.verb, audit.objectRef, audit.user, audit.responseStatus, audit.responseObject, audit.requestObject |  |  |
 | `eventRules` _[ActivityPolicyRule](#activitypolicyrule) array_ | EventRules define how to translate Kubernetes events into activity summaries.<br />Rules are evaluated in order; the first matching rule wins.<br />The `event` variable contains the full Kubernetes Event structure.<br />Convenience variables available: actor |  |  |
 
 

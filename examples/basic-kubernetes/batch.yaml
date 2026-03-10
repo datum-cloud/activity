@@ -15,14 +15,14 @@ spec:
     kind: Job
   auditRules:
     - name: create
-      match: "verb == 'create'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} started job {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
+      match: "audit.verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} started job {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"
     - name: delete
-      match: "verb == 'delete'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} deleted job {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
+      match: "audit.verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} deleted job {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"
     - name: update
-      match: "verb in ['update', 'patch']"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated job {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
+      match: "audit.verb in ['update', 'patch']"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated job {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"
 
 ---
 apiVersion: activity.miloapis.com/v1alpha1
@@ -35,11 +35,11 @@ spec:
     kind: CronJob
   auditRules:
     - name: create
-      match: "verb == 'create'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} created scheduled job {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
+      match: "audit.verb == 'create'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} created scheduled job {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"
     - name: delete
-      match: "verb == 'delete'"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} deleted scheduled job {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
+      match: "audit.verb == 'delete'"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} deleted scheduled job {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"
     - name: update
-      match: "verb in ['update', 'patch']"
-      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated scheduled job {{ has(objectRef.name) ? link(objectRef.name, objectRef) : '' }}"
+      match: "audit.verb in ['update', 'patch']"
+      summary: "{{ actor.startsWith('system:') ? 'System' : link(actor, actorRef) }} updated scheduled job {{ has(audit.objectRef.name) ? link(audit.objectRef.name, audit.objectRef) : '' }}"

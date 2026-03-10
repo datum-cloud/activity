@@ -43,19 +43,19 @@ export interface PolicyRuleEditorDialogProps {
  */
 const AUDIT_CEL_HELP = {
   variables: [
-    'verb - HTTP verb (create, update, patch, delete, get, list, watch)',
-    'user.username - Username of the actor',
-    'user.groups - Groups the actor belongs to',
-    'objectRef.name - Name of the resource',
-    'objectRef.namespace - Namespace of the resource',
-    'objectRef.subresource - Subresource (e.g., "status")',
-    'responseStatus.code - HTTP response status code',
+    'audit.verb - HTTP verb (create, update, patch, delete, get, list, watch)',
+    'audit.user.username - Username of the actor',
+    'audit.user.groups - Groups the actor belongs to',
+    'audit.objectRef.name - Name of the resource',
+    'audit.objectRef.namespace - Namespace of the resource',
+    'audit.objectRef.subresource - Subresource (e.g., "status")',
+    'audit.responseStatus.code - HTTP response status code',
   ],
   examples: [
-    'verb == "create"',
-    'verb in ["create", "update", "patch"]',
-    'verb == "update" && objectRef.subresource == "status"',
-    'responseStatus.code >= 200 && responseStatus.code < 300',
+    'audit.verb == "create"',
+    'audit.verb in ["create", "update", "patch"]',
+    'audit.verb == "update" && audit.objectRef.subresource == "status"',
+    'audit.responseStatus.code >= 200 && audit.responseStatus.code < 300',
   ],
 };
 

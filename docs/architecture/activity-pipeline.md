@@ -66,14 +66,14 @@ spec:
     kind: HTTPProxy
 
   auditRules:
-    - match: "verb == 'create'"
-      summary: "{{ actor }} created {{ link('HTTP proxy ' + objectRef.name, responseObject) }}"
+    - match: "audit.verb == 'create'"
+      summary: "{{ actor }} created {{ link('HTTP proxy ' + audit.objectRef.name, audit.responseObject) }}"
 
-    - match: "verb == 'delete'"
-      summary: "{{ actor }} deleted {{ link('HTTP proxy ' + objectRef.name, responseObject) }}"
+    - match: "audit.verb == 'delete'"
+      summary: "{{ actor }} deleted {{ link('HTTP proxy ' + audit.objectRef.name, audit.responseObject) }}"
 
-    - match: "verb in ['update', 'patch']"
-      summary: "{{ actor }} updated {{ link('HTTP proxy ' + objectRef.name, responseObject) }}"
+    - match: "audit.verb in ['update', 'patch']"
+      summary: "{{ actor }} updated {{ link('HTTP proxy ' + audit.objectRef.name, audit.responseObject) }}"
 
   eventRules:
     - match: "event.reason == 'Programmed'"
@@ -91,8 +91,10 @@ spec:
 Different variables are available depending on the rule type:
 
 **Audit Rules:**
-- `audit` - Full Kubernetes audit event structure
-- `actor` - Resolved display name for the actor
+- `audit` - Full Kubernetes audit event (access fields as `audit.verb`, `audit.objectRef`, `audit.user`, `audit.responseStatus`, `audit.responseObject`, `audit.requestObject`)
+- `actor` - Resolved display name for the actor (convenience, same as `audit.user.username`)
+- `actorRef` - Actor reference map with `{type, name}` for linking
+- `kind` - Resource kind (convenience, extracted from `audit.objectRef.resource`)
 
 **Event Rules:**
 - `event` - Full Kubernetes Event structure
@@ -106,7 +108,7 @@ The `link()` function creates clickable references in the portal:
 link(displayText, resourceRef)
 ```
 
-Example: `{{ link("HTTP Proxy " + objectRef.name, responseObject) }}`
+Example: `{{ link("HTTP Proxy " + audit.objectRef.name, audit.responseObject) }}`
 
 This produces "HTTP proxy api-gateway" in the summary and registers it as a
 clickable link to the resource.

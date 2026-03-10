@@ -88,8 +88,8 @@ kubectl edit activitypolicy <policy-name>
 # Common fixes:
 
 # 1. Add field existence checks
-# Before: verb == 'create'
-# After:  has(verb) && verb == 'create'
+# Before: audit.verb == 'create'
+# After:  has(audit.verb) && audit.verb == 'create'
 
 # 2. Add null checks for nested fields
 # Before: audit.responseObject.metadata.name

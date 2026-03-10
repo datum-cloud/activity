@@ -222,7 +222,7 @@ test.describe('PolicyEditView - Existing Policy', () => {
     // Make a change by adding/editing a rule to enable save
     await page.getByRole('button', { name: 'Add Audit Rule' }).click();
     await page.fill('#rule-name', 'test-rule');
-    await fillMonacoEditor(page, 'cel-editor-match', 'verb == "create"');
+    await fillMonacoEditor(page, 'cel-editor-match', 'audit.verb == "create"');
     await fillMonacoEditor(page, 'cel-editor-summary', 'Created something');
     await page.getByRole('button', { name: 'Create Rule' }).click();
 

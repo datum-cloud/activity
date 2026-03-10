@@ -27,19 +27,19 @@ export interface PolicyRuleEditorProps {
  */
 const AUDIT_CEL_HELP = {
   variables: [
-    { name: 'verb', description: 'HTTP verb (create, update, patch, delete, get, list, watch)' },
-    { name: 'user.username', description: 'Username of the actor' },
-    { name: 'user.groups', description: 'Groups the actor belongs to' },
-    { name: 'objectRef.name', description: 'Name of the resource' },
-    { name: 'objectRef.namespace', description: 'Namespace of the resource' },
-    { name: 'objectRef.subresource', description: 'Subresource (e.g., "status")' },
-    { name: 'responseStatus.code', description: 'HTTP response status code' },
+    { name: 'audit.verb', description: 'HTTP verb (create, update, patch, delete, get, list, watch)' },
+    { name: 'audit.user.username', description: 'Username of the actor' },
+    { name: 'audit.user.groups', description: 'Groups the actor belongs to' },
+    { name: 'audit.objectRef.name', description: 'Name of the resource' },
+    { name: 'audit.objectRef.namespace', description: 'Namespace of the resource' },
+    { name: 'audit.objectRef.subresource', description: 'Subresource (e.g., "status")' },
+    { name: 'audit.responseStatus.code', description: 'HTTP response status code' },
   ],
   examples: [
-    'verb == "create"',
-    'verb in ["create", "update", "patch"]',
-    'verb == "update" && objectRef.subresource == "status"',
-    'responseStatus.code >= 200 && responseStatus.code < 300',
+    'audit.verb == "create"',
+    'audit.verb in ["create", "update", "patch"]',
+    'audit.verb == "update" && audit.objectRef.subresource == "status"',
+    'audit.responseStatus.code >= 200 && audit.responseStatus.code < 300',
   ],
 };
 

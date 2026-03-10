@@ -7,5 +7,5 @@ spec:
     apiGroup: apps
     kind: Deployment
   auditRules:
-    - match: "verb == 'create'"
+    - match: "audit.verb == 'create'"
       summary: "{{ actor }} created deployment"

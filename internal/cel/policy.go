@@ -147,7 +147,7 @@ func formatPolicyError(err error, context string) error {
 	// Check for common error patterns and provide helpful messages
 	if strings.Contains(errStr, "undeclared reference") {
 		return fmt.Errorf("invalid %s expression: %s. "+
-			"For audit rules: verb, objectRef, user, responseStatus, responseObject, requestObject, actor, actorRef, kind. "+
+			"For audit rules: audit.verb, audit.objectRef, audit.user, audit.responseStatus, audit.responseObject, audit.requestObject, actor, actorRef, kind. "+
 			"For event rules: event.reason, event.type, event.regarding.name, actor, actorRef. "+
 			"Also available: link(displayText, resourceRef)", context, errStr)
 	}

@@ -160,8 +160,8 @@ test.describe('RulePreviewPanel (inline preview during rule editing)', () => {
 
     // Fill in rule details to trigger preview
     await page.fill('#rule-name', 'create-rule');
-    await fillMonacoEditor(page, 'cel-editor-match', 'verb == "create"');
-    await fillMonacoEditor(page, 'cel-editor-summary', '{{ actor.name }} created {{ kind }} {{ objectRef.name }}');
+    await fillMonacoEditor(page, 'cel-editor-match', 'audit.verb == "create"');
+    await fillMonacoEditor(page, 'cel-editor-summary', '{{ actor.name }} created {{ kind }} {{ audit.objectRef.name }}');
 
     // Wait for preview to update (debounced)
     await page.waitForTimeout(1000);
@@ -199,8 +199,8 @@ test.describe('RulePreviewPanel (inline preview during rule editing)', () => {
 
     // Fill in complete rule
     await page.fill('#rule-name', 'create-rule');
-    await fillMonacoEditor(page, 'cel-editor-match', 'verb == "create"');
-    await fillMonacoEditor(page, 'cel-editor-summary', '{{ actor.name }} created {{ kind }} {{ objectRef.name }}');
+    await fillMonacoEditor(page, 'cel-editor-match', 'audit.verb == "create"');
+    await fillMonacoEditor(page, 'cel-editor-summary', '{{ actor.name }} created {{ kind }} {{ audit.objectRef.name }}');
 
     // Create the rule
     await page.getByRole('button', { name: 'Create Rule' }).click();

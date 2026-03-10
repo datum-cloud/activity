@@ -21,14 +21,14 @@ spec:
               kind: Service
             auditRules:
               - name: create-service
-                match: "verb == 'create'"
-                summary: "{{ actor }} created service {{ objectRef.name }}"
+                match: "audit.verb == 'create'"
+                summary: "{{ actor }} created service {{ audit.objectRef.name }}"
               - name: update-service
-                match: "verb in ['update', 'patch']"
-                summary: "{{ actor }} updated service {{ objectRef.name }}"
+                match: "audit.verb in ['update', 'patch']"
+                summary: "{{ actor }} updated service {{ audit.objectRef.name }}"
               - name: delete-service
-                match: "verb == 'delete'"
-                summary: "{{ actor }} deleted service {{ objectRef.name }}"
+                match: "audit.verb == 'delete'"
+                summary: "{{ actor }} deleted service {{ audit.objectRef.name }}"
     - assert:
         resource:
           apiVersion: activity.miloapis.com/v1alpha1
@@ -54,8 +54,8 @@ spec:
               kind: Service
             auditRules:
               - name: update-service
-                match: "verb in ['update', 'patch']"
-                summary: "{{ actor }} modified service {{ objectRef.name }}"
+                match: "audit.verb in ['update', 'patch']"
+                summary: "{{ actor }} modified service {{ audit.objectRef.name }}"
           EOF
     - assert:
         resource:
@@ -66,14 +66,14 @@ spec:
           spec:
             auditRules:
               - name: create-service
-                match: "verb == 'create'"
-                summary: "{{ actor }} created service {{ objectRef.name }}"
+                match: "audit.verb == 'create'"
+                summary: "{{ actor }} created service {{ audit.objectRef.name }}"
               - name: update-service
-                match: "verb in ['update', 'patch']"
-                summary: "{{ actor }} modified service {{ objectRef.name }}"
+                match: "audit.verb in ['update', 'patch']"
+                summary: "{{ actor }} modified service {{ audit.objectRef.name }}"
               - name: delete-service
-                match: "verb == 'delete'"
-                summary: "{{ actor }} deleted service {{ objectRef.name }}"
+                match: "audit.verb == 'delete'"
+                summary: "{{ actor }} deleted service {{ audit.objectRef.name }}"
     catch:
     - describe:
         apiVersion: activity.miloapis.com/v1alpha1

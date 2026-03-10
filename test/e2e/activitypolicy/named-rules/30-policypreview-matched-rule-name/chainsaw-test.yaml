@@ -24,10 +24,10 @@ spec:
                 kind: Deployment
               auditRules:
                 - name: on-create
-                  match: "verb == 'create'"
+                  match: "audit.verb == 'create'"
                   summary: "{{ actor }} created deployment"
                 - name: on-delete
-                  match: "verb == 'delete'"
+                  match: "audit.verb == 'delete'"
                   summary: "{{ actor }} deleted deployment"
             inputs:
               - type: audit

@@ -21,11 +21,11 @@ spec:
               kind: Pod
             auditRules:
               - name: create
-                match: "verb == 'create'"
-                summary: "{{ actor }} created pod {{ objectRef.name }} via API"
+                match: "audit.verb == 'create'"
+                summary: "{{ actor }} created pod {{ audit.objectRef.name }} via API"
               - name: delete
-                match: "verb == 'delete'"
-                summary: "{{ actor }} deleted pod {{ objectRef.name }} via API"
+                match: "audit.verb == 'delete'"
+                summary: "{{ actor }} deleted pod {{ audit.objectRef.name }} via API"
             eventRules:
               - name: create
                 match: "event.reason == 'Created'"
@@ -45,9 +45,9 @@ spec:
               kind: Pod
             auditRules:
               - name: create
-                match: "verb == 'create'"
+                match: "audit.verb == 'create'"
               - name: delete
-                match: "verb == 'delete'"
+                match: "audit.verb == 'delete'"
             eventRules:
               - name: create
                 match: "event.reason == 'Created'"

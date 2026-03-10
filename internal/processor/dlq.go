@@ -69,7 +69,7 @@ type ErrorType string
 
 const (
 	// ErrorTypeCELMatch indicates the CEL match expression failed to evaluate.
-	// Example: A match expression like "verb == 'create'" fails due to
+	// Example: A match expression like "audit.verb == 'create'" fails due to
 	// missing fields or type mismatches in the audit event.
 	ErrorTypeCELMatch ErrorType = "cel_match"
 
