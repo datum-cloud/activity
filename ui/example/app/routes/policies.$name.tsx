@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { useNavigate, useOutletContext, useParams } from "@remix-run/react";
-import { PolicyDetailView, type ActivityApiClient, type ResourceRef } from "@miloapis/activity-ui";
+import { PolicyDetailView, type ActivityApiClient, type ResourceRef } from "@datum-cloud/activity-ui";
 
 interface OutletContext {
   client: ActivityApiClient;

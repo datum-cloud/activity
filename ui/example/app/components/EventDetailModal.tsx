@@ -3,7 +3,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@miloapis/activity-ui";
+} from "@datum-cloud/activity-ui";
 
 interface EventDetailModalProps {
   title: string;

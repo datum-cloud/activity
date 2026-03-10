@@ -4,14 +4,11 @@ on:
   push:
     branches:
       - main
-    paths:
-      - "ui/**"
-      - "!ui/example/**"
 
 jobs:
   publish:
-    uses: datum-cloud/actions/.github/workflows/publish-npm-package.yaml@v1.9.0
+    uses: datum-cloud/actions/.github/workflows/publish-npm-package.yaml@v1.11.0
     with:
-      package-name: "@miloapis/activity-ui"
+      package-name: "@datum-cloud/activity-ui"
       package-path: ui
     secrets: inherit

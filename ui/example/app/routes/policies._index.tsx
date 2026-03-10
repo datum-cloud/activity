@@ -1,5 +1,5 @@
 import { useNavigate, useOutletContext } from "@remix-run/react";
-import { PolicyList, type ActivityApiClient } from "@miloapis/activity-ui";
+import { PolicyList, type ActivityApiClient } from "@datum-cloud/activity-ui";
 
 interface OutletContext {
   client: ActivityApiClient;

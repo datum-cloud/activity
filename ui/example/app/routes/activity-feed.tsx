@@ -7,8 +7,8 @@ import {
   type ErrorFormatter,
   defaultResourceLinkResolver,
   defaultErrorFormatter,
-} from "@miloapis/activity-ui";
-import type { ActivityFeedFilters, TimeRange } from "@miloapis/activity-ui";
+} from "@datum-cloud/activity-ui";
+import type { ActivityFeedFilters, TimeRange } from "@datum-cloud/activity-ui";
 import { EventDetailModal } from "~/components/EventDetailModal";
 import { AppLayout } from "~/components/AppLayout";
 import {

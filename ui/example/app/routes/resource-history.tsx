@@ -17,7 +17,7 @@ import {
   type ResourceFilter,
   type ComboboxOption,
   type ActivityFeedFilterState,
-} from "@miloapis/activity-ui";
+} from "@datum-cloud/activity-ui";
 import { AppLayout } from "~/components/AppLayout";
 import { EventDetailModal } from "~/components/EventDetailModal";
 

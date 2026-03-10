@@ -14,12 +14,12 @@ export default defineConfig({
     alias: {
       "~": resolve(__dirname, "./app"),
       // Point to library source for hot-reload during development
-      "@miloapis/activity-ui": resolve(__dirname, "../src/index.ts"),
+      "@datum-cloud/activity-ui": resolve(__dirname, "../src/index.ts"),
     },
   },
   ssr: {
     // Bundle the library for SSR instead of externalizing it
-    noExternal: ["@miloapis/activity-ui"],
+    noExternal: ["@datum-cloud/activity-ui"],
   },
   optimizeDeps: {
     exclude: ["@remix-run/react", "monaco-editor"],

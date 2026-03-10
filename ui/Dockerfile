@@ -31,7 +31,7 @@ COPY example/postcss.config.js ./example/
 
 # Install dependencies and build
 RUN pnpm install --frozen-lockfile && \
-    pnpm --filter @miloapis/activity-ui build && \
+    pnpm --filter @datum-cloud/activity-ui build && \
     pnpm --filter activity-ui-example build && \
     pnpm deploy --filter activity-ui-example --prod --legacy /deploy && \
     cp -r example/build /deploy/build

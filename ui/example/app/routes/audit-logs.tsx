@@ -3,7 +3,7 @@ import {
   AuditLogQueryComponent,
   ActivityApiClient,
   type Event,
-} from "@miloapis/activity-ui";
+} from "@datum-cloud/activity-ui";
 import { EventDetailModal } from "~/components/EventDetailModal";
 import { AppLayout } from "~/components/AppLayout";
 

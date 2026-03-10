@@ -4,8 +4,8 @@ import {
   EventsFeed,
   ActivityApiClient,
   type K8sEvent,
-} from "@miloapis/activity-ui";
-import type { EventsFeedFilters, TimeRange } from "@miloapis/activity-ui";
+} from "@datum-cloud/activity-ui";
+import type { EventsFeedFilters, TimeRange } from "@datum-cloud/activity-ui";
 import { EventDetailModal } from "~/components/EventDetailModal";
 import { AppLayout } from "~/components/AppLayout";
 import {

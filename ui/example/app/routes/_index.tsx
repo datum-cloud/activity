@@ -10,7 +10,7 @@ import {
   Input,
   Label,
   Button,
-} from "@miloapis/activity-ui";
+} from "@datum-cloud/activity-ui";
 
 /**
  * Home/connection page.

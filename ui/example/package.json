@@ -11,7 +11,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@miloapis/activity-ui": "workspace:*",
+    "@datum-cloud/activity-ui": "workspace:*",
     "@monaco-editor/react": "^4.7.0",
     "@remix-run/node": "^2.15.2",
     "@remix-run/react": "^2.15.2",
