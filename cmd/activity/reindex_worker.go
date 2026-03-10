@@ -14,8 +14,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	logsapi "k8s.io/component-base/logs/api/v1"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -44,11 +46,15 @@ type ReindexWorkerOptions struct {
 	NATSTLSCertFile string
 	NATSTLSKeyFile  string
 	NATSTLSCAFile   string
+
+	Logs *logsapi.LoggingConfiguration
 }
 
 // NewReindexWorkerOptions creates options with default values.
 func NewReindexWorkerOptions() *ReindexWorkerOptions {
-	return &ReindexWorkerOptions{}
+	return &ReindexWorkerOptions{
+		Logs: logsapi.NewLoggingConfiguration(),
+	}
 }
 
 // AddFlags adds reindex worker flags to the command.
@@ -68,6 +74,8 @@ func (o *ReindexWorkerOptions) AddFlags(fs *pflag.FlagSet) {
 		"Path to client private key file for NATS TLS.")
 	fs.StringVar(&o.NATSTLSCAFile, "nats-tls-ca-file", o.NATSTLSCAFile,
 		"Path to CA certificate file for NATS TLS.")
+
+	logsapi.AddFlags(o.Logs, fs)
 }
 
 // NewReindexWorkerCommand creates the reindex-worker subcommand.
@@ -94,6 +102,10 @@ It should not be run manually.`,
 
 // RunReindexWorker executes the reindex job worker.
 func RunReindexWorker(ctx context.Context, options *ReindexWorkerOptions) error {
+	if err := logsapi.ValidateAndApply(options.Logs, utilfeature.DefaultMutableFeatureGate); err != nil {
+		return fmt.Errorf("failed to apply logging configuration: %w", err)
+	}
+
 	// Validate required flags
 	if options.NATSURL == "" {
 		return fmt.Errorf("--nats-url is required")

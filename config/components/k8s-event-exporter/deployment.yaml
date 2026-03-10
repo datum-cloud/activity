@@ -31,12 +31,15 @@ spec:
           imagePullPolicy: IfNotPresent
           args:
             - event-exporter
+            - --logging-format=$(LOGGING_FORMAT)
             - -v=2
           ports:
             - containerPort: 8081
               name: health
               protocol: TCP
           env:
+            - name: LOGGING_FORMAT
+              value: "json"
             - name: NATS_URL
               value: "nats://nats.nats-system.svc.cluster.local:4222"
             - name: SUBJECT_PREFIX

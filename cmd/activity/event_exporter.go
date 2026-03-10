@@ -1,16 +1,35 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
+	logsapi "k8s.io/component-base/logs/api/v1"
+
 	"go.miloapis.com/activity/internal/eventexporter"
 )
 
-// NewEventExporterCommand creates the event-exporter subcommand.
-func NewEventExporterCommand() *cobra.Command {
-	cfg := eventexporter.Config{
+// EventExporterOptions contains configuration for the event exporter.
+type EventExporterOptions struct {
+	NATSUrl         string
+	SubjectPrefix   string
+	ScopeType       string
+	ScopeName       string
+	Kubeconfig      string
+	ResyncPeriod    time.Duration
+	HealthProbeAddr string
+
+	Logs *logsapi.LoggingConfiguration
+}
+
+// NewEventExporterOptions creates options with default values.
+func NewEventExporterOptions() *EventExporterOptions {
+	return &EventExporterOptions{
+		Logs:            logsapi.NewLoggingConfiguration(),
 		NATSUrl:         getEnvOrDefault("NATS_URL", "nats://nats.nats-system.svc.cluster.local:4222"),
 		SubjectPrefix:   getEnvOrDefault("SUBJECT_PREFIX", "events.k8s"),
 		ScopeType:       getEnvOrDefault("SCOPE_TYPE", "organization"),
@@ -19,6 +38,23 @@ func NewEventExporterCommand() *cobra.Command {
 		ResyncPeriod:    30 * time.Minute,
 		HealthProbeAddr: getEnvOrDefault("HEALTH_PROBE_ADDR", ":8081"),
 	}
+}
+
+// AddFlags adds event exporter flags to the flag set.
+func (o *EventExporterOptions) AddFlags(fs *pflag.FlagSet) {
+	fs.StringVar(&o.NATSUrl, "nats-url", o.NATSUrl, "NATS server URL")
+	fs.StringVar(&o.SubjectPrefix, "subject-prefix", o.SubjectPrefix, "NATS subject prefix")
+	fs.StringVar(&o.ScopeType, "scope-type", o.ScopeType, "Scope type annotation value")
+	fs.StringVar(&o.ScopeName, "scope-name", o.ScopeName, "Scope name annotation value")
+	fs.StringVar(&o.Kubeconfig, "kubeconfig", o.Kubeconfig, "Path to kubeconfig (empty for in-cluster)")
+	fs.DurationVar(&o.ResyncPeriod, "resync-period", o.ResyncPeriod, "Informer resync period")
+	fs.StringVar(&o.HealthProbeAddr, "health-probe-addr", o.HealthProbeAddr, "Health probe server bind address")
+	logsapi.AddFlags(o.Logs, fs)
+}
+
+// NewEventExporterCommand creates the event-exporter subcommand.
+func NewEventExporterCommand() *cobra.Command {
+	options := NewEventExporterOptions()
 
 	cmd := &cobra.Command{
 		Use:   "event-exporter",
@@ -29,18 +65,23 @@ consistency with the EventRecord API and ClickHouse schema.
 
 Events are published with scope annotations for multi-tenant isolation.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := logsapi.ValidateAndApply(options.Logs, utilfeature.DefaultMutableFeatureGate); err != nil {
+				return fmt.Errorf("failed to apply logging configuration: %w", err)
+			}
+			cfg := eventexporter.Config{
+				NATSUrl:         options.NATSUrl,
+				SubjectPrefix:   options.SubjectPrefix,
+				ScopeType:       options.ScopeType,
+				ScopeName:       options.ScopeName,
+				Kubeconfig:      options.Kubeconfig,
+				ResyncPeriod:    options.ResyncPeriod,
+				HealthProbeAddr: options.HealthProbeAddr,
+			}
 			return eventexporter.Run(cmd.Context(), cfg)
 		},
 	}
 
-	flags := cmd.Flags()
-	flags.StringVar(&cfg.NATSUrl, "nats-url", cfg.NATSUrl, "NATS server URL")
-	flags.StringVar(&cfg.SubjectPrefix, "subject-prefix", cfg.SubjectPrefix, "NATS subject prefix")
-	flags.StringVar(&cfg.ScopeType, "scope-type", cfg.ScopeType, "Scope type annotation value")
-	flags.StringVar(&cfg.ScopeName, "scope-name", cfg.ScopeName, "Scope name annotation value")
-	flags.StringVar(&cfg.Kubeconfig, "kubeconfig", cfg.Kubeconfig, "Path to kubeconfig (empty for in-cluster)")
-	flags.DurationVar(&cfg.ResyncPeriod, "resync-period", cfg.ResyncPeriod, "Informer resync period")
-	flags.StringVar(&cfg.HealthProbeAddr, "health-probe-addr", cfg.HealthProbeAddr, "Health probe server bind address")
+	options.AddFlags(cmd.Flags())
 
 	return cmd
 }

@@ -73,6 +73,7 @@ func TestBuildJobForReindexJob(t *testing.T) {
 		"reindex-worker",
 		"test-reindex",
 		"--nats-url=nats://nats.activity-system.svc:4222",
+		"--logging-format=json",
 	}
 	assert.Equal(t, expectedArgs, container.Args)
 
@@ -143,6 +144,7 @@ func TestBuildJobForReindexJob_WithTLS(t *testing.T) {
 		"reindex-worker",
 		"test-reindex-tls",
 		"--nats-url=nats://nats.activity-system.svc:4222",
+		"--logging-format=json",
 		"--nats-tls-enabled=true",
 		"--nats-tls-cert-file=/certs/tls.crt",
 		"--nats-tls-key-file=/certs/tls.key",

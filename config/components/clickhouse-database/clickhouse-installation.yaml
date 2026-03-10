@@ -66,6 +66,9 @@ spec:
                 <size>1000M</size>
                 <count>5</count>
                 <console>1</console>
+                <formatting>
+                    <type>json</type>
+                </formatting>
             </logger>
         </clickhouse>
       # Enable full-text index feature for ngrams tokenizer in activities table
