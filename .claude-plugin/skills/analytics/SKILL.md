@@ -49,10 +49,15 @@ Args:
 Returns:
 ```json
 {
+  "timeRange": {"start": "2024-01-08T10:00:00Z", "end": "2024-01-15T10:00:00Z"},
+  "bucketSize": "hour",
+  "totalCount": 109,
   "buckets": [
-    {"time": "2024-01-15T10:00:00Z", "count": 42},
-    {"time": "2024-01-15T11:00:00Z", "count": 67}
-  ]
+    {"timestamp": "2024-01-15T10:00:00Z", "count": 42},
+    {"timestamp": "2024-01-15T11:00:00Z", "count": 67, "note": "peak"}
+  ],
+  "peakBucket": {"timestamp": "2024-01-15T11:00:00Z", "count": 67},
+  "averagePerBucket": 54.5
 }
 ```
 
@@ -74,8 +79,8 @@ Returns:
   "comparison": {"start": "...", "end": "...", "count": 1567},
   "changePercent": 27.0,
   "newInComparison": ["new-user@example.com"],
-  "increasedActivity": [{"kind": "Deployment", "change": 15}],
-  "decreasedActivity": [{"kind": "ConfigMap", "change": -5}],
+  "increasedActivity": [{"name": "Deployment", "baseline": 10, "comparison": 25, "changePercent": 150.0}],
+  "decreasedActivity": [{"name": "ConfigMap", "baseline": 20, "comparison": 5, "changePercent": -75.0}],
   "analysis": "Activity increased 27% compared to baseline..."
 }
 ```
@@ -97,14 +102,18 @@ Returns:
   "totalActivities": 234,
   "humanChanges": 45,
   "systemChanges": 189,
-  "highlights": ["45 human changes in the last 24 hours"],
+  "highlights": [
+    "234 total activities (45 human, 189 system)",
+    "Most active: alice@example.com (23 activities)",
+    "Most changed resource type: Deployment (67 activities)"
+  ],
   "topActors": [
     {"name": "alice@example.com", "count": 23},
     {"name": "bob@example.com", "count": 15}
   ],
   "topResources": [
-    {"kind": "Deployment", "count": 67},
-    {"kind": "ConfigMap", "count": 45}
+    {"name": "Deployment", "count": 67},
+    {"name": "ConfigMap", "count": 45}
   ],
   "recentSummaries": ["Alice created Deployment api-gateway"]
 }
