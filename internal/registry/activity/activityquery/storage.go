@@ -89,8 +89,6 @@ func (s *QueryStorage) Create(ctx context.Context, obj runtime.Object, createVal
 		"scopeName", scopeCtx.Name,
 		"startTime", query.Spec.StartTime,
 		"endTime", query.Spec.EndTime,
-		"namespace", query.Spec.Namespace,
-		"changeSource", query.Spec.ChangeSource,
 	)
 
 	// Validate query spec
@@ -115,18 +113,12 @@ func (s *QueryStorage) Create(ctx context.Context, obj runtime.Object, createVal
 
 	// Build storage query spec from API spec
 	storageSpec := storage.ActivityQuerySpec{
-		Namespace:    query.Spec.Namespace,
-		StartTime:    query.Spec.StartTime,
-		EndTime:      query.Spec.EndTime,
-		ChangeSource: query.Spec.ChangeSource,
-		APIGroup:     query.Spec.APIGroup,
-		ResourceKind: query.Spec.ResourceKind,
-		ActorName:    query.Spec.ActorName,
-		ResourceUID:  query.Spec.ResourceUID,
-		Search:       query.Spec.Search,
-		Filter:       query.Spec.Filter,
-		Limit:        query.Spec.Limit,
-		Continue:     query.Spec.Continue,
+		StartTime: query.Spec.StartTime,
+		EndTime:   query.Spec.EndTime,
+		Filter:    query.Spec.Filter,
+		Search:    query.Spec.Search,
+		Limit:     query.Spec.Limit,
+		Continue:  query.Spec.Continue,
 	}
 
 	result, err := s.storage.QueryActivities(ctx, storageSpec, scopeCtx)
@@ -198,12 +190,6 @@ func (s *QueryStorage) validateQuerySpec(query *v1alpha1.ActivityQuery) field.Er
 					fmt.Sprintf("time range of %v exceeds maximum of %v", queryWindow, maxWindow)))
 			}
 		}
-	}
-
-	// Validate changeSource
-	if query.Spec.ChangeSource != "" && query.Spec.ChangeSource != "human" && query.Spec.ChangeSource != "system" {
-		allErrs = append(allErrs, field.Invalid(specPath.Child("changeSource"), query.Spec.ChangeSource,
-			"must be 'human' or 'system'"))
 	}
 
 	// Validate limit

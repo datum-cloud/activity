@@ -845,12 +845,15 @@ func TestQueryStorage_Create_EffectiveTimestamps(t *testing.T) {
 					t.Errorf("EffectiveEndTime is not valid RFC3339: %v", err)
 				}
 
-				// Verify the time range is approximately 7 days
+				// Verify the time range is approximately 7 days.
+				// Tolerance accounts for DST transitions — AddDate preserves
+				// wall-clock time, so elapsed duration can differ by up to 1 hour
+				// when a DST boundary falls within the 7-day window.
 				duration := endTime.Sub(startTime)
 				expectedDuration := 7 * 24 * time.Hour
-				// Allow 1 second tolerance for test execution time
-				if duration < expectedDuration-time.Second || duration > expectedDuration+time.Second {
-					t.Errorf("Time range = %v, want ~%v", duration, expectedDuration)
+				tolerance := time.Hour + time.Second
+				if duration < expectedDuration-tolerance || duration > expectedDuration+tolerance {
+					t.Errorf("Time range = %v, want ~%v (±%v for DST)", duration, expectedDuration, tolerance)
 				}
 
 				// Verify endTime is very close to now (within 1 second)

@@ -3,7 +3,9 @@ package record
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -103,10 +105,14 @@ func (s *ActivityStorage) List(ctx context.Context, options *metainternalversion
 	scopeCtx := scope.ExtractScopeFromUser(reqUser)
 
 	spec := storage.ActivityQuerySpec{
-		Namespace: namespace,
 		Limit:     int32(options.Limit),
 		Continue:  options.Continue,
 		StartTime: DefaultListTimeWindow, // Default to last hour for performance
+	}
+
+	// Build CEL filter for namespace scoping when namespace is set
+	if namespace != "" {
+		spec.Filter = fmt.Sprintf("metadata.namespace == '%s'", escapeCELString(namespace))
 	}
 
 	// Parse standard field selectors
@@ -254,25 +260,54 @@ func activityToTableRow(activity *v1alpha1.Activity) metav1.TableRow {
 }
 
 
-// parseFieldSelector extracts query parameters from standard field selectors.
+// escapeCELString escapes single quotes and backslashes in a value so it can
+// be safely interpolated into a CEL string literal delimited by single quotes.
+func escapeCELString(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `'`, `\'`)
+	return s
+}
+
+// celEquality builds a CEL equality expression with proper escaping, e.g.
+// celEquality("spec.actor.name", "alice") => "spec.actor.name == 'alice'"
+func celEquality(field, value string) string {
+	return fmt.Sprintf("%s == '%s'", field, escapeCELString(value))
+}
+
+// parseFieldSelector extracts query parameters from standard field selectors,
+// converting them to CEL filter expressions appended to the spec.Filter field.
+// CEL is the sole filtering mechanism for ActivityQuerySpec beyond time range and search.
 func parseFieldSelector(selector fields.Selector, spec *storage.ActivityQuerySpec) {
 	if selector == nil || selector.Empty() {
 		return
 	}
 
+	var filters []string
+
 	if value, found := selector.RequiresExactMatch("spec.changeSource"); found {
-		spec.ChangeSource = value
+		filters = append(filters, celEquality("spec.changeSource", value))
 	}
 	if value, found := selector.RequiresExactMatch("spec.resource.apiGroup"); found {
-		spec.APIGroup = value
+		filters = append(filters, celEquality("spec.resource.apiGroup", value))
 	}
 	if value, found := selector.RequiresExactMatch("spec.resource.kind"); found {
-		spec.ResourceKind = value
+		filters = append(filters, celEquality("spec.resource.kind", value))
 	}
 	if value, found := selector.RequiresExactMatch("spec.actor.name"); found {
-		spec.ActorName = value
+		filters = append(filters, celEquality("spec.actor.name", value))
 	}
 	if value, found := selector.RequiresExactMatch("spec.resource.uid"); found {
-		spec.ResourceUID = value
+		filters = append(filters, celEquality("spec.resource.uid", value))
+	}
+
+	if len(filters) == 0 {
+		return
+	}
+
+	combined := strings.Join(filters, " && ")
+	if spec.Filter != "" {
+		spec.Filter = "(" + spec.Filter + ") && " + combined
+	} else {
+		spec.Filter = combined
 	}
 }

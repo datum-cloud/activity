@@ -159,8 +159,6 @@ export interface ActivityListParams {
   start?: string;
   /** End of time range (RFC3339 or relative, default: now) */
   end?: string;
-  /** Filter by change source (human/system) */
-  changeSource?: ChangeSource;
   /** Maximum results (1-1000, default 100) */
   limit?: number;
   /** Pagination cursor */
@@ -286,22 +284,10 @@ export interface ActivityQuerySpec {
   startTime: string;
   /** End of time range (required) */
   endTime: string;
-  /** Filter by namespace */
-  namespace?: string;
-  /** Filter by change source (human/system) */
-  changeSource?: ChangeSource;
   /** Full-text search on summaries */
   search?: string;
-  /** CEL filter expression */
+  /** CEL filter expression (primary filtering mechanism) */
   filter?: string;
-  /** Filter by resource kind */
-  resourceKind?: string;
-  /** Filter by resource UID */
-  resourceUID?: string;
-  /** Filter by API group */
-  apiGroup?: string;
-  /** Filter by actor name */
-  actorName?: string;
   /** Max results per page (default 100, max 1000) */
   limit?: number;
   /** Pagination cursor */

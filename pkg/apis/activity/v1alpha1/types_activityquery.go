@@ -25,7 +25,7 @@ import (
 //	spec:
 //	  startTime: "now-7d"
 //	  endTime: "now"
-//	  changeSource: "human"  # filter out system noise
+//	  filter: "spec.changeSource == 'human'"  # filter out system noise
 //	  limit: 50
 //
 // Time Formats:
@@ -42,7 +42,34 @@ type ActivityQuery struct {
 // ActivityQuerySpec defines the search parameters for activities.
 //
 // Required: startTime and endTime define your search window.
-// Optional: filter (CEL expression), namespace, changeSource, search, limit, continue.
+// Optional: filter (CEL expression), search, limit, continue.
+//
+// CEL is the primary filtering mechanism. All dedicated filter fields have been
+// removed in favor of the expressive filter field.
+//
+// Available CEL Fields:
+//
+//	spec.changeSource      - "human" or "system"
+//	spec.actor.name        - who performed the action
+//	spec.actor.type        - "user", "serviceaccount", "controller"
+//	spec.actor.uid         - actor's unique identifier
+//	spec.resource.apiGroup - resource API group (empty for core)
+//	spec.resource.kind     - resource kind (Deployment, Pod, etc.)
+//	spec.resource.name     - resource name
+//	spec.resource.namespace - resource namespace
+//	spec.resource.uid      - resource UID
+//	spec.summary           - activity summary text
+//	spec.origin.type       - "audit" or "event"
+//	metadata.namespace     - activity namespace
+//
+// CEL Filter Examples:
+//
+//	"spec.changeSource == 'human'"
+//	"spec.resource.kind == 'Deployment'"
+//	"spec.actor.name.contains('admin')"
+//	"spec.resource.kind in ['Deployment', 'StatefulSet']"
+//	"spec.resource.apiGroup == 'networking.datumapis.com'"
+//	"spec.actor.uid == 'abc123'"
 type ActivityQuerySpec struct {
 	// StartTime is the beginning of your search window (inclusive).
 	//
@@ -61,22 +88,16 @@ type ActivityQuerySpec struct {
 	// +required
 	EndTime string `json:"endTime"`
 
-	// Namespace filters activities to a specific namespace.
-	// Leave empty for cluster-wide results.
+	// Filter narrows results using CEL (Common Expression Language).
+	//
+	// This is the primary filtering mechanism. See the ActivityQuerySpec godoc
+	// for available fields and examples.
+	//
+	// Operators: ==, !=, &&, ||, !, in
+	// String Functions: startsWith(), endsWith(), contains()
 	//
 	// +optional
-	Namespace string `json:"namespace,omitempty"`
-
-	// ChangeSource filters by who initiated the change.
-	//
-	// Values:
-	//   - "human": User actions via kubectl, API, or UI
-	//   - "system": Controller reconciliation, operator actions
-	//
-	// Leave empty for both.
-	//
-	// +optional
-	ChangeSource string `json:"changeSource,omitempty"`
+	Filter string `json:"filter,omitempty"`
 
 	// Search performs full-text search on activity summaries.
 	//
@@ -84,62 +105,6 @@ type ActivityQuerySpec struct {
 	//
 	// +optional
 	Search string `json:"search,omitempty"`
-
-	// Filter narrows results using CEL (Common Expression Language).
-	//
-	// Available Fields:
-	//   spec.changeSource      - "human" or "system"
-	//   spec.actor.name        - who performed the action
-	//   spec.actor.type        - "user", "serviceaccount", "controller"
-	//   spec.actor.uid         - actor's unique identifier
-	//   spec.resource.apiGroup - resource API group (empty for core)
-	//   spec.resource.kind     - resource kind (Deployment, Pod, etc.)
-	//   spec.resource.name     - resource name
-	//   spec.resource.namespace - resource namespace
-	//   spec.resource.uid      - resource UID
-	//   spec.summary           - activity summary text
-	//   spec.origin.type       - "audit" or "event"
-	//   metadata.namespace     - activity namespace
-	//
-	// Operators: ==, !=, &&, ||, !, in
-	// String Functions: startsWith(), endsWith(), contains()
-	//
-	// Examples:
-	//   "spec.changeSource == 'human'"
-	//   "spec.resource.kind == 'Deployment'"
-	//   "spec.actor.name.contains('admin')"
-	//   "spec.resource.kind in ['Deployment', 'StatefulSet']"
-	//
-	// +optional
-	Filter string `json:"filter,omitempty"`
-
-	// ResourceKind filters by the kind of resource affected.
-	//
-	// Examples: "Deployment", "Pod", "ConfigMap", "HTTPProxy"
-	//
-	// +optional
-	ResourceKind string `json:"resourceKind,omitempty"`
-
-	// ResourceUID filters activities for a specific resource by UID.
-	//
-	// Use this to get the full history of changes to a single resource.
-	//
-	// +optional
-	ResourceUID string `json:"resourceUID,omitempty"`
-
-	// APIGroup filters by the API group of affected resources.
-	//
-	// Examples: "apps", "projectcontour.io", "" (empty for core API)
-	//
-	// +optional
-	APIGroup string `json:"apiGroup,omitempty"`
-
-	// ActorName filters by who performed the action.
-	//
-	// Examples: "alice@example.com", "system:serviceaccount:default:my-sa"
-	//
-	// +optional
-	ActorName string `json:"actorName,omitempty"`
 
 	// Limit sets the maximum number of results per page.
 	// Default: 100, Maximum: 1000.
@@ -179,4 +144,3 @@ type ActivityQueryStatus struct {
 	// +optional
 	EffectiveEndTime string `json:"effectiveEndTime,omitempty"`
 }
-

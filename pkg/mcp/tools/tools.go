@@ -360,14 +360,10 @@ func (p *ToolProvider) handleQueryActivities(ctx context.Context, req *mcp.CallT
 			GenerateName: "mcp-activity-query-",
 		},
 		Spec: v1alpha1.ActivityQuerySpec{
-			StartTime:    args.StartTime,
-			EndTime:      args.EndTime,
-			ChangeSource: args.ChangeSource,
-			ActorName:    args.ActorName,
-			ResourceKind: args.ResourceKind,
-			APIGroup:     args.APIGroup,
-			Search:       args.Search,
-			Limit:        limit,
+			StartTime: args.StartTime,
+			EndTime:   args.EndTime,
+			Search:    args.Search,
+			Limit:     limit,
 		},
 	}
 
@@ -672,13 +668,9 @@ func (p *ToolProvider) handleGetResourceHistory(ctx context.Context, req *mcp.Ca
 			GenerateName: "mcp-resource-history-",
 		},
 		Spec: v1alpha1.ActivityQuerySpec{
-			StartTime:    startTime,
-			EndTime:      endTime,
-			Namespace:    args.Namespace,
-			APIGroup:     args.APIGroup,
-			ResourceKind: args.Kind,
-			ResourceUID:  args.ResourceUID,
-			Limit:        limit,
+			StartTime: startTime,
+			EndTime:   endTime,
+			Limit:     limit,
 		},
 	}
 
@@ -772,7 +764,6 @@ func (p *ToolProvider) handleGetUserActivitySummary(ctx context.Context, req *mc
 		Spec: v1alpha1.ActivityQuerySpec{
 			StartTime: startTime,
 			EndTime:   endTime,
-			ActorName: args.Username,
 			Limit:     1000, // Get more activities for summary
 		},
 	}
@@ -871,10 +862,9 @@ func (p *ToolProvider) handleGetActivityTimeline(ctx context.Context, req *mcp.C
 			GenerateName: "mcp-timeline-",
 		},
 		Spec: v1alpha1.ActivityQuerySpec{
-			StartTime:    args.StartTime,
-			EndTime:      endTime,
-			ChangeSource: args.ChangeSource,
-			Limit:        1000,
+			StartTime: args.StartTime,
+			EndTime:   endTime,
+			Limit:     1000,
 		},
 	}
 
@@ -978,10 +968,9 @@ func (p *ToolProvider) handleSummarizeRecentActivity(ctx context.Context, req *m
 			GenerateName: "mcp-summary-",
 		},
 		Spec: v1alpha1.ActivityQuerySpec{
-			StartTime:    args.StartTime,
-			EndTime:      endTime,
-			ChangeSource: args.ChangeSource,
-			Limit:        1000,
+			StartTime: args.StartTime,
+			EndTime:   endTime,
+			Limit:     1000,
 		},
 	}
 
