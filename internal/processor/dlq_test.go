@@ -166,7 +166,7 @@ func TestDeadLetterEventSerialization(t *testing.T) {
 			Namespace: "default",
 		},
 		Tenant: &DeadLetterTenant{
-			Type: "project",
+			Type: "Project",
 			Name: "my-project",
 		},
 	}
@@ -199,8 +199,8 @@ func TestDeadLetterEventSerialization(t *testing.T) {
 	if unmarshaled.Tenant == nil {
 		t.Fatal("Tenant should not be nil")
 	}
-	if unmarshaled.Tenant.Type != "project" {
-		t.Errorf("Tenant.Type = %q, want %q", unmarshaled.Tenant.Type, "project")
+	if unmarshaled.Tenant.Type != "Project" {
+		t.Errorf("Tenant.Type = %q, want %q", unmarshaled.Tenant.Type, "Project")
 	}
 	if unmarshaled.Tenant.Name != "my-project" {
 		t.Errorf("Tenant.Name = %q, want %q", unmarshaled.Tenant.Name, "my-project")

@@ -378,10 +378,8 @@ func (p *EventProcessor) buildActivity(
 				UID:        resourceUID,
 			},
 			Links: activityLinks,
-			Tenant: v1alpha1.ActivityTenant{
-				Type: "platform",
-				Name: "",
-			},
+			// Extract tenant from scope annotations; fall back to platform scope when absent.
+			Tenant: ExtractTenantFromAnnotations(event),
 			Origin: v1alpha1.ActivityOrigin{
 				Type: "event",
 				ID:   eventUID,

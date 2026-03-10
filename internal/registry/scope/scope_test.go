@@ -6,6 +6,7 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 
 	"go.miloapis.com/activity/internal/storage"
+	"go.miloapis.com/activity/internal/types"
 )
 
 func TestExtractScopeFromUser(t *testing.T) {
@@ -22,7 +23,7 @@ func TestExtractScopeFromUser(t *testing.T) {
 					ParentNameExtraKey: {"acme-corp"},
 				},
 			},
-			expected: storage.ScopeContext{Type: "organization", Name: "acme-corp"},
+			expected: storage.ScopeContext{Type: types.TenantTypeOrganization, Name: "acme-corp"},
 		},
 		{
 			name: "project scope",
@@ -32,7 +33,7 @@ func TestExtractScopeFromUser(t *testing.T) {
 					ParentNameExtraKey: {"backend-api"},
 				},
 			},
-			expected: storage.ScopeContext{Type: "project", Name: "backend-api"},
+			expected: storage.ScopeContext{Type: types.TenantTypeProject, Name: "backend-api"},
 		},
 		{
 			name: "user scope",
@@ -42,12 +43,12 @@ func TestExtractScopeFromUser(t *testing.T) {
 					ParentNameExtraKey: {"550e8400-e29b-41d4-a716-446655440000"},
 				},
 			},
-			expected: storage.ScopeContext{Type: "user", Name: "550e8400-e29b-41d4-a716-446655440000"},
+			expected: storage.ScopeContext{Type: types.TenantTypeUser, Name: "550e8400-e29b-41d4-a716-446655440000"},
 		},
 		{
 			name:     "no scope (platform)",
 			user:     &user.DefaultInfo{},
-			expected: storage.ScopeContext{Type: "platform", Name: ""},
+			expected: storage.ScopeContext{Type: types.TenantTypePlatform, Name: ""},
 		},
 		{
 			name: "missing parent name",
@@ -56,7 +57,7 @@ func TestExtractScopeFromUser(t *testing.T) {
 					ParentKindExtraKey: {"Organization"},
 				},
 			},
-			expected: storage.ScopeContext{Type: "platform", Name: ""},
+			expected: storage.ScopeContext{Type: types.TenantTypePlatform, Name: ""},
 		},
 		{
 			name: "missing parent kind",
@@ -65,7 +66,7 @@ func TestExtractScopeFromUser(t *testing.T) {
 					ParentNameExtraKey: {"acme-corp"},
 				},
 			},
-			expected: storage.ScopeContext{Type: "platform", Name: ""},
+			expected: storage.ScopeContext{Type: types.TenantTypePlatform, Name: ""},
 		},
 		{
 			name: "unknown parent kind",
@@ -75,7 +76,7 @@ func TestExtractScopeFromUser(t *testing.T) {
 					ParentNameExtraKey: {"some-name"},
 				},
 			},
-			expected: storage.ScopeContext{Type: "platform", Name: ""},
+			expected: storage.ScopeContext{Type: types.TenantTypePlatform, Name: ""},
 		},
 		{
 			name: "empty extra fields",
@@ -85,14 +86,14 @@ func TestExtractScopeFromUser(t *testing.T) {
 					ParentNameExtraKey: {},
 				},
 			},
-			expected: storage.ScopeContext{Type: "platform", Name: ""},
+			expected: storage.ScopeContext{Type: types.TenantTypePlatform, Name: ""},
 		},
 		{
 			name: "nil extra map",
 			user: &user.DefaultInfo{
 				Name: "test-user",
 			},
-			expected: storage.ScopeContext{Type: "platform", Name: ""},
+			expected: storage.ScopeContext{Type: types.TenantTypePlatform, Name: ""},
 		},
 	}
 

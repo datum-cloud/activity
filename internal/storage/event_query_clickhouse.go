@@ -17,6 +17,7 @@ import (
 
 	"go.miloapis.com/activity/internal/metrics"
 	"go.miloapis.com/activity/internal/timeutil"
+	"go.miloapis.com/activity/internal/types"
 	"go.miloapis.com/activity/pkg/apis/activity/v1alpha1"
 )
 
@@ -242,16 +243,16 @@ func (b *ClickHouseEventQueryBackend) buildScopeConditions(scope ScopeContext) (
 	var conditions []string
 	var args []interface{}
 
-	if scope.Type == "" || scope.Type == "platform" {
+	if scope.Type == "" || scope.Type == types.TenantTypePlatform {
 		// Platform scope sees all events across all tenants
 		return conditions, args
 	}
 
 	switch scope.Type {
-	case "organization", "project":
+	case types.TenantTypeOrganization, types.TenantTypeProject:
 		conditions = append(conditions, "scope_type = ?", "scope_name = ?")
 		args = append(args, scope.Type, scope.Name)
-	case "user":
+	case types.TenantTypeUser:
 		// User scope falls back to organization/project filtering for events
 		// since events don't carry user-level attribution the same way audit logs do.
 		conditions = append(conditions, "scope_type = ?", "scope_name = ?")
