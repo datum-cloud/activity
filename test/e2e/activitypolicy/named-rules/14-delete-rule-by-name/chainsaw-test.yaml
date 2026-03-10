@@ -21,14 +21,14 @@ spec:
               kind: Secret
             auditRules:
               - name: create-secret
-                match: "verb == 'create'"
-                summary: "{{ actor }} created secret {{ objectRef.name }}"
+                match: "audit.verb == 'create'"
+                summary: "{{ actor }} created secret {{ audit.objectRef.name }}"
               - name: update-secret
-                match: "verb in ['update', 'patch']"
-                summary: "{{ actor }} updated secret {{ objectRef.name }}"
+                match: "audit.verb in ['update', 'patch']"
+                summary: "{{ actor }} updated secret {{ audit.objectRef.name }}"
               - name: delete-secret
-                match: "verb == 'delete'"
-                summary: "{{ actor }} deleted secret {{ objectRef.name }}"
+                match: "audit.verb == 'delete'"
+                summary: "{{ actor }} deleted secret {{ audit.objectRef.name }}"
     - assert:
         resource:
           apiVersion: activity.miloapis.com/v1alpha1

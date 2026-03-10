@@ -482,8 +482,10 @@ func (s *PolicyPreviewStorage) fetchAuditLogSamples(
 }
 
 // buildRuleFilter takes the policy's audit rules and builds a filter expression
-// that matches ANY of the rules. Match expressions use the same format as
-// AuditLogQuery filters, so they can be passed through directly.
+// that matches ANY of the rules. ActivityPolicy audit rule expressions use the
+// "audit." prefix (e.g., audit.verb == 'create'), but AuditLogQuery filters use
+// the flat format (e.g., verb == 'create'). This function translates between the
+// two by stripping the "audit." prefix before building the query filter.
 func buildRuleFilter(rules []v1alpha1.ActivityPolicyRule) string {
 	if len(rules) == 0 {
 		return ""
@@ -494,7 +496,10 @@ func buildRuleFilter(rules []v1alpha1.ActivityPolicyRule) string {
 		if rule.Match == "" || rule.Match == "true" {
 			continue
 		}
-		parts = append(parts, "("+rule.Match+")")
+		// Strip "audit." prefix from identifier positions to convert ActivityPolicy CEL
+		// to AuditLogQuery filter format. Only strips occurrences outside of quoted strings.
+		filterExpr := stripAuditPrefix(rule.Match)
+		parts = append(parts, "("+filterExpr+")")
 	}
 
 	if len(parts) == 0 {
@@ -505,6 +510,61 @@ func buildRuleFilter(rules []v1alpha1.ActivityPolicyRule) string {
 	}
 	// OR the rules together - we want data that matches ANY rule
 	return "(" + strings.Join(parts, " || ") + ")"
+}
+
+// stripAuditPrefix removes the "audit." prefix from CEL identifier positions,
+// preserving any occurrences inside string literals. This converts ActivityPolicy
+// CEL expressions (audit.verb == 'create') to AuditLogQuery filter format
+// (verb == 'create').
+func stripAuditPrefix(expr string) string {
+	var result strings.Builder
+	i := 0
+	for i < len(expr) {
+		// Skip over single-quoted strings
+		if expr[i] == '\'' {
+			result.WriteByte(expr[i])
+			i++
+			for i < len(expr) && expr[i] != '\'' {
+				if expr[i] == '\\' && i+1 < len(expr) {
+					result.WriteByte(expr[i])
+					i++
+				}
+				result.WriteByte(expr[i])
+				i++
+			}
+			if i < len(expr) {
+				result.WriteByte(expr[i])
+				i++
+			}
+			continue
+		}
+		// Skip over double-quoted strings
+		if expr[i] == '"' {
+			result.WriteByte(expr[i])
+			i++
+			for i < len(expr) && expr[i] != '"' {
+				if expr[i] == '\\' && i+1 < len(expr) {
+					result.WriteByte(expr[i])
+					i++
+				}
+				result.WriteByte(expr[i])
+				i++
+			}
+			if i < len(expr) {
+				result.WriteByte(expr[i])
+				i++
+			}
+			continue
+		}
+		// Check for "audit." prefix outside of strings
+		if strings.HasPrefix(expr[i:], "audit.") {
+			i += len("audit.")
+			continue
+		}
+		result.WriteByte(expr[i])
+		i++
+	}
+	return result.String()
 }
 
 // fetchEventSamples queries ClickHouse for K8s events matching the policy resource.

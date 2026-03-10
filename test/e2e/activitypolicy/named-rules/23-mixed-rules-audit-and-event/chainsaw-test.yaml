@@ -23,12 +23,12 @@ spec:
             auditRules:
             - name: create-rule
               description: "Handles resource creation events"
-              match: "verb == 'create'"
-              summary: "{{ actor }} created Deployment {{ objectRef.name }}"
+              match: "audit.verb == 'create'"
+              summary: "{{ actor }} created Deployment {{ audit.objectRef.name }}"
             - name: delete-rule
               description: "Handles resource deletion events"
-              match: "verb == 'delete'"
-              summary: "{{ actor }} deleted Deployment {{ objectRef.name }}"
+              match: "audit.verb == 'delete'"
+              summary: "{{ actor }} deleted Deployment {{ audit.objectRef.name }}"
             eventRules:
             - name: programmed-event
               description: "Handles programmed status events"
@@ -50,9 +50,9 @@ spec:
               kind: Deployment
             auditRules:
             - name: create-rule
-              match: "verb == 'create'"
+              match: "audit.verb == 'create'"
             - name: delete-rule
-              match: "verb == 'delete'"
+              match: "audit.verb == 'delete'"
             eventRules:
             - name: programmed-event
               match: "event.reason == 'Programmed'"
@@ -93,7 +93,7 @@ spec:
               kind: StatefulSet
             auditRules:
             - name: shared-name
-              match: "verb == 'create'"
+              match: "audit.verb == 'create'"
               summary: "{{ actor }} created statefulset"
             eventRules:
             - name: shared-name

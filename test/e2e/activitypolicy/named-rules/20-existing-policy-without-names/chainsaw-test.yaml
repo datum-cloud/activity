@@ -22,7 +22,7 @@ spec:
               apiGroup: apps
               kind: Deployment
             auditRules:
-            - match: "verb == 'create'"
+            - match: "audit.verb == 'create'"
               summary: "{{ actor }} created resource"
         expect:
         - check:
@@ -67,9 +67,9 @@ spec:
               kind: Deployment
             auditRules:
             - name: create-rule
-              match: "verb == 'create'"
+              match: "audit.verb == 'create'"
               summary: "{{ actor }} created resource"
-            - match: "verb == 'delete'"
+            - match: "audit.verb == 'delete'"
               summary: "{{ actor }} deleted resource"
         expect:
         - check:

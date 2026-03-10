@@ -24,8 +24,8 @@ import (
 //	    apiGroup: networking.datumapis.com
 //	    kind: HTTPProxy
 //	  auditRules:
-//	    - match: "verb == 'create'"
-//	      summary: "{{ actor }} created {{ link(kind + ' ' + objectRef.name, responseObject) }}"
+//	    - match: "audit.verb == 'create'"
+//	      summary: "{{ actor }} created {{ link(kind + ' ' + audit.objectRef.name, audit.responseObject) }}"
 //	  eventRules:
 //	    - match: "event.reason == 'Programmed'"
 //	      summary: "{{ link(kind + ' ' + event.regarding.name, event.regarding) }} is now programmed"
@@ -61,8 +61,8 @@ type ActivityPolicySpec struct {
 
 	// AuditRules define how to translate audit log entries into activity summaries.
 	// Rules are evaluated in order; the first matching rule wins.
-	// Available variables: verb, objectRef, user, responseStatus, responseObject, actor, actorRef, kind
-	// Convenience variables available: actor
+	// Available variables: audit (map with verb, objectRef, user, responseStatus,
+	//   responseObject, requestObject), actor, actorRef, kind
 	//
 	// +optional
 	// +listType=map
@@ -109,12 +109,12 @@ type ActivityPolicyRule struct {
 	Description string `json:"description,omitempty"`
 
 	// Match is a CEL expression that determines if this rule applies to the input.
-	// For audit rules, use top-level variables (e.g., "verb == 'create'", "objectRef.namespace == 'default'").
+	// For audit rules, use the `audit` variable (e.g., "audit.verb == 'create'", "audit.objectRef.namespace == 'default'").
 	// For event rules, use the `event` variable (e.g., "event.reason == 'Programmed'").
 	//
 	// Examples:
-	//   "verb == 'create'"
-	//   "verb in ['update', 'patch']"
+	//   "audit.verb == 'create'"
+	//   "audit.verb in ['update', 'patch']"
 	//   "event.reason.startsWith('Failed')"
 	//   "true"  (fallback rule that always matches)
 	//
@@ -125,14 +125,15 @@ type ActivityPolicyRule struct {
 	// Use {{ }} delimiters to embed CEL expressions within strings.
 	//
 	// Available variables:
-	//   - For audit rules: verb, objectRef, user, responseStatus, responseObject, actor, actorRef, kind
-	//   - For event rules: event, actor
+	//   - For audit rules: audit (map), actor, actorRef, kind
+	//     Access audit fields via: audit.verb, audit.objectRef, audit.user, audit.responseStatus, audit.responseObject
+	//   - For event rules: event, actor, actorRef
 	//
 	// Available functions:
 	//   - link(displayText, resourceRef): Creates a clickable reference
 	//
 	// Examples:
-	//   "{{ actor }} created {{ link(kind + ' ' + objectRef.name, responseObject) }}"
+	//   "{{ actor }} created {{ link(kind + ' ' + audit.objectRef.name, audit.responseObject) }}"
 	//   "{{ link(kind + ' ' + event.regarding.name, event.regarding) }} is now programmed"
 	//
 	// +required

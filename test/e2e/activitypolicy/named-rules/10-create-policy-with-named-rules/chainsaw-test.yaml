@@ -21,14 +21,14 @@ spec:
               kind: Deployment
             auditRules:
               - name: create-rule
-                match: "verb == 'create'"
-                summary: "{{ actor }} created deployment {{ objectRef.name }}"
+                match: "audit.verb == 'create'"
+                summary: "{{ actor }} created deployment {{ audit.objectRef.name }}"
               - name: update-rule
-                match: "verb in ['update', 'patch']"
-                summary: "{{ actor }} updated deployment {{ objectRef.name }}"
+                match: "audit.verb in ['update', 'patch']"
+                summary: "{{ actor }} updated deployment {{ audit.objectRef.name }}"
               - name: delete-rule
-                match: "verb == 'delete'"
-                summary: "{{ actor }} deleted deployment {{ objectRef.name }}"
+                match: "audit.verb == 'delete'"
+                summary: "{{ actor }} deleted deployment {{ audit.objectRef.name }}"
     - assert:
         resource:
           apiVersion: activity.miloapis.com/v1alpha1
@@ -41,14 +41,14 @@ spec:
               kind: Deployment
             auditRules:
               - name: create-rule
-                match: "verb == 'create'"
-                summary: "{{ actor }} created deployment {{ objectRef.name }}"
+                match: "audit.verb == 'create'"
+                summary: "{{ actor }} created deployment {{ audit.objectRef.name }}"
               - name: update-rule
-                match: "verb in ['update', 'patch']"
-                summary: "{{ actor }} updated deployment {{ objectRef.name }}"
+                match: "audit.verb in ['update', 'patch']"
+                summary: "{{ actor }} updated deployment {{ audit.objectRef.name }}"
               - name: delete-rule
-                match: "verb == 'delete'"
-                summary: "{{ actor }} deleted deployment {{ objectRef.name }}"
+                match: "audit.verb == 'delete'"
+                summary: "{{ actor }} deleted deployment {{ audit.objectRef.name }}"
           status:
             conditions:
               - type: Ready

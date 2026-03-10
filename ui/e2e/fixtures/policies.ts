@@ -14,8 +14,8 @@ import type {
 const httpProxyCreateRule: ActivityPolicyRule = {
   name: 'httpproxy-create',
   description: 'Triggered when an HTTPProxy is created',
-  match: 'verb == "create"',
-  summary: '{{ actor.name }} created {{ link(kind + " " + objectRef.name, responseObject) }}',
+  match: 'audit.verb == "create"',
+  summary: '{{ actor.name }} created {{ link(kind + " " + audit.objectRef.name, audit.responseObject) }}',
 };
 
 /**
@@ -24,8 +24,8 @@ const httpProxyCreateRule: ActivityPolicyRule = {
 const httpProxyDeleteRule: ActivityPolicyRule = {
   name: 'httpproxy-delete',
   description: 'Triggered when an HTTPProxy is deleted',
-  match: 'verb == "delete"',
-  summary: '{{ actor.name }} deleted {{ kind }} {{ objectRef.name }}',
+  match: 'audit.verb == "delete"',
+  summary: '{{ actor.name }} deleted {{ kind }} {{ audit.objectRef.name }}',
 };
 
 /**
@@ -92,13 +92,13 @@ const gatewayPolicy: ActivityPolicy = {
     auditRules: [
       {
         name: 'gateway-create',
-        match: 'verb == "create"',
-        summary: '{{ actor.name }} created Gateway {{ objectRef.name }}',
+        match: 'audit.verb == "create"',
+        summary: '{{ actor.name }} created Gateway {{ audit.objectRef.name }}',
       },
       {
         name: 'gateway-update',
-        match: 'verb == "update"',
-        summary: '{{ actor.name }} updated Gateway {{ objectRef.name }}',
+        match: 'audit.verb == "update"',
+        summary: '{{ actor.name }} updated Gateway {{ audit.objectRef.name }}',
       },
     ],
   },
@@ -135,8 +135,8 @@ const deploymentPolicy: ActivityPolicy = {
     auditRules: [
       {
         name: 'deployment-create',
-        match: 'verb == "create"',
-        summary: '{{ actor.name }} created Deployment {{ objectRef.name }}',
+        match: 'audit.verb == "create"',
+        summary: '{{ actor.name }} created Deployment {{ audit.objectRef.name }}',
       },
     ],
     eventRules: [

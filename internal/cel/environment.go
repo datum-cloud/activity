@@ -10,34 +10,23 @@ import (
 )
 
 // NewAuditEnvironment creates a CEL environment for audit rule expressions.
-// Available variables: verb, objectRef, user, responseStatus, responseObject, requestObject, actor, actorRef, kind.
+// Available variables: audit (map containing all audit fields), actor, actorRef, kind.
+// Access audit fields via the audit map: audit.verb, audit.objectRef, audit.user, etc.
 // If collector is non-nil, link() calls will capture link information.
 func NewAuditEnvironment(collector *linkCollector) (*cel.Env, error) {
-	objectRefType := cel.MapType(cel.StringType, cel.DynType)
-	userType := cel.MapType(cel.StringType, cel.DynType)
-	responseStatusType := cel.MapType(cel.StringType, cel.DynType)
 	actorRefType := cel.MapType(cel.StringType, cel.DynType)
-	// responseObject and requestObject are dynamic maps since their schema
-	// depends on the resource type being audited
-	dynamicObjectType := cel.MapType(cel.StringType, cel.DynType)
 
 	return cel.NewEnv(
-		// Core audit fields - match AuditLogQuery filter format
-		cel.Variable("verb", cel.StringType),
-		cel.Variable("objectRef", objectRefType),
-		cel.Variable("user", userType),
-		cel.Variable("responseStatus", responseStatusType),
+		// All audit log fields are nested under the "audit" map variable.
+		// Access them as: audit.verb, audit.objectRef, audit.user, audit.responseStatus,
+		// audit.responseObject, audit.requestObject, etc.
+		cel.Variable("audit", cel.MapType(cel.StringType, cel.DynType)),
 
-		// Request/response objects - available when audit level includes them
-		// Note: responseObject on DELETE is a Status object, not the deleted resource
-		cel.Variable("responseObject", dynamicObjectType),
-		cel.Variable("requestObject", dynamicObjectType),
-
-		// Convenience variables
+		// Convenience variables shared between audit and event contexts
 		cel.Variable("actor", cel.StringType),
 		cel.Variable("actorRef", actorRefType),
 
-		// Also expose "kind" for convenience (extracted from objectRef)
+		// Also expose "kind" for convenience (extracted from audit.objectRef)
 		cel.Variable("kind", cel.StringType),
 
 		// link function declaration with implementation: link(displayText string, resourceRef map) -> string
@@ -91,60 +80,45 @@ func NewEventEnvironment(collector *linkCollector) (*cel.Env, error) {
 }
 
 // BuildAuditVars creates the CEL variable map for audit evaluation.
-// Variables are flattened to match AuditLogQuery filter format.
+// All audit log fields are nested under the "audit" key for consistency with
+// event rules that use the "event" prefix (e.g., event.reason, event.type).
+// Convenience variables actor, actorRef, and kind remain top-level.
+//
+// Nested fields that may be absent from the raw audit log (objectRef, user,
+// responseStatus, responseObject, requestObject) are populated with empty maps
+// when not present. This ensures that expressions using has() on nested fields
+// (e.g. has(audit.objectRef.name)) evaluate safely instead of failing with a
+// "no such key" error when the parent map is missing entirely.
 func BuildAuditVars(auditMap map[string]interface{}) map[string]interface{} {
+	// Copy the original map so we don't mutate the caller's data.
+	auditWithDefaults := make(map[string]interface{}, len(auditMap))
+	for k, v := range auditMap {
+		auditWithDefaults[k] = v
+	}
+
+	// Ensure nested map fields exist so has() checks on their sub-fields don't
+	// fail at the parent level.
+	for _, field := range []string{"objectRef", "user", "responseStatus", "responseObject", "requestObject"} {
+		if _, ok := auditWithDefaults[field]; !ok {
+			auditWithDefaults[field] = map[string]interface{}{}
+		}
+	}
+
 	vars := map[string]interface{}{
+		"audit":    auditWithDefaults,
 		"actor":    ExtractString(auditMap, "user", "username"),
 		"actorRef": BuildActorRef(auditMap),
 	}
 
-	// Flatten audit fields to top level
-	if v, ok := auditMap["verb"]; ok {
-		vars["verb"] = v
-	} else {
-		vars["verb"] = ""
-	}
-
-	if v, ok := auditMap["objectRef"]; ok {
-		vars["objectRef"] = v
-		// Extract kind for convenience
-		if objRef, ok := v.(map[string]interface{}); ok {
-			if kind, ok := objRef["resource"].(string); ok {
-				vars["kind"] = kind
-			} else {
-				vars["kind"] = ""
-			}
+	// Extract kind for top-level convenience (from audit.objectRef.resource)
+	if objRef, ok := auditWithDefaults["objectRef"].(map[string]interface{}); ok {
+		if kind, ok := objRef["resource"].(string); ok {
+			vars["kind"] = kind
 		} else {
 			vars["kind"] = ""
 		}
 	} else {
-		vars["objectRef"] = map[string]interface{}{}
 		vars["kind"] = ""
-	}
-
-	if v, ok := auditMap["user"]; ok {
-		vars["user"] = v
-	} else {
-		vars["user"] = map[string]interface{}{}
-	}
-
-	if v, ok := auditMap["responseStatus"]; ok {
-		vars["responseStatus"] = v
-	} else {
-		vars["responseStatus"] = map[string]interface{}{}
-	}
-
-	// Include responseObject and requestObject when available
-	if v, ok := auditMap["responseObject"]; ok {
-		vars["responseObject"] = v
-	} else {
-		vars["responseObject"] = map[string]interface{}{}
-	}
-
-	if v, ok := auditMap["requestObject"]; ok {
-		vars["requestObject"] = v
-	} else {
-		vars["requestObject"] = map[string]interface{}{}
 	}
 
 	return vars

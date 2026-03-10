@@ -8,5 +8,5 @@ spec:
     kind: Deployment
   auditRules:
     - name: "12345"
-      match: "verb == 'create'"
+      match: "audit.verb == 'create'"
       summary: "{{ actor }} created deployment"

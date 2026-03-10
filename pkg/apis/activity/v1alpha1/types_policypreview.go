@@ -31,9 +31,9 @@ import (
 //	      apiGroup: networking.datumapis.com
 //	      kind: HTTPProxy
 //	    auditRules:
-//	      - match: "verb == 'create'"
+//	      - match: "audit.verb == 'create'"
 //	        summary: "{{ actor }} created HTTPProxy"
-//	      - match: "verb == 'delete'"
+//	      - match: "audit.verb == 'delete'"
 //	        summary: "{{ actor }} deleted HTTPProxy"
 //	  inputs:
 //	    - type: audit

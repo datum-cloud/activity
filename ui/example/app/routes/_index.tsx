@@ -128,7 +128,7 @@ export default function Index() {
                   Track deletions in production
                 </p>
                 <code className="block p-2 bg-background border rounded text-xs break-all text-foreground">
-                  verb == "delete" && objectRef.namespace == "production"
+                  audit.verb == "delete" && audit.objectRef.namespace == "production"
                 </code>
               </div>
               <div className="p-5 bg-muted border rounded-lg hover:border-primary hover:-translate-y-0.5 transition-all hover:bg-background hover:shadow-md">

@@ -12,7 +12,9 @@ Activity is a Kubernetes extension that provides queryable audit logs, events, a
 
 ## Agent Routing
 
-When working on this codebase, automatically use specialized agents based on the task type. Do NOT ask the user which agent to use - pick the appropriate one based on what files or features are being modified.
+**MANDATORY: All implementation work MUST be performed by subagents.** Never directly edit code, configuration, or documentation in the parent conversation. Instead, always delegate to the appropriate specialized agent from the table below. The parent conversation should only coordinate agents, pass context between them, and communicate results to the user.
+
+Do NOT ask the user which agent to use - pick the appropriate one based on what files or features are being modified.
 
 | Task Type | Agent | When to Use |
 |-----------|-------|-------------|
@@ -26,9 +28,10 @@ When working on this codebase, automatically use specialized agents based on the
 | Exploration | `Explore` | Understanding codebase structure or finding code |
 
 **Key principles:**
+- **Always use subagents** — never write code, edit files, or run build/test commands directly in the parent conversation
 - Use agents proactively without being asked
-- For multi-step tasks, use the appropriate agent for each step
-- After making code changes, consider using `code-reviewer` to validate
+- For multi-step tasks, use the appropriate agent for each step (launch independent agents in parallel when possible)
+- After making code changes, always use `code-reviewer` to validate
 - For UI changes, run `npm run build` and `npm run test:e2e` to verify
 - **Always test infrastructure changes in a test environment before opening a PR** - Deploy to the test-infra KIND cluster (`task test-infra:cluster-up`) and verify resources work correctly before pushing changes to staging/production repos
 - **Use Telepresence for debugging staging issues** - When investigating bugs that only reproduce in staging, intercept the service and run it locally with `task test-infra:telepresence:intercept SERVICE=<name>`. See "Remote Debugging with Telepresence" section.
@@ -277,8 +280,8 @@ spec:
     apiGroup: networking.datumapis.com
     kind: HTTPProxy
   auditRules:
-    - match: "verb == 'create'"
-      summary: "{{ actor }} created {{ link(kind + ' ' + objectRef.name, responseObject) }}"
+    - match: "audit.verb == 'create'"
+      summary: "{{ actor }} created {{ link(kind + ' ' + audit.objectRef.name, audit.responseObject) }}"
 ```
 
 ## Stable Codebase Facts <!-- reference -->

@@ -45,7 +45,7 @@ spec:
               kind: Deployment
             auditRules:
             - name: invalid-template-rule
-              match: "verb == 'create'"
+              match: "audit.verb == 'create'"
               summary: "{{ actor }} created {{ "
         expect:
         - check:
@@ -68,7 +68,7 @@ spec:
               kind: Deployment
             auditRules:
             - name: undefined-var-rule
-              match: "verb == 'create'"
+              match: "audit.verb == 'create'"
               summary: "{{ actor }} created {{ nonexistent.field }}"
         expect:
         - check:

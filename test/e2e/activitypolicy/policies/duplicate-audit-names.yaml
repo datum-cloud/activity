@@ -8,8 +8,8 @@ spec:
     kind: Deployment
   auditRules:
     - name: same-name
-      match: "verb == 'create'"
+      match: "audit.verb == 'create'"
       summary: "{{ actor }} created deployment"
     - name: same-name
-      match: "verb == 'delete'"
+      match: "audit.verb == 'delete'"
       summary: "{{ actor }} deleted deployment"

@@ -62,7 +62,7 @@ func TestPolicyPreviewStorage_Create_SingleAuditMatch(t *testing.T) {
 				AuditRules: []v1alpha1.ActivityPolicyRule{
 					{
 						Name:    "rule-e5841d",
-						Match:   `verb == "create"`,
+						Match:   `audit.verb == "create"`,
 						Summary: `{{ actor }} created HTTPProxy`,
 					},
 				},
@@ -160,12 +160,12 @@ func TestPolicyPreviewStorage_Create_MultipleInputs(t *testing.T) {
 				AuditRules: []v1alpha1.ActivityPolicyRule{
 					{
 						Name:    "rule-22b1cd",
-						Match:   `verb == "create"`,
+						Match:   `audit.verb == "create"`,
 						Summary: `{{ actor }} created HTTPProxy`,
 					},
 					{
 						Name:    "rule-6754e0",
-						Match:   `verb == "delete"`,
+						Match:   `audit.verb == "delete"`,
 						Summary: `{{ actor }} deleted HTTPProxy`,
 					},
 				},
@@ -290,7 +290,7 @@ func TestPolicyPreviewStorage_Create_MixedAuditAndEvent(t *testing.T) {
 				AuditRules: []v1alpha1.ActivityPolicyRule{
 					{
 						Name:    "rule-968c9b",
-						Match:   `verb == "create"`,
+						Match:   `audit.verb == "create"`,
 						Summary: `{{ actor }} created HTTPProxy`,
 					},
 				},
@@ -387,7 +387,7 @@ func TestPolicyPreviewStorage_Create_AuditNoMatch(t *testing.T) {
 				AuditRules: []v1alpha1.ActivityPolicyRule{
 					{
 						Name:    "rule-a52fd5",
-						Match:   `verb == "delete"`,
+						Match:   `audit.verb == "delete"`,
 						Summary: `{{ actor }} deleted HTTPProxy`,
 					},
 				},
@@ -729,7 +729,7 @@ func TestPolicyPreviewStorage_Create_ActivityFields(t *testing.T) {
 				AuditRules: []v1alpha1.ActivityPolicyRule{
 					{
 						Name:    "rule-2425ad",
-						Match:   `verb == "create"`,
+						Match:   `audit.verb == "create"`,
 						Summary: `{{ actor }} created HTTPProxy`,
 					},
 				},
@@ -854,7 +854,7 @@ func TestPolicyPreviewStorage_Create_AutoFetch_AuditOnly(t *testing.T) {
 				AuditRules: []v1alpha1.ActivityPolicyRule{
 					{
 						Name:    "rule-create",
-						Match:   `verb == "create"`,
+						Match:   `audit.verb == "create"`,
 						Summary: `{{ actor }} created HTTPProxy`,
 					},
 				},
@@ -1001,7 +1001,7 @@ func TestPolicyPreviewStorage_Create_AutoFetch_Both(t *testing.T) {
 				AuditRules: []v1alpha1.ActivityPolicyRule{
 					{
 						Name:    "rule-create",
-						Match:   `verb == "create"`,
+						Match:   `audit.verb == "create"`,
 						Summary: `{{ actor }} created HTTPProxy`,
 					},
 				},
@@ -1059,7 +1059,7 @@ func TestPolicyPreviewStorage_Create_AutoFetch_EmptyResults(t *testing.T) {
 				AuditRules: []v1alpha1.ActivityPolicyRule{
 					{
 						Name:    "rule-create",
-						Match:   `verb == "create"`,
+						Match:   `audit.verb == "create"`,
 						Summary: `{{ actor }} created HTTPProxy`,
 					},
 				},
@@ -1103,7 +1103,7 @@ func TestPolicyPreviewStorage_Create_Validation_BothInputsAndAutoFetch(t *testin
 				AuditRules: []v1alpha1.ActivityPolicyRule{
 					{
 						Name:    "rule-create",
-						Match:   `verb == "create"`,
+						Match:   `audit.verb == "create"`,
 						Summary: `{{ actor }} created HTTPProxy`,
 					},
 				},
@@ -1145,7 +1145,7 @@ func TestPolicyPreviewStorage_Create_Validation_NeitherInputsNorAutoFetch(t *tes
 				AuditRules: []v1alpha1.ActivityPolicyRule{
 					{
 						Name:    "rule-create",
-						Match:   `verb == "create"`,
+						Match:   `audit.verb == "create"`,
 						Summary: `{{ actor }} created HTTPProxy`,
 					},
 				},
@@ -1240,24 +1240,24 @@ func TestBuildRuleFilter(t *testing.T) {
 		expected string
 	}{
 		{
-			name: "single rule - passed through directly",
+			name: "single rule - audit prefix stripped",
 			rules: []v1alpha1.ActivityPolicyRule{
-				{Name: "rule1", Match: `verb == "create"`},
+				{Name: "rule1", Match: `audit.verb == "create"`},
 			},
 			expected: `(verb == "create")`,
 		},
 		{
-			name: "multiple rules - ORed together",
+			name: "multiple rules - ORed together with prefix stripped",
 			rules: []v1alpha1.ActivityPolicyRule{
-				{Name: "rule1", Match: `verb == "create"`},
-				{Name: "rule2", Match: `verb == "delete"`},
+				{Name: "rule1", Match: `audit.verb == "create"`},
+				{Name: "rule2", Match: `audit.verb == "delete"`},
 			},
 			expected: `((verb == "create") || (verb == "delete"))`,
 		},
 		{
-			name: "complex expression - passed through directly",
+			name: "complex expression - audit prefix stripped",
 			rules: []v1alpha1.ActivityPolicyRule{
-				{Name: "rule1", Match: `verb == "update" && objectRef.namespace == "production"`},
+				{Name: "rule1", Match: `audit.verb == "update" && audit.objectRef.namespace == "production"`},
 			},
 			expected: `(verb == "update" && objectRef.namespace == "production")`,
 		},
@@ -1265,7 +1265,7 @@ func TestBuildRuleFilter(t *testing.T) {
 			name: "skips empty match",
 			rules: []v1alpha1.ActivityPolicyRule{
 				{Name: "rule1", Match: ""},
-				{Name: "rule2", Match: `verb == "create"`},
+				{Name: "rule2", Match: `audit.verb == "create"`},
 			},
 			expected: `(verb == "create")`,
 		},
@@ -1273,7 +1273,7 @@ func TestBuildRuleFilter(t *testing.T) {
 			name: "skips 'true' match",
 			rules: []v1alpha1.ActivityPolicyRule{
 				{Name: "rule1", Match: "true"},
-				{Name: "rule2", Match: `verb == "create"`},
+				{Name: "rule2", Match: `audit.verb == "create"`},
 			},
 			expected: `(verb == "create")`,
 		},
@@ -1289,6 +1289,20 @@ func TestBuildRuleFilter(t *testing.T) {
 				{Name: "rule2", Match: ""},
 			},
 			expected: "",
+		},
+		{
+			name: "preserves audit. inside string literals",
+			rules: []v1alpha1.ActivityPolicyRule{
+				{Name: "rule1", Match: `audit.objectRef.name == "audit.log-collector"`},
+			},
+			expected: `(objectRef.name == "audit.log-collector")`,
+		},
+		{
+			name: "preserves audit. inside single-quoted strings",
+			rules: []v1alpha1.ActivityPolicyRule{
+				{Name: "rule1", Match: `audit.verb == 'audit.create'`},
+			},
+			expected: `(verb == 'audit.create')`,
 		},
 	}
 

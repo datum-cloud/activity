@@ -32,7 +32,7 @@ export interface ActivityPolicyRule {
   description?: string;
   /**
    * CEL expression to match events
-   * For audit rules: use top-level fields (e.g., `verb == "create"`, `objectRef.namespace == "default"`)
+   * For audit rules: use `audit.*` fields (e.g., `audit.verb == "create"`, `audit.objectRef.namespace == "default"`)
    * For event rules: access via `event.*` (e.g., `event.reason == "Ready"`)
    */
   match: string;

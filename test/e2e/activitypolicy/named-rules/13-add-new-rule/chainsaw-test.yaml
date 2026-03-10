@@ -21,11 +21,11 @@ spec:
               kind: ConfigMap
             auditRules:
               - name: create-configmap
-                match: "verb == 'create'"
-                summary: "{{ actor }} created configmap {{ objectRef.name }}"
+                match: "audit.verb == 'create'"
+                summary: "{{ actor }} created configmap {{ audit.objectRef.name }}"
               - name: delete-configmap
-                match: "verb == 'delete'"
-                summary: "{{ actor }} deleted configmap {{ objectRef.name }}"
+                match: "audit.verb == 'delete'"
+                summary: "{{ actor }} deleted configmap {{ audit.objectRef.name }}"
     - assert:
         resource:
           apiVersion: activity.miloapis.com/v1alpha1
@@ -51,8 +51,8 @@ spec:
               kind: ConfigMap
             auditRules:
               - name: update-configmap
-                match: "verb in ['update', 'patch']"
-                summary: "{{ actor }} updated configmap {{ objectRef.name }}"
+                match: "audit.verb in ['update', 'patch']"
+                summary: "{{ actor }} updated configmap {{ audit.objectRef.name }}"
           EOF
     - assert:
         resource:
@@ -63,14 +63,14 @@ spec:
           spec:
             auditRules:
               - name: create-configmap
-                match: "verb == 'create'"
-                summary: "{{ actor }} created configmap {{ objectRef.name }}"
+                match: "audit.verb == 'create'"
+                summary: "{{ actor }} created configmap {{ audit.objectRef.name }}"
               - name: delete-configmap
-                match: "verb == 'delete'"
-                summary: "{{ actor }} deleted configmap {{ objectRef.name }}"
+                match: "audit.verb == 'delete'"
+                summary: "{{ actor }} deleted configmap {{ audit.objectRef.name }}"
               - name: update-configmap
-                match: "verb in ['update', 'patch']"
-                summary: "{{ actor }} updated configmap {{ objectRef.name }}"
+                match: "audit.verb in ['update', 'patch']"
+                summary: "{{ actor }} updated configmap {{ audit.objectRef.name }}"
     catch:
     - describe:
         apiVersion: activity.miloapis.com/v1alpha1

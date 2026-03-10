@@ -74,11 +74,11 @@ test.describe('Policy CRUD Integration Tests', () => {
 
     // Fill in match expression
     const matchInput = page.locator('input[name*="match"], textarea[name*="match"]').first();
-    await matchInput.fill('verb == "create"');
+    await matchInput.fill('audit.verb == "create"');
 
     // Fill in summary template
     const summaryInput = page.locator('input[name*="summary"], textarea[name*="summary"]').first();
-    await summaryInput.fill('{{ actor }} created deployment {{ objectRef.name }}');
+    await summaryInput.fill('{{ actor }} created deployment {{ audit.objectRef.name }}');
 
     // Save the policy
     const saveButton = page.getByRole('button', { name: /Save Policy|Create Policy/i });
@@ -124,7 +124,7 @@ test.describe('Policy CRUD Integration Tests', () => {
     await addRuleButton.click();
 
     const matchInput = page.locator('input[name*="match"], textarea[name*="match"]').first();
-    await matchInput.fill('verb == "create"');
+    await matchInput.fill('audit.verb == "create"');
 
     const summaryInput = page.locator('input[name*="summary"], textarea[name*="summary"]').first();
     await summaryInput.fill('Created deployment');
@@ -155,7 +155,7 @@ test.describe('Policy CRUD Integration Tests', () => {
     const matchCount = await matchInputs.count();
     const summaryCount = await summaryInputs.count();
 
-    await matchInputs.nth(matchCount - 1).fill('verb == "delete"');
+    await matchInputs.nth(matchCount - 1).fill('audit.verb == "delete"');
     await summaryInputs.nth(summaryCount - 1).fill('Deleted deployment');
 
     // Save changes
