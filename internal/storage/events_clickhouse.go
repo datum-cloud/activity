@@ -16,11 +16,12 @@ import (
 	eventsv1 "k8s.io/api/events/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
+	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/klog/v2"
 
 	"go.miloapis.com/activity/internal/metrics"
+	"go.miloapis.com/activity/internal/types"
 )
 
 // ClickHouseEventsBackend implements the EventsBackend interface using ClickHouse.
@@ -85,7 +86,7 @@ func (b *ClickHouseEventsBackend) Create(ctx context.Context, event *eventsv1.Ev
 
 	// Generate UID if not set
 	if event.UID == "" {
-		event.UID = types.UID(uuid.New().String())
+		event.UID = k8stypes.UID(uuid.New().String())
 	}
 
 	// Set timestamps if not set
@@ -109,7 +110,7 @@ func (b *ClickHouseEventsBackend) Create(ctx context.Context, event *eventsv1.Ev
 	if event.Annotations == nil {
 		event.Annotations = make(map[string]string)
 	}
-	if scope.Type != "" && scope.Type != "platform" {
+	if scope.Type != "" && scope.Type != types.TenantTypePlatform {
 		event.Annotations["platform.miloapis.com/scope.type"] = scope.Type
 		event.Annotations["platform.miloapis.com/scope.name"] = scope.Name
 	}
@@ -428,7 +429,7 @@ func (b *ClickHouseEventsBackend) Update(ctx context.Context, event *eventsv1.Ev
 	if event.Annotations == nil {
 		event.Annotations = make(map[string]string)
 	}
-	if scope.Type != "" && scope.Type != "platform" {
+	if scope.Type != "" && scope.Type != types.TenantTypePlatform {
 		event.Annotations["platform.miloapis.com/scope.type"] = scope.Type
 		event.Annotations["platform.miloapis.com/scope.name"] = scope.Name
 	}
@@ -571,18 +572,18 @@ func (b *ClickHouseEventsBackend) buildScopeConditions(scope ScopeContext) ([]st
 	var conditions []string
 	var args []interface{}
 
-	if scope.Type == "" || scope.Type == "platform" {
+	if scope.Type == "" || scope.Type == types.TenantTypePlatform {
 		// Platform scope sees all events
 		return conditions, args
 	}
 
 	switch scope.Type {
-	case "user":
+	case types.TenantTypeUser:
 		// User scope: filter by user UID (not implemented for events)
 		// Events don't have a user field in the same way as audit logs
 		// For now, fall through to organization/project filtering
 		fallthrough
-	case "organization", "project":
+	case types.TenantTypeOrganization, types.TenantTypeProject:
 		conditions = append(conditions, "scope_type = ?", "scope_name = ?")
 		args = append(args, scope.Type, scope.Name)
 	}

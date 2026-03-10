@@ -379,7 +379,7 @@ func (p *EventProcessor) buildActivity(
 			},
 			Links: activityLinks,
 			Tenant: v1alpha1.ActivityTenant{
-				Type: "platform",
+				Type: TenantTypePlatform,
 				Name: "",
 			},
 			Origin: v1alpha1.ActivityOrigin{

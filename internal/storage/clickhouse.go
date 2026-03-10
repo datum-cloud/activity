@@ -24,6 +24,7 @@ import (
 	"go.miloapis.com/activity/internal/cel"
 	"go.miloapis.com/activity/internal/metrics"
 	"go.miloapis.com/activity/internal/timeutil"
+	"go.miloapis.com/activity/internal/types"
 	"go.miloapis.com/activity/pkg/apis/activity/v1alpha1"
 )
 
@@ -242,7 +243,7 @@ type QueryResult struct {
 
 // ScopeContext defines the hierarchical scope boundary for audit log queries.
 type ScopeContext struct {
-	Type string // "platform", "organization", "project", "user"
+	Type string // "platform", "Organization", "Project", "User" (PascalCase for K8s Kind convention)
 	Name string // scope identifier (org name, project name, etc.)
 }
 
@@ -510,8 +511,8 @@ func (s *ClickHouseStorage) buildQuery(ctx context.Context, spec v1alpha1.AuditL
 	var conditions []string
 
 	// Only add scope filters if not platform-wide query
-	if scope.Type != "platform" {
-		if scope.Type == "user" {
+	if scope.Type != types.TenantTypePlatform {
+		if scope.Type == types.TenantTypeUser {
 			// For user scope, filter by user.uid instead of scope annotations.
 			// This allows querying all activity performed BY a specific user
 			// across all organizations and projects on the platform.
@@ -598,7 +599,7 @@ func (s *ClickHouseStorage) buildQuery(ctx context.Context, spec v1alpha1.AuditL
 			// No user filter: use platform_query_projection
 			query += " ORDER BY toStartOfHour(timestamp) DESC, timestamp DESC, api_group DESC, resource DESC, audit_id DESC"
 		}
-	} else if scope.Type == "user" {
+	} else if scope.Type == types.TenantTypeUser {
 		// User-scoped: use user_uid_query_projection to filter by UID
 		query += " ORDER BY toStartOfHour(timestamp) DESC, timestamp DESC, user_uid DESC, api_group DESC, resource DESC, audit_id DESC"
 	} else {
@@ -745,8 +746,8 @@ func (s *ClickHouseStorage) buildActivityQuery(ctx context.Context, spec Activit
 	var conditions []string
 
 	// Scope filtering
-	if scope.Type != "platform" {
-		if scope.Type == "user" {
+	if scope.Type != types.TenantTypePlatform {
+		if scope.Type == types.TenantTypeUser {
 			// For user scope, filter by actor_uid to show activities performed by this user
 			// across all organizations and projects
 			conditions = append(conditions, "actor_uid = ?")
@@ -842,7 +843,7 @@ func (s *ClickHouseStorage) buildActivityQuery(ctx context.Context, spec Activit
 			// No actor filter: use platform_query_projection
 			query += " ORDER BY toStartOfHour(timestamp) DESC, timestamp DESC, api_group DESC, resource_kind DESC, resource_uid DESC"
 		}
-	} else if scope.Type == "user" {
+	} else if scope.Type == types.TenantTypeUser {
 		// User-scoped: use actor_uid_query_projection to filter by UID
 		query += " ORDER BY toStartOfHour(timestamp) DESC, timestamp DESC, actor_uid DESC, api_group DESC, resource_kind DESC, resource_uid DESC"
 	} else {
@@ -1033,8 +1034,8 @@ func (s *ClickHouseStorage) queryAuditLogFacet(ctx context.Context, facet FacetF
 	var conditions []string
 
 	// Scope filtering - same pattern as audit log queries
-	if scope.Type != "platform" {
-		if scope.Type == "user" {
+	if scope.Type != types.TenantTypePlatform {
+		if scope.Type == types.TenantTypeUser {
 			// For user scope, filter by user_uid
 			conditions = append(conditions, "user_uid = ?")
 			args = append(args, scope.Name)
@@ -1197,8 +1198,8 @@ func (s *ClickHouseStorage) queryFacet(ctx context.Context, facet FacetFieldSpec
 	var conditions []string
 
 	// Scope filtering
-	if scope.Type != "platform" {
-		if scope.Type == "user" {
+	if scope.Type != types.TenantTypePlatform {
+		if scope.Type == types.TenantTypeUser {
 			// For user scope, filter by actor_uid to show activities performed by this user
 			// across all organizations and projects
 			conditions = append(conditions, "actor_uid = ?")

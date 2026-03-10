@@ -174,7 +174,7 @@ func TestFacetQueryStorage_Create_ScopeExtraction(t *testing.T) {
 					scope.ParentNameExtraKey: {"acme-corp"},
 				},
 			},
-			wantType: "organization",
+			wantType: "Organization",
 			wantName: "acme-corp",
 		},
 		{
@@ -186,7 +186,7 @@ func TestFacetQueryStorage_Create_ScopeExtraction(t *testing.T) {
 					scope.ParentNameExtraKey: {"backend-api"},
 				},
 			},
-			wantType: "project",
+			wantType: "Project",
 			wantName: "backend-api",
 		},
 		{
@@ -198,7 +198,7 @@ func TestFacetQueryStorage_Create_ScopeExtraction(t *testing.T) {
 					scope.ParentNameExtraKey: {"550e8400-e29b-41d4-a716-446655440000"},
 				},
 			},
-			wantType: "user",
+			wantType: "User",
 			wantName: "550e8400-e29b-41d4-a716-446655440000",
 		},
 		{

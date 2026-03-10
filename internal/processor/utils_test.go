@@ -258,29 +258,29 @@ func TestExtractTenant(t *testing.T) {
 		{
 			name:     "platform (no extra fields)",
 			user:     authnv1.UserInfo{},
-			wantType: "platform",
+			wantType: TenantTypePlatform,
 			wantName: "",
 		},
 		{
 			name: "organization from parent fields",
 			user: authnv1.UserInfo{
 				Extra: map[string]authnv1.ExtraValue{
-					"iam.miloapis.com/parent-type": {"organization"},
+					"iam.miloapis.com/parent-type": {"Organization"},
 					"iam.miloapis.com/parent-name": {"acme-corp"},
 				},
 			},
-			wantType: "organization",
+			wantType: TenantTypeOrganization,
 			wantName: "acme-corp",
 		},
 		{
 			name: "project from parent fields",
 			user: authnv1.UserInfo{
 				Extra: map[string]authnv1.ExtraValue{
-					"iam.miloapis.com/parent-type": {"project"},
+					"iam.miloapis.com/parent-type": {"Project"},
 					"iam.miloapis.com/parent-name": {"my-project"},
 				},
 			},
-			wantType: "project",
+			wantType: TenantTypeProject,
 			wantName: "my-project",
 		},
 		{
@@ -290,7 +290,7 @@ func TestExtractTenant(t *testing.T) {
 					"organization": {"legacy-org"},
 				},
 			},
-			wantType: "organization",
+			wantType: TenantTypeOrganization,
 			wantName: "legacy-org",
 		},
 		{
@@ -301,7 +301,7 @@ func TestExtractTenant(t *testing.T) {
 					"project":      {"my-project"},
 				},
 			},
-			wantType: "project",
+			wantType: TenantTypeProject,
 			wantName: "my-project",
 		},
 	}
