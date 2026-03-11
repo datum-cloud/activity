@@ -118,7 +118,8 @@ Examples:
 		Use:          "activity",
 		Short:        "Query audit logs, events, and activity feeds",
 		Long:         longDesc,
-		SilenceUsage: true,
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
 
 	// Add global kubeconfig flags to root command if we created them

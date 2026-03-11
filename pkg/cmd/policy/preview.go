@@ -7,9 +7,10 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	auditv1 "k8s.io/apiserver/pkg/apis/audit/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	auditv1 "k8s.io/apiserver/pkg/apis/audit/v1"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/kubectl/pkg/cmd/util"
@@ -188,6 +189,17 @@ func (o *PreviewOptions) Run(ctx context.Context) error {
 
 	result, err := client.ActivityV1alpha1().PolicyPreviews().Create(ctx, preview, metav1.CreateOptions{})
 	if err != nil {
+		if statusErr, ok := err.(*apierrors.StatusError); ok && statusErr.ErrStatus.Details != nil && len(statusErr.ErrStatus.Details.Causes) > 0 {
+			fmt.Fprintf(o.ErrOut, "Preview validation failed:\n")
+			for _, cause := range statusErr.ErrStatus.Details.Causes {
+				if cause.Field != "" {
+					fmt.Fprintf(o.ErrOut, "  * %s: %s\n", cause.Field, cause.Message)
+				} else {
+					fmt.Fprintf(o.ErrOut, "  * %s\n", cause.Message)
+				}
+			}
+			return fmt.Errorf("preview request is invalid")
+		}
 		return fmt.Errorf("preview failed: %w", err)
 	}
 
