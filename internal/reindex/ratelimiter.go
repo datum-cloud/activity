@@ -13,11 +13,14 @@ type RateLimiter struct {
 	limiter *rate.Limiter
 }
 
-// NewRateLimiter creates a new rate limiter that allows up to eventsPerSecond events
-// with bursts up to 2x the rate.
-func NewRateLimiter(eventsPerSecond int) *RateLimiter {
-	// Allow bursts up to 2x the rate
+// NewRateLimiter creates a new rate limiter that allows up to eventsPerSecond events.
+// The burst size is set to max(eventsPerSecond*2, batchSize) so that a single batch
+// reservation never exceeds the burst capacity and causes ReserveN to fail.
+func NewRateLimiter(eventsPerSecond, batchSize int) *RateLimiter {
 	burst := eventsPerSecond * 2
+	if batchSize > burst {
+		burst = batchSize
+	}
 	if burst < 1 {
 		burst = 1
 	}

@@ -109,7 +109,7 @@ func (r *Reindexer) Run(ctx context.Context, opts Options) error {
 
 	// Initialize rate limiter if configured
 	if opts.RateLimit > 0 {
-		r.rateLimiter = NewRateLimiter(int(opts.RateLimit))
+		r.rateLimiter = NewRateLimiter(int(opts.RateLimit), int(opts.BatchSize))
 	}
 
 	// Fetch active policies to apply
