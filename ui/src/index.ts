@@ -85,6 +85,10 @@ export type { RulePreviewPanelProps } from './components/RulePreviewPanel';
 export { CelEditor } from './components/CelEditor';
 export type { CelEditorProps } from './components/CelEditor';
 
+// Components - Activity Layout
+export { ActivityLayout } from './components/ActivityLayout';
+export type { ActivityLayoutProps, ActivityTab } from './components/ActivityLayout';
+
 // Components - ReindexJob
 export { ReindexJobList } from './components/ReindexJobList';
 export type { ReindexJobListProps } from './components/ReindexJobList';
@@ -178,6 +182,18 @@ export { cn } from './lib/utils';
 export { ApiError, parseApiError, NetworkError, defaultErrorFormatter } from './lib/errors';
 export type { ApiErrorResponse } from './lib/errors';
 export { extractFieldPaths, extractFieldPathsFromMany } from './lib/extractFieldPaths';
+
+// Utilities - Deep Linking & URL Serialization
+export {
+  serializeActivityFilters,
+  parseActivityFilters,
+  serializeEventFilters,
+  parseEventFilters,
+  parseTimeRange,
+} from './lib/activity-filters';
+
+// Utilities - Shareable URLs
+export { generateShareableUrl, copyToClipboard } from './lib/activity-share';
 
 // Hooks - Audit Log Query (existing)
 export { useAuditLogQuery } from './hooks/useAuditLogQuery';
