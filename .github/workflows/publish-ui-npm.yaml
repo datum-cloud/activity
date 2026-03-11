@@ -9,7 +9,7 @@ on:
 
 jobs:
   publish:
-    uses: datum-cloud/actions/.github/workflows/publish-npm-package.yaml@feat/npm-dev-builds
+    uses: datum-cloud/actions/.github/workflows/publish-npm-package.yaml@v0.12.0
     with:
       package-name: "@datum-cloud/activity-ui"
       package-path: ui
