@@ -1231,17 +1231,33 @@ type PreviewActivityPolicyArgs struct {
 	Policy v1alpha1.ActivityPolicySpec `json:"policy"`
 
 	// Inputs are sample audit/event inputs to test.
-	Inputs []v1alpha1.PolicyPreviewInput `json:"inputs"`
+	// Each element is a JSON object with a "type" field ("audit" or "event")
+	// and either an "audit" field (audit log entry) or an "event" field (Kubernetes event).
+	Inputs []json.RawMessage `json:"inputs"`
 }
 
 func (p *ToolProvider) handlePreviewActivityPolicy(ctx context.Context, req *mcp.CallToolRequest, args PreviewActivityPolicyArgs) (*mcp.CallToolResult, any, error) {
+	// Unmarshal inputs from raw JSON into the API type.
+	// We use json.RawMessage in the args struct to avoid schema inference failures
+	// caused by embedded Kubernetes types (e.g., auditv1.Event) that use
+	// time.Time fields which the JSON schema library maps to "string" type,
+	// violating the requirement that embedded struct schemas have type "object".
+	var inputs []v1alpha1.PolicyPreviewInput
+	for i, raw := range args.Inputs {
+		var input v1alpha1.PolicyPreviewInput
+		if err := json.Unmarshal(raw, &input); err != nil {
+			return errorResult(fmt.Sprintf("Invalid input at index %d: %v", i, err)), nil, nil
+		}
+		inputs = append(inputs, input)
+	}
+
 	preview := &v1alpha1.PolicyPreview{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "mcp-preview-",
 		},
 		Spec: v1alpha1.PolicyPreviewSpec{
 			Policy: args.Policy,
-			Inputs: args.Inputs,
+			Inputs: inputs,
 		},
 	}
 

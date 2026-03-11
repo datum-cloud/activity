@@ -1112,8 +1112,8 @@ func TestPreviewActivityPolicy(t *testing.T) {
 				{Match: "audit.verb == 'create'", Summary: "{{ actor }} created HTTPProxy"},
 			},
 		},
-		Inputs: []v1alpha1.PolicyPreviewInput{
-			{Type: "audit"},
+		Inputs: []json.RawMessage{
+			json.RawMessage(`{"type":"audit"}`),
 		},
 	}
 
