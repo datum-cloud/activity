@@ -428,15 +428,15 @@ func (c *DLQRetryController) republishEvent(ctx context.Context, event *processo
 		return fmt.Errorf("unknown event type: %s", event.Type)
 	}
 
-	// Use message ID for deduplication - include policy name and payload hash
-	// to ensure uniqueness across different policies and payloads
+	// Use a stable message ID for deduplication - excludes retry count so that
+	// repeated retries of the same event are deduplicated on the source stream.
+	// This prevents duplicates if the DLQ ACK fails after a successful republish.
 	payloadHash := computePayloadHash(event.OriginalPayload)
-	msgID := fmt.Sprintf("dlq-retry-%s-%s-%s-%s-%d",
+	msgID := fmt.Sprintf("dlq-retry-%s-%s-%s-%s",
 		event.Type,
 		event.PolicyName,
 		payloadHash,
 		event.Timestamp.Format(time.RFC3339Nano),
-		event.RetryCount+1,
 	)
 
 	_, err := c.js.Publish(

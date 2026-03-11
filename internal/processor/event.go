@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
@@ -331,7 +330,7 @@ func (p *EventProcessor) buildActivity(
 	}
 
 	// Generate activity name.
-	activityName := fmt.Sprintf("act-%s", uuid.New().String()[:8])
+	name := activityName("event", eventUID, matched.APIGroup, matched.Kind)
 
 	// Convert links.
 	var activityLinks []v1alpha1.ActivityLink
@@ -354,7 +353,7 @@ func (p *EventProcessor) buildActivity(
 			Kind:       "Activity",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:              activityName,
+			Name:              name,
 			Namespace:         namespace,
 			CreationTimestamp: metav1.NewTime(timestamp),
 			Labels: map[string]string{
