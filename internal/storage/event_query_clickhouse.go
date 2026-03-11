@@ -221,7 +221,7 @@ func (b *ClickHouseEventQueryBackend) buildQuery(_ context.Context, spec v1alpha
 		if len(conditions) > 0 {
 			query += " WHERE " + strings.Join(conditions, " AND ")
 		}
-		query += " ORDER BY last_timestamp DESC, namespace, name"
+		query += buildEventQueryOrderBy(scope)
 		query += fmt.Sprintf(" LIMIT %d OFFSET %d", limit+1, offset)
 		return query, args, nil
 	}
@@ -230,12 +230,33 @@ func (b *ClickHouseEventQueryBackend) buildQuery(_ context.Context, spec v1alpha
 	if len(conditions) > 0 {
 		query += " WHERE " + strings.Join(conditions, " AND ")
 	}
-	query += " ORDER BY last_timestamp DESC, namespace, name"
+	query += buildEventQueryOrderBy(scope)
 
 	limit := resolveEventQueryLimit(spec.Limit)
 	query += fmt.Sprintf(" LIMIT %d", limit+1)
 
 	return query, args, nil
+}
+
+// buildEventQueryOrderBy returns an ORDER BY clause that matches the k8s_events primary
+// key and projections for efficient index use. The clause is scope-aware so ClickHouse
+// can select the best projection for each query pattern.
+//
+// Primary key: (toStartOfHour(last_timestamp), last_timestamp, scope_type, scope_name,
+//
+//	regarding_api_group, regarding_kind, type, uid)
+//
+// Projections:
+//   - platform_query_projection:          (toStartOfHour, last_timestamp, regarding_api_group, regarding_kind, type, uid)
+//   - regarding_object_query_projection:  (toStartOfHour, last_timestamp, regarding_api_group, regarding_kind, scope_type, scope_name, type, uid)
+//   - source_query_projection:            (toStartOfHour, last_timestamp, source_component, scope_type, scope_name, regarding_api_group, regarding_kind, type, uid)
+func buildEventQueryOrderBy(scope ScopeContext) string {
+	if scope.Type == "" || scope.Type == types.TenantTypePlatform {
+		// Platform scope: no scope filter — use platform_query_projection sort order
+		return " ORDER BY toStartOfHour(last_timestamp) DESC, last_timestamp DESC, regarding_api_group DESC, regarding_kind DESC, type DESC, uid DESC"
+	}
+	// Tenant-scoped (organization, project, user): match hour-bucketed primary key
+	return " ORDER BY toStartOfHour(last_timestamp) DESC, last_timestamp DESC, scope_type DESC, scope_name DESC, regarding_api_group DESC, regarding_kind DESC, type DESC, uid DESC"
 }
 
 // buildScopeConditions returns WHERE conditions for scope-based multi-tenancy filtering.

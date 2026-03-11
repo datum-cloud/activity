@@ -147,7 +147,7 @@ CREATE TABLE audit.k8s_events (
 
 ) ENGINE = ReplicatedReplacingMergeTree(inserted_at)
 PARTITION BY toYYYYMMDD(last_timestamp)
-ORDER BY (scope_type, scope_name, last_timestamp, regarding_api_group, regarding_kind, type, uid)
+ORDER BY (toStartOfHour(last_timestamp), last_timestamp, scope_type, scope_name, regarding_api_group, regarding_kind, type, uid)
 TTL last_timestamp + INTERVAL 60 DAY DELETE;
 ```
 
