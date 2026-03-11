@@ -168,21 +168,59 @@ func (c *DLQRetryController) Start(ctx context.Context) error {
 	}
 }
 
-// periodicRetry processes a batch of retry-eligible DLQ events.
+// maxPeriodicRunDuration caps how long a single periodic drain run may take.
+// This prevents unbounded processing when the DLQ is being filled faster than
+// it can be drained, ensuring the goroutine remains responsive to cancellation.
+const maxPeriodicRunDuration = 2 * time.Minute
+
+// periodicRetry drains the DLQ backlog by repeatedly calling processRetryBatch
+// until the queue is empty, the context is cancelled, or maxPeriodicRunDuration
+// is exceeded. The batch duration metric is recorded per batch; a summary log is
+// emitted once at the end of the full drain run.
 func (c *DLQRetryController) periodicRetry(ctx context.Context) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	start := time.Now()
-	processed, succeeded, failed := c.processRetryBatch(ctx, "periodic", nil)
-	dlqRetryBatchDuration.WithLabelValues("periodic").Observe(time.Since(start).Seconds())
+	runDeadline := time.Now().Add(maxPeriodicRunDuration)
 
-	if processed > 0 {
-		klog.InfoS("Completed periodic DLQ retry batch",
-			"processed", processed,
-			"succeeded", succeeded,
-			"failed", failed,
-			"duration", time.Since(start),
+	var totalProcessed, totalSucceeded, totalFailed int
+	runStart := time.Now()
+
+	for {
+		// Respect context cancellation between batches.
+		if ctx.Err() != nil {
+			break
+		}
+
+		// Enforce the per-run time cap.
+		if time.Now().After(runDeadline) {
+			klog.InfoS("DLQ periodic retry reached max run duration, deferring remainder to next tick",
+				"maxDuration", maxPeriodicRunDuration,
+				"totalProcessed", totalProcessed,
+			)
+			break
+		}
+
+		batchStart := time.Now()
+		processed, succeeded, failed := c.processRetryBatch(ctx, "periodic", nil)
+		dlqRetryBatchDuration.WithLabelValues("periodic").Observe(time.Since(batchStart).Seconds())
+
+		totalProcessed += processed
+		totalSucceeded += succeeded
+		totalFailed += failed
+
+		// An empty batch means the DLQ has been fully drained.
+		if processed == 0 {
+			break
+		}
+	}
+
+	if totalProcessed > 0 {
+		klog.InfoS("Completed periodic DLQ retry run",
+			"totalProcessed", totalProcessed,
+			"totalSucceeded", totalSucceeded,
+			"totalFailed", totalFailed,
+			"duration", time.Since(runStart),
 		)
 	}
 }
