@@ -501,8 +501,8 @@ local allPanels = util.grid.wrapPanels([
   + stat.gridPos.withW(statWidth)
   + stat.gridPos.withH(statHeight),
 
-  stat.new('High Retry Events')
-  + stat.options.withGraphMode('area')
+  stat.new('DLQ Backlog')
+  + stat.options.withGraphMode('none')
   + stat.options.withColorMode('background')
   + stat.options.reduceOptions.withCalcs(['lastNotNull'])
   + stat.standardOptions.withUnit('short')
@@ -511,15 +511,17 @@ local allPanels = util.grid.wrapPanels([
   + stat.queryOptions.withTargets([
     prometheus.new(
       datasource,
-      'sum(increase(activity_processor_dlq_retry_events_high_retry_total[1h])) or vector(0)'
+      // max() because only the NATS stream leader reports accurate counts
+      'max(nats_stream_total_messages{stream_name="ACTIVITY_DEAD_LETTER"})'
     )
-    + prometheus.withLegendFormat('Events'),
+    + prometheus.withLegendFormat('Messages'),
   ])
   + stat.standardOptions.thresholds.withSteps([
     { color: 'green', value: null },
-    { color: 'red', value: 1 },
+    { color: 'yellow', value: 100 },
+    { color: 'red', value: 1000 },
   ])
-  + stat.panelOptions.withDescription('DLQ events exceeding the high retry threshold in the last hour')
+  + stat.panelOptions.withDescription('Current number of messages in the DLQ stream')
   + stat.gridPos.withW(statWidth)
   + stat.gridPos.withH(statHeight),
 
@@ -618,6 +620,28 @@ local allPanels = util.grid.wrapPanels([
     + prometheus.withLegendFormat('p50'),
   ])
   + timeSeries.panelOptions.withDescription('DLQ publish latency distribution (p99, p95, p50)')
+  + timeSeries.gridPos.withW(timeSeriesHalfWidth)
+  + timeSeries.gridPos.withH(timeSeriesHeight),
+
+  timeSeries.new('DLQ Backlog Over Time')
+  + timeSeries.options.legend.withDisplayMode('table')
+  + timeSeries.options.legend.withPlacement('bottom')
+  + timeSeries.options.legend.withShowLegend(true)
+  + timeSeries.options.legend.withCalcs(['lastNotNull', 'mean'])
+  + timeSeries.standardOptions.withUnit('short')
+  + timeSeries.fieldConfig.defaults.custom.withFillOpacity(10)
+  + timeSeries.fieldConfig.defaults.custom.withLineWidth(2)
+  + timeSeries.fieldConfig.defaults.custom.withShowPoints('never')
+  + timeSeries.datasource.withType('prometheus')
+  + timeSeries.datasource.withUid(datasource)
+  + timeSeries.queryOptions.withTargets([
+    prometheus.new(
+      datasource,
+      'max(nats_stream_total_messages{stream_name="ACTIVITY_DEAD_LETTER"})'
+    )
+    + prometheus.withLegendFormat('Messages'),
+  ])
+  + timeSeries.panelOptions.withDescription('Number of messages in the ACTIVITY_DEAD_LETTER stream over time')
   + timeSeries.gridPos.withW(timeSeriesHalfWidth)
   + timeSeries.gridPos.withH(timeSeriesHeight),
 ]);

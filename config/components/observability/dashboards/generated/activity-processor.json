@@ -1056,7 +1056,7 @@
             "type": "prometheus",
             "uid": "$datasource"
          },
-         "description": "Current number of messages in the DLQ stream. Uses max() because the NATS exporter runs on each node but only the stream leader reports accurate counts.",
+         "description": "Current number of messages in the DLQ stream",
          "fieldConfig": {
             "defaults": {
                "thresholds": {
@@ -1278,7 +1278,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 73
+            "y": 65
          },
          "id": 28,
          "options": {
@@ -1328,7 +1328,7 @@
             "type": "prometheus",
             "uid": "$datasource"
          },
-         "description": "DLQ message count over time. Uses max() because the NATS exporter runs on each node but only the stream leader reports accurate counts.",
+         "description": "Number of messages in the ACTIVITY_DEAD_LETTER stream over time",
          "fieldConfig": {
             "defaults": {
                "custom": {
@@ -1365,7 +1365,7 @@
                   "uid": "$datasource"
                },
                "expr": "max(nats_stream_total_messages{stream_name=\"ACTIVITY_DEAD_LETTER\"})",
-               "legendFormat": "DLQ Messages"
+               "legendFormat": "Messages"
             }
          ],
          "title": "DLQ Backlog Over Time",
