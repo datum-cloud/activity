@@ -6,7 +6,7 @@ each section.
 
 ---
 
-## v0.3.0 — Unreleased
+## v0.3.0 — 2026-03-11
 
 v0.3.0 transforms Activity from an audit log query service into a full platform
 for understanding what happens inside your control plane. Audit logs and Kubernetes
