@@ -1,0 +1,15 @@
+apiVersion: iam.miloapis.com/v1alpha1
+kind: ProtectedResource
+metadata:
+  name: activity.miloapis.com-reindexjobs
+spec:
+  serviceRef:
+    name: "activity.miloapis.com"
+  kind: ReindexJob
+  plural: reindexjobs
+  singular: reindexjob
+  permissions:
+    - create
+    - list
+    - get
+    - delete
