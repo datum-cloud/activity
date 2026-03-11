@@ -1,7 +1,5 @@
 # Activity UI Integration Guide
 
-> Last verified: 2026-03-10 against v0.1.0
-
 `@datum-cloud/activity-ui` is a React component library for embedding activity feeds, audit log viewers, ActivityPolicy editors, and ReindexJob management into platform portals and admin dashboards. Components talk directly to the Activity API server using the same Kubernetes API surface as kubectl.
 
 By the end of this guide you should have components rendering in your application and know where to look when you need to customize behavior.

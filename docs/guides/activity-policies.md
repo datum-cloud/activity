@@ -1,7 +1,5 @@
 # Authoring ActivityPolicy Resources
 
-> Last verified: 2026-03-10 against v1alpha1
-
 ActivityPolicy is the configuration resource that tells the activity system how
 to translate raw audit logs and Kubernetes events into the human-readable
 summaries that appear in activity feeds. Without policies, audit logs and events

@@ -1,7 +1,5 @@
 # MCP Server Guide
 
-> Last verified: 2026-03-10 against the `activity mcp` command
-
 The Activity service includes a built-in MCP (Model Context Protocol) server.
 Once connected, your AI assistant can query your control plane's audit logs, activity
 history, and events directly — no copy-pasting kubectl output, no manual log

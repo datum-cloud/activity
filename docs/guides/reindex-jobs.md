@@ -1,7 +1,5 @@
 # Reindexing Historical Activity
 
-> Last verified: 2026-03-10 against activity.miloapis.com/v1alpha1
-
 Activities are generated from audit logs and Kubernetes events as they happen.
 When you create or update an ActivityPolicy, only events that arrive *after*
 that change get translated. Events that already occurred are not retroactively
