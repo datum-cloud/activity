@@ -56,6 +56,8 @@ type EventFacetQuerySpec struct {
 	//   - type: Event types (Normal, Warning)
 	//   - source.component: Source components (kubelet, scheduler, etc.)
 	//   - namespace: Event namespace
+	//   - related.kind: Related resource kinds (Node, ConfigMap, etc.)
+	//   - related.namespace: Namespaces of related objects
 	//
 	// +required
 	// +listType=atomic
