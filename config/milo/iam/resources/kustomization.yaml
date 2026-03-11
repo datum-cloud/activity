@@ -8,6 +8,7 @@ resources:
   - auditlogqueries.yaml
   - auditlogfacetsqueries.yaml
   - policypreviews.yaml
+  - reindexjobs.yaml
   - events.yaml
   - eventqueries.yaml
   - eventfacetqueries.yaml

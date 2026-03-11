@@ -19,3 +19,8 @@ spec:
     - activity.miloapis.com/activitypolicies.watch
     # PolicyPreview - for testing policies before applying
     - activity.miloapis.com/policypreviews.create
+    # ReindexJob - for re-indexing activities after policy changes
+    - activity.miloapis.com/reindexjobs.create
+    - activity.miloapis.com/reindexjobs.list
+    - activity.miloapis.com/reindexjobs.get
+    - activity.miloapis.com/reindexjobs.delete
