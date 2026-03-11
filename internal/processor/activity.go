@@ -1,11 +1,12 @@
 package processor
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	auditv1 "k8s.io/apiserver/pkg/apis/audit/v1"
@@ -13,6 +14,21 @@ import (
 	"go.miloapis.com/activity/internal/cel"
 	"go.miloapis.com/activity/pkg/apis/activity/v1alpha1"
 )
+
+// activityName generates a deterministic activity name from the origin event
+// identifier and the policy's resource target. The same input always produces
+// the same name, enabling NATS message deduplication on retries.
+func activityName(originType, originID, apiGroup, kind string) string {
+	h := sha256.New()
+	h.Write([]byte(originType))
+	h.Write([]byte{0}) // separator
+	h.Write([]byte(originID))
+	h.Write([]byte{0})
+	h.Write([]byte(apiGroup))
+	h.Write([]byte{0})
+	h.Write([]byte(kind))
+	return "act-" + hex.EncodeToString(h.Sum(nil))[:12]
+}
 
 // ActivityBuilder contains the common fields needed to build an Activity.
 type ActivityBuilder struct {
@@ -53,7 +69,7 @@ func (b *ActivityBuilder) BuildFromAudit(
 	tenant := ExtractTenant(audit.User)
 
 	// Generate activity name
-	activityName := fmt.Sprintf("act-%s", uuid.New().String()[:8])
+	name := activityName("audit", string(audit.AuditID), b.APIGroup, b.Kind)
 
 	// Convert links
 	activityLinks, err := ConvertLinks(links, resolveKind)
@@ -67,7 +83,7 @@ func (b *ActivityBuilder) BuildFromAudit(
 			Kind:       "Activity",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:              activityName,
+			Name:              name,
 			Namespace:         namespace,
 			CreationTimestamp: metav1.NewTime(timestamp),
 			Labels: map[string]string{
@@ -170,19 +186,20 @@ func (b *ActivityBuilder) BuildFromEvent(
 	// Extract tenant from scope annotations; fall back to platform scope when absent.
 	tenant := ExtractTenantFromAnnotations(eventMap)
 
+	// Get event UID for origin (extracted before name generation so it can be
+	// used as input to the deterministic name hash).
+	eventUID := ""
+	if metadata, ok := eventMap["metadata"].(map[string]interface{}); ok {
+		eventUID = GetNestedString(metadata, "uid")
+	}
+
 	// Generate activity name
-	activityName := fmt.Sprintf("act-%s", uuid.New().String()[:8])
+	name := activityName("event", eventUID, b.APIGroup, b.Kind)
 
 	// Convert links
 	activityLinks, err := ConvertLinks(links, resolveKind)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrActivityBuild, err)
-	}
-
-	// Get event UID for origin
-	eventUID := ""
-	if metadata, ok := eventMap["metadata"].(map[string]interface{}); ok {
-		eventUID = GetNestedString(metadata, "uid")
 	}
 
 	return &v1alpha1.Activity{
@@ -191,7 +208,7 @@ func (b *ActivityBuilder) BuildFromEvent(
 			Kind:       "Activity",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:              activityName,
+			Name:              name,
 			Namespace:         namespace,
 			CreationTimestamp: metav1.NewTime(timestamp),
 			Labels: map[string]string{
