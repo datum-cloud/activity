@@ -18,7 +18,6 @@ import (
 	auditv1 "k8s.io/apiserver/pkg/apis/audit/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/kubernetes"
@@ -33,7 +32,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
-	"go.miloapis.com/activity/internal/cel"
 	"go.miloapis.com/activity/internal/controller"
 	"go.miloapis.com/activity/internal/processor"
 	"go.miloapis.com/activity/pkg/apis/activity/v1alpha1"
@@ -647,67 +645,13 @@ func (p *Processor) monitorWorkers(ctx context.Context, workerErrors <-chan erro
 }
 
 // kindToResource converts a Kind to its plural resource name using API discovery.
-// On cache miss, it resets the discovery cache and retries to handle newly registered CRDs.
 func (p *Processor) kindToResource(apiGroup, kind string) (string, error) {
-	gk := schema.GroupKind{
-		Group: apiGroup,
-		Kind:  kind,
-	}
-
-	mapping, err := p.mapper.RESTMapping(gk)
-	if err != nil {
-		if meta.IsNoMatchError(err) {
-			// Cache miss - reset and retry to discover newly registered CRDs.
-			klog.V(2).InfoS("REST mapping not found, resetting discovery cache",
-				"apiGroup", apiGroup,
-				"kind", kind,
-			)
-			p.mapper.Reset()
-
-			mapping, err = p.mapper.RESTMapping(gk)
-			if err != nil {
-				return "", fmt.Errorf("failed to find resource mapping for %s/%s: %w", apiGroup, kind, err)
-			}
-		} else {
-			return "", fmt.Errorf("failed to find resource mapping for %s/%s: %w", apiGroup, kind, err)
-		}
-	}
-
-	return mapping.Resource.Resource, nil
+	return processor.NewResourceResolver(p.mapper)(apiGroup, kind)
 }
 
 // resourceToKind converts a plural resource name to its Kind using API discovery.
-// On cache miss, it resets the discovery cache and retries to handle newly registered CRDs.
 func (p *Processor) resourceToKind(apiGroup, resource string) (string, error) {
-	gvr := schema.GroupVersionResource{
-		Group:    apiGroup,
-		Resource: resource,
-	}
-
-	kinds, err := p.mapper.KindsFor(gvr)
-	if err != nil {
-		if meta.IsNoMatchError(err) {
-			// Cache miss - reset and retry to discover newly registered CRDs.
-			klog.V(2).InfoS("Kind mapping not found, resetting discovery cache",
-				"apiGroup", apiGroup,
-				"resource", resource,
-			)
-			p.mapper.Reset()
-
-			kinds, err = p.mapper.KindsFor(gvr)
-			if err != nil {
-				return "", fmt.Errorf("failed to find kind for %s/%s: %w", apiGroup, resource, err)
-			}
-		} else {
-			return "", fmt.Errorf("failed to find kind for %s/%s: %w", apiGroup, resource, err)
-		}
-	}
-
-	if len(kinds) == 0 {
-		return "", fmt.Errorf("no kind found for %s/%s", apiGroup, resource)
-	}
-
-	return kinds[0].Kind, nil
+	return processor.NewKindResolver(p.mapper)(apiGroup, resource)
 }
 
 func (p *Processor) onPolicyAdd(obj any) {
@@ -1090,40 +1034,7 @@ func (p *Processor) processMessage(msg *nats.Msg) error {
 
 // evaluateCompiledAuditRules evaluates audit rules using pre-compiled CEL programs.
 func (p *Processor) evaluateCompiledAuditRules(policy *CompiledPolicy, auditMap map[string]any, audit *auditv1.Event) (*v1alpha1.Activity, int, error) {
-	for i := range policy.AuditRules {
-		rule := &policy.AuditRules[i]
-		if !rule.Valid {
-			continue
-		}
-
-		matched, err := rule.EvaluateAuditMatch(auditMap)
-		if err != nil {
-			return nil, i, fmt.Errorf("rule %d match: %w", i, err)
-		}
-
-		if matched {
-			// Use the cel package's EvaluateAuditSummaryMap which properly collects links
-			// from link() function calls in the summary template.
-			summary, links, err := cel.EvaluateAuditSummaryMap(rule.Summary, auditMap)
-			if err != nil {
-				return nil, i, fmt.Errorf("rule %d summary: %w", i, err)
-			}
-
-			// Build activity using the processor package
-			builder := &processor.ActivityBuilder{
-				APIGroup: policy.APIGroup,
-				Kind:     policy.Kind,
-			}
-			activity, err := builder.BuildFromAudit(audit, summary, links, p.resourceToKind)
-			if err != nil {
-				return nil, i, fmt.Errorf("rule %d build: %w", i, err)
-			}
-
-			return activity, i, nil
-		}
-	}
-
-	return nil, -1, nil
+	return EvaluateCompiledAuditRules(policy, auditMap, audit, p.resourceToKind)
 }
 
 // auditToMap converts an audit event to a map for CEL evaluation.
