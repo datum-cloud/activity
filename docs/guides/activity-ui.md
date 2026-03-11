@@ -1,6 +1,6 @@
-# Activity UI Integration Guide
+# Embedding the Activity UI
 
-`@datum-cloud/activity-ui` is a React component library for embedding activity feeds, audit log viewers, ActivityPolicy editors, and ReindexJob management into platform portals and admin dashboards. Components talk directly to the Activity API server using the same Kubernetes API surface as kubectl.
+Drop a live activity feed, policy editor, or event explorer into your platform UI with a few lines of code. `@datum-cloud/activity-ui` is a React component library that lets you embed activity feeds, audit log viewers, ActivityPolicy editors, and ReindexJob management directly into platform portals and admin dashboards. Components talk directly to the Activity API server using the same Kubernetes API surface as kubectl — no separate backend required.
 
 By the end of this guide you should have components rendering in your application and know where to look when you need to customize behavior.
 
@@ -82,6 +82,8 @@ const client = new ActivityApiClient({
 
 ### ApiClientConfig reference
 
+The most important props are `baseUrl` and `token` — the rest have sensible defaults or are only needed in specific deployment scenarios.
+
 | Prop | Type | Required | Description |
 |---|---|---|---|
 | `baseUrl` | `string` | Yes | Base URL of the Activity API server |
@@ -101,7 +103,7 @@ const client = new ActivityApiClient({
 
 ## Activity feed
 
-`ActivityFeed` displays a paginated, filterable list of human-readable activities. It fetches on mount and supports infinite scroll and optional real-time streaming.
+Use `ActivityFeed` on any page where you want to show users a human-readable log of what has changed — who did what, and when. It fetches on mount and supports infinite scroll and optional real-time streaming.
 
 ```tsx
 import { ActivityFeed, ActivityApiClient } from '@datum-cloud/activity-ui';
@@ -126,31 +128,7 @@ function ActivityPage() {
 
 The component uses flex layout to fill its container. Give the parent a defined height (e.g., `height: 100vh` or a fixed pixel value) so the internal scroll container works correctly.
 
-### ActivityFeed props
-
-| Prop | Type | Default | Description |
-|---|---|---|---|
-| `client` | `ActivityApiClient` | Required | API client instance |
-| `initialFilters` | `ActivityFeedFilters` | `{ changeSource: 'human' }` | Starting filter state |
-| `initialTimeRange` | `TimeRange` | `{ start: 'now-7d' }` | Starting time range |
-| `pageSize` | `number` | `30` | Items per page |
-| `showFilters` | `boolean` | `true` | Show or hide the filter bar |
-| `hiddenFilters` | `Array<'resourceKinds' \| 'actorNames' \| 'apiGroups' \| 'resourceNamespaces' \| 'resourceName' \| 'changeSource'>` | `[]` | Filter fields to hide from UI but still apply |
-| `compact` | `boolean` | `false` | Reduced padding for embedding in tabs or panels |
-| `resourceUid` | `string` | — | Scope feed to one resource's activity |
-| `enableStreaming` | `boolean` | `false` | Stream new activities in real time via Watch |
-| `infiniteScroll` | `boolean` | `true` | Load more on scroll vs. explicit button |
-| `maxHeight` | `string` | — | CSS value to cap scroll container height |
-| `resourceLinkResolver` | `ResourceLinkResolver` | — | Callback to convert a resource ref to a URL string |
-| `tenantLinkResolver` | `TenantLinkResolver` | — | Callback to convert a tenant ref to a URL string |
-| `onActivityClick` | `(activity: Activity) => void` | — | Called when the user clicks an activity row |
-| `onCreatePolicy` | `() => void` | — | Called from the empty state when no policies exist |
-| `onFiltersChange` | `(filters, timeRange) => void` | — | Called on every filter or time range change |
-| `onEffectiveTimeRangeChange` | `EffectiveTimeRangeCallback` | — | Called with the resolved absolute time range after each query |
-| `errorFormatter` | `ErrorFormatter` | — | Override default error message formatting |
-| `className` | `string` | `''` | Additional CSS class |
-
-> Only the most commonly used props are shown. See the TypeScript declarations for the full list of available props.
+Explore available props via TypeScript autocompletion in your editor, or see the [TypeScript declarations](https://www.npmjs.com/package/@datum-cloud/activity-ui) for the full list.
 
 ### Filtering activities to a specific resource
 
@@ -194,7 +172,7 @@ Provide `resourceLinkResolver` to turn resource references in activity summaries
 
 ## Resource history view
 
-`ResourceHistoryView` renders a vertical timeline of all recorded changes to a specific resource. Use this in resource detail pages.
+Use `ResourceHistoryView` on resource detail pages to show a timeline of everything that happened to a specific resource — creates, updates, deletes — in one place.
 
 ```tsx
 import { ResourceHistoryView } from '@datum-cloud/activity-ui';
@@ -226,24 +204,11 @@ When you do not have the UID, filter by attributes instead:
 />
 ```
 
-### ResourceHistoryView props
-
-| Prop | Type | Default | Description |
-|---|---|---|---|
-| `client` | `ActivityApiClient` | Required | API client instance |
-| `resourceFilter` | `ResourceFilter` | Required | Identifies the resource to show history for |
-| `startTime` | `string` | `'now-30d'` | Start of the history window |
-| `limit` | `number` | `50` | Maximum events to load |
-| `showHeader` | `boolean` | `true` | Show or hide the component title |
-| `compact` | `boolean` | `false` | Reduced padding for embedding |
-| `onActivityClick` | `(activity: Activity) => void` | — | Called when user clicks a history entry |
-| `resourceLinkResolver` | `ResourceLinkResolver` | — | Resolve resource refs to URLs |
-
-> Only the most commonly used props are shown. See the TypeScript declarations for the full list of available props.
+Explore available props via TypeScript autocompletion in your editor, or see the [TypeScript declarations](https://www.npmjs.com/package/@datum-cloud/activity-ui) for the full list.
 
 ## Audit log viewer
 
-`AuditLogQueryComponent` provides a raw audit log search interface with filter controls and infinite-scroll results. This is the lower-level view showing the actual Kubernetes audit events before they are translated into activities.
+`AuditLogQueryComponent` is the right tool for admin and support workflows where you need to dig into the raw Kubernetes audit events — before they are translated into human-readable activities. It includes filter controls and infinite-scroll results.
 
 ```tsx
 import { AuditLogQueryComponent } from '@datum-cloud/activity-ui';
@@ -263,18 +228,11 @@ function AuditLogsPage() {
 }
 ```
 
-| Prop | Type | Default | Description |
-|---|---|---|---|
-| `client` | `ActivityApiClient` | Required | API client instance |
-| `initialFilters` | `AuditLogFilterState` | `{}` | Starting filter state |
-| `initialTimeRange` | `TimeRange` | Last 24 hours | Starting time range |
-| `onEventSelect` | `(event: Event) => void` | — | Called when user selects an audit event |
-| `errorFormatter` | `ErrorFormatter` | — | Override error message formatting |
-| `className` | `string` | `''` | Additional CSS class |
+Explore available props via TypeScript autocompletion in your editor, or see the [TypeScript declarations](https://www.npmjs.com/package/@datum-cloud/activity-ui) for the full list.
 
 ## Kubernetes events feed
 
-`EventsFeed` displays Kubernetes control plane events (the same events `kubectl get events` returns) with filtering and optional real-time updates.
+`EventsFeed` is useful for operations dashboards and namespace overview pages — it surfaces the same events `kubectl get events` returns, with filtering and optional real-time updates.
 
 ```tsx
 import { EventsFeed } from '@datum-cloud/activity-ui';
@@ -292,7 +250,7 @@ function EventsPage() {
 }
 ```
 
-To scope events to a namespace:
+To scope events to a namespace, pass `namespace` and use `hiddenFilters` to hide specific filter fields from the UI:
 
 ```tsx
 <EventsFeed
@@ -302,29 +260,11 @@ To scope events to a namespace:
 />
 ```
 
-### EventsFeed props
-
-| Prop | Type | Default | Description |
-|---|---|---|---|
-| `client` | `ActivityApiClient` | Required | API client instance |
-| `initialFilters` | `EventsFeedFilters` | `{}` | Starting filter state |
-| `initialTimeRange` | `TimeRange` | `{ start: 'now-24h' }` | Starting time range |
-| `namespace` | `string` | — | Scope to a specific namespace |
-| `showFilters` | `boolean` | `true` | Show or hide filter bar |
-| `hiddenFilters` | `Array<'involvedKinds' \| 'reasons' \| 'namespaces' \| 'sourceComponents' \| 'involvedName' \| 'eventType'>` | `[]` | Filter fields to hide from UI |
-| `compact` | `boolean` | `false` | Reduced padding |
-| `enableStreaming` | `boolean` | `false` | Stream new events in real time |
-| `onEventClick` | `(event: K8sEvent) => void` | — | Called when user clicks an event |
-| `onResourceClick` | `(resource) => void` | — | Called when user clicks a resource name |
-| `onFiltersChange` | `(filters, timeRange) => void` | — | Called on filter or time range changes |
-| `errorFormatter` | `ErrorFormatter` | — | Override error message formatting |
-| `className` | `string` | `''` | Additional CSS class |
-
-> Only the most commonly used props are shown. See the TypeScript declarations for the full list of available props.
+Explore available props via TypeScript autocompletion in your editor, or see the [TypeScript declarations](https://www.npmjs.com/package/@datum-cloud/activity-ui) for the full list.
 
 ## ActivityPolicy editor
 
-`PolicyEditor` is a full create/edit interface for ActivityPolicy resources. It includes a rule list editor with Monaco-powered CEL expressions, a live preview panel for testing rules against sample inputs, and validation against the API server.
+`PolicyEditor` is the right component for a policy management section of your admin UI. It gives operators a full create/edit interface for ActivityPolicy resources, including a rule list editor with Monaco-powered CEL expressions, a live preview panel for testing rules against sample inputs, and validation against the API server.
 
 ```tsx
 import { PolicyEditor } from '@datum-cloud/activity-ui';
@@ -355,17 +295,7 @@ function EditPolicyPage({ policyName }) {
 }
 ```
 
-### PolicyEditor props
-
-| Prop | Type | Default | Description |
-|---|---|---|---|
-| `client` | `ActivityApiClient` | Required | API client instance |
-| `policyName` | `string` | — | Name of existing policy to edit; omit to create new |
-| `onSaveSuccess` | `(policyName: string) => void` | — | Called after a successful save or delete |
-| `onCancel` | `() => void` | — | Called when the user clicks Cancel |
-| `onResourceClick` | `(resource: ResourceRef) => void` | — | Called when resource links are clicked in the preview |
-| `errorFormatter` | `ErrorFormatter` | — | Override error message formatting |
-| `className` | `string` | `''` | Additional CSS class |
+Explore available props via TypeScript autocompletion in your editor, or see the [TypeScript declarations](https://www.npmjs.com/package/@datum-cloud/activity-ui) for the full list.
 
 ### Policy list
 
@@ -387,7 +317,7 @@ function PoliciesPage() {
 
 ## ReindexJob management
 
-ReindexJobs re-process historical audit logs through updated ActivityPolicy rules. The library provides components for listing, creating, and monitoring jobs.
+When ActivityPolicy rules change, you can re-process historical audit logs to apply the new rules retroactively. The library provides components for listing, creating, and monitoring those ReindexJobs.
 
 ### List jobs with real-time updates
 
@@ -437,20 +367,11 @@ function ReindexPage({ selectedPolicyName }: { selectedPolicyName: string }) {
 }
 ```
 
-### ReindexJobList props
-
-| Prop | Type | Default | Description |
-|---|---|---|---|
-| `client` | `ActivityApiClient` | Required | API client instance |
-| `watch` | `boolean` | `true` | Subscribe to real-time job status updates |
-| `onViewJob` | `(jobName: string) => void` | — | Called when user clicks the view button on a job |
-| `onCreateJob` | `() => void` | — | Called when user clicks Create Job |
-| `errorFormatter` | `ErrorFormatter` | — | Override error message formatting |
-| `className` | `string` | `''` | Additional CSS class |
+Explore available props via TypeScript autocompletion in your editor, or see the [TypeScript declarations](https://www.npmjs.com/package/@datum-cloud/activity-ui) for the full list.
 
 ## URL-based state (deep linking)
 
-`ActivityFeed` and `EventsFeed` expose an `onFiltersChange` callback that fires whenever the user changes filters or the time range. Use this to synchronize filter state into the URL so pages are shareable and browser-history-navigable.
+Users expect to share a URL that brings their colleague to the same filtered view. `ActivityFeed` and `EventsFeed` expose an `onFiltersChange` callback that fires whenever the user changes filters or the time range. Use this to synchronize filter state into the URL so pages are shareable and browser-history-navigable.
 
 ```tsx
 import { useSearchParams } from 'react-router-dom';
@@ -507,7 +428,7 @@ All time range fields accept:
 
 ## Using the hooks directly
 
-If you need custom UI around the data fetching, use the hooks instead of the higher-level components.
+If the built-in components don't fit your layout, you can use the hooks directly and build your own UI around the data. This is useful when you want to integrate activity data into an existing list, table, or custom visualization.
 
 ```tsx
 import { useActivityFeed, ActivityApiClient } from '@datum-cloud/activity-ui';
@@ -575,16 +496,16 @@ const errorFormatter: ErrorFormatter = (error) => {
 
 **Components render but show no data**
 
-Check the browser Network panel for requests to your `baseUrl`. A 401 response means the token is missing or expired. A 403 means the token lacks permission to list activities — contact your control plane administrator to verify RBAC.
+Open the browser Network panel and look for requests to your `baseUrl`. A 401 response means the token is missing or expired. A 403 means the token does not have permission to list activities — check with your control plane administrator to verify the RBAC configuration.
 
 **CORS errors in the browser**
 
-The Activity API server must allow your portal's origin. This is typically configured in the API server's CORS settings or in the reverse proxy in front of it. The library sends `Content-Type: application/json` and `Authorization` headers, both of which must be in the allowed headers list.
+The Activity API server needs to allow your portal's origin. This is typically configured in the API server's CORS settings or in the reverse proxy in front of it. The library sends `Content-Type: application/json` and `Authorization` headers, both of which must be in the allowed headers list.
 
 **The scroll container does not scroll**
 
-`ActivityFeed` and `EventsFeed` require the parent element to have a constrained height. Ensure the parent has `height: 100vh`, `height: 100%` with a constrained ancestor, or a fixed pixel height. A parent with no height constraint will cause the scroll container to expand to content height and never scroll.
+`ActivityFeed` and `EventsFeed` need the parent element to have a constrained height. Make sure the parent has `height: 100vh`, `height: 100%` with a constrained ancestor, or a fixed pixel height. A parent with no height constraint will cause the scroll container to expand to content height and never scroll.
 
 **Monaco editor does not load**
 
-The `PolicyEditor` and `CelEditor` components require `@monaco-editor/react` and `monaco-editor` to be installed as peer dependencies. If you see a blank editor panel, verify these packages are installed and that your bundler can resolve the Monaco web workers. See the [Monaco Editor bundler documentation](https://github.com/microsoft/monaco-editor/blob/main/docs/integrate-esm.md) for webpack and Vite configuration.
+The `PolicyEditor` and `CelEditor` components require `@monaco-editor/react` and `monaco-editor` as peer dependencies. If you see a blank editor panel, verify these packages are installed and that your bundler can resolve the Monaco web workers. The [Monaco Editor bundler documentation](https://github.com/microsoft/monaco-editor/blob/main/docs/integrate-esm.md) covers webpack and Vite configuration.

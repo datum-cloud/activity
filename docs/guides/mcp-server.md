@@ -1,4 +1,4 @@
-# MCP Server Guide
+# Connecting AI Assistants to Your Activity Data
 
 The Activity service includes a built-in MCP (Model Context Protocol) server.
 Once connected, your AI assistant can query your control plane's audit logs, activity
@@ -16,10 +16,9 @@ The assistant uses live data from your control plane to answer.
 
 ## How it works
 
-The MCP server is a subcommand of the `activity` binary. It starts a
-stdio-based MCP server that your AI client connects to as a local process. The
-server holds a Kubernetes client and executes queries against the Activity API
-on the assistant's behalf.
+The MCP server is a subcommand of the `activity` binary. It runs as a local
+process on your machine and connects to your AI assistant. It uses your existing
+credentials to query the Activity API on the assistant's behalf.
 
 No data is sent to any remote service. The MCP server reads from your control plane
 using your existing kubeconfig credentials.
@@ -87,13 +86,7 @@ To point at a specific cluster context:
 }
 ```
 
-### Available flags
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--kubeconfig` | auto-detected | Path to kubeconfig file; uses in-cluster config when running in a pod, otherwise the default kubeconfig location |
-| `--context` | current context | Kubeconfig context to use |
-| `--namespace` | `default` | Namespace for namespaced resources like Activities |
+The `activity mcp` subcommand accepts `--kubeconfig`, `--context`, and `--namespace` flags. Run `activity mcp --help` for the full flag reference.
 
 ## Available tools
 
@@ -102,8 +95,8 @@ selects the right tool automatically based on your question.
 
 ### Audit log tools
 
-Raw audit logs from the Kubernetes control plane. Use these when you need
-precise, low-level details about API calls.
+Detailed records of every API operation — useful when you need the exact details
+of what was called, by whom, and what the response was.
 
 | Tool | What it does |
 |------|-------------|
@@ -123,8 +116,8 @@ proxy api-gateway".
 
 ### Investigation tools
 
-Higher-level tools built on top of audit logs and activities, designed for
-specific investigation patterns.
+Higher-level tools designed for specific investigation patterns, built on top
+of audit logs and activities.
 
 | Tool | What it does |
 |------|-------------|
@@ -255,10 +248,8 @@ kubectl get activities --context your-context
 
 **Permission denied errors in tool responses**
 
-Your kubeconfig credentials lack access to Activity API resources. The
-required resource verbs are `create` on `auditlogqueries`,
-`auditlogfacetsqueries`, `activityqueries`, `activityfacetqueries`,
-`eventqueries`, and `eventfacetqueries`.
+Your credentials need permission to query Activity resources. Ask your
+administrator to verify access.
 
 **The assistant doesn't use the Activity tools**
 

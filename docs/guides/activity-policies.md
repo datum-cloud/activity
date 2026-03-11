@@ -1,25 +1,28 @@
-# Authoring ActivityPolicy Resources
+# Writing Activity Policies
 
-ActivityPolicy is the configuration resource that tells the activity system how
-to translate raw audit logs and Kubernetes events into the human-readable
-summaries that appear in activity feeds. Without policies, audit logs and events
-pass through the pipeline but produce no Activity records. You author one policy
-per resource kind.
+When something happens in your control plane — a resource is created, a
+controller reports an error, a configuration change is applied — the activity
+system can describe it in plain language. ActivityPolicy is how you teach it
+what to say.
+
+Without policies, audit logs and events flow through the system but produce no
+Activity records. You write one policy per resource kind, and from that point
+on the system knows how to translate raw events into summaries that appear in
+activity feeds.
 
 This guide walks you through writing policies from scratch, understanding the
-CEL expressions and template syntax, and testing your work with PolicyPreview
-before deploying.
+CEL (Common Expression Language) expressions and template syntax, and testing
+your work with PolicyPreview before deploying.
 
 ## How ActivityPolicy works
 
-The activity-processor watches for audit logs and Kubernetes events on NATS
-JetStream. For each incoming event, it looks up the ActivityPolicy that matches
-the event's `apiGroup` and `kind`. If a policy exists, the processor evaluates
-each rule in order and stops at the first match. The matched rule's summary
-template is rendered, and the result is stored as an Activity record.
+When an audit log or Kubernetes event arrives, the activity processor looks up
+the ActivityPolicy for that event's `apiGroup` and `kind`. If one exists, it
+evaluates each rule from top to bottom and stops at the first match. That
+rule's summary template is rendered and stored as an Activity record.
 
-If no policy matches, or no rule in the policy matches, no Activity is created
-for that event.
+If no policy matches the event's kind, or the policy exists but no rule
+matches, no Activity is created — the event is dropped silently.
 
 ```
 Audit log arrives
@@ -29,8 +32,8 @@ Audit log arrives
   -> No match -> drop silently
 ```
 
-The same logic applies to Kubernetes events, using the `eventRules` list
-instead.
+The same logic applies to Kubernetes events from controllers, using the
+`eventRules` list instead.
 
 ## Policy anatomy
 
@@ -38,7 +41,7 @@ instead.
 apiVersion: activity.miloapis.com/v1alpha1
 kind: ActivityPolicy
 metadata:
-  name: networking-httpproxy        # Unique cluster-scoped name
+  name: networking-httpproxy        # Unique name, applies to the whole control plane
 spec:
   resource:
     apiGroup: networking.datumapis.com
@@ -71,127 +74,147 @@ spec:
       summary: "{{ link('HTTP proxy ' + event.regarding.name, event.regarding) }} failed: {{ event.note }}"
 ```
 
-### Fields
+`spec.resource` identifies which Kubernetes kind this policy covers.
+`auditRules` match against API operations (create, update, delete). `eventRules`
+match against events emitted by controllers. A policy can have one, the other,
+or both. A policy with neither is valid but produces no activities.
 
-| Field | Required | Description |
-|-------|----------|-------------|
-| `spec.resource.apiGroup` | Yes | API group of the target resource. Use `""` for core resources (Pod, Service, etc.) |
-| `spec.resource.kind` | Yes | Kind of the target resource, exactly as it appears in Kubernetes |
-| `spec.auditRules` | No | Rules that match against audit log entries |
-| `spec.eventRules` | No | Rules that match against Kubernetes events from controllers |
-| `auditRules[].name` | Yes | Unique identifier for the rule within its list. Used as the list map key for strategic merge patching |
-| `auditRules[].description` | No | Human-readable description of what the rule does |
-| `auditRules[].match` | Yes | CEL boolean expression. First matching rule wins |
-| `auditRules[].summary` | Yes | Template string. Use `{{ expression }}` to embed CEL |
-
-A policy can have `auditRules`, `eventRules`, or both. A policy with neither
-field is valid but produces no activities.
+Each rule needs a unique `name` within its list. The name is used to merge
+rules correctly when you update the policy with `kubectl apply` — two rules
+with the same name will silently collide. Choose names that describe the rule's
+intent: `create`, `delete`, `status`, `fallback`.
 
 ## CEL match expressions
 
-`match` must be a CEL expression that returns `true` or `false`. Rules are
-evaluated top to bottom; the first rule where `match` returns `true` is used.
-
-### Audit rule variables
-
-| Variable | Type | Description |
-|----------|------|-------------|
-| `audit` | map | The full audit log entry |
-| `audit.verb` | string | The API verb: `create`, `update`, `patch`, `delete`, `get`, `list`, `watch` |
-| `audit.objectRef` | map | The target resource reference |
-| `audit.objectRef.name` | string | Resource name |
-| `audit.objectRef.namespace` | string | Resource namespace (empty for cluster-scoped) |
-| `audit.objectRef.resource` | string | Plural resource name (e.g., `httpproxies`) |
-| `audit.objectRef.subresource` | string | Subresource, if any (e.g., `status`, `scale`) |
-| `audit.objectRef.apiGroup` | string | API group |
-| `audit.user` | map | The authenticated user |
-| `audit.user.username` | string | Username (e.g., `alice@example.com`, `system:serviceaccount:default:my-sa`) |
-| `audit.responseStatus` | map | HTTP response status from the API server |
-| `audit.responseStatus.code` | number | HTTP status code |
-| `audit.responseObject` | map | The resource as it exists after the request |
-| `audit.requestObject` | map | The resource as submitted in the request |
-| `actor` | string | Convenience: same as `audit.user.username` |
-| `actorRef` | map | Actor reference with `type` and `name` keys, for use with `link()` |
-| `kind` | string | Convenience: extracted from `audit.objectRef.resource` (the plural resource name, e.g., `httpproxies`) |
-
-### Event rule variables
-
-| Variable | Type | Description |
-|----------|------|-------------|
-| `event` | map | The full Kubernetes Event object |
-| `event.reason` | string | Short camelCase reason (e.g., `Programmed`, `FailedScheduling`) |
-| `event.type` | string | `Normal` or `Warning` |
-| `event.note` | string | Human-readable message |
-| `event.regarding` | map | The object this event is about |
-| `event.regarding.name` | string | Object name |
-| `event.regarding.namespace` | string | Object namespace |
-| `event.regarding.apiVersion` | string | Object API version |
-| `event.regarding.kind` | string | Object kind |
-| `event.reportingController` | string | Controller that emitted the event |
-| `actor` | string | Resolved from `event.reportingController`, falling back to `event.source.component` |
-| `actorRef` | map | Actor reference with `type: "controller"` and the controller name. Resolved using the same fallback as `actor`: `reportingController` first, then `source.component` |
+The `match` field must be a CEL expression that returns `true` or `false`.
+Rules are evaluated top to bottom; the first rule where `match` is true is
+used.
 
 ### Common match patterns
 
-Match a specific verb:
+To catch only create operations:
 
 ```cel
 audit.verb == 'create'
 ```
 
-Match multiple verbs:
+To catch updates and patches together:
 
 ```cel
 audit.verb in ['update', 'patch']
 ```
 
-Match a verb and a subresource:
+To match a specific subresource write (useful when controllers update `/status`
+or `/scale`):
 
 ```cel
 audit.verb in ['update', 'patch'] && audit.objectRef.subresource == 'status'
 ```
 
-Exclude subresource writes (main resource only):
+To match only the main resource and ignore subresource writes:
 
 ```cel
 audit.verb in ['update', 'patch'] && !has(audit.objectRef.subresource)
 ```
 
-Match a failed request (non-2xx response):
+To surface failed requests so you can write a distinct summary for errors:
 
 ```cel
 audit.verb == 'create' && audit.responseStatus.code >= 400
 ```
 
-Match an event reason exactly:
+To match a specific controller event reason:
 
 ```cel
 event.reason == 'Programmed'
 ```
 
-Match an event reason by prefix:
+To match event reasons by prefix (controllers often prefix failures with
+`Failed`):
 
 ```cel
 event.reason.startsWith('Failed')
 ```
 
-Match warning events only:
+To match only warning events:
 
 ```cel
 event.type == 'Warning'
 ```
 
-Fallback rule that matches everything:
+To write a fallback rule that catches everything not already matched:
 
 ```cel
 true
 ```
 
+### Audit rule variables
+
+You don't need to memorize these — start with the examples above and refer
+back here when you need a specific field.
+
+**Who did it**
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `actor` | string | Convenience shorthand for `audit.user.username` |
+| `actorRef` | map | Actor reference with `type` and `name` keys, for use with `link()` |
+| `audit.user.username` | string | Username (e.g., `alice@example.com`, `system:serviceaccount:default:my-sa`) |
+
+**What was affected**
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `audit.objectRef.name` | string | Resource name |
+| `audit.objectRef.namespace` | string | Resource namespace (empty for cluster-scoped resources) |
+| `audit.objectRef.subresource` | string | Subresource, if any (e.g., `status`, `scale`) |
+| `kind` | string | Convenience: extracted from `audit.objectRef.resource` (plural resource name, e.g., `httpproxies`). Useful in match expressions but usually too technical for summary text — prefer string literals like `'HTTP proxy '` in summaries. |
+
+**What happened**
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `audit.verb` | string | The API verb: `create`, `update`, `patch`, `delete`, `get`, `list`, `watch` |
+| `audit.responseStatus.code` | number | HTTP status code |
+| `audit.responseObject` | map | The resource as it exists after the request |
+
+For the full list of available fields, see the [API reference](../api.md).
+
+### Event rule variables
+
+You don't need to memorize these — start with the examples above and refer
+back here when you need a specific field.
+
+**Who did it**
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `actor` | string | Resolved from `event.reportingController`, falling back to `event.source.component` |
+| `actorRef` | map | Actor reference with `type: "controller"` and the controller name |
+
+**What was affected**
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `event.regarding.name` | string | Object name |
+| `event.regarding.namespace` | string | Object namespace |
+
+**What happened**
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `event.reason` | string | Short camelCase reason (e.g., `Programmed`, `FailedScheduling`) |
+| `event.type` | string | `Normal` or `Warning` |
+| `event.note` | string | Human-readable message |
+
+For the full list of available fields, see the [API reference](../api.md).
+
 ## Summary templates
 
-`summary` is a string that may contain one or more `{{ expression }}` blocks.
-Each block must be a CEL expression that returns a string. The text between
-blocks is included as-is.
+Summaries are the text your users actually see in the activity feed. The
+`summary` field is a string that may contain one or more `{{ expression }}`
+blocks. Each block must be a CEL expression that returns a string. The text
+between blocks is included as-is.
 
 ### Available functions
 
@@ -235,11 +258,6 @@ String concatenation uses `+`:
 ```
 {{ 'HTTP proxy ' + audit.objectRef.name }}
 ```
-
-The `kind` variable (audit rules only) holds the plural API resource name from
-`audit.objectRef.resource` — for example, `httpproxies`, not `HTTPProxy`. It is
-convenient for match expressions but is usually too technical for user-facing
-summary text. Prefer string literals like `'HTTP proxy '` in summaries.
 
 ### Multiple template blocks in one summary
 
@@ -320,10 +338,10 @@ eventRules:
 
 ### Combining audit and event rules
 
-A single policy can handle both audit logs (who changed the resource) and events
-(what the controller observed). They are evaluated independently — an incoming
-audit log only matches `auditRules`, an incoming Kubernetes event only matches
-`eventRules`:
+A single policy can handle both audit logs (who changed the resource) and
+events (what the controller observed). They are evaluated independently — an
+incoming audit log only matches `auditRules`, an incoming Kubernetes event only
+matches `eventRules`:
 
 ```yaml
 apiVersion: activity.miloapis.com/v1alpha1
@@ -369,17 +387,17 @@ spec:
 
 ## Testing with PolicyPreview
 
-Before applying a policy to the control plane, use PolicyPreview to verify that your
-CEL expressions compile, your rules match the right inputs, and your summaries
-render correctly. PolicyPreview is an ephemeral resource — you create it and the
-API server evaluates it immediately, returning results in the response. Nothing
-is stored.
+Before applying a policy to the control plane, use PolicyPreview to verify that
+your CEL expressions compile, your rules match the right inputs, and your
+summaries render correctly. PolicyPreview is an ephemeral resource — you create
+it and the API server evaluates it immediately, returning results in the
+response. Nothing is stored.
 
 ### Manual inputs
 
-Supply sample audit logs or events that represent real traffic for your resource.
-Copy these from actual audit log data or construct them to match the cases your
-rules need to handle:
+Supply sample audit logs or events that represent real traffic for your
+resource. Copy these from actual audit log data or construct them to match the
+cases your rules need to handle:
 
 ```yaml
 apiVersion: activity.miloapis.com/v1alpha1
@@ -502,8 +520,8 @@ expression and re-run the preview.
 
 ## Deploying a policy
 
-ActivityPolicy is a cluster-scoped resource. Apply it like any other Kubernetes
-resource:
+ActivityPolicy applies to the whole control plane, not a specific namespace.
+Apply it like any other Kubernetes resource:
 
 ```bash
 kubectl apply -f my-policy.yaml
@@ -532,9 +550,12 @@ If compilation fails, the `Ready` condition will be `False` with a message
 identifying which expression is invalid. The processor will not use a policy
 that has not reached `Ready: True`.
 
-## Tips and gotchas
+## Things to watch out for
 
-**Each rule must have a unique `name` within its list (`auditRules` or `eventRules`).** Names are the list map key for strategic merge patching. If two rules share a name, one will silently overwrite the other during `kubectl apply`. Choose names that describe the rule's intent, such as `create`, `delete`, `status`, `fallback`.
+**Each rule must have a unique `name` within its list (`auditRules` or `eventRules`).** Names are how rules merge correctly when you update the policy
+with `kubectl apply`. If two rules share a name, one will silently overwrite the
+other. Choose names that describe the rule's intent: `create`, `delete`,
+`status`, `fallback`.
 
 **Rules are evaluated in order; order matters.** Put specific rules before
 general ones. A `true` fallback must be last or it will shadow everything below
@@ -571,14 +592,16 @@ to the main resource:
 audit.verb in ['update', 'patch'] && !has(audit.objectRef.subresource)
 ```
 
-**If a summary fails to evaluate at runtime, the event is published to the
-dead-letter queue (DLQ) and acknowledged. It will not be retried automatically.**
-Persistent failures can be inspected with the DLQ runbooks. Use PolicyPreview to
-catch errors before they reach production.
+**If a summary fails to evaluate at runtime, the failed message is acknowledged
+and will not be retried automatically.** Use PolicyPreview to catch errors
+before they reach production. Persistent failures can be investigated with the
+DLQ runbooks.
 
 **One policy per resource kind.** The processor matches on `(apiGroup, kind)`.
 If you create two policies for the same kind, the behavior is undefined. Name
 your policies with a consistent convention such as `{apigroup-slug}-{kind-lowercase}`.
+
+For the complete field reference, see the [API reference](../api.md).
 
 ## Related documentation
 

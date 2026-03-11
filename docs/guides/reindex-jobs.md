@@ -1,14 +1,15 @@
-# Reindexing Historical Activity
+# Backfilling Activity from Historical Data
 
-Activities are generated from audit logs and Kubernetes events as they happen.
-When you create or update an ActivityPolicy, only events that arrive *after*
-that change get translated. Events that already occurred are not retroactively
-processed — they sit in storage, but no activities exist for them yet.
+You wrote a new policy, but your activity feed only shows new events. What about
+everything that happened before? Activities are generated from audit logs and
+Kubernetes events as they happen — when you create or update an ActivityPolicy,
+only events that arrive *after* that change get translated. Events that already
+occurred are not retroactively processed.
 
 A **ReindexJob** fixes this. It replays historical audit logs and events through
-your current ActivityPolicy rules and writes the resulting activities to
-ClickHouse. When the job finishes, your activity feed reflects the full history
-for the policies and time range you specified.
+your current ActivityPolicy rules and writes the resulting activities. When the
+job finishes, your activity feed reflects the full history for the policies and
+time range you specified.
 
 ## When to use a ReindexJob
 
@@ -25,14 +26,10 @@ that was never translated.
 
 ## How reindexing works
 
-When you create a ReindexJob, the controller:
-
-1. Schedules a worker pod that reads audit logs and events from ClickHouse for
-   your specified time range.
-2. Evaluates each event against the ActivityPolicy rules you selected (or all
-   active policies if you did not specify any).
-3. Writes new Activity records back to ClickHouse for every event that matched
-   a policy rule.
+When you create a ReindexJob, the system reads through your stored audit logs
+and events for the specified time range, applies your current ActivityPolicy
+rules, and writes the resulting activities. When it is done, your feed includes
+the full history for the policies and time range you selected.
 
 The job runs once and cannot be re-run. To re-process the same time range
 again, create a new ReindexJob.
@@ -61,8 +58,8 @@ kubectl apply -f reindexjob.yaml
 
 ### Targeting a specific policy
 
-If you only updated one policy, scope the job to that policy to avoid
-reprocessing events against policies that have not changed:
+If you only updated one policy, you can target that policy to keep things
+focused:
 
 ```yaml
 apiVersion: activity.miloapis.com/v1alpha1
@@ -109,17 +106,17 @@ spec:
 
 | Format | Example | Notes |
 |--------|---------|-------|
-| Relative | `now-7d` | Resolved when the worker starts, not when you apply the resource |
+| Relative | `now-7d` | Resolved when processing starts, not when you apply the resource |
 | Relative | `now-2h` | Units: `s`, `m`, `h`, `d`, `w` |
 | Absolute | `2026-02-01T00:00:00Z` | RFC3339, UTC or with offset |
 | Absolute | `2026-02-01T00:00:00-08:00` | RFC3339 with timezone offset |
 
-`endTime` defaults to `"now"` (the moment the worker starts) if omitted.
+`endTime` defaults to `"now"` (the moment processing starts) if omitted.
 
 The maximum lookback window is 60 days, matching the retention period. This
-limit is enforced when the worker starts processing, not when the job is
-created — so a job that sits in `Pending` for a long time could fail if its
-start time ages past the 60-day window.
+limit is enforced when processing starts, not when the job is created — so a
+job that sits in `Pending` for a long time could fail if its start time ages
+past the 60-day window.
 
 ### Dry run
 
@@ -167,7 +164,7 @@ The `PHASE` column shows the lifecycle state:
 | Phase | Meaning |
 |-------|---------|
 | `Pending` | Waiting for a processing slot (a concurrency limit is in effect) |
-| `Running` | Worker pod is active and processing events |
+| `Running` | Processing events |
 | `Succeeded` | All events processed successfully |
 | `Failed` | Processing stopped due to an error |
 
@@ -179,7 +176,7 @@ kubectl get reindexjob backfill-last-7-days -o yaml
 
 The `status` section includes:
 
-Shortly after creation, before the worker has started:
+Shortly after creation, before processing has started:
 
 ```yaml
 status:
@@ -192,7 +189,7 @@ status:
       message: "Waiting for processing slot"
 ```
 
-Once the worker is active:
+Once processing is underway:
 
 ```yaml
 status:
@@ -231,10 +228,7 @@ kubectl get reindexjob backfill-last-7-days
 # backfill-last-7-days    Succeeded   12m
 ```
 
-You can then query for the newly generated activities using an ActivityQuery.
-Activity is a read-only, ClickHouse-backed type that does not support
-field selectors, so use the ActivityQuery API to filter by time range,
-policy, or other criteria.
+You can then query for the newly generated activities using the Activity API.
 
 ## What happens when it fails
 
@@ -246,9 +240,9 @@ kubectl get reindexjob backfill-last-7-days -o jsonpath='{.status.message}'
 
 Common causes:
 
-- The time range extends beyond the 60-day ClickHouse retention window
+- The time range extends beyond the 60-day retention window
 - A policy named in `policySelector.names` does not exist
-- The worker pod was evicted due to resource pressure
+- Processing was interrupted due to resource pressure
 
 Failed jobs are not retried automatically. Create a new ReindexJob to try
 again, adjusting the spec to address the root cause.
@@ -269,18 +263,7 @@ audit logs only by using `policySelector` to select policies that only have
 `auditRules` (no `eventRules`). This avoids reprocessing Kubernetes Events
 entirely.
 
-## Reference: spec fields
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `spec.timeRange.startTime` | string | Yes | Start of the window to reindex. Relative (`now-7d`) or absolute (RFC3339). Maximum lookback: 60 days. |
-| `spec.timeRange.endTime` | string | No | End of the window. Defaults to `"now"` at job start time. |
-| `spec.policySelector.names` | string[] | No | Reindex against these ActivityPolicy names only. Mutually exclusive with `matchLabels`. |
-| `spec.policySelector.matchLabels` | map | No | Select policies by label. Mutually exclusive with `names`. |
-| `spec.config.batchSize` | integer | No | Events per batch. Default: 1000. Range: 100–10000. Larger batches process faster but use more memory. |
-| `spec.config.rateLimit` | integer | No | Maximum events per second. Default: 100. Range: 10–1000. |
-| `spec.config.dryRun` | boolean | No | When true, processes events and reports progress without writing activities. Default: false. |
-| `spec.ttlSecondsAfterFinished` | integer | No | Seconds to retain the job resource after it finishes. If unset, retained indefinitely. |
+For the complete field reference, see the [API reference](../api.md).
 
 ## Related documentation
 
