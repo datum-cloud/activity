@@ -8,7 +8,12 @@ import (
 )
 
 func main() {
-	rootCmd := cmd.NewActivityCommand(cmd.ActivityCommandOptions{})
+	rootCmd := cmd.NewActivityCommand(cmd.ActivityCommandOptions{
+		// Enable admin commands (policy preview, reindex management) in the
+		// default kubectl plugin binary. Consumer CLIs that embed this package
+		// can omit this flag to expose only end-user query capabilities.
+		EnableAdminCommands: true,
+	})
 	rootCmd.Use = "kubectl-activity"
 
 	if err := rootCmd.Execute(); err != nil {

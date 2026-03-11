@@ -6,9 +6,12 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/kubectl/pkg/cmd/util"
+
+	"go.miloapis.com/activity/pkg/cmd/policy"
+	"go.miloapis.com/activity/pkg/cmd/reindexjob"
 )
 
-// ActivityCommandOptions contains options for creating the activity command
+// ActivityCommandOptions contains options for creating the activity command.
 type ActivityCommandOptions struct {
 	// Factory is the kubectl factory to use for building clients.
 	// If nil, a default factory will be created.
@@ -22,6 +25,15 @@ type ActivityCommandOptions struct {
 	// If nil and Factory is nil, default ConfigFlags will be created.
 	// This field is ignored if Factory is provided.
 	ConfigFlags *genericclioptions.ConfigFlags
+
+	// EnableAdminCommands controls whether administrative commands are registered.
+	// When true, the following subcommands are added:
+	//   - policy  (ActivityPolicy management: preview)
+	//   - reindex (ReindexJob management: create, list, status, delete)
+	//
+	// Set this to true in CLIs that target cluster administrators. Consumer CLIs
+	// that only expose end-user query capabilities should leave this false.
+	EnableAdminCommands bool
 }
 
 // NewActivityCommand creates the root command for the activity CLI
@@ -59,15 +71,55 @@ func NewActivityCommand(opts ActivityCommandOptions) *cobra.Command {
 		f = util.NewFactory(matchVersionKubeConfigFlags)
 	}
 
-	cmd := &cobra.Command{
-		Use:   "activity",
-		Short: "Query control plane audit logs",
-		Long: `The activity plugin provides commands to query and analyze audit logs
-stored in your control plane's activity API server.
+	longDesc := `The activity plugin provides commands to query and analyze audit logs, events,
+and human-readable activity summaries from your control plane.
 
-Use this tool to investigate incidents, track resource changes, generate compliance
-reports, or analyze user activity.`,
-		SilenceUsage: true,
+Use this tool to investigate incidents, track resource changes, monitor live
+activity, generate compliance reports, or develop ActivityPolicy rules.
+
+Available Commands:
+  audit    - Query audit logs from the control plane
+  events   - Query Kubernetes events with extended retention
+  feed     - Query human-readable activity summaries
+  history  - View resource change history with diffs`
+
+	if opts.EnableAdminCommands {
+		longDesc += `
+  policy   - Policy management commands (preview, etc.)
+  reindex  - Manage ReindexJob resources`
+	}
+
+	longDesc += `
+
+Examples:
+  # Recent audit activity
+  kubectl activity audit --start-time "now-7d"
+
+  # Warning events in the last week
+  kubectl activity events --type Warning --start-time "now-7d"
+
+  # Human-initiated changes
+  kubectl activity feed --change-source human
+
+  # Resource change history with diffs
+  kubectl activity history deployments my-app -n default --diff`
+
+	if opts.EnableAdminCommands {
+		longDesc += `
+
+  # Test a policy before deploying
+  kubectl activity policy preview -f my-policy.yaml --input samples.yaml
+
+  # Reindex the last 7 days
+  kubectl activity reindex create --start-time now-7d`
+	}
+
+	cmd := &cobra.Command{
+		Use:          "activity",
+		Short:        "Query audit logs, events, and activity feeds",
+		Long:         longDesc,
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
 
 	// Add global kubeconfig flags to root command if we created them
@@ -76,9 +128,17 @@ reports, or analyze user activity.`,
 		kubeConfigFlags.AddFlags(cmd.PersistentFlags())
 	}
 
-	// Add subcommands
-	cmd.AddCommand(NewQueryCommand(f, ioStreams))
+	// Add core subcommands (always registered)
+	cmd.AddCommand(NewAuditCommand(f, ioStreams))
+	cmd.AddCommand(NewEventsCommand(f, ioStreams))
+	cmd.AddCommand(NewFeedCommand(f, ioStreams))
 	cmd.AddCommand(NewHistoryCommand(f, ioStreams))
+
+	// Add administrative subcommands when opted-in
+	if opts.EnableAdminCommands {
+		cmd.AddCommand(policy.NewPolicyCommand(f, ioStreams))
+		cmd.AddCommand(reindexjob.NewReindexJobCommand(f, ioStreams))
+	}
 
 	return cmd
 }
