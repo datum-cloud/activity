@@ -1056,7 +1056,7 @@
             "type": "prometheus",
             "uid": "$datasource"
          },
-         "description": "DLQ events exceeding the high retry threshold in the last hour",
+         "description": "Current number of messages in the DLQ stream",
          "fieldConfig": {
             "defaults": {
                "thresholds": {
@@ -1066,8 +1066,12 @@
                         "value": null
                      },
                      {
+                        "color": "yellow",
+                        "value": 100
+                     },
+                     {
                         "color": "red",
-                        "value": 1
+                        "value": 1000
                      }
                   ]
                },
@@ -1083,7 +1087,7 @@
          "id": 24,
          "options": {
             "colorMode": "background",
-            "graphMode": "area",
+            "graphMode": "none",
             "reduceOptions": {
                "calcs": [
                   "lastNotNull"
@@ -1097,11 +1101,11 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(increase(activity_processor_dlq_retry_events_high_retry_total[1h])) or vector(0)",
-               "legendFormat": "Events"
+               "expr": "max(nats_stream_total_messages{stream_name=\"ACTIVITY_DEAD_LETTER\"})",
+               "legendFormat": "Messages"
             }
          ],
-         "title": "High Retry Events",
+         "title": "DLQ Backlog",
          "type": "stat"
       },
       {
@@ -1317,6 +1321,54 @@
             }
          ],
          "title": "DLQ Publish Latency",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+         },
+         "description": "Number of messages in the ACTIVITY_DEAD_LETTER stream over time",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10,
+                  "lineWidth": 2,
+                  "showPoints": "never"
+               },
+               "unit": "short"
+            }
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 73
+         },
+         "id": 29,
+         "options": {
+            "legend": {
+               "calcs": [
+                  "lastNotNull",
+                  "mean"
+               ],
+               "displayMode": "table",
+               "placement": "bottom",
+               "showLegend": true
+            }
+         },
+         "pluginVersion": "v11.4.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "max(nats_stream_total_messages{stream_name=\"ACTIVITY_DEAD_LETTER\"})",
+               "legendFormat": "Messages"
+            }
+         ],
+         "title": "DLQ Backlog Over Time",
          "type": "timeseries"
       }
    ],
