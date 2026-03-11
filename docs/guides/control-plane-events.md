@@ -2,91 +2,89 @@
 
 Control plane events are structured observations recorded by the platform as it manages your resources. Every time a controller schedules a workload, binds storage, updates networking, or encounters an error, it records an event. These events capture not just what changed, but the context around why — which component acted, which resources were involved, and whether the action succeeded or failed.
 
-The Activity system collects these events and retains them for up to 60 days, making them searchable and filterable long after the default 24-hour window expires. Events are the raw signal that feeds the [Activity timeline](./activity-policies.md), which translates them into human-readable summaries.
+The Activity system collects these events and retains them for up to 60 days, making them searchable and filterable long after the default 24-hour window expires.
 
 ---
 
-## How events are structured
+## Why events matter
 
-Every event has a **type** (`Normal` or `Warning`), a **reason** describing what happened (like `Scheduled` or `FailedMount`), and a **note** with additional detail. Events also carry two resource references that describe which resources were involved.
+Events are the primary way to understand what the control plane is doing on your behalf. They answer questions like:
 
-### The primary subject: `regarding`
+- Why didn't my Pod start?
+- When was this Deployment last scaled?
+- Which controller is producing warnings in this namespace?
+- What changed right before this service started failing?
 
-Every event has a `regarding` field that identifies the resource the event is about — the Pod that was scheduled, the Deployment that was scaled, or the certificate that failed to renew. This is the most common way to find events: filter by the resource you're investigating.
+Events also feed the [Activity timeline](./activity-policies.md), which translates raw events into human-readable summaries like "Pod web-frontend scheduled on node-1" or "Deployment api-server scaled to 5 replicas."
 
-### The secondary object: `related`
+---
 
-Some events involve a second resource. When a Pod is scheduled, the scheduler records which Node it was placed on. When a volume is bound, the system records which PersistentVolume was matched. This secondary resource is captured in the `related` field.
+## Anatomy of an event
 
-The `related` field is what makes events useful for cross-resource investigation. Instead of only asking "what happened to this Pod?", you can ask "what happened on this Node?" or "which Pods are connected to this PersistentVolume?"
+Each event carries several fields that describe what happened, to what, and why.
 
-Most events only have `regarding` — the `related` field is populated when there's a genuine second resource involved. That's by design.
+### Type
 
-### Real-world examples
+Events are either `Normal` (expected operations) or `Warning` (something that needs attention). Filtering by type is the fastest way to find problems — Warning events surface scheduling failures, mount errors, resource limits, and other issues that may need investigation.
 
-| What happened | Primary subject (`regarding`) | Secondary object (`related`) |
-|---------------|-------------------------------|------------------------------|
+### Reason
+
+A short camelCase label describing what happened — `Scheduled`, `Pulled`, `FailedMount`, `ScalingReplicaSet`. Reasons are consistent within a controller, making them reliable for filtering and building automation. By convention, error-related reasons are prefixed with `Failed`.
+
+### Note
+
+A human-readable message with specific details about this occurrence. Where `reason` tells you *what* happened, `note` tells you *why* — for example, "0/3 nodes available: 3 Insufficient memory" or "Successfully pulled image nginx:1.25."
+
+### Source
+
+The `source.component` and `source.host` fields identify which controller produced the event and where it was running. This is useful for distinguishing events from different parts of the control plane — the scheduler, kubelet, a custom operator, or a platform controller.
+
+### Resource references
+
+Every event identifies the resources involved:
+
+- **`regarding`** — the primary subject. This is the resource the controller was acting on when it recorded the event. For example, when a Pod is scheduled, `regarding` is the Pod.
+
+- **`related`** (optional) — a secondary resource involved in the same action. When a Pod is placed on a specific Node, `related` is the Node. When a volume claim is bound, `related` is the PersistentVolume that was matched. Most events only have `regarding` — `related` is populated when there's a genuine second resource involved.
+
+| What happened | Primary subject | Secondary object |
+|---------------|-----------------|------------------|
 | Pod scheduled | Pod | Node it was placed on |
 | Volume bound | PersistentVolumeClaim | PersistentVolume it was matched to |
 | Endpoint slice updated | EndpointSlice | Service that triggered the change |
 | HPA scaled a deployment | Deployment | HorizontalPodAutoscaler that triggered it |
-| Controller loaded config | Custom resource | ConfigMap it read from |
 
 ---
 
 ## For service consumers
 
-As a platform user, control plane events help you understand what's happening in your environment and investigate issues.
+As a platform user, events give you visibility into what the control plane is doing in your environment.
 
-### Finding events for a resource
+**Investigating issues** — when something goes wrong, events are usually the first place to look. Filter by Warning type to find errors, by reason to find specific failure modes, or by the resource you're investigating.
 
-The most common pattern is looking at events for a specific resource or resource type. You can filter by the primary subject (`regarding`) to see everything that happened to a particular Pod, Deployment, or any other resource.
+**Understanding resource behavior** — events show the full lifecycle of a resource: creation, scheduling, configuration, scaling, and errors. Looking at the event stream for a specific resource tells you exactly what happened and in what order.
 
-### Investigating cross-resource relationships
+**Cross-resource investigation** — the `related` field connects events across resources. Instead of only asking "what happened to this Pod?", you can ask "what happened involving this Node?" to see every Pod that was scheduled there, every volume attached, and every issue encountered. This is particularly useful when investigating infrastructure-level problems that affect multiple workloads.
 
-The `related` field enables a different kind of investigation. Instead of starting from the resource that had a problem, you can start from the resource that *caused* it:
+**Building dashboards and filters** — the Activity system provides faceted search to power filter dropdowns with the distinct values and counts for fields like event type, reason, resource kind, namespace, and source component.
 
-- **Node issues** — find all events where a specific Node was the related object, revealing every Pod scheduling decision and volume attachment that involved that Node
-- **Storage problems** — find events where a PersistentVolume was the related object, showing which claims were bound to it and any attachment failures
-- **Autoscaling** — find events related to a HorizontalPodAutoscaler, showing which Deployments it scaled and when
-
-### Filtering and facets
-
-Events can be filtered by type, reason, source component, and both `regarding` and `related` fields. The Activity system also provides faceted search — distinct values with counts — for building filter dropdowns and understanding the distribution of events in your environment.
-
-If a filter on `related` fields returns no results, that's normal. It means the controllers in your environment aren't populating the `related` field for those events. See the service provider section below for guidance.
-
-For detailed query syntax, field selector reference, and API examples, see the [API Reference](../api.md).
+For query syntax and API examples, see the [API Reference](../api.md).
 
 ---
 
 ## For service providers
 
-As a team building control plane components, the events you emit are a primary source of visibility for the platform users who depend on your service. Well-structured events make debugging easier and enable richer Activity timeline summaries.
+As a team building control plane components, the events you produce are a primary source of visibility for the users who depend on your service.
 
-### Populating `regarding` and `related`
+**Choose clear reasons** — the `reason` field is the most important filter dimension. Use consistent, descriptive camelCase values. `Programmed` is better than `Updated`. `FailedScheduling` is better than `Failed`. Once published, a reason string becomes part of your interface — changing it breaks any ActivityPolicy rules or automation that matches on it.
 
-Every event should have `regarding` set to the resource your controller was reconciling. The question for `related` is: **"Would someone debugging this event want to navigate directly to a second resource?"** If yes, set `related`.
+**Write useful notes** — the `note` field should include the specific details someone needs to understand this occurrence. Include resource names, error messages, and relevant quantities. "Scaled to 5 replicas" is more useful than "Scaling complete."
 
-**Good uses of `related`:**
-- A scheduler placing a Pod on a Node — `related` points to the Node
-- A controller loading configuration from a ConfigMap — `related` points to the ConfigMap
-- A volume controller binding a claim to a volume — `related` points to the PersistentVolume
+**Set `related` when it helps debugging** — ask yourself: "Would someone debugging this event want to navigate directly to a second resource?" If yes, populate `related` with that resource. If not, leave it empty. Don't use `related` for the controller's own Pod, for owner references that are already queryable, or for tangentially connected resources.
 
-**Avoid using `related` for:**
-- The controller's own Pod or ServiceAccount — this is noise
-- The owning resource when `regarding` is already a child — ownership is queryable separately
-- Resources only tangentially connected to the event
+**Use `events.k8s.io/v1`** — use the newer Events API, not the legacy `v1.Event`. The newer format supports `regarding`, `related`, microsecond-precision timestamps, and event series for deduplication.
 
-### Choosing meaningful reasons
-
-The `reason` field is a short camelCase string (like `Scheduled`, `FailedMount`, or `Programmed`) that becomes the primary filter dimension for event queries. Keep reasons consistent across your controller — a change to a reason string is a breaking change for any ActivityPolicy that matches it. Use descriptive, specific values (`FailedScheduling` over `Failed`), and prefix error states with `Failed` by convention.
-
-### Surfacing events in the Activity timeline
-
-ActivityPolicy resources define how raw events are translated into human-readable activity summaries. When an event carries a `related` field, policies can produce richer summaries that mention both resources — for example, "Pod web-frontend scheduled on node-1" instead of just "Pod web-frontend was scheduled."
-
-For details on writing ActivityPolicy event rules, including how to safely access the optional `related` field in CEL expressions, see [Authoring ActivityPolicy Resources](./activity-policies.md).
+**Surface events in the Activity timeline** — [ActivityPolicy](./activity-policies.md) resources define how raw events are translated into human-readable summaries. When events carry well-structured fields — meaningful reasons, clear notes, and `related` references where appropriate — the resulting activity summaries are significantly more useful.
 
 ---
 
