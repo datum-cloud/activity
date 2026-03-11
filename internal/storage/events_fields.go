@@ -22,6 +22,12 @@ var EventsFieldSelectors = map[string]string{
 	"regarding.uid":        "regarding_uid",
 	"regarding.fieldPath":  "regarding_field_path",
 
+	// Related object fields (optional secondary object in events.k8s.io/v1)
+	"related.apiVersion": "related_api_version",
+	"related.kind":       "related_kind",
+	"related.namespace":  "related_namespace",
+	"related.name":       "related_name",
+
 	// Event classification
 	"reason": "reason",
 	"type":   "type",

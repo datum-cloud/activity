@@ -99,6 +99,13 @@ func (b *ClickHouseEventsBackend) queryEventFacet(ctx context.Context, facet Fac
 		args = append(args, endTime)
 	}
 
+	// For related_* columns, exclude rows where the related object is absent.
+	// These MATERIALIZED columns default to '' when the related field is not set,
+	// which would produce a meaningless empty-string bucket in facet results.
+	if strings.HasPrefix(facet.Field, "related.") {
+		conditions = append(conditions, fmt.Sprintf("%s != ''", column))
+	}
+
 	// Build query against the events table
 	query := fmt.Sprintf("SELECT %s, COUNT(*) as count FROM %s.%s", column, b.config.Database, "k8s_events")
 

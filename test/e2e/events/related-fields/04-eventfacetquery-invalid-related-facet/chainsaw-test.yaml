@@ -1,0 +1,64 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: eventfacetquery-invalid-related-facet
+spec:
+  description: |
+    Verify that EventFacetQuery rejects unsupported related.* facet fields.
+    The supported related.* facets are only related.kind and related.namespace.
+    High-cardinality fields (related.name) and fields not tracked for faceting
+    (related.apiVersion) are not supported and must be rejected with an error.
+  steps:
+  - name: reject-related-name-facet
+    try:
+    - create:
+        resource:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: EventFacetQuery
+          metadata:
+            name: test-related-name-facet
+          spec:
+            timeRange:
+              start: "now-7d"
+            facets:
+            - field: related.name
+              limit: 10
+        expect:
+        - check:
+            ($error != null): true
+
+  - name: reject-related-apiversion-facet
+    try:
+    - create:
+        resource:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: EventFacetQuery
+          metadata:
+            name: test-related-apiversion-facet
+          spec:
+            timeRange:
+              start: "now-7d"
+            facets:
+            - field: related.apiVersion
+              limit: 10
+        expect:
+        - check:
+            ($error != null): true
+
+  - name: reject-related-unsupported-facet
+    try:
+    - create:
+        resource:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: EventFacetQuery
+          metadata:
+            name: test-related-unsupported-facet
+          spec:
+            timeRange:
+              start: "now-7d"
+            facets:
+            - field: related.unsupported
+              limit: 10
+        expect:
+        - check:
+            ($error != null): true

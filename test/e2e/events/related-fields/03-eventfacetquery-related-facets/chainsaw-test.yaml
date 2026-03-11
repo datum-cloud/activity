@@ -1,0 +1,315 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: eventfacetquery-related-facets
+spec:
+  description: |
+    Create events with related fields set, wait for ClickHouse ingestion, then
+    query facets and verify the related kind and namespace values appear in
+    the facet results.
+
+    Two events with different related.kind values (Node and ConfigMap) are
+    created to make facet results verifiable.
+
+    Pipeline latency: kubectl create -> k8s-event-exporter -> NATS -> Vector
+    (10s batch flush) -> ClickHouse. Worst-case ~20s. Queries retry for up to
+    45 seconds before failing.
+  steps:
+  - name: create-events-and-verify-related-kind-facet
+    try:
+    - script:
+        timeout: 60s
+        content: |
+          set -e
+
+          SUFFIX=$(date +%s)
+          NAMESPACE="${NAMESPACE:-default}"
+          EVENT_TIME="$(date -u +"%Y-%m-%dT%H:%M:%S.000000Z")"
+
+          echo "Creating two test events with different related.kind values (suffix: ${SUFFIX})"
+
+          # Event 1: related to a Node
+          kubectl create -f - <<EOF
+          apiVersion: events.k8s.io/v1
+          kind: Event
+          metadata:
+            name: test-facet-node-event-${SUFFIX}
+            namespace: ${NAMESPACE}
+          eventTime: "${EVENT_TIME}"
+          regarding:
+            kind: Pod
+            name: test-pod-facet-${SUFFIX}
+            namespace: ${NAMESPACE}
+            apiVersion: v1
+          related:
+            kind: Node
+            name: test-node-facet-${SUFFIX}
+            namespace: ""
+            apiVersion: v1
+          reportingController: chainsaw-test
+          reportingInstance: chainsaw-test-instance
+          reason: TestFacetNode${SUFFIX}
+          action: Testing
+          note: "Chainsaw e2e test for related.kind facet - Node"
+          type: Normal
+          EOF
+
+          # Event 2: related to a ConfigMap
+          kubectl create -f - <<EOF
+          apiVersion: events.k8s.io/v1
+          kind: Event
+          metadata:
+            name: test-facet-cm-event-${SUFFIX}
+            namespace: ${NAMESPACE}
+          eventTime: "${EVENT_TIME}"
+          regarding:
+            kind: Pod
+            name: test-pod-facet-cm-${SUFFIX}
+            namespace: ${NAMESPACE}
+            apiVersion: v1
+          related:
+            kind: ConfigMap
+            name: test-cm-facet-${SUFFIX}
+            namespace: ${NAMESPACE}
+            apiVersion: v1
+          reportingController: chainsaw-test
+          reportingInstance: chainsaw-test-instance
+          reason: TestFacetCM${SUFFIX}
+          action: Testing
+          note: "Chainsaw e2e test for related.kind facet - ConfigMap"
+          type: Normal
+          EOF
+
+          echo "Both events created. Waiting for ClickHouse ingestion..."
+
+          # Retry loop: query facets every 3 seconds for up to 45 seconds (15 attempts)
+          for i in $(seq 1 15); do
+            RESPONSE=$(kubectl create -o json -f - <<EOF 2>/dev/null
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: EventFacetQuery
+          metadata:
+            name: query-facet-kind-${SUFFIX}-${i}
+          spec:
+            timeRange:
+              start: "now-5m"
+            facets:
+              - field: related.kind
+                limit: 50
+          EOF
+            )
+
+            FACETS_LENGTH=$(echo "$RESPONSE" | jq '.status.facets | length' 2>/dev/null || echo "0")
+            FACET_FIELD=$(echo "$RESPONSE" | jq -r '.status.facets[0].field' 2>/dev/null || echo "")
+
+            # Check that related.kind facet field is present in response
+            if [ "$FACETS_LENGTH" != "1" ] || [ "$FACET_FIELD" != "related.kind" ]; then
+              echo "Attempt ${i}/15: facet structure not yet ready (length=${FACETS_LENGTH}, field=${FACET_FIELD}), waiting 3s..."
+              sleep 3
+              continue
+            fi
+
+            # Check that "Node" appears in the facet values
+            NODE_MATCH=$(echo "$RESPONSE" | jq -r '.status.facets[0].values[]?.value | select(. == "Node")' 2>/dev/null || true)
+
+            if [ "$NODE_MATCH" = "Node" ]; then
+              echo "Attempt ${i}: Found 'Node' in related.kind facet values"
+
+              # Also verify ConfigMap appears
+              CM_MATCH=$(echo "$RESPONSE" | jq -r '.status.facets[0].values[]?.value | select(. == "ConfigMap")' 2>/dev/null || true)
+              echo "  Node present: yes"
+              echo "  ConfigMap present: $([ \"$CM_MATCH\" = \"ConfigMap\" ] && echo yes || echo no)"
+
+              echo "Full facet values:"
+              echo "$RESPONSE" | jq '.status.facets[0].values'
+
+              echo "SUCCESS: EventFacetQuery for related.kind returned correct facet structure with expected values"
+              exit 0
+            fi
+
+            echo "Attempt ${i}/15: 'Node' not yet in related.kind facet values, waiting 3s..."
+            sleep 3
+          done
+
+          echo "ERROR: related.kind facet values did not include expected values after 45 seconds"
+          exit 1
+
+  - name: verify-related-namespace-facet
+    try:
+    - script:
+        timeout: 60s
+        content: |
+          set -e
+
+          SUFFIX=$(date +%s)
+          NAMESPACE="${NAMESPACE:-default}"
+          EVENT_TIME="$(date -u +"%Y-%m-%dT%H:%M:%S.000000Z")"
+
+          echo "Creating test event with related.namespace set (suffix: ${SUFFIX})"
+
+          kubectl create -f - <<EOF
+          apiVersion: events.k8s.io/v1
+          kind: Event
+          metadata:
+            name: test-facet-ns-event-${SUFFIX}
+            namespace: ${NAMESPACE}
+          eventTime: "${EVENT_TIME}"
+          regarding:
+            kind: Pod
+            name: test-pod-ns-${SUFFIX}
+            namespace: ${NAMESPACE}
+            apiVersion: v1
+          related:
+            kind: ConfigMap
+            name: test-cm-ns-${SUFFIX}
+            namespace: ${NAMESPACE}
+            apiVersion: v1
+          reportingController: chainsaw-test
+          reportingInstance: chainsaw-test-instance
+          reason: TestFacetNS${SUFFIX}
+          action: Testing
+          note: "Chainsaw e2e test for related.namespace facet"
+          type: Normal
+          EOF
+
+          echo "Event created. Waiting for ClickHouse ingestion..."
+
+          for i in $(seq 1 15); do
+            RESPONSE=$(kubectl create -o json -f - <<EOF 2>/dev/null
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: EventFacetQuery
+          metadata:
+            name: query-facet-ns-${SUFFIX}-${i}
+          spec:
+            timeRange:
+              start: "now-5m"
+            facets:
+              - field: related.namespace
+                limit: 50
+          EOF
+            )
+
+            FACETS_LENGTH=$(echo "$RESPONSE" | jq '.status.facets | length' 2>/dev/null || echo "0")
+            FACET_FIELD=$(echo "$RESPONSE" | jq -r '.status.facets[0].field' 2>/dev/null || echo "")
+
+            if [ "$FACETS_LENGTH" != "1" ] || [ "$FACET_FIELD" != "related.namespace" ]; then
+              echo "Attempt ${i}/15: facet structure not yet ready (length=${FACETS_LENGTH}, field=${FACET_FIELD}), waiting 3s..."
+              sleep 3
+              continue
+            fi
+
+            # Check that our namespace appears in the facet values
+            NS_MATCH=$(echo "$RESPONSE" | jq -r ".status.facets[0].values[]?.value | select(. == \"${NAMESPACE}\")" 2>/dev/null || true)
+
+            if [ "$NS_MATCH" = "$NAMESPACE" ]; then
+              echo "Attempt ${i}: Found namespace '${NAMESPACE}' in related.namespace facet values"
+
+              echo "Full facet values:"
+              echo "$RESPONSE" | jq '.status.facets[0].values'
+
+              echo "SUCCESS: EventFacetQuery for related.namespace returned correct facet structure with expected namespace"
+              exit 0
+            fi
+
+            echo "Attempt ${i}/15: namespace '${NAMESPACE}' not yet in related.namespace facet values, waiting 3s..."
+            sleep 3
+          done
+
+          echo "ERROR: related.namespace facet values did not include '${NAMESPACE}' after 45 seconds"
+          exit 1
+
+  - name: verify-both-related-facets-together
+    try:
+    - script:
+        timeout: 60s
+        content: |
+          set -e
+
+          SUFFIX=$(date +%s)
+          NAMESPACE="${NAMESPACE:-default}"
+          EVENT_TIME="$(date -u +"%Y-%m-%dT%H:%M:%S.000000Z")"
+
+          echo "Creating test event for combined related.kind and related.namespace facet query (suffix: ${SUFFIX})"
+
+          kubectl create -f - <<EOF
+          apiVersion: events.k8s.io/v1
+          kind: Event
+          metadata:
+            name: test-facet-both-event-${SUFFIX}
+            namespace: ${NAMESPACE}
+          eventTime: "${EVENT_TIME}"
+          regarding:
+            kind: Pod
+            name: test-pod-both-${SUFFIX}
+            namespace: ${NAMESPACE}
+            apiVersion: v1
+          related:
+            kind: Node
+            name: test-node-both-${SUFFIX}
+            namespace: ""
+            apiVersion: v1
+          reportingController: chainsaw-test
+          reportingInstance: chainsaw-test-instance
+          reason: TestFacetBoth${SUFFIX}
+          action: Testing
+          note: "Chainsaw e2e test for both related facets"
+          type: Normal
+          EOF
+
+          echo "Event created. Waiting for ClickHouse ingestion..."
+
+          for i in $(seq 1 15); do
+            RESPONSE=$(kubectl create -o json -f - <<EOF 2>/dev/null
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: EventFacetQuery
+          metadata:
+            name: query-facet-both-${SUFFIX}-${i}
+          spec:
+            timeRange:
+              start: "now-5m"
+            facets:
+              - field: related.kind
+                limit: 50
+              - field: related.namespace
+                limit: 50
+          EOF
+            )
+
+            FACETS_LENGTH=$(echo "$RESPONSE" | jq '.status.facets | length' 2>/dev/null || echo "0")
+
+            if [ "$FACETS_LENGTH" != "2" ]; then
+              echo "Attempt ${i}/15: expected 2 facets, got ${FACETS_LENGTH}, waiting 3s..."
+              sleep 3
+              continue
+            fi
+
+            FIRST_FIELD=$(echo "$RESPONSE" | jq -r '.status.facets[0].field' 2>/dev/null || echo "")
+            SECOND_FIELD=$(echo "$RESPONSE" | jq -r '.status.facets[1].field' 2>/dev/null || echo "")
+
+            if [ "$FIRST_FIELD" != "related.kind" ] || [ "$SECOND_FIELD" != "related.namespace" ]; then
+              echo "Attempt ${i}/15: unexpected facet fields (first=${FIRST_FIELD}, second=${SECOND_FIELD}), waiting 3s..."
+              sleep 3
+              continue
+            fi
+
+            # Check that "Node" appears in related.kind facet values
+            NODE_MATCH=$(echo "$RESPONSE" | jq -r '.status.facets[0].values[]?.value | select(. == "Node")' 2>/dev/null || true)
+
+            if [ "$NODE_MATCH" = "Node" ]; then
+              echo "Attempt ${i}: Both facets returned with correct fields and expected values"
+              echo "  related.kind facet field: ${FIRST_FIELD}"
+              echo "  related.namespace facet field: ${SECOND_FIELD}"
+              echo "  Node present in related.kind values: yes"
+
+              echo "Full response:"
+              echo "$RESPONSE" | jq '.status.facets'
+
+              echo "SUCCESS: EventFacetQuery with both related.kind and related.namespace facets returned correct structure and values"
+              exit 0
+            fi
+
+            echo "Attempt ${i}/15: 'Node' not yet in related.kind facet values, waiting 3s..."
+            sleep 3
+          done
+
+          echo "ERROR: Both related facets did not return expected values after 45 seconds"
+          exit 1

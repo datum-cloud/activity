@@ -117,6 +117,8 @@ func GetActivityFacetColumn(field string) (string, error) {
 var EventFacetFields = map[string]string{
 	"regarding.kind":      "The kind of resource the event is about (Pod, Deployment, etc.)",
 	"regarding.namespace": "The namespace of the regarding object",
+	"related.kind":        "The kind of the related secondary object (if present)",
+	"related.namespace":   "The namespace of the related secondary object (if present)",
 	"reason":              "The event reason (Scheduled, Pulled, Created, etc.)",
 	"type":                "The event type (Normal, Warning)",
 	"source.component":    "The component that generated the event (kubelet, scheduler, etc.)",
@@ -138,6 +140,8 @@ func EventFacetFieldNames() []string {
 var eventFacetColumnMapping = map[string]string{
 	"regarding.kind":      "regarding_kind",
 	"regarding.namespace": "regarding_namespace",
+	"related.kind":        "related_kind",
+	"related.namespace":   "related_namespace",
 	"reason":              "reason",
 	"type":                "type",
 	"source.component":    "source_component",
@@ -178,6 +182,26 @@ func GetEventFieldValue(event *corev1.Event, column string) string {
 		return string(event.InvolvedObject.UID)
 	case "regarding_field_path":
 		return event.InvolvedObject.FieldPath
+	case "related_api_version":
+		if event.Related == nil {
+			return ""
+		}
+		return event.Related.APIVersion
+	case "related_kind":
+		if event.Related == nil {
+			return ""
+		}
+		return event.Related.Kind
+	case "related_namespace":
+		if event.Related == nil {
+			return ""
+		}
+		return event.Related.Namespace
+	case "related_name":
+		if event.Related == nil {
+			return ""
+		}
+		return event.Related.Name
 	case "reason":
 		return event.Reason
 	case "type":
