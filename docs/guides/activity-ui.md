@@ -10,7 +10,7 @@ By the end of this guide you should have components rendering in your applicatio
 |---|---|
 | Human-readable activity feed | `ActivityFeed`, `ResourceHistoryView` |
 | Raw audit log viewer | `AuditLogQueryComponent` |
-| Kubernetes events feed | `EventsFeed` |
+| Control plane events feed | `EventsFeed` |
 | ActivityPolicy editor (with CEL support) | `PolicyEditor`, `PolicyList` |
 | ReindexJob management | `ReindexJobList`, `ReindexJobCreate`, `ReindexJobDialog` |
 | Shared UI primitives | `Button`, `Card`, `Badge`, `Dialog`, and others |
@@ -230,7 +230,7 @@ function AuditLogsPage() {
 
 Explore available props via TypeScript autocompletion in your editor, or see the [TypeScript declarations](https://www.npmjs.com/package/@datum-cloud/activity-ui) for the full list.
 
-## Kubernetes events feed
+## Control plane events feed
 
 `EventsFeed` is useful for operations dashboards and namespace overview pages — it surfaces the same events `kubectl get events` returns, with filtering and optional real-time updates.
 
@@ -462,7 +462,7 @@ Available hooks:
 |---|---|
 | `useActivityFeed` | Paginated activity list with optional streaming |
 | `useFacets` | Distinct field values for activity filter autocomplete |
-| `useEventsFeed` | Paginated Kubernetes events with optional streaming |
+| `useEventsFeed` | Paginated control plane events with optional streaming |
 | `useEventFacets` | Distinct field values for events filter autocomplete |
 | `useAuditLogQuery` | Raw audit log search |
 | `useAuditLogFacets` | Distinct field values for audit log filters |

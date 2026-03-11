@@ -16,7 +16,7 @@ your work with PolicyPreview before deploying.
 
 ## How ActivityPolicy works
 
-When an audit log or Kubernetes event arrives, the activity processor looks up
+When an audit log or control plane event arrives, the activity processor looks up
 the ActivityPolicy for that event's `apiGroup` and `kind`. If one exists, it
 evaluates each rule from top to bottom and stops at the first match. That
 rule's summary template is rendered and stored as an Activity record.
@@ -32,7 +32,7 @@ Audit log arrives
   -> No match -> drop silently
 ```
 
-The same logic applies to Kubernetes events from controllers, using the
+The same logic applies to control plane events from controllers, using the
 `eventRules` list instead.
 
 ## Policy anatomy
@@ -340,7 +340,7 @@ eventRules:
 
 A single policy can handle both audit logs (who changed the resource) and
 events (what the controller observed). They are evaluated independently — an
-incoming audit log only matches `auditRules`, an incoming Kubernetes event only
+incoming audit log only matches `auditRules`, an incoming control plane event only
 matches `eventRules`:
 
 ```yaml

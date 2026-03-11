@@ -2,7 +2,7 @@
 
 You wrote a new policy, but your activity feed only shows new events. What about
 everything that happened before? Activities are generated from audit logs and
-Kubernetes events as they happen — when you create or update an ActivityPolicy,
+control plane events as they happen — when you create or update an ActivityPolicy,
 only events that arrive *after* that change get translated. Events that already
 occurred are not retroactively processed.
 
@@ -247,9 +247,9 @@ Common causes:
 Failed jobs are not retried automatically. Create a new ReindexJob to try
 again, adjusting the spec to address the root cause.
 
-## Known limitation: Kubernetes events
+## Known limitation: control plane events
 
-When a Kubernetes Event is updated (for example, a pod OOM event fires five
+When a control plane event is updated (for example, a pod OOM event fires five
 times and its `count` field increments from 1 to 5), the event retains the same
 UID throughout its lifetime. Reindexing produces one activity per event UID,
 reflecting the event's final state — the intermediate occurrences are not
@@ -260,7 +260,7 @@ activity, not 5.
 
 If preserving individual event occurrences matters, scope your ReindexJob to
 audit logs only by using `policySelector` to select policies that only have
-`auditRules` (no `eventRules`). This avoids reprocessing Kubernetes Events
+`auditRules` (no `eventRules`). This avoids reprocessing control plane events
 entirely.
 
 For the complete field reference, see the [API reference](../api.md).

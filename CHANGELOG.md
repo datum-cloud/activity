@@ -17,7 +17,7 @@ the same API surface.
 - **Human-readable activity feed** — Define ActivityPolicy resources with CEL
   expressions to turn audit events into summaries like "Alice created HTTPProxy
   for myservice.com."
-- **Kubernetes events as a first-class data type** — Search, filter, and stream
+- **control plane events as a first-class data type** — Search, filter, and stream
   control plane events alongside audit logs using EventQuery and EventFacetQuery.
 - **ReindexJob** — Backfill activity records from historical data when you add
   or update a policy, so your feed reflects the complete picture.
