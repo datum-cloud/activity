@@ -4,11 +4,14 @@ on:
   push:
     branches:
       - main
+  release:
+    types: [published]
 
 jobs:
   publish:
-    uses: datum-cloud/actions/.github/workflows/publish-npm-package.yaml@v1.11.0
+    uses: datum-cloud/actions/.github/workflows/publish-npm-package.yaml@feat/npm-dev-builds
     with:
       package-name: "@datum-cloud/activity-ui"
       package-path: ui
+      release-mode: ${{ github.event_name == 'release' && 'release' || 'dev' }}
     secrets: inherit
