@@ -32,6 +32,22 @@ images:
   - name: ghcr.io/datum-cloud/activity
     newTag: latest
 
+# Sync ACTIVITY_IMAGE env var with the container image after image transformation.
+# Kustomize processes images: before replacements:, so this correctly picks up the
+# transformed image tag and injects it into the controller-manager env var used for
+# spawning ReindexJob worker pods.
+replacements:
+  - source:
+      kind: Deployment
+      name: activity-controller-manager
+      fieldPath: spec.template.spec.containers.[name=manager].image
+    targets:
+      - select:
+          kind: Deployment
+          name: activity-controller-manager
+        fieldPaths:
+          - spec.template.spec.containers.[name=manager].env.[name=ACTIVITY_IMAGE].value
+
 # JSON patches to ensure rbac-auth-reader stays in kube-system
 # These are applied AFTER all other transformations
 patches:
