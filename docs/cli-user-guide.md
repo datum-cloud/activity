@@ -280,7 +280,7 @@ kubectl activity events --start-time "now-7d"
 kubectl activity events --type Warning
 
 # Events for a specific pod
-kubectl activity events --involved-name my-pod --involved-kind Pod
+kubectl activity events --regarding-name my-pod --regarding-kind Pod
 
 # Events by reason
 kubectl activity events --reason FailedMount
@@ -305,7 +305,7 @@ LAST SEEN              TYPE      REASON         OBJECT                MESSAGE
 
 ```bash
 # Debug pod restarts
-kubectl activity events --involved-name my-pod \
+kubectl activity events --regarding-name my-pod \
   --type Warning --start-time "now-1h"
 
 # Find all mount failures in the last week
@@ -678,7 +678,7 @@ kubectl activity feed --actor alice@example.com --kind Deployment
 
 ```bash
 # Find warning events for the pod
-kubectl activity events --involved-name my-pod \
+kubectl activity events --regarding-name my-pod \
   --type Warning --start-time "now-1h"
 
 # Look for mount failures specifically
@@ -735,8 +735,8 @@ kubectl activity feed --kind Secret --watch
 |-------|------|-------------|---------|
 | `type` | string | "Normal" or "Warning" | `--type Warning` |
 | `reason` | string | Event reason | `--reason FailedMount` |
-| `involvedObject.kind` | string | Object kind | `--involved-kind Pod` |
-| `involvedObject.name` | string | Object name | `--involved-name my-pod` |
+| `involvedObject.kind` | string | Object kind | `--regarding-kind Pod` |
+| `involvedObject.name` | string | Object name | `--regarding-name my-pod` |
 
 ### CEL Operators and Functions
 

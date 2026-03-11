@@ -288,17 +288,13 @@ func (o *AuditOptions) runAllPages(ctx context.Context, client *clientset.Client
 
 		// For table output, print each page as we get it
 		if isTableOutput {
+			table := eventsToTable(result.Status.Results)
+			if err := tablePrinter.PrintObj(table, o.Out); err != nil {
+				return err
+			}
+			// Suppress headers on subsequent pages
 			if pageNum == 1 {
-				table := eventsToTable(result.Status.Results)
-				if err := tablePrinter.PrintObj(table, o.Out); err != nil {
-					return err
-				}
-			} else {
-				// Print without header for subsequent pages
-				table := eventsToTable(result.Status.Results)
-				if err := tablePrinter.PrintObj(table, o.Out); err != nil {
-					return err
-				}
+				tablePrinter = common.CreateTablePrinter(true)
 			}
 		} else {
 			allEvents = append(allEvents, result.Status.Results...)

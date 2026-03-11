@@ -179,6 +179,11 @@ func (o *EventsOptions) Validate() error {
 			return fmt.Errorf("invalid --regarding-name value: %w", err)
 		}
 	}
+	if o.Namespace != "" {
+		if _, err := common.EscapeFieldSelectorValue(o.Namespace); err != nil {
+			return fmt.Errorf("invalid --namespace value: %w", err)
+		}
+	}
 
 	return nil
 }
@@ -301,16 +306,13 @@ func (o *EventsOptions) runAllPages(ctx context.Context, client *clientset.Clien
 		totalCount += len(result.Status.Results)
 
 		if isTableOutput {
+			table := kubeEventsToTable(result.Status.Results)
+			if err := tablePrinter.PrintObj(table, o.Out); err != nil {
+				return err
+			}
+			// Suppress headers on subsequent pages
 			if pageNum == 1 {
-				table := kubeEventsToTable(result.Status.Results)
-				if err := tablePrinter.PrintObj(table, o.Out); err != nil {
-					return err
-				}
-			} else {
-				table := kubeEventsToTable(result.Status.Results)
-				if err := tablePrinter.PrintObj(table, o.Out); err != nil {
-					return err
-				}
+				tablePrinter = common.CreateTablePrinter(true)
 			}
 		} else {
 			allEvents = append(allEvents, result.Status.Results...)

@@ -174,6 +174,10 @@ func (o *FeedOptions) Validate() error {
 		return nil
 	}
 
+	if o.ChangeSource != "" && o.ChangeSource != "human" && o.ChangeSource != "system" {
+		return fmt.Errorf("invalid --change-source value %q: must be \"human\" or \"system\"", o.ChangeSource)
+	}
+
 	if err := o.TimeRange.Validate(); err != nil {
 		return err
 	}
@@ -317,16 +321,13 @@ func (o *FeedOptions) runAllPages(ctx context.Context, client *clientset.Clients
 		totalCount += len(result.Status.Results)
 
 		if isTableOutput {
+			table := activitiesToTable(result.Status.Results)
+			if err := tablePrinter.PrintObj(table, o.Out); err != nil {
+				return err
+			}
+			// Suppress headers on subsequent pages
 			if pageNum == 1 {
-				table := activitiesToTable(result.Status.Results)
-				if err := tablePrinter.PrintObj(table, o.Out); err != nil {
-					return err
-				}
-			} else {
-				table := activitiesToTable(result.Status.Results)
-				if err := tablePrinter.PrintObj(table, o.Out); err != nil {
-					return err
-				}
+				tablePrinter = common.CreateTablePrinter(true)
 			}
 		} else {
 			allActivities = append(allActivities, result.Status.Results...)

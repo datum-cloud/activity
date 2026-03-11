@@ -370,7 +370,12 @@ func (o *HistoryOptions) printDiff(events []auditv1.Event) error {
 	var prevObject map[string]interface{}
 
 	for i, event := range events {
-		timestamp := event.StageTimestamp.Format("2006-01-02 15:04:05")
+		timestamp := "<unknown>"
+		if !event.StageTimestamp.IsZero() {
+			timestamp = event.StageTimestamp.Format("2006-01-02 15:04:05")
+		} else if !event.RequestReceivedTimestamp.IsZero() {
+			timestamp = event.RequestReceivedTimestamp.Format("2006-01-02 15:04:05")
+		}
 		username := event.User.Username
 		verb := event.Verb
 
@@ -782,7 +787,12 @@ func (o *HistoryOptions) eventsToTable(events []auditv1.Event) *metav1.Table {
 func (o *HistoryOptions) eventsToRows(events []auditv1.Event) []metav1.TableRow {
 	rows := make([]metav1.TableRow, 0, len(events))
 	for i := range events {
-		timestamp := events[i].StageTimestamp.Format("2006-01-02 15:04:05")
+		timestamp := "<unknown>"
+		if !events[i].StageTimestamp.IsZero() {
+			timestamp = events[i].StageTimestamp.Format("2006-01-02 15:04:05")
+		} else if !events[i].RequestReceivedTimestamp.IsZero() {
+			timestamp = events[i].RequestReceivedTimestamp.Format("2006-01-02 15:04:05")
+		}
 		verb := events[i].Verb
 		username := events[i].User.Username
 
