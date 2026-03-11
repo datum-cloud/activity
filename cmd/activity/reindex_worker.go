@@ -22,6 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"go.miloapis.com/activity/internal/controller"
+	"go.miloapis.com/activity/internal/processor"
 	"go.miloapis.com/activity/internal/reindex"
 	"go.miloapis.com/activity/internal/timeutil"
 	"go.miloapis.com/activity/pkg/apis/activity/v1alpha1"
@@ -172,8 +173,17 @@ func RunReindexWorker(ctx context.Context, options *ReindexWorkerOptions) error 
 		return fmt.Errorf("failed to update status to Running: %w", err)
 	}
 
+	// Build REST mapper for kind/resource resolution
+	mapper, err := processor.NewRESTMapperFromConfig(config)
+	if err != nil {
+		return fmt.Errorf("failed to create REST mapper: %w", err)
+	}
+
+	kindResolver := processor.NewKindResolver(mapper)
+	resourceResolver := processor.NewResourceResolver(mapper)
+
 	// Create reindexer
-	reindexer := reindex.NewReindexer(cl, js)
+	reindexer := reindex.NewReindexer(cl, js, kindResolver, resourceResolver)
 
 	// Set up progress callback to update ReindexJob status
 	reindexer.OnProgress = func(progress reindex.Progress) {

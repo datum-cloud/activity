@@ -9,6 +9,8 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"go.miloapis.com/activity/internal/activityprocessor"
+	"go.miloapis.com/activity/internal/processor"
 	"go.miloapis.com/activity/pkg/apis/activity/v1alpha1"
 )
 
@@ -19,6 +21,13 @@ type Reindexer struct {
 	js          nats.JetStreamContext
 	rateLimiter *RateLimiter
 	publisher   *Publisher
+
+	// policyCache holds pre-compiled policies for efficient evaluation.
+	policyCache *activityprocessor.PolicyCache
+	// kindResolver resolves plural resource names to Kind.
+	kindResolver processor.KindResolver
+	// resourceResolver resolves Kind to plural resource name.
+	resourceResolver processor.ResourceResolver
 
 	// OnProgress is called after each batch with updated progress information
 	OnProgress func(Progress)
@@ -75,11 +84,16 @@ type Progress struct {
 func NewReindexer(
 	client client.Client,
 	js nats.JetStreamContext,
+	kindResolver processor.KindResolver,
+	resourceResolver processor.ResourceResolver,
 ) *Reindexer {
 	return &Reindexer{
-		client:    client,
-		js:        js,
-		publisher: NewPublisher(js),
+		client:           client,
+		js:               js,
+		publisher:        NewPublisher(js),
+		policyCache:      activityprocessor.NewPolicyCache(),
+		kindResolver:     kindResolver,
+		resourceResolver: resourceResolver,
 	}
 }
 
@@ -109,10 +123,25 @@ func (r *Reindexer) Run(ctx context.Context, opts Options) error {
 		return nil
 	}
 
+	// Compile policies into the cache for efficient evaluation
+	for _, policy := range policies {
+		resource, err := r.resourceResolver(policy.Spec.Resource.APIGroup, policy.Spec.Resource.Kind)
+		if err != nil {
+			klog.Warningf("Failed to resolve resource for policy %s (apiGroup=%s, kind=%s): %v",
+				policy.Name, policy.Spec.Resource.APIGroup, policy.Spec.Resource.Kind, err)
+			continue
+		}
+		if err := r.policyCache.Add(policy, resource); err != nil {
+			klog.Warningf("Failed to compile policy %s: %v", policy.Name, err)
+			continue
+		}
+	}
+
 	klog.InfoS("Starting reindex job",
 		"startTime", opts.StartTime,
 		"endTime", opts.EndTime,
 		"policies", len(policies),
+		"compiledPolicies", r.policyCache.Len(),
 		"batchSize", opts.BatchSize,
 		"rateLimit", opts.RateLimit,
 		"dryRun", opts.DryRun,
@@ -132,12 +161,12 @@ func (r *Reindexer) Run(ctx context.Context, opts Options) error {
 	}
 
 	// Process audit logs first
-	if err := r.processAuditLogs(ctx, opts, policies, &progress); err != nil {
+	if err := r.processAuditLogs(ctx, opts, &progress); err != nil {
 		return fmt.Errorf("failed to process audit logs: %w", err)
 	}
 
 	// Process Kubernetes events second
-	if err := r.processEvents(ctx, opts, policies, &progress); err != nil {
+	if err := r.processEvents(ctx, opts, &progress); err != nil {
 		return fmt.Errorf("failed to process events: %w", err)
 	}
 
@@ -231,7 +260,7 @@ func matchesLabels(resourceLabels, selectorLabels map[string]string) bool {
 
 
 // processAuditLogs processes all audit logs in the time range.
-func (r *Reindexer) processAuditLogs(ctx context.Context, opts Options, policies []*v1alpha1.ActivityPolicy, progress *Progress) error {
+func (r *Reindexer) processAuditLogs(ctx context.Context, opts Options, progress *Progress) error {
 	klog.InfoS("Processing audit logs", "startTime", opts.StartTime, "endTime", opts.EndTime)
 
 	cursor := ""
@@ -260,8 +289,8 @@ func (r *Reindexer) processAuditLogs(ctx context.Context, opts Options, policies
 			break
 		}
 
-		// Evaluate batch against policies
-		activities, err := evaluateBatch(ctx, batch, policies, "audit")
+		// Evaluate batch against policies using pre-compiled CEL programs
+		activities, err := r.evaluateAuditBatch(ctx, batch)
 		if err != nil {
 			reindexErrors.WithLabelValues("evaluate").Inc()
 			return fmt.Errorf("failed to evaluate audit batch %d: %w", batchNum, err)
@@ -335,7 +364,7 @@ func (r *Reindexer) processAuditLogs(ctx context.Context, opts Options, policies
 }
 
 // processEvents processes all Kubernetes events in the time range.
-func (r *Reindexer) processEvents(ctx context.Context, opts Options, policies []*v1alpha1.ActivityPolicy, progress *Progress) error {
+func (r *Reindexer) processEvents(ctx context.Context, opts Options, progress *Progress) error {
 	klog.InfoS("Processing Kubernetes events", "startTime", opts.StartTime, "endTime", opts.EndTime)
 
 	cursor := ""
@@ -364,8 +393,8 @@ func (r *Reindexer) processEvents(ctx context.Context, opts Options, policies []
 			break
 		}
 
-		// Evaluate batch against policies
-		activities, err := evaluateBatch(ctx, batch, policies, "event")
+		// Evaluate batch against policies using pre-compiled CEL programs
+		activities, err := r.evaluateEventBatch(ctx, batch)
 		if err != nil {
 			reindexErrors.WithLabelValues("evaluate").Inc()
 			return fmt.Errorf("failed to evaluate event batch %d: %w", batchNum, err)

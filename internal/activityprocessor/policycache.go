@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/google/cel-go/cel"
+	auditv1 "k8s.io/apiserver/pkg/apis/audit/v1"
 	"k8s.io/klog/v2"
 
 	internalcel "go.miloapis.com/activity/internal/cel"
@@ -458,6 +459,51 @@ func (r *CompiledRule) EvaluateEventMatch(eventMap map[string]any) (bool, error)
 	}
 
 	return result, nil
+}
+
+// EvaluateCompiledAuditRules evaluates pre-compiled audit rules against an audit event.
+// Returns the generated Activity, the matching rule index, and any error.
+// Returns (nil, -1, nil) if no rule matched.
+func EvaluateCompiledAuditRules(
+	policy *CompiledPolicy,
+	auditMap map[string]any,
+	audit *auditv1.Event,
+	resolveKind processor.KindResolver,
+) (*v1alpha1.Activity, int, error) {
+	for i := range policy.AuditRules {
+		rule := &policy.AuditRules[i]
+		if !rule.Valid {
+			continue
+		}
+
+		matched, err := rule.EvaluateAuditMatch(auditMap)
+		if err != nil {
+			return nil, i, fmt.Errorf("rule %d match: %w", i, err)
+		}
+
+		if matched {
+			// Use the interpreted summary evaluation (not pre-compiled EvaluateSummary) because
+			// link() calls capture links via a side-channel collector that must be freshly
+			// created per evaluation. The pre-compiled programs don't support link collection.
+			summary, links, err := internalcel.EvaluateAuditSummaryMap(rule.Summary, auditMap)
+			if err != nil {
+				return nil, i, fmt.Errorf("rule %d summary: %w", i, err)
+			}
+
+			builder := &processor.ActivityBuilder{
+				APIGroup: policy.APIGroup,
+				Kind:     policy.Kind,
+			}
+			activity, err := builder.BuildFromAudit(audit, summary, links, resolveKind)
+			if err != nil {
+				return nil, i, fmt.Errorf("rule %d build: %w", i, err)
+			}
+
+			return activity, i, nil
+		}
+	}
+
+	return nil, -1, nil
 }
 
 // MatchEvent implements processor.EventPolicyLookup.

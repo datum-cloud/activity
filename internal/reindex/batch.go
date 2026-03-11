@@ -2,7 +2,9 @@ package reindex
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	auditv1 "k8s.io/apiserver/pkg/apis/audit/v1"
@@ -10,6 +12,7 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"go.miloapis.com/activity/internal/activityprocessor"
 	"go.miloapis.com/activity/internal/processor"
 	"go.miloapis.com/activity/pkg/apis/activity/v1alpha1"
 )
@@ -116,86 +119,127 @@ func fetchEventBatch(
 	return batch, query.Status.Continue, nil
 }
 
-// evaluateBatch applies ActivityPolicy rules to a batch of events.
-// The originType should be "audit" or "event" to indicate the source.
-func evaluateBatch(
-	ctx context.Context,
-	batch interface{},
-	policies []*v1alpha1.ActivityPolicy,
-	originType string,
-) ([]*v1alpha1.Activity, error) {
+// evaluateAuditBatch evaluates a batch of audit events using pre-compiled policies.
+func (r *Reindexer) evaluateAuditBatch(ctx context.Context, batch []*auditv1.Event) ([]*v1alpha1.Activity, error) {
 	var activities []*v1alpha1.Activity
 
-	switch originType {
-	case "audit":
-		// Process audit logs
-		auditBatch, ok := batch.([]*auditv1.Event)
-		if !ok {
-			return nil, fmt.Errorf("invalid batch type for audit logs")
+	for _, audit := range batch {
+		// Extract apiGroup and resource from the audit event's ObjectRef
+		if audit.ObjectRef == nil {
+			continue
+		}
+		apiGroup := audit.ObjectRef.APIGroup
+		resource := audit.ObjectRef.Resource
+
+		// Look up compiled policies for this resource
+		compiledPolicies := r.policyCache.Get(apiGroup, resource)
+		if len(compiledPolicies) == 0 {
+			continue
 		}
 
-		for _, audit := range auditBatch {
-			for _, policy := range policies {
-				result, err := processor.EvaluateAuditRules(&policy.Spec, audit, nil)
-				if err != nil {
-					klog.ErrorS(err, "Failed to evaluate audit rules",
-						"policy", policy.Name,
-						"auditID", audit.AuditID,
-					)
-					continue
-				}
+		// Convert audit event to map for CEL evaluation
+		auditMap, err := auditToMap(audit)
+		if err != nil {
+			klog.V(2).InfoS("Failed to convert audit event to map",
+				"auditID", audit.AuditID,
+				"error", err,
+			)
+			continue
+		}
 
-				if result.Activity != nil {
-					// Add policy label for tracking
-					if result.Activity.Labels == nil {
-						result.Activity.Labels = make(map[string]string)
-					}
-					result.Activity.Labels["activity.miloapis.com/policy-name"] = policy.Name
+		// Try each policy (first match wins)
+		for _, policy := range compiledPolicies {
+			activity, _, err := activityprocessor.EvaluateCompiledAuditRules(policy, auditMap, audit, r.kindResolver)
+			if err != nil {
+				klog.ErrorS(err, "Failed to evaluate compiled audit rules",
+					"policy", policy.Name,
+					"auditID", audit.AuditID,
+				)
+				continue
+			}
 
-					activities = append(activities, result.Activity)
-					break // Only first matching policy generates an activity
+			if activity != nil {
+				if activity.Labels == nil {
+					activity.Labels = make(map[string]string)
 				}
+				activity.Labels["activity.miloapis.com/policy-name"] = policy.Name
+				activities = append(activities, activity)
+				break // First matching policy wins
 			}
 		}
-
-	case "event":
-		// Process Kubernetes events
-		eventBatch, ok := batch.([]map[string]interface{})
-		if !ok {
-			return nil, fmt.Errorf("invalid batch type for events")
-		}
-
-		for _, eventMap := range eventBatch {
-			for _, policy := range policies {
-				result, err := processor.EvaluateEventRules(&policy.Spec, eventMap, nil)
-				if err != nil {
-					klog.ErrorS(err, "Failed to evaluate event rules",
-						"policy", policy.Name,
-						"eventUID", processor.GetNestedString(eventMap, "metadata", "uid"),
-					)
-					continue
-				}
-
-				if result.Activity != nil {
-					// Add policy label for tracking
-					if result.Activity.Labels == nil {
-						result.Activity.Labels = make(map[string]string)
-					}
-					result.Activity.Labels["activity.miloapis.com/policy-name"] = policy.Name
-
-					activities = append(activities, result.Activity)
-					break // Only first matching policy generates an activity
-				}
-			}
-		}
-
-	default:
-		return nil, fmt.Errorf("invalid origin type: %s", originType)
 	}
 
-	klog.V(3).InfoS("Evaluated batch",
-		"originType", originType,
-		"inputEvents", batchSize(batch),
+	klog.V(3).InfoS("Evaluated audit batch",
+		"inputEvents", len(batch),
+		"activitiesGenerated", len(activities),
+	)
+
+	return activities, nil
+}
+
+// evaluateEventBatch evaluates a batch of Kubernetes events using pre-compiled policies.
+func (r *Reindexer) evaluateEventBatch(ctx context.Context, batch []map[string]interface{}) ([]*v1alpha1.Activity, error) {
+	var activities []*v1alpha1.Activity
+
+	for _, eventMap := range batch {
+		// Extract apiGroup and kind from the event's regarding field
+		regarding, _ := eventMap["regarding"].(map[string]interface{})
+		if regarding == nil {
+			continue
+		}
+
+		apiVersion, _ := regarding["apiVersion"].(string)
+		kind, _ := regarding["kind"].(string)
+
+		// Parse apiGroup from apiVersion (e.g., "networking.datumapis.com/v1alpha1" -> "networking.datumapis.com")
+		// Core-group resources have apiVersion "v1" with no slash, so apiGroup is "".
+		apiGroup := ""
+		if idx := strings.Index(apiVersion, "/"); idx != -1 {
+			apiGroup = apiVersion[:idx]
+		}
+
+		if kind == "" {
+			continue
+		}
+
+		// Use PolicyCache.MatchEvent which handles lookup + evaluation
+		matched, err := r.policyCache.MatchEvent(apiGroup, kind, eventMap)
+		if err != nil {
+			klog.ErrorS(err, "Failed to evaluate event rules",
+				"eventUID", processor.GetNestedString(eventMap, "metadata", "uid"),
+			)
+			continue
+		}
+
+		if matched == nil {
+			continue
+		}
+
+		// Build the Activity from the matched result
+		builder := &processor.ActivityBuilder{
+			APIGroup: matched.APIGroup,
+			Kind:     matched.Kind,
+		}
+		activity, err := builder.BuildFromEvent(eventMap, matched.Summary, matched.Links, r.kindResolver)
+		if err != nil {
+			klog.ErrorS(err, "Failed to build activity from event match",
+				"policy", matched.PolicyName,
+				"eventUID", processor.GetNestedString(eventMap, "metadata", "uid"),
+			)
+			continue
+		}
+
+		if activity != nil {
+			if activity.Labels == nil {
+				activity.Labels = make(map[string]string)
+			}
+			activity.Labels["activity.miloapis.com/policy-name"] = matched.PolicyName
+			activities = append(activities, activity)
+		}
+	}
+
+	klog.V(3).InfoS("Evaluated event batch",
+		"inputEvents", len(batch),
 		"activitiesGenerated", len(activities),
 	)
 
@@ -221,13 +265,13 @@ func eventRecordToMap(record *v1alpha1.EventRecord) (map[string]interface{}, err
 			"namespace":  record.Event.Regarding.Namespace,
 			"uid":        string(record.Event.Regarding.UID),
 		},
-		"reason":             record.Event.Reason,
-		"note":               record.Event.Note,
-		"type":               record.Event.Type,
-		"eventTime":          record.Event.EventTime.Time,
+		"reason":              record.Event.Reason,
+		"note":                record.Event.Note,
+		"type":                record.Event.Type,
+		"eventTime":           record.Event.EventTime.Time,
 		"reportingController": record.Event.ReportingController,
-		"reportingInstance":  record.Event.ReportingInstance,
-		"action":             record.Event.Action,
+		"reportingInstance":   record.Event.ReportingInstance,
+		"action":              record.Event.Action,
 	}
 
 	// Add series if present
@@ -252,14 +296,15 @@ func eventRecordToMap(record *v1alpha1.EventRecord) (map[string]interface{}, err
 	return eventMap, nil
 }
 
-// batchSize returns the size of a batch regardless of type.
-func batchSize(batch interface{}) int {
-	switch v := batch.(type) {
-	case []*auditv1.Event:
-		return len(v)
-	case []map[string]interface{}:
-		return len(v)
-	default:
-		return 0
+// auditToMap converts an audit event to a map for CEL evaluation.
+func auditToMap(audit *auditv1.Event) (map[string]any, error) {
+	data, err := json.Marshal(audit)
+	if err != nil {
+		return nil, err
 	}
+	var m map[string]any
+	if err := json.Unmarshal(data, &m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
