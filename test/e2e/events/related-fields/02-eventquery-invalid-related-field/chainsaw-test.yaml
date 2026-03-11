@@ -1,0 +1,61 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: eventquery-invalid-related-field
+spec:
+  description: |
+    Verify that EventQuery rejects unsupported related.* field selectors.
+    The supported related.* fields are: related.kind, related.namespace, related.name,
+    related.apiVersion. Fields like related.uid, related.fieldPath, and others are not
+    supported and must be rejected with an error.
+  steps:
+  - name: reject-related-uid-field-selector
+    try:
+    - create:
+        resource:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: EventQuery
+          metadata:
+            name: test-related-uid-selector
+          spec:
+            startTime: "now-7d"
+            endTime: "now"
+            fieldSelector: "related.uid=test"
+            limit: 10
+        expect:
+        - check:
+            ($error != null): true
+
+  - name: reject-related-fieldpath-field-selector
+    try:
+    - create:
+        resource:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: EventQuery
+          metadata:
+            name: test-related-fieldpath-selector
+          spec:
+            startTime: "now-7d"
+            endTime: "now"
+            fieldSelector: "related.fieldPath=test"
+            limit: 10
+        expect:
+        - check:
+            ($error != null): true
+
+  - name: reject-related-unsupported-field-selector
+    try:
+    - create:
+        resource:
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: EventQuery
+          metadata:
+            name: test-related-unsupported-selector
+          spec:
+            startTime: "now-7d"
+            endTime: "now"
+            fieldSelector: "related.unsupported=test"
+            limit: 10
+        expect:
+        - check:
+            ($error != null): true

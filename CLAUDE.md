@@ -223,6 +223,8 @@ task migrations:generate                 # Generate ConfigMap from migrations
 task migrations:cluster:verify           # Verify schema in cluster
 ```
 
+**Important:** After adding or modifying any SQL file in `migrations/`, always run `task migrations:generate` to regenerate the ConfigMap at `config/components/clickhouse-migrations/configmap.yaml`. The raw SQL files are not deployed directly — the ConfigMap is what gets deployed to the cluster.
+
 ### Remote Debugging with Telepresence
 
 When debugging issues in staging, use Telepresence to intercept a service and run it locally with full access to cluster resources (NATS, ClickHouse, etcd, milo).

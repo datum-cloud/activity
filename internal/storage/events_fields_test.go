@@ -138,3 +138,102 @@ func TestResolveEventFieldSelector_UnsupportedRegardingField(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported field selector")
 }
+
+func TestParseFieldSelector_RelatedFields(t *testing.T) {
+	tests := []struct {
+		name           string
+		selector       string
+		expectedColumn string
+		expectedOp     FieldSelectorOp
+		expectedValue  string
+		wantErr        bool
+	}{
+		{
+			name:           "related.apiVersion equality",
+			selector:       "related.apiVersion=apps/v1",
+			expectedColumn: "related_api_version",
+			expectedOp:     FieldSelectorEqual,
+			expectedValue:  "apps/v1",
+			wantErr:        false,
+		},
+		{
+			name:           "related.kind equality",
+			selector:       "related.kind=Node",
+			expectedColumn: "related_kind",
+			expectedOp:     FieldSelectorEqual,
+			expectedValue:  "Node",
+			wantErr:        false,
+		},
+		{
+			name:           "related.namespace equality",
+			selector:       "related.namespace=kube-system",
+			expectedColumn: "related_namespace",
+			expectedOp:     FieldSelectorEqual,
+			expectedValue:  "kube-system",
+			wantErr:        false,
+		},
+		{
+			name:           "related.name equality",
+			selector:       "related.name=my-node",
+			expectedColumn: "related_name",
+			expectedOp:     FieldSelectorEqual,
+			expectedValue:  "my-node",
+			wantErr:        false,
+		},
+		{
+			name:           "related.kind not-equal operator",
+			selector:       "related.kind!=Node",
+			expectedColumn: "related_kind",
+			expectedOp:     FieldSelectorNotEqual,
+			expectedValue:  "Node",
+			wantErr:        false,
+		},
+		{
+			name:    "related.unsupportedField returns error",
+			selector: "related.unsupportedField=value",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			terms, err := ParseFieldSelector(tt.selector)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Len(t, terms, 1)
+
+			assert.Equal(t, tt.expectedColumn, terms[0].Column)
+			assert.Equal(t, tt.expectedOp, terms[0].Operator)
+			assert.Equal(t, tt.expectedValue, terms[0].Value)
+		})
+	}
+}
+
+func TestResolveEventFieldSelector_RelatedFields(t *testing.T) {
+	tests := []struct {
+		field    string
+		expected string
+	}{
+		{"related.apiVersion", "related_api_version"},
+		{"related.kind", "related_kind"},
+		{"related.namespace", "related_namespace"},
+		{"related.name", "related_name"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.field, func(t *testing.T) {
+			column, err := ResolveEventFieldSelector(tt.field)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, column)
+		})
+	}
+}
+
+func TestResolveEventFieldSelector_UnsupportedRelatedField(t *testing.T) {
+	_, err := ResolveEventFieldSelector("related.unsupportedField")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported field selector")
+}

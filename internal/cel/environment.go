@@ -48,7 +48,16 @@ func NewAuditEnvironment(collector *linkCollector) (*cel.Env, error) {
 }
 
 // NewEventEnvironment creates a CEL environment for event rule expressions.
-// Available variables: event (full Kubernetes event), actor, actorRef
+// Available variables: event (full Kubernetes event as a map), actor, actorRef.
+//
+// The event map contains all fields from the events.k8s.io/v1.Event struct.
+// Key nested fields:
+//   - event.regarding.{kind,name,namespace,apiVersion,uid} — the primary subject
+//   - event.related.{kind,name,namespace,apiVersion,uid} — optional secondary object;
+//     only present when the event includes a related object (use has(event.related) to check)
+//   - event.reason, event.type, event.note, event.action
+//   - event.reportingController, event.reportingInstance
+//
 // If collector is non-nil, link() calls will capture link information.
 func NewEventEnvironment(collector *linkCollector) (*cel.Env, error) {
 	// The event variable is a map containing the full Kubernetes Event

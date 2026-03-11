@@ -1,0 +1,268 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: eventquery-related-field-selectors
+spec:
+  description: |
+    Create an event with the related field set, wait for ClickHouse ingestion,
+    then query with related.* field selectors and verify the specific event
+    appears in results with the correct related field values.
+
+    Pipeline latency: kubectl create -> k8s-event-exporter -> NATS -> Vector
+    (10s batch flush) -> ClickHouse. Worst-case ~20s. Queries retry for up to
+    45 seconds before failing.
+  steps:
+  - name: create-event-and-verify-related-kind-selector
+    try:
+    - script:
+        timeout: 60s
+        content: |
+          set -e
+
+          SUFFIX=$(date +%s)
+          NAMESPACE="${NAMESPACE:-default}"
+          EVENT_TIME="$(date -u +"%Y-%m-%dT%H:%M:%S.000000Z")"
+
+          echo "Creating test event with suffix ${SUFFIX} in namespace ${NAMESPACE}"
+          echo "Event time: ${EVENT_TIME}"
+
+          kubectl create -f - <<EOF
+          apiVersion: events.k8s.io/v1
+          kind: Event
+          metadata:
+            name: test-related-event-${SUFFIX}
+            namespace: ${NAMESPACE}
+          eventTime: "${EVENT_TIME}"
+          regarding:
+            kind: Pod
+            name: test-pod-${SUFFIX}
+            namespace: ${NAMESPACE}
+            apiVersion: v1
+          related:
+            kind: Node
+            name: test-node-${SUFFIX}
+            namespace: ""
+            apiVersion: v1
+          reportingController: chainsaw-test
+          reportingInstance: chainsaw-test-instance
+          reason: TestRelatedField${SUFFIX}
+          action: Testing
+          note: "Chainsaw e2e test for related field support"
+          type: Normal
+          EOF
+
+          echo "Event created. Waiting for ClickHouse ingestion..."
+
+          # Retry loop: query every 3 seconds for up to 45 seconds (15 attempts)
+          for i in $(seq 1 15); do
+            RESPONSE=$(kubectl create -o json -f - <<EOF 2>/dev/null
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: EventQuery
+          metadata:
+            name: query-related-kind-${SUFFIX}-${i}
+          spec:
+            startTime: "now-5m"
+            endTime: "now"
+            namespace: "${NAMESPACE}"
+            fieldSelector: "related.kind=Node"
+            limit: 100
+          EOF
+            )
+
+            MATCH=$(echo "$RESPONSE" | jq -r ".status.results[]?.event | select(.reason == \"TestRelatedField${SUFFIX}\") | .reason" 2>/dev/null || true)
+
+            if [ "$MATCH" = "TestRelatedField${SUFFIX}" ]; then
+              echo "Attempt ${i}: Found event in results"
+
+              RELATED_KIND=$(echo "$RESPONSE" | jq -r ".status.results[].event | select(.reason == \"TestRelatedField${SUFFIX}\") | .related.kind")
+              RELATED_NAME=$(echo "$RESPONSE" | jq -r ".status.results[].event | select(.reason == \"TestRelatedField${SUFFIX}\") | .related.name")
+
+              echo "  related.kind: ${RELATED_KIND} (expected: Node)"
+              echo "  related.name: ${RELATED_NAME} (expected: test-node-${SUFFIX})"
+
+              if [ "$RELATED_KIND" != "Node" ]; then
+                echo "ERROR: related.kind is '${RELATED_KIND}', expected 'Node'"
+                exit 1
+              fi
+
+              if [ "$RELATED_NAME" != "test-node-${SUFFIX}" ]; then
+                echo "ERROR: related.name is '${RELATED_NAME}', expected 'test-node-${SUFFIX}'"
+                exit 1
+              fi
+
+              echo "SUCCESS: EventQuery with related.kind=Node returned the correct event with correct related field values"
+              exit 0
+            fi
+
+            echo "Attempt ${i}/15: event not yet ingested, waiting 3s..."
+            sleep 3
+          done
+
+          echo "ERROR: Event did not appear in query results after 45 seconds"
+          exit 1
+
+  - name: verify-related-name-selector
+    try:
+    - script:
+        timeout: 60s
+        content: |
+          set -e
+
+          SUFFIX=$(date +%s)
+          NAMESPACE="${NAMESPACE:-default}"
+          EVENT_TIME="$(date -u +"%Y-%m-%dT%H:%M:%S.000000Z")"
+
+          echo "Creating test event with suffix ${SUFFIX} for related.name selector test"
+
+          kubectl create -f - <<EOF
+          apiVersion: events.k8s.io/v1
+          kind: Event
+          metadata:
+            name: test-related-name-event-${SUFFIX}
+            namespace: ${NAMESPACE}
+          eventTime: "${EVENT_TIME}"
+          regarding:
+            kind: Pod
+            name: test-pod-name-${SUFFIX}
+            namespace: ${NAMESPACE}
+            apiVersion: v1
+          related:
+            kind: Node
+            name: test-node-name-${SUFFIX}
+            namespace: ""
+            apiVersion: v1
+          reportingController: chainsaw-test
+          reportingInstance: chainsaw-test-instance
+          reason: TestRelatedName${SUFFIX}
+          action: Testing
+          note: "Chainsaw e2e test for related.name field selector"
+          type: Normal
+          EOF
+
+          echo "Event created. Waiting for ClickHouse ingestion..."
+
+          for i in $(seq 1 15); do
+            RESPONSE=$(kubectl create -o json -f - <<EOF 2>/dev/null
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: EventQuery
+          metadata:
+            name: query-related-name-${SUFFIX}-${i}
+          spec:
+            startTime: "now-5m"
+            endTime: "now"
+            namespace: "${NAMESPACE}"
+            fieldSelector: "related.name=test-node-name-${SUFFIX}"
+            limit: 100
+          EOF
+            )
+
+            MATCH=$(echo "$RESPONSE" | jq -r ".status.results[]?.event | select(.reason == \"TestRelatedName${SUFFIX}\") | .reason" 2>/dev/null || true)
+
+            if [ "$MATCH" = "TestRelatedName${SUFFIX}" ]; then
+              echo "Attempt ${i}: Found event in results"
+
+              RELATED_NAME=$(echo "$RESPONSE" | jq -r ".status.results[].event | select(.reason == \"TestRelatedName${SUFFIX}\") | .related.name")
+              echo "  related.name: ${RELATED_NAME} (expected: test-node-name-${SUFFIX})"
+
+              if [ "$RELATED_NAME" != "test-node-name-${SUFFIX}" ]; then
+                echo "ERROR: related.name is '${RELATED_NAME}', expected 'test-node-name-${SUFFIX}'"
+                exit 1
+              fi
+
+              echo "SUCCESS: EventQuery with related.name selector returned the correct event"
+              exit 0
+            fi
+
+            echo "Attempt ${i}/15: event not yet ingested, waiting 3s..."
+            sleep 3
+          done
+
+          echo "ERROR: Event did not appear in query results after 45 seconds"
+          exit 1
+
+  - name: verify-multiple-related-field-selectors
+    try:
+    - script:
+        timeout: 60s
+        content: |
+          set -e
+
+          SUFFIX=$(date +%s)
+          NAMESPACE="${NAMESPACE:-default}"
+          EVENT_TIME="$(date -u +"%Y-%m-%dT%H:%M:%S.000000Z")"
+
+          echo "Creating test event with suffix ${SUFFIX} for multiple related field selectors test"
+
+          kubectl create -f - <<EOF
+          apiVersion: events.k8s.io/v1
+          kind: Event
+          metadata:
+            name: test-related-multi-event-${SUFFIX}
+            namespace: ${NAMESPACE}
+          eventTime: "${EVENT_TIME}"
+          regarding:
+            kind: Pod
+            name: test-pod-multi-${SUFFIX}
+            namespace: ${NAMESPACE}
+            apiVersion: v1
+          related:
+            kind: Node
+            name: test-node-multi-${SUFFIX}
+            namespace: ""
+            apiVersion: v1
+          reportingController: chainsaw-test
+          reportingInstance: chainsaw-test-instance
+          reason: TestRelatedMulti${SUFFIX}
+          action: Testing
+          note: "Chainsaw e2e test for multiple related field selectors"
+          type: Normal
+          EOF
+
+          echo "Event created. Waiting for ClickHouse ingestion..."
+
+          for i in $(seq 1 15); do
+            RESPONSE=$(kubectl create -o json -f - <<EOF 2>/dev/null
+          apiVersion: activity.miloapis.com/v1alpha1
+          kind: EventQuery
+          metadata:
+            name: query-related-multi-${SUFFIX}-${i}
+          spec:
+            startTime: "now-5m"
+            endTime: "now"
+            namespace: "${NAMESPACE}"
+            fieldSelector: "related.name=test-node-multi-${SUFFIX},related.kind=Node"
+            limit: 100
+          EOF
+            )
+
+            MATCH=$(echo "$RESPONSE" | jq -r ".status.results[]?.event | select(.reason == \"TestRelatedMulti${SUFFIX}\") | .reason" 2>/dev/null || true)
+
+            if [ "$MATCH" = "TestRelatedMulti${SUFFIX}" ]; then
+              echo "Attempt ${i}: Found event in results"
+
+              RELATED_KIND=$(echo "$RESPONSE" | jq -r ".status.results[].event | select(.reason == \"TestRelatedMulti${SUFFIX}\") | .related.kind")
+              RELATED_NAME=$(echo "$RESPONSE" | jq -r ".status.results[].event | select(.reason == \"TestRelatedMulti${SUFFIX}\") | .related.name")
+
+              echo "  related.kind: ${RELATED_KIND} (expected: Node)"
+              echo "  related.name: ${RELATED_NAME} (expected: test-node-multi-${SUFFIX})"
+
+              if [ "$RELATED_KIND" != "Node" ]; then
+                echo "ERROR: related.kind is '${RELATED_KIND}', expected 'Node'"
+                exit 1
+              fi
+
+              if [ "$RELATED_NAME" != "test-node-multi-${SUFFIX}" ]; then
+                echo "ERROR: related.name is '${RELATED_NAME}', expected 'test-node-multi-${SUFFIX}'"
+                exit 1
+              fi
+
+              echo "SUCCESS: EventQuery with multiple related.* field selectors returned the correct event"
+              exit 0
+            fi
+
+            echo "Attempt ${i}/15: event not yet ingested, waiting 3s..."
+            sleep 3
+          done
+
+          echo "ERROR: Event did not appear in query results after 45 seconds"
+          exit 1

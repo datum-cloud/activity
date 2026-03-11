@@ -93,6 +93,10 @@ type EventQuerySpec struct {
 	//   regarding.name              - regarding resource name
 	//   regarding.uid               - regarding resource UID
 	//   regarding.fieldPath         - regarding resource field path
+	//   related.apiVersion          - related resource API version
+	//   related.kind                - related resource kind (e.g., Node)
+	//   related.namespace           - related resource namespace
+	//   related.name                - related resource name
 	//   reason                      - event reason (e.g., FailedMount, Pulled)
 	//   type                        - event type (Normal or Warning)
 	//   source.component            - reporting component
@@ -108,6 +112,7 @@ type EventQuerySpec struct {
 	//   "regarding.kind=Pod"                            - Events for pods
 	//   "reason=FailedMount"                            - Mount failure events
 	//   "regarding.name=my-pod,type=Warning"            - Warnings for a specific pod
+	//   "related.kind=Node"                              - Events related to nodes
 	//
 	// +optional
 	FieldSelector string `json:"fieldSelector,omitempty"`
