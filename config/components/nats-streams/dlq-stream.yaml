@@ -38,8 +38,10 @@ spec:
   subjects:
     - activity.dlq.>
 
-  # Retention policy: limits-based (time + size)
-  retention: limits
+  # Retention policy: workqueue removes messages once acknowledged by a consumer.
+  # This ensures the DLQ drains automatically as the retry controller processes
+  # and re-publishes events. Time and size limits still apply as upper bounds.
+  retention: workqueue
 
   # Storage: file-based for durability
   storage: file
