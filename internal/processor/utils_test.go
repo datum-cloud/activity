@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.miloapis.com/activity/internal/cel"
+	"go.miloapis.com/activity/pkg/apis/activity/v1alpha1"
 	authnv1 "k8s.io/api/authentication/v1"
 )
 
@@ -493,6 +496,114 @@ func TestGetNestedString(t *testing.T) {
 			if got != tt.want {
 				t.Errorf("GetNestedString() = %q, want %q", got, tt.want)
 			}
+		})
+	}
+}
+
+func TestConvertLinksMetadataFallback(t *testing.T) {
+	tests := []struct {
+		name         string
+		link         cel.Link
+		wantResource v1alpha1.ActivityResource
+	}{
+		{
+			name: "kubernetes resource object with nested metadata",
+			link: cel.Link{
+				Marker: "javalords.shop",
+				Resource: map[string]any{
+					"apiVersion": "dns.networking.miloapis.com/v1alpha1",
+					"kind":       "DNSZone",
+					"metadata": map[string]any{
+						"name":      "javalords-shop-06vr2d",
+						"namespace": "default",
+						"uid":       "0d3b8c4e-7609-4635-8457-a59309eb390f",
+					},
+				},
+			},
+			wantResource: v1alpha1.ActivityResource{
+				APIGroup:   "dns.networking.miloapis.com",
+				APIVersion: "v1alpha1",
+				Kind:       "DNSZone",
+				Name:       "javalords-shop-06vr2d",
+				Namespace:  "default",
+				UID:        "0d3b8c4e-7609-4635-8457-a59309eb390f",
+			},
+		},
+		{
+			name: "core group resource with apiVersion v1",
+			link: cel.Link{
+				Marker: "my-config",
+				Resource: map[string]any{
+					"apiVersion": "v1",
+					"kind":       "ConfigMap",
+					"metadata": map[string]any{
+						"name":      "my-config",
+						"namespace": "kube-system",
+					},
+				},
+			},
+			wantResource: v1alpha1.ActivityResource{
+				APIGroup:   "",
+				APIVersion: "v1",
+				Kind:       "ConfigMap",
+				Name:       "my-config",
+				Namespace:  "kube-system",
+			},
+		},
+		{
+			name: "top-level fields take precedence over metadata",
+			link: cel.Link{
+				Marker: "top-level-resource",
+				Resource: map[string]any{
+					"kind":      "Deployment",
+					"name":      "top-level-name",
+					"namespace": "production",
+					"uid":       "flat-uid",
+					"apiGroup":  "apps",
+					"metadata": map[string]any{
+						"name":      "metadata-name",
+						"namespace": "metadata-ns",
+						"uid":       "metadata-uid",
+					},
+				},
+			},
+			wantResource: v1alpha1.ActivityResource{
+				APIGroup:  "apps",
+				Kind:      "Deployment",
+				Name:      "top-level-name",
+				Namespace: "production",
+				UID:       "flat-uid",
+			},
+		},
+		{
+			name: "actorRef format unchanged",
+			link: cel.Link{
+				Marker: "alice",
+				Resource: map[string]any{
+					"type": "user",
+					"name": "alice",
+				},
+			},
+			wantResource: v1alpha1.ActivityResource{
+				Kind: "user",
+				Name: "alice",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ConvertLinks([]cel.Link{tt.link}, nil)
+			require.NoError(t, err)
+			require.Len(t, got, 1)
+
+			assert.Equal(t, tt.link.Marker, got[0].Marker, "Marker")
+			assert.Equal(t, tt.wantResource.APIGroup, got[0].Resource.APIGroup, "APIGroup")
+			assert.Equal(t, tt.wantResource.APIVersion, got[0].Resource.APIVersion, "APIVersion")
+			assert.Equal(t, tt.wantResource.Kind, got[0].Resource.Kind, "Kind")
+			assert.Equal(t, tt.wantResource.Name, got[0].Resource.Name, "Name")
+			assert.Equal(t, tt.wantResource.Namespace, got[0].Resource.Namespace, "Namespace")
+			assert.Equal(t, tt.wantResource.UID, got[0].Resource.UID, "UID")
 		})
 	}
 }

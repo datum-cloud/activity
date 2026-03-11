@@ -25,7 +25,7 @@ import (
 //	    kind: HTTPProxy
 //	  auditRules:
 //	    - match: "audit.verb == 'create'"
-//	      summary: "{{ actor }} created {{ link(kind + ' ' + audit.objectRef.name, audit.responseObject) }}"
+//	      summary: "{{ actor }} created {{ link(kind + ' ' + audit.objectRef.name, audit.objectRef) }}"
 //	  eventRules:
 //	    - match: "event.reason == 'Programmed'"
 //	      summary: "{{ link(kind + ' ' + event.regarding.name, event.regarding) }} is now programmed"
@@ -133,7 +133,7 @@ type ActivityPolicyRule struct {
 	//   - link(displayText, resourceRef): Creates a clickable reference
 	//
 	// Examples:
-	//   "{{ actor }} created {{ link(kind + ' ' + audit.objectRef.name, audit.responseObject) }}"
+	//   "{{ actor }} created {{ link(kind + ' ' + audit.objectRef.name, audit.objectRef) }}"
 	//   "{{ link(kind + ' ' + event.regarding.name, event.regarding) }} is now programmed"
 	//
 	// +required

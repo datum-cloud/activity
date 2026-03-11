@@ -2,6 +2,7 @@ package processor
 
 import (
 	"fmt"
+	"strings"
 
 	authnv1 "k8s.io/api/authentication/v1"
 
@@ -119,14 +120,43 @@ func ConvertLinks(celLinks []cel.Link, resolveKind KindResolver) ([]v1alpha1.Act
 			kind = getStringFromMap(l.Resource, "type")
 		}
 
+		// Extract name/namespace/uid: top-level first, then nested metadata
+		// for full Kubernetes resource objects (e.g. responseObject).
+		name := getStringFromMap(l.Resource, "name")
+		if name == "" {
+			name = GetNestedString(l.Resource, "metadata", "name")
+		}
+
+		namespace := getStringFromMap(l.Resource, "namespace")
+		if namespace == "" {
+			namespace = GetNestedString(l.Resource, "metadata", "namespace")
+		}
+
+		uid := getStringFromMap(l.Resource, "uid")
+		if uid == "" {
+			uid = GetNestedString(l.Resource, "metadata", "uid")
+		}
+
+		// Parse combined apiVersion (e.g. "dns.networking.miloapis.com/v1alpha1")
+		// to extract apiGroup and version separately when apiGroup is absent.
+		rawAPIVersion := getStringFromMap(l.Resource, "apiVersion")
+		apiVersion := rawAPIVersion
+		if apiGroup == "" && rawAPIVersion != "" {
+			if idx := strings.Index(rawAPIVersion, "/"); idx != -1 {
+				apiGroup = rawAPIVersion[:idx]
+				apiVersion = rawAPIVersion[idx+1:]
+			}
+		}
+
 		links[i] = v1alpha1.ActivityLink{
 			Marker: l.Marker,
 			Resource: v1alpha1.ActivityResource{
-				APIGroup:  apiGroup,
-				Kind:      kind,
-				Name:      getStringFromMap(l.Resource, "name"),
-				Namespace: getStringFromMap(l.Resource, "namespace"),
-				UID:       getStringFromMap(l.Resource, "uid"),
+				APIGroup:   apiGroup,
+				APIVersion: apiVersion,
+				Kind:       kind,
+				Name:       name,
+				Namespace:  namespace,
+				UID:        uid,
 			},
 		}
 	}
