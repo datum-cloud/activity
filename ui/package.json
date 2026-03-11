@@ -36,6 +36,11 @@
   ],
   "author": "Milo APIs",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/datum-cloud/activity",
+    "directory": "ui"
+  },
   "peerDependencies": {
     "@monaco-editor/react": "^4.6.0",
     "@radix-ui/react-checkbox": "^1.0.0",
