@@ -39,9 +39,9 @@ images:
     newName: ghcr.io/datum-cloud/activity-ui
     newTag: dev
 
-# Replacements to sync ACTIVITY_IMAGE env var with the actual deployed image
-# This ensures the controller-manager uses the same image for ReindexJobs
-# NOTE: This must be in the overlay (not base) so it runs AFTER image transformation
+# Sync ACTIVITY_IMAGE env var with the overlay's image tag.
+# Required here because the overlay's images: transformer runs after the base's
+# replacements: have already executed, so it must re-sync the env var.
 replacements:
   - source:
       kind: Deployment
