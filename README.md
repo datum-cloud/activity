@@ -55,6 +55,17 @@ Activity consists of several components that work together:
 **Releases**
 - [v0.3.0 Release Notes](docs/releases/v0.3.0.md)
 
+## Claude Code plugin
+
+The `milo-activity` plugin adds guided workflows for incident investigation, user auditing, and ActivityPolicy authoring on top of the [MCP server](docs/guides/mcp-server.md). Install it from the marketplace:
+
+```
+/plugin marketplace add datum-cloud/claude-code-plugins
+/plugin install milo-activity@datum-claude-code-plugins
+```
+
+**Prerequisite:** the `activity` binary must be on your PATH and configured as an MCP server. See the [MCP server guide](docs/guides/mcp-server.md) for setup.
+
 ## Who is this for?
 
 - **Platform teams** who need to understand cluster activity across multiple tenants
