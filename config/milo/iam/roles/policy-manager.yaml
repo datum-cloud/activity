@@ -3,6 +3,9 @@ kind: Role
 metadata:
   name: activity.miloapis.com-policy-manager
   namespace: milo-system
+  annotations:
+    kubernetes.io/display-name: Activity Policy Manager
+    kubernetes.io/description: Full access to activity policies and policy previews
   labels:
     app.kubernetes.io/name: policy-manager
     app.kubernetes.io/part-of: activity.miloapis.com

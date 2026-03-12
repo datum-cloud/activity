@@ -3,6 +3,9 @@ kind: Role
 metadata:
   name: activity.miloapis.com-audit-log-querier
   namespace: milo-system
+  annotations:
+    kubernetes.io/display-name: Audit Log Querier
+    kubernetes.io/description: Query audit logs and audit log facets
   labels:
     app.kubernetes.io/name: audit-log-querier
     app.kubernetes.io/part-of: activity.miloapis.com
