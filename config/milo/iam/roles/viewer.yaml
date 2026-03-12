@@ -3,6 +3,9 @@ kind: Role
 metadata:
   name: activity.miloapis.com-viewer
   namespace: milo-system
+  annotations:
+    kubernetes.io/display-name: Viewer
+    kubernetes.io/description: View all activity data including activities, events, and audit logs
   labels:
     app.kubernetes.io/name: viewer
     app.kubernetes.io/part-of: activity.miloapis.com

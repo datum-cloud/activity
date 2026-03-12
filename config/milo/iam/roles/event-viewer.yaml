@@ -3,6 +3,9 @@ kind: Role
 metadata:
   name: activity.miloapis.com-event-viewer
   namespace: milo-system
+  annotations:
+    kubernetes.io/display-name: Event Viewer
+    kubernetes.io/description: View event feeds and query cluster events and facets
   labels:
     app.kubernetes.io/name: event-viewer
     app.kubernetes.io/part-of: activity.miloapis.com
