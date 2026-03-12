@@ -5,6 +5,7 @@ resources:
   - activities.yaml
   - activityqueries.yaml
   - activityfacetqueries.yaml
+  - activitypolicies.yaml
   - auditlogqueries.yaml
   - auditlogfacetsqueries.yaml
   - policypreviews.yaml
