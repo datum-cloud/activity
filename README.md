@@ -1,55 +1,59 @@
 # Activity
 
-Ever wonder who changed that production secret? Or need to track down who deleted a deployment last week? Activity
-makes it easy to ask questions about what's happening in your Kubernetes clusters.
+Ever wonder who changed that production secret? Or need to understand what happened before an incident? Activity
+turns Kubernetes audit logs and control plane events into plain-language summaries you can search, stream, and
+explore — using familiar Kubernetes tools.
 
 ## What is this?
 
-Activity is a Kubernetes extension that lets you query your cluster's audit logs using familiar Kubernetes
-tools. Instead of digging through log files, you can use `kubectl` to ask questions like "show me all the deletions in
-production" or "who accessed secrets in the last hour?"
+Activity is a Kubernetes extension that translates raw audit logs and control plane events into a queryable activity
+feed. You define how events are described using ActivityPolicy resources and CEL expressions — "Alice created
+HTTPProxy for myservice.com" instead of decoding JSON structures. The feed is searchable by actor, resource, time
+range, and more, and updates in real time via the Kubernetes Watch API.
 
-Think of it as a search engine for everything that happens in your cluster. It's built as an aggregated API server,
-which means it feels like a natural part of Kubernetes, not a bolt-on tool.
+It's built as an aggregated API server, so it works natively with `kubectl` and any Kubernetes client.
 
 ## Components
 
 Activity consists of several components that work together:
 
-- **activity-apiserver**: Kubernetes aggregated API server that processes audit log queries
-- **activity-ui**: React component library for building web interfaces
+- **activity-apiserver**: Kubernetes aggregated API server that handles queries, Watch streams, and the ActivityPolicy API
+- **activity-processor**: Processes audit logs and control plane events through ActivityPolicy rules to generate Activity records
+- **activity-controller-manager**: Manages ActivityPolicy lifecycle, status, and ReindexJob execution
+- **activity-ui**: React component library (`@datum-cloud/activity-ui` on npm) for embedding activity exploration in your platform UI
 - **kubectl-activity**: kubectl plugin for command-line querying
+- **MCP server**: Exposes activity data to AI assistants via the Model Context Protocol
 
 ## What can it do right now?
 
-- **Ask powerful questions** using CEL expressions: "Find all secret deletions by users whose name starts with
-  'system:'"
-- **Filter by what matters**: time ranges, namespaces, actions (create/update/delete), resource types, users, and more
-- **Fast queries** thanks to a high-performance ClickHouse backend with smart indexing
-- **Works like Kubernetes** because it's built as an aggregated API server—use `kubectl` or any Kubernetes client
+- **Human-readable activity feed** — Define ActivityPolicy resources with CEL expressions to translate audit logs and control plane events into plain-language summaries. Test policies safely with the PolicyPreview API before deploying.
+- **Control plane events** — Search and stream control plane events (pod restarts, scheduler decisions, BackOff messages) alongside audit logs using EventQuery and EventFacetQuery.
+- **Powerful queries** using CEL expressions: "Find all secret deletions by users whose name starts with 'system:'"
+- **Filter by what matters**: time ranges, namespaces, actions (create/update/delete), resource types, actors, and more
+- **Real-time streaming** — Watch API support for Activity and Event resources so dashboards update instantly without polling
+- **Reindex history** — Use ReindexJob to backfill Activity records when you add or update a policy, so your feed reflects the full history
+- **AI integration** — Query activity data from AI assistants via the MCP server. The `milo-activity` Claude Code plugin adds guided investigation, auditing, and policy authoring workflows.
+- **Embeddable UI** — Drop-in React components for activity feeds, policy editors, PolicyPreview panels, and event explorers
+- **Fast queries** backed by a high-performance ClickHouse storage layer with smart indexing
+- **Works like Kubernetes** because it's built as an aggregated API server — use `kubectl` or any Kubernetes client
 - **Multi-tenant by design** so teams can only see their own activity
-
-## What's coming next?
-
-We're working on some exciting features to make activity tracking even more powerful:
-
-**Human-readable activity summaries** - Right now, you get raw audit events. Soon, you'll see friendly descriptions like
-"Alice deleted the production-db secret in the billing namespace" instead of decoding JSON structures.
-
-**Flexible, dynamic descriptions** - We're building a system that lets you define how events should be described for
-your organization. Want to call them "changes" instead of "updates"? Prefer different phrasing for different teams? No
-problem—and you won't need to re-process historical data to make changes.
-
-These features are part of our vision to transform raw audit logs into clear, actionable insights that anyone can
-understand. You can follow the detailed roadmap in [this enhancement
-proposal](https://github.com/datum-cloud/enhancements/issues/469).
 
 ## Documentation
 
+**Guides**
+- [Activity Policies](docs/guides/activity-policies.md) - Writing CEL-based translation rules
+- [Control Plane Events](docs/guides/control-plane-events.md) - Querying and streaming events
+- [MCP Server](docs/guides/mcp-server.md) - Setting up AI assistant integration
+- [ReindexJob](docs/guides/reindex-jobs.md) - Backfilling history when policies change
 - [CLI User Guide](docs/cli-user-guide.md) - Complete guide to using the Activity CLI
-- [Migration Guide](docs/migration-guide.md) - Upgrading from previous versions
-- [Architecture Overview](docs/architecture/README.md) - System design and components
+
+**Reference**
 - [API Reference](docs/api.md) - API specifications
+- [Architecture Overview](docs/architecture/README.md) - System design and components
+- [Migration Guide](docs/migration-guide.md) - Upgrading from previous versions
+
+**Releases**
+- [v0.3.0 Release Notes](docs/releases/v0.3.0.md)
 
 ## Who is this for?
 
@@ -65,7 +69,7 @@ proposal](https://github.com/datum-cloud/enhancements/issues/469).
 - kubectl configured to access your cluster
 
 **For developers:**
-- Go 1.24.0 or later
+- Go 1.25+
 - [Task](https://taskfile.dev) for development workflows
 - Docker for building container images
 
