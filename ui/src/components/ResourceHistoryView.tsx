@@ -259,7 +259,6 @@ export function ResourceHistoryView({
                   activity={activity}
                   variant="timeline"
                   compact={compact}
-                  isFirst={index === 0}
                   isLast={index === activities.length - 1 && !hasMore}
                   onActivityClick={onActivityClick}
                   onResourceClick={onResourceClick}
