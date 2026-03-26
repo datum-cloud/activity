@@ -136,6 +136,24 @@ spec:
               Check merge executor saturation and background pool settings.
             runbook_url: "https://runbooks.datum.net/clickhouse/too-many-parts"
 
+        # ClickHouse query concurrency saturation — leading indicator of latency issues
+        - alert: ClickHouseConcurrencyQueueing
+          expr: |
+            rate(chi_clickhouse_event_ConcurrencyControlQueriesDelayed[5m]) > 0.1
+          for: 5m
+          labels:
+            severity: warning
+            team: platform
+            component: clickhouse
+          annotations:
+            summary: "ClickHouse queries being queued due to concurrency saturation on {{ $labels.hostname }}"
+            description: |
+              ClickHouse instance {{ $labels.hostname }} is delaying queries because concurrency
+              slots are saturated. {{ $value | humanize }} queries/sec are being delayed.
+              This is a leading indicator of latency degradation — investigate before users are affected.
+              Check active queries: SELECT * FROM system.processes FORMAT Vertical
+            runbook_url: "https://runbooks.datum.net/clickhouse/concurrency-saturation"
+
     - name: clickhouse.replication
       interval: 30s
       rules:
