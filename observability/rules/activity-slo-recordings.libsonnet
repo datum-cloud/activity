@@ -58,7 +58,7 @@
               1 - (
                 activity:slo_metadata:request_good:rate5m
                 /
-                clamp_min(activity:slo_metadata:request_total:rate5m, 1)
+                clamp_min(activity:slo_metadata:request_total:rate5m, 0.001)
               )
             |||,
           },
@@ -78,7 +78,7 @@
                   job="activity-apiserver",
                   resource="activitypolicies",
                   verb=~"GET|LIST|PATCH"
-                }[30m])), 1)
+                }[30m])), 0.001)
               )
             |||,
           },
@@ -98,7 +98,7 @@
                   job="activity-apiserver",
                   resource="activitypolicies",
                   verb=~"GET|LIST|PATCH"
-                }[1h])), 1)
+                }[1h])), 0.001)
               )
             |||,
           },
@@ -118,7 +118,7 @@
                   job="activity-apiserver",
                   resource="activitypolicies",
                   verb=~"GET|LIST|PATCH"
-                }[6h])), 1)
+                }[6h])), 0.001)
               )
             |||,
           },
@@ -138,7 +138,7 @@
                   job="activity-apiserver",
                   resource="activitypolicies",
                   verb=~"GET|LIST|PATCH"
-                }[3d])), 1)
+                }[3d])), 0.001)
               )
             |||,
           },
@@ -177,7 +177,7 @@
               1 - (
                 activity:slo_audit_query:request_good:rate5m
                 /
-                clamp_min(activity:slo_audit_query:request_total:rate5m, 1)
+                clamp_min(activity:slo_audit_query:request_total:rate5m, 0.001)
               )
             |||,
           },
@@ -197,7 +197,7 @@
                   job="activity-apiserver",
                   resource="auditlogqueries",
                   verb="POST"
-                }[30m])), 1)
+                }[30m])), 0.001)
               )
             |||,
           },
@@ -217,7 +217,7 @@
                   job="activity-apiserver",
                   resource="auditlogqueries",
                   verb="POST"
-                }[1h])), 1)
+                }[1h])), 0.001)
               )
             |||,
           },
@@ -237,7 +237,7 @@
                   job="activity-apiserver",
                   resource="auditlogqueries",
                   verb="POST"
-                }[6h])), 1)
+                }[6h])), 0.001)
               )
             |||,
           },
@@ -257,7 +257,7 @@
                   job="activity-apiserver",
                   resource="auditlogqueries",
                   verb="POST"
-                }[3d])), 1)
+                }[3d])), 0.001)
               )
             |||,
           },
@@ -296,7 +296,7 @@
               1 - (
                 activity:slo_activity_query:request_good:rate5m
                 /
-                clamp_min(activity:slo_activity_query:request_total:rate5m, 1)
+                clamp_min(activity:slo_activity_query:request_total:rate5m, 0.001)
               )
             |||,
           },
@@ -316,7 +316,7 @@
                   job="activity-apiserver",
                   resource=~"activityqueries|activityfacetqueries",
                   verb="POST"
-                }[30m])), 1)
+                }[30m])), 0.001)
               )
             |||,
           },
@@ -336,7 +336,7 @@
                   job="activity-apiserver",
                   resource=~"activityqueries|activityfacetqueries",
                   verb="POST"
-                }[1h])), 1)
+                }[1h])), 0.001)
               )
             |||,
           },
@@ -356,7 +356,7 @@
                   job="activity-apiserver",
                   resource=~"activityqueries|activityfacetqueries",
                   verb="POST"
-                }[6h])), 1)
+                }[6h])), 0.001)
               )
             |||,
           },
@@ -376,7 +376,7 @@
                   job="activity-apiserver",
                   resource=~"activityqueries|activityfacetqueries",
                   verb="POST"
-                }[3d])), 1)
+                }[3d])), 0.001)
               )
             |||,
           },
@@ -415,7 +415,7 @@
               1 - (
                 activity:slo_event_query:request_good:rate5m
                 /
-                clamp_min(activity:slo_event_query:request_total:rate5m, 1)
+                clamp_min(activity:slo_event_query:request_total:rate5m, 0.001)
               )
             |||,
           },
@@ -435,7 +435,7 @@
                   job="activity-apiserver",
                   resource=~"eventqueries|eventfacetqueries",
                   verb="POST"
-                }[30m])), 1)
+                }[30m])), 0.001)
               )
             |||,
           },
@@ -455,7 +455,7 @@
                   job="activity-apiserver",
                   resource=~"eventqueries|eventfacetqueries",
                   verb="POST"
-                }[1h])), 1)
+                }[1h])), 0.001)
               )
             |||,
           },
@@ -475,7 +475,7 @@
                   job="activity-apiserver",
                   resource=~"eventqueries|eventfacetqueries",
                   verb="POST"
-                }[6h])), 1)
+                }[6h])), 0.001)
               )
             |||,
           },
@@ -495,7 +495,7 @@
                   job="activity-apiserver",
                   resource=~"eventqueries|eventfacetqueries",
                   verb="POST"
-                }[3d])), 1)
+                }[3d])), 0.001)
               )
             |||,
           },
@@ -532,7 +532,7 @@
               1 - (
                 activity:slo_availability:request_good:rate5m
                 /
-                clamp_min(activity:slo_availability:request_total:rate5m, 1)
+                clamp_min(activity:slo_availability:request_total:rate5m, 0.001)
               )
             |||,
           },
@@ -550,7 +550,7 @@
                 clamp_min(sum(rate(apiserver_request_total{
                   job="activity-apiserver",
                   verb!="WATCH"
-                }[30m])), 1)
+                }[30m])), 0.001)
               )
             |||,
           },
@@ -568,7 +568,7 @@
                 clamp_min(sum(rate(apiserver_request_total{
                   job="activity-apiserver",
                   verb!="WATCH"
-                }[1h])), 1)
+                }[1h])), 0.001)
               )
             |||,
           },
@@ -586,7 +586,7 @@
                 clamp_min(sum(rate(apiserver_request_total{
                   job="activity-apiserver",
                   verb!="WATCH"
-                }[6h])), 1)
+                }[6h])), 0.001)
               )
             |||,
           },
@@ -604,7 +604,7 @@
                 clamp_min(sum(rate(apiserver_request_total{
                   job="activity-apiserver",
                   verb!="WATCH"
-                }[3d])), 1)
+                }[3d])), 0.001)
               )
             |||,
           },
