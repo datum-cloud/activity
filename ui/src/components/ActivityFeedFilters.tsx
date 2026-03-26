@@ -1,6 +1,6 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { formatISO, subDays } from 'date-fns';
-import { Search } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 
 import type { ActivityFeedFilters as FilterState } from '../hooks/useActivityFeed';
 import type { TimeRange } from '../hooks/useActivityFeed';
@@ -200,13 +200,16 @@ export function ActivityFeedFilters({
   };
 
   // Determine which filters are currently active (have values) and not hidden
-  const filtersWithValues: FilterId[] = [];
-  if (filters.resourceKinds && filters.resourceKinds.length > 0 && !hiddenFilters.includes('resourceKinds')) filtersWithValues.push('resourceKinds');
-  if (filters.actorNames && filters.actorNames.length > 0 && !hiddenFilters.includes('actorNames')) filtersWithValues.push('actorNames');
-  if (filters.apiGroups && filters.apiGroups.length > 0 && !hiddenFilters.includes('apiGroups')) filtersWithValues.push('apiGroups');
-  if (filters.resourceNamespaces && filters.resourceNamespaces.length > 0 && !hiddenFilters.includes('resourceNamespaces')) filtersWithValues.push('resourceNamespaces');
-  if (filters.resourceName && !hiddenFilters.includes('resourceName')) filtersWithValues.push('resourceName');
-  if (filters.actions && filters.actions.length > 0) filtersWithValues.push('actions');
+  const filtersWithValues = useMemo<FilterId[]>(() => {
+    const result: FilterId[] = [];
+    if (filters.resourceKinds && filters.resourceKinds.length > 0 && !hiddenFilters.includes('resourceKinds')) result.push('resourceKinds');
+    if (filters.actorNames && filters.actorNames.length > 0 && !hiddenFilters.includes('actorNames')) result.push('actorNames');
+    if (filters.apiGroups && filters.apiGroups.length > 0 && !hiddenFilters.includes('apiGroups')) result.push('apiGroups');
+    if (filters.resourceNamespaces && filters.resourceNamespaces.length > 0 && !hiddenFilters.includes('resourceNamespaces')) result.push('resourceNamespaces');
+    if (filters.resourceName && !hiddenFilters.includes('resourceName')) result.push('resourceName');
+    if (filters.actions && filters.actions.length > 0) result.push('actions');
+    return result;
+  }, [filters, hiddenFilters]);
 
   // Include pendingFilter (newly added filter awaiting value selection) in the displayed filters
   const activeFilterIds: FilterId[] = pendingFilter && !filtersWithValues.includes(pendingFilter)
@@ -228,7 +231,7 @@ export function ActivityFeedFilters({
     { id: 'apiGroups', label: 'API Group' },
     { id: 'resourceNamespaces', label: 'Namespace' },
     { id: 'resourceName', label: 'Resource Name' },
-    { id: 'actions', label: 'Action' },
+    // 'actions' hidden until backend facet support is available
   ].filter((filter) => !hiddenFilters.includes(filter.id as FilterId));
 
   // Handle adding a filter
@@ -330,20 +333,39 @@ export function ActivityFeedFilters({
     return (value as string[] | undefined) || [];
   };
 
-  // Handle search input change with debouncing
-  const handleSearchChange = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      const value = event.target.value;
-      onFiltersChange({
-        ...filters,
-        search: value || undefined,
-      });
-    },
-    [filters, onFiltersChange]
-  );
+  // Local search value for debouncing — keeps input responsive while query runs
+  const [searchInputValue, setSearchInputValue] = useState(filters.search || '');
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Use refs so the debounced callback never closes over stale values
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
+  const onFiltersChangeRef = useRef(onFiltersChange);
+  onFiltersChangeRef.current = onFiltersChange;
+
+  // Cancel any pending debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, []);
+
+  const handleSearchChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const value = event.target.value;
+    setSearchInputValue(value);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      onFiltersChangeRef.current({ ...filtersRef.current, search: value || undefined });
+    }, 400);
+  }, []);
+
+  const handleSearchClear = useCallback(() => {
+    setSearchInputValue('');
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    onFiltersChangeRef.current({ ...filtersRef.current, search: undefined });
+  }, []);
 
   return (
-    <div className={`mb-3 pb-3 border-b border-border pr-2 ${className}`}>
+    <div className={`mb-3 pb-3 border-b border-border p-4 ${className}`}>
       <div className="flex flex-wrap gap-2 items-center">
         {/* Change Source Toggle */}
         {!hiddenFilters.includes('changeSource') && (
@@ -360,11 +382,19 @@ export function ActivityFeedFilters({
           <Input
             type="text"
             placeholder="Search activities..."
-            value={filters.search || ''}
+            value={searchInputValue}
             onChange={handleSearchChange}
-            disabled={disabled}
-            className="pl-8 h-7 text-xs"
+            className="pl-8 h-7 text-xs pr-6"
           />
+          {searchInputValue && (
+            <button
+              onClick={handleSearchClear}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Clear search"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
 
         {/* Active Filter Chips */}

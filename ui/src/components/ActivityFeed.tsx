@@ -36,6 +36,8 @@ export interface ActivityFeedProps {
   onActivityClick?: (activity: Activity) => void;
   /** Whether to show in compact mode (for resource detail tabs) */
   compact?: boolean;
+  /** Layout variant for activity items: 'feed' (default) or 'timeline' */
+  variant?: 'feed' | 'timeline';
   /** Filter to a specific resource UID */
   resourceUid?: string;
   /** Whether to show filters */
@@ -82,6 +84,7 @@ export function ActivityFeed({
   tenantRenderer,
   onActivityClick,
   compact = false,
+  variant = 'feed',
   resourceUid,
   showFilters = true,
   hiddenFilters = [],
@@ -231,13 +234,13 @@ export function ActivityFeed({
   // Build container classes - use flex layout to properly fill available space
   // flex-1 min-h-0 allows the Card to fill parent flex container and enable child scrolling
   const containerClasses = compact
-    ? `flex-1 min-h-0 flex flex-col p-1 shadow-none border-border ${className}`
+    ? `flex-1 min-h-0 flex flex-col p-0 shadow-none border-none ${className}`
     : `flex-1 min-h-0 flex flex-col p-3 ${className}`;
 
   // Build list classes - use flex-1 min-h-0 for flex-based scrolling
   // Parent containers must have proper height constraints (h-screen/h-full + overflow-hidden)
   const effectiveMaxHeight = maxHeight === 'none' ? undefined : maxHeight;
-  const listClasses = 'flex-1 min-h-0 overflow-y-auto pr-2 flex flex-col';
+  const listClasses = 'flex-1 min-h-0 overflow-y-auto flex flex-col';
 
   return (
     <Card className={containerClasses}>
@@ -396,6 +399,8 @@ export function ActivityFeed({
             onActivityClick={onActivityClick}
             compact={compact}
             isNew={enableStreaming && index < newActivitiesCount}
+            variant={variant}
+            isLast={index === activities.length - 1}
           />
         ))}
 
