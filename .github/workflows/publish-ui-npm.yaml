@@ -63,3 +63,21 @@ jobs:
       release-mode: ${{ needs.detect-mode.outputs.release-mode }}
       bump-type: ${{ needs.detect-mode.outputs.bump-type }}
     secrets: inherit
+
+  create-release:
+    name: Create GitHub Release
+    needs: [detect-mode, publish]
+    if: needs.detect-mode.outputs.release-mode == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_VERSION: ${{ needs.publish.outputs.new-version }}
+        run: |
+          gh release create "$RELEASE_VERSION" \
+            --title "@datum-cloud/activity-ui $RELEASE_VERSION" \
+            --generate-notes \
+            --repo ${{ github.repository }}
