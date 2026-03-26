@@ -67,7 +67,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "activity:slo_metadata:request_good:rate5m / clamp_min(activity:slo_metadata:request_total:rate5m, 1)",
+               "expr": "(activity:slo_metadata:request_good:rate5m / activity:slo_metadata:request_total:rate5m) and activity:slo_metadata:request_total:rate5m > 0",
                "legendFormat": "Metadata API"
             }
          ],
@@ -126,7 +126,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "activity:slo_audit_query:request_good:rate5m / clamp_min(activity:slo_audit_query:request_total:rate5m, 1)",
+               "expr": "(activity:slo_audit_query:request_good:rate5m / activity:slo_audit_query:request_total:rate5m) and activity:slo_audit_query:request_total:rate5m > 0",
                "legendFormat": "Audit Query"
             }
          ],
@@ -185,7 +185,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "activity:slo_activity_query:request_good:rate5m / clamp_min(activity:slo_activity_query:request_total:rate5m, 1)",
+               "expr": "(activity:slo_activity_query:request_good:rate5m / activity:slo_activity_query:request_total:rate5m) and activity:slo_activity_query:request_total:rate5m > 0",
                "legendFormat": "Activity Query"
             }
          ],
@@ -244,7 +244,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "activity:slo_event_query:request_good:rate5m / clamp_min(activity:slo_event_query:request_total:rate5m, 1)",
+               "expr": "(activity:slo_event_query:request_good:rate5m / activity:slo_event_query:request_total:rate5m) and activity:slo_event_query:request_total:rate5m > 0",
                "legendFormat": "Event Query"
             }
          ],
@@ -303,7 +303,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "activity:slo_availability:request_good:rate5m / clamp_min(activity:slo_availability:request_total:rate5m, 1)",
+               "expr": "(activity:slo_availability:request_good:rate5m / activity:slo_availability:request_total:rate5m) and activity:slo_availability:request_total:rate5m > 0",
                "legendFormat": "Availability"
             }
          ],
@@ -374,7 +374,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "clamp_min((activity:slo_metadata:request_good:rate5m / clamp_min(activity:slo_metadata:request_total:rate5m, 1) - 0.99) / (1 - 0.99), 0) * 100",
+               "expr": "(clamp_min((activity:slo_metadata:request_good:rate5m / activity:slo_metadata:request_total:rate5m - 0.99) / (1 - 0.99), 0) * 100) and activity:slo_metadata:request_total:rate5m > 0",
                "legendFormat": "Metadata API"
             }
          ],
@@ -433,7 +433,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "clamp_min((activity:slo_audit_query:request_good:rate5m / clamp_min(activity:slo_audit_query:request_total:rate5m, 1) - 0.99) / (1 - 0.99), 0) * 100",
+               "expr": "(clamp_min((activity:slo_audit_query:request_good:rate5m / activity:slo_audit_query:request_total:rate5m - 0.99) / (1 - 0.99), 0) * 100) and activity:slo_audit_query:request_total:rate5m > 0",
                "legendFormat": "Audit Query"
             }
          ],
@@ -492,7 +492,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "clamp_min((activity:slo_activity_query:request_good:rate5m / clamp_min(activity:slo_activity_query:request_total:rate5m, 1) - 0.99) / (1 - 0.99), 0) * 100",
+               "expr": "(clamp_min((activity:slo_activity_query:request_good:rate5m / activity:slo_activity_query:request_total:rate5m - 0.99) / (1 - 0.99), 0) * 100) and activity:slo_activity_query:request_total:rate5m > 0",
                "legendFormat": "Activity Query"
             }
          ],
@@ -551,7 +551,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "clamp_min((activity:slo_event_query:request_good:rate5m / clamp_min(activity:slo_event_query:request_total:rate5m, 1) - 0.99) / (1 - 0.99), 0) * 100",
+               "expr": "(clamp_min((activity:slo_event_query:request_good:rate5m / activity:slo_event_query:request_total:rate5m - 0.99) / (1 - 0.99), 0) * 100) and activity:slo_event_query:request_total:rate5m > 0",
                "legendFormat": "Event Query"
             }
          ],
@@ -610,7 +610,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "clamp_min((activity:slo_availability:request_good:rate5m / clamp_min(activity:slo_availability:request_total:rate5m, 1) - 0.99) / (1 - 0.99), 0) * 100",
+               "expr": "(clamp_min((activity:slo_availability:request_good:rate5m / activity:slo_availability:request_total:rate5m - 0.99) / (1 - 0.99), 0) * 100) and activity:slo_availability:request_total:rate5m > 0",
                "legendFormat": "Availability"
             }
          ],

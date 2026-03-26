@@ -67,7 +67,7 @@ local sloStatPanel(slo) =
   + stat.queryOptions.withTargets([
     prometheus.new(
       datasource,
-      'activity:slo_%s:request_good:rate5m / clamp_min(activity:slo_%s:request_total:rate5m, 1)' % [slo.key, slo.key]
+      '(activity:slo_%s:request_good:rate5m / activity:slo_%s:request_total:rate5m) and activity:slo_%s:request_total:rate5m > 0' % [slo.key, slo.key, slo.key]
     )
     + prometheus.withLegendFormat(slo.name),
   ])
@@ -108,8 +108,8 @@ local errorBudgetGaugePanel(slo) =
       // budget_remaining = clamp_min((slo_target - error_ratio) / (1 - slo_target), 0) * 100
       // error_ratio = 1 - (good/total)
       // => budget_remaining = clamp_min((good/total - slo_target) / (1 - slo_target), 0) * 100
-      'clamp_min((activity:slo_%s:request_good:rate5m / clamp_min(activity:slo_%s:request_total:rate5m, 1) - %g) / (1 - %g), 0) * 100'
-      % [slo.key, slo.key, sloTarget, sloTarget]
+      '(clamp_min((activity:slo_%s:request_good:rate5m / activity:slo_%s:request_total:rate5m - %g) / (1 - %g), 0) * 100) and activity:slo_%s:request_total:rate5m > 0'
+      % [slo.key, slo.key, sloTarget, sloTarget, slo.key]
     )
     + prometheus.withLegendFormat(slo.name),
   ])
