@@ -61,6 +61,21 @@ spec:
             impact: "Events failing persistently - policy or cluster issue preventing recovery"
             runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/dlq/dlq-high-retry-count.md"
 
+        # DLQ slow-leak - low-rate but persistent failures
+        - alert: DLQSlowLeak
+          expr: |
+            increase(activity_processor_dlq_events_published_total[6h]) > 10
+          for: 1h
+          labels:
+            severity: warning
+            component: activity-processor
+            team: platform-sre
+          annotations:
+            summary: "DLQ receiving events at a slow but steady rate"
+            description: "{{ $value }} events sent to DLQ in the last 6 hours. A policy may be failing for specific event shapes."
+            impact: "Some activities silently not being generated"
+            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/dlq/dlq-growth.md"
+
     # =========================================================================
     # DLQ Retry Effectiveness
     # =========================================================================
