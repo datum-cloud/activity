@@ -114,3 +114,456 @@
     - "expr": |
         sum(rate(event_exporter_events_published_total[5m]))
       "record": "activity:event_exporter_throughput:5m"
+  - "interval": "30s"
+    "name": "activity-slo-recordings"
+    "rules":
+    - "expr": |
+        sum(rate(apiserver_request_duration_seconds_bucket{
+          job="activity-apiserver",
+          resource="activitypolicies",
+          verb=~"GET|LIST|PATCH",
+          le="1"
+        }[5m]))
+      "record": "activity:slo_metadata:request_good:rate5m"
+    - "expr": |
+        sum(rate(apiserver_request_total{
+          job="activity-apiserver",
+          resource="activitypolicies",
+          verb=~"GET|LIST|PATCH"
+        }[5m]))
+      "record": "activity:slo_metadata:request_total:rate5m"
+    - "expr": |
+        (
+          1 - (
+            activity:slo_metadata:request_good:rate5m
+            /
+            activity:slo_metadata:request_total:rate5m
+          )
+        ) and activity:slo_metadata:request_total:rate5m > 0
+      "record": "activity:slo_metadata:error_ratio:rate5m"
+    - "expr": |
+        1 - (
+          sum(rate(apiserver_request_duration_seconds_bucket{
+            job="activity-apiserver",
+            resource="activitypolicies",
+            verb=~"GET|LIST|PATCH",
+            le="1"
+          }[30m]))
+          /
+          clamp_min(sum(rate(apiserver_request_total{
+            job="activity-apiserver",
+            resource="activitypolicies",
+            verb=~"GET|LIST|PATCH"
+          }[30m])), 0.001)
+        )
+        * on() (activity:slo_metadata:request_total:rate5m > bool 0)
+      "record": "activity:slo_metadata:error_ratio:rate30m"
+    - "expr": |
+        1 - (
+          sum(rate(apiserver_request_duration_seconds_bucket{
+            job="activity-apiserver",
+            resource="activitypolicies",
+            verb=~"GET|LIST|PATCH",
+            le="1"
+          }[1h]))
+          /
+          clamp_min(sum(rate(apiserver_request_total{
+            job="activity-apiserver",
+            resource="activitypolicies",
+            verb=~"GET|LIST|PATCH"
+          }[1h])), 0.001)
+        )
+        * on() (activity:slo_metadata:request_total:rate5m > bool 0)
+      "record": "activity:slo_metadata:error_ratio:rate1h"
+    - "expr": |
+        1 - (
+          sum(rate(apiserver_request_duration_seconds_bucket{
+            job="activity-apiserver",
+            resource="activitypolicies",
+            verb=~"GET|LIST|PATCH",
+            le="1"
+          }[6h]))
+          /
+          clamp_min(sum(rate(apiserver_request_total{
+            job="activity-apiserver",
+            resource="activitypolicies",
+            verb=~"GET|LIST|PATCH"
+          }[6h])), 0.001)
+        )
+        * on() (activity:slo_metadata:request_total:rate5m > bool 0)
+      "record": "activity:slo_metadata:error_ratio:rate6h"
+    - "expr": |
+        1 - (
+          sum(rate(apiserver_request_duration_seconds_bucket{
+            job="activity-apiserver",
+            resource="activitypolicies",
+            verb=~"GET|LIST|PATCH",
+            le="1"
+          }[3d]))
+          /
+          clamp_min(sum(rate(apiserver_request_total{
+            job="activity-apiserver",
+            resource="activitypolicies",
+            verb=~"GET|LIST|PATCH"
+          }[3d])), 0.001)
+        )
+        * on() (activity:slo_metadata:request_total:rate5m > bool 0)
+      "record": "activity:slo_metadata:error_ratio:rate3d"
+    - "expr": |
+        sum(rate(apiserver_request_duration_seconds_bucket{
+          job="activity-apiserver",
+          resource="auditlogqueries",
+          verb="POST",
+          le="5"
+        }[5m]))
+      "record": "activity:slo_audit_query:request_good:rate5m"
+    - "expr": |
+        sum(rate(apiserver_request_total{
+          job="activity-apiserver",
+          resource="auditlogqueries",
+          verb="POST"
+        }[5m]))
+      "record": "activity:slo_audit_query:request_total:rate5m"
+    - "expr": |
+        (
+          1 - (
+            activity:slo_audit_query:request_good:rate5m
+            /
+            activity:slo_audit_query:request_total:rate5m
+          )
+        ) and activity:slo_audit_query:request_total:rate5m > 0
+      "record": "activity:slo_audit_query:error_ratio:rate5m"
+    - "expr": |
+        1 - (
+          sum(rate(apiserver_request_duration_seconds_bucket{
+            job="activity-apiserver",
+            resource="auditlogqueries",
+            verb="POST",
+            le="5"
+          }[30m]))
+          /
+          clamp_min(sum(rate(apiserver_request_total{
+            job="activity-apiserver",
+            resource="auditlogqueries",
+            verb="POST"
+          }[30m])), 0.001)
+        )
+        * on() (activity:slo_audit_query:request_total:rate5m > bool 0)
+      "record": "activity:slo_audit_query:error_ratio:rate30m"
+    - "expr": |
+        1 - (
+          sum(rate(apiserver_request_duration_seconds_bucket{
+            job="activity-apiserver",
+            resource="auditlogqueries",
+            verb="POST",
+            le="5"
+          }[1h]))
+          /
+          clamp_min(sum(rate(apiserver_request_total{
+            job="activity-apiserver",
+            resource="auditlogqueries",
+            verb="POST"
+          }[1h])), 0.001)
+        )
+        * on() (activity:slo_audit_query:request_total:rate5m > bool 0)
+      "record": "activity:slo_audit_query:error_ratio:rate1h"
+    - "expr": |
+        1 - (
+          sum(rate(apiserver_request_duration_seconds_bucket{
+            job="activity-apiserver",
+            resource="auditlogqueries",
+            verb="POST",
+            le="5"
+          }[6h]))
+          /
+          clamp_min(sum(rate(apiserver_request_total{
+            job="activity-apiserver",
+            resource="auditlogqueries",
+            verb="POST"
+          }[6h])), 0.001)
+        )
+        * on() (activity:slo_audit_query:request_total:rate5m > bool 0)
+      "record": "activity:slo_audit_query:error_ratio:rate6h"
+    - "expr": |
+        1 - (
+          sum(rate(apiserver_request_duration_seconds_bucket{
+            job="activity-apiserver",
+            resource="auditlogqueries",
+            verb="POST",
+            le="5"
+          }[3d]))
+          /
+          clamp_min(sum(rate(apiserver_request_total{
+            job="activity-apiserver",
+            resource="auditlogqueries",
+            verb="POST"
+          }[3d])), 0.001)
+        )
+        * on() (activity:slo_audit_query:request_total:rate5m > bool 0)
+      "record": "activity:slo_audit_query:error_ratio:rate3d"
+    - "expr": |
+        sum(rate(apiserver_request_duration_seconds_bucket{
+          job="activity-apiserver",
+          resource=~"activityqueries|activityfacetqueries",
+          verb="POST",
+          le="5"
+        }[5m]))
+      "record": "activity:slo_activity_query:request_good:rate5m"
+    - "expr": |
+        sum(rate(apiserver_request_total{
+          job="activity-apiserver",
+          resource=~"activityqueries|activityfacetqueries",
+          verb="POST"
+        }[5m]))
+      "record": "activity:slo_activity_query:request_total:rate5m"
+    - "expr": |
+        (
+          1 - (
+            activity:slo_activity_query:request_good:rate5m
+            /
+            activity:slo_activity_query:request_total:rate5m
+          )
+        ) and activity:slo_activity_query:request_total:rate5m > 0
+      "record": "activity:slo_activity_query:error_ratio:rate5m"
+    - "expr": |
+        1 - (
+          sum(rate(apiserver_request_duration_seconds_bucket{
+            job="activity-apiserver",
+            resource=~"activityqueries|activityfacetqueries",
+            verb="POST",
+            le="5"
+          }[30m]))
+          /
+          clamp_min(sum(rate(apiserver_request_total{
+            job="activity-apiserver",
+            resource=~"activityqueries|activityfacetqueries",
+            verb="POST"
+          }[30m])), 0.001)
+        )
+        * on() (activity:slo_activity_query:request_total:rate5m > bool 0)
+      "record": "activity:slo_activity_query:error_ratio:rate30m"
+    - "expr": |
+        1 - (
+          sum(rate(apiserver_request_duration_seconds_bucket{
+            job="activity-apiserver",
+            resource=~"activityqueries|activityfacetqueries",
+            verb="POST",
+            le="5"
+          }[1h]))
+          /
+          clamp_min(sum(rate(apiserver_request_total{
+            job="activity-apiserver",
+            resource=~"activityqueries|activityfacetqueries",
+            verb="POST"
+          }[1h])), 0.001)
+        )
+        * on() (activity:slo_activity_query:request_total:rate5m > bool 0)
+      "record": "activity:slo_activity_query:error_ratio:rate1h"
+    - "expr": |
+        1 - (
+          sum(rate(apiserver_request_duration_seconds_bucket{
+            job="activity-apiserver",
+            resource=~"activityqueries|activityfacetqueries",
+            verb="POST",
+            le="5"
+          }[6h]))
+          /
+          clamp_min(sum(rate(apiserver_request_total{
+            job="activity-apiserver",
+            resource=~"activityqueries|activityfacetqueries",
+            verb="POST"
+          }[6h])), 0.001)
+        )
+        * on() (activity:slo_activity_query:request_total:rate5m > bool 0)
+      "record": "activity:slo_activity_query:error_ratio:rate6h"
+    - "expr": |
+        1 - (
+          sum(rate(apiserver_request_duration_seconds_bucket{
+            job="activity-apiserver",
+            resource=~"activityqueries|activityfacetqueries",
+            verb="POST",
+            le="5"
+          }[3d]))
+          /
+          clamp_min(sum(rate(apiserver_request_total{
+            job="activity-apiserver",
+            resource=~"activityqueries|activityfacetqueries",
+            verb="POST"
+          }[3d])), 0.001)
+        )
+        * on() (activity:slo_activity_query:request_total:rate5m > bool 0)
+      "record": "activity:slo_activity_query:error_ratio:rate3d"
+    - "expr": |
+        sum(rate(apiserver_request_duration_seconds_bucket{
+          job="activity-apiserver",
+          resource=~"eventqueries|eventfacetqueries",
+          verb="POST",
+          le="5"
+        }[5m]))
+      "record": "activity:slo_event_query:request_good:rate5m"
+    - "expr": |
+        sum(rate(apiserver_request_total{
+          job="activity-apiserver",
+          resource=~"eventqueries|eventfacetqueries",
+          verb="POST"
+        }[5m]))
+      "record": "activity:slo_event_query:request_total:rate5m"
+    - "expr": |
+        (
+          1 - (
+            activity:slo_event_query:request_good:rate5m
+            /
+            activity:slo_event_query:request_total:rate5m
+          )
+        ) and activity:slo_event_query:request_total:rate5m > 0
+      "record": "activity:slo_event_query:error_ratio:rate5m"
+    - "expr": |
+        1 - (
+          sum(rate(apiserver_request_duration_seconds_bucket{
+            job="activity-apiserver",
+            resource=~"eventqueries|eventfacetqueries",
+            verb="POST",
+            le="5"
+          }[30m]))
+          /
+          clamp_min(sum(rate(apiserver_request_total{
+            job="activity-apiserver",
+            resource=~"eventqueries|eventfacetqueries",
+            verb="POST"
+          }[30m])), 0.001)
+        )
+        * on() (activity:slo_event_query:request_total:rate5m > bool 0)
+      "record": "activity:slo_event_query:error_ratio:rate30m"
+    - "expr": |
+        1 - (
+          sum(rate(apiserver_request_duration_seconds_bucket{
+            job="activity-apiserver",
+            resource=~"eventqueries|eventfacetqueries",
+            verb="POST",
+            le="5"
+          }[1h]))
+          /
+          clamp_min(sum(rate(apiserver_request_total{
+            job="activity-apiserver",
+            resource=~"eventqueries|eventfacetqueries",
+            verb="POST"
+          }[1h])), 0.001)
+        )
+        * on() (activity:slo_event_query:request_total:rate5m > bool 0)
+      "record": "activity:slo_event_query:error_ratio:rate1h"
+    - "expr": |
+        1 - (
+          sum(rate(apiserver_request_duration_seconds_bucket{
+            job="activity-apiserver",
+            resource=~"eventqueries|eventfacetqueries",
+            verb="POST",
+            le="5"
+          }[6h]))
+          /
+          clamp_min(sum(rate(apiserver_request_total{
+            job="activity-apiserver",
+            resource=~"eventqueries|eventfacetqueries",
+            verb="POST"
+          }[6h])), 0.001)
+        )
+        * on() (activity:slo_event_query:request_total:rate5m > bool 0)
+      "record": "activity:slo_event_query:error_ratio:rate6h"
+    - "expr": |
+        1 - (
+          sum(rate(apiserver_request_duration_seconds_bucket{
+            job="activity-apiserver",
+            resource=~"eventqueries|eventfacetqueries",
+            verb="POST",
+            le="5"
+          }[3d]))
+          /
+          clamp_min(sum(rate(apiserver_request_total{
+            job="activity-apiserver",
+            resource=~"eventqueries|eventfacetqueries",
+            verb="POST"
+          }[3d])), 0.001)
+        )
+        * on() (activity:slo_event_query:request_total:rate5m > bool 0)
+      "record": "activity:slo_event_query:error_ratio:rate3d"
+    - "expr": |
+        sum(rate(apiserver_request_total{
+          job="activity-apiserver",
+          verb!="WATCH",
+          code!~"5.."
+        }[5m]))
+      "record": "activity:slo_availability:request_good:rate5m"
+    - "expr": |
+        sum(rate(apiserver_request_total{
+          job="activity-apiserver",
+          verb!="WATCH"
+        }[5m]))
+      "record": "activity:slo_availability:request_total:rate5m"
+    - "expr": |
+        (
+          1 - (
+            activity:slo_availability:request_good:rate5m
+            /
+            activity:slo_availability:request_total:rate5m
+          )
+        ) and activity:slo_availability:request_total:rate5m > 0
+      "record": "activity:slo_availability:error_ratio:rate5m"
+    - "expr": |
+        1 - (
+          sum(rate(apiserver_request_total{
+            job="activity-apiserver",
+            verb!="WATCH",
+            code!~"5.."
+          }[30m]))
+          /
+          clamp_min(sum(rate(apiserver_request_total{
+            job="activity-apiserver",
+            verb!="WATCH"
+          }[30m])), 0.001)
+        )
+        * on() (activity:slo_availability:request_total:rate5m > bool 0)
+      "record": "activity:slo_availability:error_ratio:rate30m"
+    - "expr": |
+        1 - (
+          sum(rate(apiserver_request_total{
+            job="activity-apiserver",
+            verb!="WATCH",
+            code!~"5.."
+          }[1h]))
+          /
+          clamp_min(sum(rate(apiserver_request_total{
+            job="activity-apiserver",
+            verb!="WATCH"
+          }[1h])), 0.001)
+        )
+        * on() (activity:slo_availability:request_total:rate5m > bool 0)
+      "record": "activity:slo_availability:error_ratio:rate1h"
+    - "expr": |
+        1 - (
+          sum(rate(apiserver_request_total{
+            job="activity-apiserver",
+            verb!="WATCH",
+            code!~"5.."
+          }[6h]))
+          /
+          clamp_min(sum(rate(apiserver_request_total{
+            job="activity-apiserver",
+            verb!="WATCH"
+          }[6h])), 0.001)
+        )
+        * on() (activity:slo_availability:request_total:rate5m > bool 0)
+      "record": "activity:slo_availability:error_ratio:rate6h"
+    - "expr": |
+        1 - (
+          sum(rate(apiserver_request_total{
+            job="activity-apiserver",
+            verb!="WATCH",
+            code!~"5.."
+          }[3d]))
+          /
+          clamp_min(sum(rate(apiserver_request_total{
+            job="activity-apiserver",
+            verb!="WATCH"
+          }[3d])), 0.001)
+        )
+        * on() (activity:slo_availability:request_total:rate5m > bool 0)
+      "record": "activity:slo_availability:error_ratio:rate3d"
