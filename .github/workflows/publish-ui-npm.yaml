@@ -13,6 +13,9 @@ on:
         default: patch
 
 jobs:
+  # ── Detect release mode ──────────────────────────────────────────────────
+  # Reads the merged PR's labels to decide dev vs release, and which semver
+  # component to bump. workflow_dispatch always triggers a release.
   detect-mode:
     name: Detect release mode
     runs-on: ubuntu-latest
@@ -33,6 +36,8 @@ jobs:
           fi
 
           # For push events, check the merged PR's labels to decide dev vs release.
+          # NOTE: relies on merge commits (not squash/rebase) so github.sha matches
+          # the PR's merge commit SHA in the search results.
           LABELS=$(gh pr list \
             --state merged \
             --base main \
@@ -40,6 +45,8 @@ jobs:
             --json labels \
             --jq '.[0].labels[].name' 2>/dev/null || true)
 
+          # Match "release" or "release:<type>" but not unrelated labels like
+          # "release-blocker" or "release-notes".
           if echo "$LABELS" | grep -qE "^release(:|$)"; then
             echo "mode=release" >> "$GITHUB_OUTPUT"
             if echo "$LABELS" | grep -q "release:major"; then
@@ -54,20 +61,76 @@ jobs:
             echo "bump-type=patch" >> "$GITHUB_OUTPUT"
           fi
 
-  publish:
+  # ── Bump version ─────────────────────────────────────────────────────────
+  # Runs only for release mode. Bumps the version in package.json, commits,
+  # creates the git tag, and pushes to main. All downstream jobs read the
+  # version from this job's output — the npm publish workflow receives it
+  # already set in package.json.
+  bump-version:
+    name: Bump version
     needs: detect-mode
+    if: needs.detect-mode.outputs.release-mode == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      new-version: ${{ steps.bump.outputs.new-version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          package_json_file: ui/package.json
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: ui/pnpm-lock.yaml
+
+      - name: Configure git
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump version and push tag
+        id: bump
+        working-directory: ui
+        env:
+          BUMP_TYPE: ${{ needs.detect-mode.outputs.bump-type }}
+        run: |
+          if [[ "$BUMP_TYPE" != "major" && "$BUMP_TYPE" != "minor" && "$BUMP_TYPE" != "patch" ]]; then
+            echo "::error::Invalid bump-type '$BUMP_TYPE'. Must be major, minor, or patch."
+            exit 1
+          fi
+          NEW_VERSION=$(npm version "$BUMP_TYPE" \
+            --message "chore: release @datum-cloud/activity-ui v%s [skip ci]")
+          echo "new-version=${NEW_VERSION}" >> "$GITHUB_OUTPUT"
+          git push origin main --follow-tags
+
+  # ── Publish to npm ───────────────────────────────────────────────────────
+  # For release: package.json already has the bumped version from bump-version.
+  # For dev: the reusable workflow computes a pre-release version from the SHA.
+  publish:
+    needs: [detect-mode, bump-version]
+    if: always() && !failure() && !cancelled() && needs.detect-mode.result == 'success'
     uses: datum-cloud/actions/.github/workflows/publish-npm-package.yaml@v1.13.0
     with:
       package-name: "@datum-cloud/activity-ui"
       package-path: ui
       release-mode: ${{ needs.detect-mode.outputs.release-mode }}
-      bump-type: ${{ needs.detect-mode.outputs.bump-type }}
     secrets: inherit
 
+  # ── Create GitHub Release ────────────────────────────────────────────────
   create-release:
     name: Create GitHub Release
-    needs: [detect-mode, publish]
-    if: needs.detect-mode.outputs.release-mode == 'release'
+    needs: [bump-version, publish]
+    if: needs.bump-version.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -75,7 +138,7 @@ jobs:
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_VERSION: ${{ needs.publish.outputs.new-version }}
+          RELEASE_VERSION: ${{ needs.bump-version.outputs.new-version }}
         run: |
           gh release create "$RELEASE_VERSION" \
             --title "@datum-cloud/activity-ui $RELEASE_VERSION" \
