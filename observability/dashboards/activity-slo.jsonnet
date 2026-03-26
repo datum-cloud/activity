@@ -141,10 +141,10 @@ local burnRateTarget(slo, window) =
 // ============================================================================
 // Row Y positions
 // ============================================================================
-// Row 1 header:  Y=0,  panels Y=1  (height 6) → next free Y=7
-// Row 2 header:  Y=7,  panels Y=8  (height 7) → next free Y=15
-// Row 3 header:  Y=15, panels Y=16 (height 8) → next free Y=24
-// Row 4 header:  Y=24, panels Y=25 (height 8) → next free Y=33
+// Row 1 header:  Y=0,  panels Y=1  (height 4) → next free Y=5
+// Row 2 header:  Y=5,  panels Y=6  (height 5) → next free Y=11
+// Row 3 header:  Y=11, panels Y=12 (height 8) → next free Y=20
+// Row 4 header:  Y=20, panels Y=21 (height 8) → next free Y=29
 
 local allPanels =
 
@@ -161,7 +161,7 @@ local allPanels =
   ]
   + util.grid.makeGrid(
     std.map(sloStatPanel, slos),
-    panelWidth=6, panelHeight=6, startY=1
+    panelWidth=4, panelHeight=4, startY=1
   )
 
   // ==========================================================================
@@ -173,11 +173,11 @@ local allPanels =
     + row.gridPos.withH(1)
     + row.gridPos.withW(24)
     + row.gridPos.withX(0)
-    + row.gridPos.withY(7),
+    + row.gridPos.withY(5),
   ]
   + util.grid.makeGrid(
     std.map(errorBudgetGaugePanel, slos),
-    panelWidth=6, panelHeight=7, startY=8
+    panelWidth=4, panelHeight=5, startY=6
   )
 
   // ==========================================================================
@@ -189,7 +189,7 @@ local allPanels =
     + row.gridPos.withH(1)
     + row.gridPos.withW(24)
     + row.gridPos.withX(0)
-    + row.gridPos.withY(15),
+    + row.gridPos.withY(11),
   ]
   + util.grid.makeGrid([
     timeSeries.new('Burn Rate — 5m window')
@@ -275,7 +275,7 @@ local allPanels =
       { color: 'orange', value: burnRateThresholds.ticket },
       { color: 'red', value: burnRateThresholds.page },
     ]),
-  ], panelWidth=8, panelHeight=8, startY=16)
+  ], panelWidth=8, panelHeight=8, startY=12)
 
   // ==========================================================================
   // Row 4: Latency
