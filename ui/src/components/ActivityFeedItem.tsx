@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { format, formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
 import type { Activity, ResourceLinkResolver, TenantLinkResolver, TenantRenderer } from '../types/activity';
 import { ActivityFeedSummary, ResourceLinkClickHandler } from './ActivityFeedSummary';
 import { ActivityExpandedDetails } from './ActivityExpandedDetails';
@@ -7,6 +7,7 @@ import { TenantBadge } from './TenantBadge';
 import { cn } from '../lib/utils';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
+import { Plus, Pencil, Trash2, Activity as ActivityIcon } from 'lucide-react';
 
 export interface ActivityFeedItemProps {
   /** The activity to render */
@@ -33,9 +34,7 @@ export interface ActivityFeedItemProps {
   isNew?: boolean;
   /** Layout variant: 'feed' (default) or 'timeline' */
   variant?: 'feed' | 'timeline';
-  /** Whether this is the first item in the list (hides timeline head, only used in timeline variant) */
-  isFirst?: boolean;
-  /** Whether this is the last item in the list (hides timeline tail, only used in timeline variant) */
+  /** Whether this is the last item in the list (hides bottom border, only used in timeline variant) */
   isLast?: boolean;
   /** Whether the item starts expanded */
   defaultExpanded?: boolean;
@@ -55,12 +54,13 @@ function formatTimestamp(timestamp?: string): string {
 }
 
 /**
- * Format timestamp for tooltip (with timezone)
+ * Format timestamp for tooltip (in UTC)
  */
 function formatTimestampFull(timestamp?: string): string {
   if (!timestamp) return 'Unknown time';
   try {
-    return format(new Date(timestamp), 'yyyy-MM-dd HH:mm:ss \'UTC\'');
+    const date = new Date(timestamp);
+    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')} ${String(date.getUTCHours()).padStart(2, '0')}:${String(date.getUTCMinutes()).padStart(2, '0')}:${String(date.getUTCSeconds()).padStart(2, '0')} UTC`;
   } catch {
     return timestamp;
   }
@@ -119,19 +119,36 @@ function normalizeVerb(verb: string): 'create' | 'update' | 'delete' | 'other' {
 }
 
 /**
- * Get timeline node classes based on verb
+ * Get icon container + icon color classes based on verb
  */
-function getTimelineNodeClasses(verb: string): string {
+function getActionIconClasses(verb: string): { container: string; icon: string } {
   const normalizedVerb = normalizeVerb(verb);
   switch (normalizedVerb) {
     case 'create':
-      return 'bg-green-500';
+      return { container: 'bg-blue-50 dark:bg-blue-950', icon: 'text-blue-500 dark:text-blue-400' };
     case 'update':
-      return 'bg-amber-500';
+      return { container: 'bg-green-50 dark:bg-green-950', icon: 'text-green-600 dark:text-green-400' };
     case 'delete':
-      return 'bg-red-500';
+      return { container: 'bg-red-50 dark:bg-red-950', icon: 'text-red-500 dark:text-red-400' };
     default:
-      return 'bg-muted-foreground';
+      return { container: 'bg-slate-100 dark:bg-slate-800', icon: 'text-slate-500 dark:text-slate-400' };
+  }
+}
+
+/**
+ * Get the Lucide icon component for the timeline node based on verb
+ */
+function getTimelineIcon(verb: string): React.ElementType {
+  const normalizedVerb = normalizeVerb(verb);
+  switch (normalizedVerb) {
+    case 'create':
+      return Plus;
+    case 'update':
+      return Pencil;
+    case 'delete':
+      return Trash2;
+    default:
+      return ActivityIcon;
   }
 }
 
@@ -151,7 +168,6 @@ export function ActivityFeedItem({
   compact = false,
   isNew = false,
   variant = 'feed',
-  isFirst = false,
   isLast = false,
   defaultExpanded = false,
 }: ActivityFeedItemProps) {
@@ -180,104 +196,71 @@ export function ActivityFeedItem({
   const verb = extractVerb(summary);
   const isTimeline = variant === 'timeline';
 
-  // Timeline variant wrapper
+  // Timeline variant — flat list row with bottom border
   if (isTimeline) {
+    const { container: iconBg, icon: iconColor } = getActionIconClasses(verb);
+    const Icon = getTimelineIcon(verb);
     return (
-      <div
-        className={cn(
-          'relative cursor-pointer group flex',
-          compact ? 'pl-7' : 'pl-9',
-          className
-        )}
-        onClick={handleClick}
-      >
-        {/* Timeline column - contains line and dot */}
+      <div className={cn(!isLast && !isExpanded && 'border-b border-border', className)}>
         <div
           className={cn(
-            'absolute left-0 top-0 bottom-0 flex flex-col items-center',
-            compact ? 'w-7' : 'w-9'
+            'flex items-center gap-3 py-3 pl-4 cursor-pointer group',
+            isSelected && 'bg-muted/40',
           )}
+          onClick={toggleExpand}
         >
-          {/* Top line segment (connects to previous item) */}
+          {/* Action icon square */}
           <div
             className={cn(
-              'w-0.5 flex-1',
-              isFirst ? 'bg-transparent' : 'bg-border'
+              'w-8 h-8 rounded-md shrink-0 flex items-center justify-center',
+              iconBg, iconColor
             )}
-            style={{ minHeight: compact ? 12 : 16 }}
-          />
-
-          {/* Timeline node (dot) - centered */}
-          <div
-            className={cn(
-              'rounded-full shrink-0 z-10',
-              compact ? 'w-2.5 h-2.5' : 'w-3 h-3',
-              getTimelineNodeClasses(verb)
-            )}
-          />
-
-          {/* Bottom line segment (connects to next item) */}
-          <div
-            className={cn(
-              'w-0.5 flex-1',
-              isLast ? 'bg-transparent' : 'bg-border'
-            )}
-          />
-        </div>
-
-        {/* Event content card */}
-        <div
-          className={cn(
-            'flex-1 border border-border rounded-lg transition-all duration-200 bg-card',
-            'shadow-sm hover:shadow-md hover:-translate-y-0.5',
-            'hover:border-primary/30 dark:hover:border-primary/40',
-            compact ? 'p-2 mb-2' : 'p-2.5 mb-2',
-            isSelected && 'border-primary bg-primary/5 ring-1 ring-primary/20 dark:bg-primary/10'
-          )}
-        >
-          {/* Single row layout */}
-          <div className="flex items-center gap-2">
-            {/* Summary - takes remaining space */}
-            <div className="flex-1 min-w-0 text-xs leading-snug">
-              <ActivityFeedSummary
-                summary={summary}
-                links={links}
-                onResourceClick={onResourceClick}
-                resourceLinkResolver={resourceLinkResolver}
-                resourceLinkContext={{ tenant }}
-              />
-            </div>
-
-            {/* Tenant badge */}
-            {tenant && (
-              <div className="shrink-0">
-                {tenantRenderer ? tenantRenderer(tenant) : <TenantBadge tenant={tenant} tenantLinkResolver={tenantLinkResolver} size="compact" />}
-              </div>
-            )}
-
-            {/* Timestamp */}
-            <span
-              className="text-xs text-muted-foreground whitespace-nowrap shrink-0"
-              title={formatTimestampFull(timestamp)}
-            >
-              {formatTimestamp(timestamp)}
-            </span>
-
-            {/* Expand button */}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-5 py-0 px-1 text-base text-muted-foreground hover:text-foreground shrink-0"
-              onClick={toggleExpand}
-              aria-expanded={isExpanded}
-            >
-              {isExpanded ? '−' : '+'}
-            </Button>
+          >
+            <Icon size={16} strokeWidth={2} />
           </div>
 
-          {/* Expanded Details */}
-          {isExpanded && <ActivityExpandedDetails activity={activity} tenantLinkResolver={tenantLinkResolver} />}
+          {/* Summary */}
+          <div className="flex-1 min-w-0 text-sm text-foreground leading-snug">
+            <ActivityFeedSummary
+              summary={summary}
+              links={links}
+              onResourceClick={onResourceClick}
+              resourceLinkResolver={resourceLinkResolver}
+              resourceLinkContext={{ tenant }}
+            />
+          </div>
+
+          {/* Tenant badge */}
+          {tenant && (
+            <div className="shrink-0">
+              {tenantRenderer ? tenantRenderer(tenant) : <TenantBadge tenant={tenant} tenantLinkResolver={tenantLinkResolver} size="compact" />}
+            </div>
+          )}
+
+          {/* Timestamp */}
+          <span
+            className="text-xs text-muted-foreground whitespace-nowrap shrink-0"
+            title={formatTimestampFull(timestamp)}
+          >
+            {formatTimestamp(timestamp)}
+          </span>
+
+          {/* Expand toggle */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-5 py-0 px-1 text-base text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+            onClick={toggleExpand}
+            aria-expanded={isExpanded}
+          >
+            {isExpanded ? '−' : '+'}
+          </Button>
         </div>
+
+        {/* Expanded Details */}
+        {isExpanded && (
+          <ActivityExpandedDetails activity={activity} tenantLinkResolver={tenantLinkResolver} compact />
+        )}
       </div>
     );
   }

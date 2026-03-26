@@ -78,6 +78,34 @@ spec:
             description: "Cannot connect to ClickHouse ({{ $value }} errors/sec). Audit log data is inaccessible."
             impact: "Complete service degradation - no data can be retrieved"
 
+        # AuditLogQuery 504 timeout errors
+        - alert: AuditLogQuery504Errors
+          expr: |
+            rate(apiserver_request_total{job="activity-apiserver",code="504",resource="auditlogqueries"}[5m]) > 0.01
+          for: 5m
+          labels:
+            severity: warning
+            component: activity-apiserver
+            sli: availability
+          annotations:
+            summary: "Audit log queries returning timeout errors"
+            description: "{{ $value }} 504 errors/sec on auditlogqueries. Queries are timing out."
+            impact: "Users experiencing failed audit log queries"
+
+        # ClickHouse query row iteration errors
+        - alert: ClickHouseQueryIterationErrors
+          expr: |
+            rate(activity_clickhouse_query_errors_total{error_type="iteration"}[5m]) > 0.5
+          for: 5m
+          labels:
+            severity: warning
+            component: activity-apiserver
+            sli: availability
+          annotations:
+            summary: "ClickHouse query row iteration errors"
+            description: "{{ $value }} iteration errors/sec. May indicate client disconnects or ClickHouse issues."
+            impact: "Some queries failing during result streaming"
+
     # =========================================================================
     # Data Pipeline Health - Ensures Fresh Data
     # =========================================================================
@@ -100,6 +128,20 @@ spec:
             description: "No new audit events are being stored in ClickHouse across any sink. Data is becoming stale."
             impact: "Users querying outdated audit data - compliance risk"
 
+        # NATS Consumer Lag - Early warning before backlog becomes critical
+        - alert: NATSConsumerLagHigh
+          expr: |
+            nats_jetstream_consumer_num_pending{stream="AUDIT_EVENTS",consumer=~"clickhouse-ingest.*"} > 5000
+          for: 5m
+          labels:
+            severity: warning
+            component: nats
+            sli: data_freshness
+          annotations:
+            summary: "Audit event consumer backlog growing"
+            description: "{{ $value }} messages pending in AUDIT_EVENTS stream. Events not reaching ClickHouse."
+            impact: "Audit log queries may return incomplete results"
+
         # NATS Consumer Lag - Leading indicator of pipeline issues
         - alert: ActivityPipelineBacklogCritical
           expr: |
@@ -113,6 +155,22 @@ spec:
             summary: "Audit event backlog is critical"
             description: "{{ $value }} audit events pending. Risk of data loss if retention exceeded."
             impact: "Large delay in audit event availability - potential data loss"
+
+        # Vector write pipeline stopped while still receiving from NATS
+        - alert: VectorClickHouseWritesStopped
+          expr: |
+            sum(rate(vector_component_sent_events_total{component_type="clickhouse",namespace="activity-system"}[15m])) == 0
+            AND
+            sum(rate(vector_component_received_events_total{component_type="nats",namespace="activity-system"}[15m])) > 0
+          for: 15m
+          labels:
+            severity: warning
+            component: vector-aggregator
+            sli: data_freshness
+          annotations:
+            summary: "Vector receiving events but not writing to ClickHouse"
+            description: "Vector NATS sources are receiving data but ClickHouse sinks have zero output for 15+ minutes."
+            impact: "Audit events not being stored — queries returning stale data"
 
         # Event Exporter Availability
         - alert: EventExporterDown

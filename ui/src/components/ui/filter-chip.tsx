@@ -209,9 +209,8 @@ export function FilterChip({
             type="button"
             disabled={disabled}
             className={cn(
-              'flex h-7 items-center gap-2 rounded-l-md border border-r-0 border-border bg-secondary px-2 text-xs',
-              'hover:bg-secondary/80 transition-colors',
-              'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+              'flex h-7 items-center gap-2 rounded-l-md border border-r-0 border-border bg-card px-2 text-xs outline-none',
+              'hover:bg-accent/40 data-[state=open]:bg-accent/40 transition-colors',
               'disabled:cursor-not-allowed disabled:opacity-50'
             )}
           >
@@ -278,12 +277,16 @@ export function FilterChip({
                         'hover:bg-accent hover:text-accent-foreground'
                       )}
                     >
-                      <input
-                        type="checkbox"
-                        checked={values.includes(option.value)}
-                        onChange={() => {}}
-                        className="mr-2 h-4 w-4"
-                      />
+                      <div className={cn(
+                        'mr-2 h-4 w-4 shrink-0 rounded-sm border border-border',
+                        values.includes(option.value) && 'bg-primary border-primary'
+                      )}>
+                        {values.includes(option.value) && (
+                          <svg viewBox="0 0 12 12" fill="none" className="h-full w-full p-0.5 text-primary-foreground">
+                            <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        )}
+                      </div>
                       <span className="flex-1 truncate">{option.label}</span>
                       {option.count !== undefined && (
                         <span className="ml-2 text-xs text-muted-foreground">
@@ -315,9 +318,8 @@ export function FilterChip({
         onClick={handleClearAll}
         disabled={disabled}
         className={cn(
-          'flex h-7 items-center rounded-r-md border border-border bg-secondary px-2',
-          'hover:bg-secondary/80 transition-colors',
-          'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+          'flex h-7 items-center rounded-r-md border border-border bg-card px-2 outline-none',
+          'hover:bg-accent/40 transition-colors',
           'disabled:cursor-not-allowed disabled:opacity-50'
         )}
         aria-label={`Clear ${label} filter`}
