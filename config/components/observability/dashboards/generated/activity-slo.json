@@ -7,11 +7,12 @@
          "collapsed": false,
          "gridPos": {
             "h": 1,
-            "w": 24,
+            "w": 0,
             "x": 0,
             "y": 0
          },
          "id": 1,
+         "panels": [ ],
          "title": "SLO Status (5m window)",
          "type": "row"
       },
@@ -394,11 +395,12 @@
          "collapsed": false,
          "gridPos": {
             "h": 1,
-            "w": 24,
-            "x": 0,
+            "w": 0,
+            "x": 20,
             "y": 5
          },
          "id": 7,
+         "panels": [ ],
          "title": "Error Budget Remaining (99% SLO target)",
          "type": "row"
       },
@@ -766,12 +768,13 @@
          "collapsed": false,
          "gridPos": {
             "h": 1,
-            "w": 24,
-            "x": 0,
+            "w": 0,
+            "x": 20,
             "y": 11
          },
          "id": 13,
-         "title": "Burn Rate (error_ratio over time)",
+         "panels": [ ],
+         "title": "Burn Rate (error ratio over time)",
          "type": "row"
       },
       {
@@ -779,7 +782,7 @@
             "type": "prometheus",
             "uid": "$datasource"
          },
-         "description": "Short-window burn rate (5m). Threshold lines: page=0.14399999999999999, ticket=0.059999999999999998, low=0.029999999999999999",
+         "description": "Short-window burn rate for page-level alerting",
          "fieldConfig": {
             "defaults": {
                "custom": {
@@ -884,7 +887,7 @@
             "type": "prometheus",
             "uid": "$datasource"
          },
-         "description": "Medium-window burn rate (1h). Sustained elevation above page threshold (0.14399999999999999) requires immediate response.",
+         "description": "Medium-window burn rate. Sustained elevation requires immediate response.",
          "fieldConfig": {
             "defaults": {
                "custom": {
@@ -989,7 +992,7 @@
             "type": "prometheus",
             "uid": "$datasource"
          },
-         "description": "Longer-window burn rate (6h). Useful for detecting slow burns that evade short-window alerting. Ticket threshold: 0.059999999999999998",
+         "description": "Longer-window burn rate for detecting slow burns",
          "fieldConfig": {
             "defaults": {
                "custom": {
@@ -1093,11 +1096,12 @@
          "collapsed": false,
          "gridPos": {
             "h": 1,
-            "w": 24,
-            "x": 0,
-            "y": 24
+            "w": 0,
+            "x": 24,
+            "y": 20
          },
          "id": 17,
+         "panels": [ ],
          "title": "Request Latency (SLO targets: 1s metadata, 3s queries)",
          "type": "row"
       },
@@ -1106,7 +1110,7 @@
             "type": "prometheus",
             "uid": "$datasource"
          },
-         "description": "Request latency for metadata/list operations. SLO target: p99 < 1s. Uses activity:apiserver_request_duration recording rules filtered to metadata resources.",
+         "description": "SLO target: p99 < 1s",
          "fieldConfig": {
             "defaults": {
                "custom": {
@@ -1140,7 +1144,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 25
+            "y": 21
          },
          "id": 18,
          "options": {
@@ -1162,7 +1166,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket{job=\"activity-apiserver\",resource=\"activitypolicies\"}[5m])) by (le))",
+               "expr": "histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket{job=\"activity-apiserver\",resource=\"activitypolicies\",verb!=\"WATCH\"}[5m])) by (le))",
                "legendFormat": "p99"
             },
             {
@@ -1170,7 +1174,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "histogram_quantile(0.95, sum(rate(apiserver_request_duration_seconds_bucket{job=\"activity-apiserver\",resource=\"activitypolicies\"}[5m])) by (le))",
+               "expr": "histogram_quantile(0.95, sum(rate(apiserver_request_duration_seconds_bucket{job=\"activity-apiserver\",resource=\"activitypolicies\",verb!=\"WATCH\"}[5m])) by (le))",
                "legendFormat": "p95"
             },
             {
@@ -1178,11 +1182,11 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "histogram_quantile(0.50, sum(rate(apiserver_request_duration_seconds_bucket{job=\"activity-apiserver\",resource=\"activitypolicies\"}[5m])) by (le))",
+               "expr": "histogram_quantile(0.50, sum(rate(apiserver_request_duration_seconds_bucket{job=\"activity-apiserver\",resource=\"activitypolicies\",verb!=\"WATCH\"}[5m])) by (le))",
                "legendFormat": "p50"
             }
          ],
-         "title": "Metadata API Latency (p50 / p95 / p99)",
+         "title": "Metadata API Latency",
          "type": "timeseries"
       },
       {
@@ -1190,7 +1194,7 @@
             "type": "prometheus",
             "uid": "$datasource"
          },
-         "description": "Request latency for AuditLogQuery operations. SLO target: p99 < 3s.",
+         "description": "SLO target: p99 < 3s",
          "fieldConfig": {
             "defaults": {
                "custom": {
@@ -1224,7 +1228,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 25
+            "y": 21
          },
          "id": 19,
          "options": {
@@ -1266,7 +1270,7 @@
                "legendFormat": "p50"
             }
          ],
-         "title": "Audit Query Latency (p50 / p95 / p99)",
+         "title": "Audit Query Latency",
          "type": "timeseries"
       },
       {
@@ -1274,7 +1278,7 @@
             "type": "prometheus",
             "uid": "$datasource"
          },
-         "description": "Request latency for Activity and ActivityFacetQuery operations. SLO target: p99 < 3s.",
+         "description": "SLO target: p99 < 3s",
          "fieldConfig": {
             "defaults": {
                "custom": {
@@ -1308,7 +1312,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 33
+            "y": 29
          },
          "id": 20,
          "options": {
@@ -1350,7 +1354,7 @@
                "legendFormat": "p50"
             }
          ],
-         "title": "Activity Query Latency (p50 / p95 / p99)",
+         "title": "Activity Query Latency",
          "type": "timeseries"
       },
       {
@@ -1358,7 +1362,7 @@
             "type": "prometheus",
             "uid": "$datasource"
          },
-         "description": "Request latency for EventQuery and EventFacetQuery operations. SLO target: p99 < 3s.",
+         "description": "SLO target: p99 < 3s",
          "fieldConfig": {
             "defaults": {
                "custom": {
@@ -1392,7 +1396,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 33
+            "y": 29
          },
          "id": 21,
          "options": {
@@ -1434,7 +1438,7 @@
                "legendFormat": "p50"
             }
          ],
-         "title": "Event Query Latency (p50 / p95 / p99)",
+         "title": "Event Query Latency",
          "type": "timeseries"
       }
    ],
