@@ -23,7 +23,23 @@
          "description": "Current success ratio for Metadata API (good requests / total requests, 5m window). Target: >99.0%",
          "fieldConfig": {
             "defaults": {
+               "color": {
+                  "fixedColor": "text"
+               },
                "decimals": 3,
+               "mappings": [
+                  {
+                     "options": {
+                        "match": "null",
+                        "result": {
+                           "color": "text",
+                           "text": "No traffic"
+                        }
+                     },
+                     "type": "special"
+                  }
+               ],
+               "noValue": "No traffic",
                "thresholds": {
                   "steps": [
                      {
@@ -82,7 +98,23 @@
          "description": "Current success ratio for Audit Query (good requests / total requests, 5m window). Target: >99.0%",
          "fieldConfig": {
             "defaults": {
+               "color": {
+                  "fixedColor": "text"
+               },
                "decimals": 3,
+               "mappings": [
+                  {
+                     "options": {
+                        "match": "null",
+                        "result": {
+                           "color": "text",
+                           "text": "No traffic"
+                        }
+                     },
+                     "type": "special"
+                  }
+               ],
+               "noValue": "No traffic",
                "thresholds": {
                   "steps": [
                      {
@@ -141,7 +173,23 @@
          "description": "Current success ratio for Activity Query (good requests / total requests, 5m window). Target: >99.0%",
          "fieldConfig": {
             "defaults": {
+               "color": {
+                  "fixedColor": "text"
+               },
                "decimals": 3,
+               "mappings": [
+                  {
+                     "options": {
+                        "match": "null",
+                        "result": {
+                           "color": "text",
+                           "text": "No traffic"
+                        }
+                     },
+                     "type": "special"
+                  }
+               ],
+               "noValue": "No traffic",
                "thresholds": {
                   "steps": [
                      {
@@ -200,7 +248,23 @@
          "description": "Current success ratio for Event Query (good requests / total requests, 5m window). Target: >99.0%",
          "fieldConfig": {
             "defaults": {
+               "color": {
+                  "fixedColor": "text"
+               },
                "decimals": 3,
+               "mappings": [
+                  {
+                     "options": {
+                        "match": "null",
+                        "result": {
+                           "color": "text",
+                           "text": "No traffic"
+                        }
+                     },
+                     "type": "special"
+                  }
+               ],
+               "noValue": "No traffic",
                "thresholds": {
                   "steps": [
                      {
@@ -259,7 +323,23 @@
          "description": "Current success ratio for Availability (good requests / total requests, 5m window). Target: >99.0%",
          "fieldConfig": {
             "defaults": {
+               "color": {
+                  "fixedColor": "text"
+               },
                "decimals": 3,
+               "mappings": [
+                  {
+                     "options": {
+                        "match": "null",
+                        "result": {
+                           "color": "text",
+                           "text": "No traffic"
+                        }
+                     },
+                     "type": "special"
+                  }
+               ],
+               "noValue": "No traffic",
                "thresholds": {
                   "steps": [
                      {
@@ -331,8 +411,21 @@
          "fieldConfig": {
             "defaults": {
                "decimals": 1,
+               "mappings": [
+                  {
+                     "options": {
+                        "match": "null",
+                        "result": {
+                           "color": "text",
+                           "text": "No traffic"
+                        }
+                     },
+                     "type": "special"
+                  }
+               ],
                "max": 100,
                "min": 0,
+               "noValue": "No traffic",
                "thresholds": {
                   "steps": [
                      {
@@ -390,8 +483,21 @@
          "fieldConfig": {
             "defaults": {
                "decimals": 1,
+               "mappings": [
+                  {
+                     "options": {
+                        "match": "null",
+                        "result": {
+                           "color": "text",
+                           "text": "No traffic"
+                        }
+                     },
+                     "type": "special"
+                  }
+               ],
                "max": 100,
                "min": 0,
+               "noValue": "No traffic",
                "thresholds": {
                   "steps": [
                      {
@@ -449,8 +555,21 @@
          "fieldConfig": {
             "defaults": {
                "decimals": 1,
+               "mappings": [
+                  {
+                     "options": {
+                        "match": "null",
+                        "result": {
+                           "color": "text",
+                           "text": "No traffic"
+                        }
+                     },
+                     "type": "special"
+                  }
+               ],
                "max": 100,
                "min": 0,
+               "noValue": "No traffic",
                "thresholds": {
                   "steps": [
                      {
@@ -508,8 +627,21 @@
          "fieldConfig": {
             "defaults": {
                "decimals": 1,
+               "mappings": [
+                  {
+                     "options": {
+                        "match": "null",
+                        "result": {
+                           "color": "text",
+                           "text": "No traffic"
+                        }
+                     },
+                     "type": "special"
+                  }
+               ],
                "max": 100,
                "min": 0,
+               "noValue": "No traffic",
                "thresholds": {
                   "steps": [
                      {
@@ -567,8 +699,21 @@
          "fieldConfig": {
             "defaults": {
                "decimals": 1,
+               "mappings": [
+                  {
+                     "options": {
+                        "match": "null",
+                        "result": {
+                           "color": "text",
+                           "text": "No traffic"
+                        }
+                     },
+                     "type": "special"
+                  }
+               ],
                "max": 100,
                "min": 0,
+               "noValue": "No traffic",
                "thresholds": {
                   "steps": [
                      {

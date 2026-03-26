@@ -75,6 +75,11 @@ local sloStatPanel(slo) =
     { color: 'red', value: null },
     { color: 'yellow', value: sloTarget },
     { color: 'green', value: 0.999 },
+  ])
+  + stat.standardOptions.withNoValue('No traffic')
+  + { fieldConfig+: { defaults+: { color+: { fixedColor: 'text' } } } }
+  + stat.standardOptions.withMappings([
+    { type: 'special', options: { match: 'null', result: { text: 'No traffic', color: 'text' } } },
   ]);
 
 // ============================================================================
@@ -117,6 +122,10 @@ local errorBudgetGaugePanel(slo) =
     { color: 'red', value: null },
     { color: 'yellow', value: 10 },
     { color: 'green', value: 25 },
+  ])
+  + gauge.standardOptions.withNoValue('No traffic')
+  + gauge.standardOptions.withMappings([
+    { type: 'special', options: { match: 'null', result: { text: 'No traffic', color: 'text' } } },
   ]);
 
 // ============================================================================
