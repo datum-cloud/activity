@@ -1,0 +1,333 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: activity-slo-alerts
+  namespace: activity-system
+  labels:
+    prometheus: activity
+    app.kubernetes.io/part-of: activity
+    monitoring: "true"
+spec:
+  groups:
+    # =========================================================================
+    # SLO Burn-Rate Alerts
+    #
+    # Three urgency tiers per SLO (5 SLOs × 3 = 15 alerts total):
+    #   Page   (critical) — fast burn: >14.4x over 1h AND 5m windows
+    #   Ticket (warning)  — slow burn: >6x over 6h AND 30m windows
+    #   Low    (info)     — trend:     >3x over 3d AND 6h windows
+    #
+    # Error budget: 0.01 (99% SLO target)
+    # Burn-rate thresholds:
+    #   14.4% = 0.144  (exhausts 5% of monthly budget in 1h → page)
+    #    6.0% = 0.06   (exhausts 5% of monthly budget in 6h → ticket)
+    #    3.0% = 0.03   (slow trend burn → low)
+    #
+    # Depends on recording rules in activity-slo-recordings (mixin).
+    # =========================================================================
+    - name: activity-slo-burn
+      interval: 30s
+      rules:
+
+        # =====================================================================
+        # SLO: Metadata (activitypolicies GET/LIST/APPLY, latency < 1s)
+        # =====================================================================
+
+        - alert: ActivitySLOMetadataPageBurn
+          expr: |
+            activity:slo_metadata:error_ratio:rate1h > 0.144
+            AND
+            activity:slo_metadata:error_ratio:rate5m > 0.144
+            AND activity:slo_metadata:request_total:rate5m > 0
+          for: 2m
+          labels:
+            severity: critical
+            component: activity-apiserver
+            slo: metadata
+          annotations:
+            summary: "ActivityPolicy metadata SLO burning fast — page"
+            description: >-
+              Error ratio is {{ $value | humanizePercentage }} over the last hour
+              (threshold: 14.4%). At this rate the 99% latency SLO error budget
+              will be exhausted within hours. Investigate activitypolicies GET/LIST/APPLY latency.
+            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/slo-burn.md"
+
+        - alert: ActivitySLOMetadataTicketBurn
+          expr: |
+            activity:slo_metadata:error_ratio:rate6h > 0.06
+            AND
+            activity:slo_metadata:error_ratio:rate30m > 0.06
+            AND activity:slo_metadata:request_total:rate5m > 0
+          for: 5m
+          labels:
+            severity: warning
+            component: activity-apiserver
+            slo: metadata
+          annotations:
+            summary: "ActivityPolicy metadata SLO burning — create ticket"
+            description: >-
+              Error ratio is {{ $value | humanizePercentage }} over the last 6 hours
+              (threshold: 6%). The 99% latency SLO error budget is draining at an
+              elevated rate. Review activitypolicies request latency trends.
+            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/slo-burn.md"
+
+        - alert: ActivitySLOMetadataLowBurn
+          expr: |
+            activity:slo_metadata:error_ratio:rate3d > 0.03
+            AND
+            activity:slo_metadata:error_ratio:rate6h > 0.03
+            AND activity:slo_metadata:request_total:rate5m > 0
+          for: 15m
+          labels:
+            severity: info
+            component: activity-apiserver
+            slo: metadata
+          annotations:
+            summary: "ActivityPolicy metadata SLO trending slow burn"
+            description: >-
+              Error ratio is {{ $value | humanizePercentage }} over the last 3 days
+              (threshold: 3%). The SLO error budget is slowly eroding.
+              No immediate action required but worth investigating.
+            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/slo-burn.md"
+
+        # =====================================================================
+        # SLO: Audit Queries (auditlogqueries POST, latency < 3s)
+        # =====================================================================
+
+        - alert: ActivitySLOAuditQueryPageBurn
+          expr: |
+            activity:slo_audit_query:error_ratio:rate1h > 0.144
+            AND
+            activity:slo_audit_query:error_ratio:rate5m > 0.144
+            AND activity:slo_audit_query:request_total:rate5m > 0
+          for: 2m
+          labels:
+            severity: critical
+            component: activity-apiserver
+            slo: audit_query
+          annotations:
+            summary: "Audit query SLO burning fast — page"
+            description: >-
+              Error ratio is {{ $value | humanizePercentage }} over the last hour
+              (threshold: 14.4%). AuditLogQuery POST latency is breaching the 3s
+              target at a rate that will exhaust the error budget within hours.
+            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/slo-burn.md"
+
+        - alert: ActivitySLOAuditQueryTicketBurn
+          expr: |
+            activity:slo_audit_query:error_ratio:rate6h > 0.06
+            AND
+            activity:slo_audit_query:error_ratio:rate30m > 0.06
+            AND activity:slo_audit_query:request_total:rate5m > 0
+          for: 5m
+          labels:
+            severity: warning
+            component: activity-apiserver
+            slo: audit_query
+          annotations:
+            summary: "Audit query SLO burning — create ticket"
+            description: >-
+              Error ratio is {{ $value | humanizePercentage }} over the last 6 hours
+              (threshold: 6%). AuditLogQuery latency SLO error budget draining at
+              elevated rate.
+            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/slo-burn.md"
+
+        - alert: ActivitySLOAuditQueryLowBurn
+          expr: |
+            activity:slo_audit_query:error_ratio:rate3d > 0.03
+            AND
+            activity:slo_audit_query:error_ratio:rate6h > 0.03
+            AND activity:slo_audit_query:request_total:rate5m > 0
+          for: 15m
+          labels:
+            severity: info
+            component: activity-apiserver
+            slo: audit_query
+          annotations:
+            summary: "Audit query SLO trending slow burn"
+            description: >-
+              Error ratio is {{ $value | humanizePercentage }} over the last 3 days
+              (threshold: 3%). Audit query latency SLO slowly eroding.
+            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/slo-burn.md"
+
+        # =====================================================================
+        # SLO: Activity Queries (activityqueries + activityfacetqueries POST,
+        # latency < 3s)
+        # =====================================================================
+
+        - alert: ActivitySLOActivityQueryPageBurn
+          expr: |
+            activity:slo_activity_query:error_ratio:rate1h > 0.144
+            AND
+            activity:slo_activity_query:error_ratio:rate5m > 0.144
+            AND activity:slo_activity_query:request_total:rate5m > 0
+          for: 2m
+          labels:
+            severity: critical
+            component: activity-apiserver
+            slo: activity_query
+          annotations:
+            summary: "Activity query SLO burning fast — page"
+            description: >-
+              Error ratio is {{ $value | humanizePercentage }} over the last hour
+              (threshold: 14.4%). ActivityQuery/ActivityFacetQuery POST latency is
+              breaching the 3s target at a rate that will exhaust the error budget
+              within hours.
+            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/slo-burn.md"
+
+        - alert: ActivitySLOActivityQueryTicketBurn
+          expr: |
+            activity:slo_activity_query:error_ratio:rate6h > 0.06
+            AND
+            activity:slo_activity_query:error_ratio:rate30m > 0.06
+            AND activity:slo_activity_query:request_total:rate5m > 0
+          for: 5m
+          labels:
+            severity: warning
+            component: activity-apiserver
+            slo: activity_query
+          annotations:
+            summary: "Activity query SLO burning — create ticket"
+            description: >-
+              Error ratio is {{ $value | humanizePercentage }} over the last 6 hours
+              (threshold: 6%). Activity query latency SLO error budget draining at
+              elevated rate.
+            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/slo-burn.md"
+
+        - alert: ActivitySLOActivityQueryLowBurn
+          expr: |
+            activity:slo_activity_query:error_ratio:rate3d > 0.03
+            AND
+            activity:slo_activity_query:error_ratio:rate6h > 0.03
+            AND activity:slo_activity_query:request_total:rate5m > 0
+          for: 15m
+          labels:
+            severity: info
+            component: activity-apiserver
+            slo: activity_query
+          annotations:
+            summary: "Activity query SLO trending slow burn"
+            description: >-
+              Error ratio is {{ $value | humanizePercentage }} over the last 3 days
+              (threshold: 3%). Activity query latency SLO slowly eroding.
+            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/slo-burn.md"
+
+        # =====================================================================
+        # SLO: Event Queries (eventqueries + eventfacetqueries POST, latency < 3s)
+        # =====================================================================
+
+        - alert: ActivitySLOEventQueryPageBurn
+          expr: |
+            activity:slo_event_query:error_ratio:rate1h > 0.144
+            AND
+            activity:slo_event_query:error_ratio:rate5m > 0.144
+            AND activity:slo_event_query:request_total:rate5m > 0
+          for: 2m
+          labels:
+            severity: critical
+            component: activity-apiserver
+            slo: event_query
+          annotations:
+            summary: "Event query SLO burning fast — page"
+            description: >-
+              Error ratio is {{ $value | humanizePercentage }} over the last hour
+              (threshold: 14.4%). EventQuery/EventFacetQuery POST latency is
+              breaching the 3s target at a rate that will exhaust the error budget
+              within hours.
+            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/slo-burn.md"
+
+        - alert: ActivitySLOEventQueryTicketBurn
+          expr: |
+            activity:slo_event_query:error_ratio:rate6h > 0.06
+            AND
+            activity:slo_event_query:error_ratio:rate30m > 0.06
+            AND activity:slo_event_query:request_total:rate5m > 0
+          for: 5m
+          labels:
+            severity: warning
+            component: activity-apiserver
+            slo: event_query
+          annotations:
+            summary: "Event query SLO burning — create ticket"
+            description: >-
+              Error ratio is {{ $value | humanizePercentage }} over the last 6 hours
+              (threshold: 6%). Event query latency SLO error budget draining at
+              elevated rate.
+            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/slo-burn.md"
+
+        - alert: ActivitySLOEventQueryLowBurn
+          expr: |
+            activity:slo_event_query:error_ratio:rate3d > 0.03
+            AND
+            activity:slo_event_query:error_ratio:rate6h > 0.03
+            AND activity:slo_event_query:request_total:rate5m > 0
+          for: 15m
+          labels:
+            severity: info
+            component: activity-apiserver
+            slo: event_query
+          annotations:
+            summary: "Event query SLO trending slow burn"
+            description: >-
+              Error ratio is {{ $value | humanizePercentage }} over the last 3 days
+              (threshold: 3%). Event query latency SLO slowly eroding.
+            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/slo-burn.md"
+
+        # =====================================================================
+        # SLO: Availability (all verb!="WATCH", non-5xx responses)
+        # =====================================================================
+
+        - alert: ActivitySLOAvailabilityPageBurn
+          expr: |
+            activity:slo_availability:error_ratio:rate1h > 0.144
+            AND
+            activity:slo_availability:error_ratio:rate5m > 0.144
+            AND activity:slo_availability:request_total:rate5m > 0
+          for: 2m
+          labels:
+            severity: critical
+            component: activity-apiserver
+            slo: availability
+          annotations:
+            summary: "Activity availability SLO burning fast — page"
+            description: >-
+              5xx error ratio is {{ $value | humanizePercentage }} over the last hour
+              (threshold: 14.4%). The 99% availability SLO error budget will be
+              exhausted within hours. Investigate apiserver error logs immediately.
+            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/slo-burn.md"
+
+        - alert: ActivitySLOAvailabilityTicketBurn
+          expr: |
+            activity:slo_availability:error_ratio:rate6h > 0.06
+            AND
+            activity:slo_availability:error_ratio:rate30m > 0.06
+            AND activity:slo_availability:request_total:rate5m > 0
+          for: 5m
+          labels:
+            severity: warning
+            component: activity-apiserver
+            slo: availability
+          annotations:
+            summary: "Activity availability SLO burning — create ticket"
+            description: >-
+              5xx error ratio is {{ $value | humanizePercentage }} over the last 6 hours
+              (threshold: 6%). Availability SLO error budget draining at elevated rate.
+            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/slo-burn.md"
+
+        - alert: ActivitySLOAvailabilityLowBurn
+          expr: |
+            activity:slo_availability:error_ratio:rate3d > 0.03
+            AND
+            activity:slo_availability:error_ratio:rate6h > 0.03
+            AND activity:slo_availability:request_total:rate5m > 0
+          for: 15m
+          labels:
+            severity: info
+            component: activity-apiserver
+            slo: availability
+          annotations:
+            summary: "Activity availability SLO trending slow burn"
+            description: >-
+              5xx error ratio is {{ $value | humanizePercentage }} over the last 3 days
+              (threshold: 3%). Availability SLO slowly eroding.
+            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/slo-burn.md"

@@ -15,6 +15,7 @@
   // Import recording rules
   _rules:: {
     recordings: import 'rules/activity-recordings.libsonnet',
+    sloRecordings: import 'rules/activity-slo-recordings.libsonnet',
   },
 
   // Combine all alerts into a single PrometheusRule manifest
@@ -51,7 +52,9 @@
       },
     },
     spec: {
-      groups: $._rules.recordings.prometheusRules.groups,
+      groups:
+        $._rules.recordings.prometheusRules.groups +
+        $._rules.sloRecordings.prometheusRules.groups,
     },
   },
 
