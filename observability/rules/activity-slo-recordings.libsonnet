@@ -55,11 +55,13 @@
           {
             record: 'activity:slo_metadata:error_ratio:rate5m',
             expr: |||
-              1 - (
-                activity:slo_metadata:request_good:rate5m
-                /
-                clamp_min(activity:slo_metadata:request_total:rate5m, 0.001)
-              )
+              (
+                1 - (
+                  activity:slo_metadata:request_good:rate5m
+                  /
+                  activity:slo_metadata:request_total:rate5m
+                )
+              ) and activity:slo_metadata:request_total:rate5m > 0
             |||,
           },
 
@@ -80,6 +82,7 @@
                   verb=~"GET|LIST|PATCH"
                 }[30m])), 0.001)
               )
+              * on() (activity:slo_metadata:request_total:rate5m > bool 0)
             |||,
           },
 
@@ -100,6 +103,7 @@
                   verb=~"GET|LIST|PATCH"
                 }[1h])), 0.001)
               )
+              * on() (activity:slo_metadata:request_total:rate5m > bool 0)
             |||,
           },
 
@@ -120,6 +124,7 @@
                   verb=~"GET|LIST|PATCH"
                 }[6h])), 0.001)
               )
+              * on() (activity:slo_metadata:request_total:rate5m > bool 0)
             |||,
           },
 
@@ -140,6 +145,7 @@
                   verb=~"GET|LIST|PATCH"
                 }[3d])), 0.001)
               )
+              * on() (activity:slo_metadata:request_total:rate5m > bool 0)
             |||,
           },
 
@@ -174,11 +180,13 @@
           {
             record: 'activity:slo_audit_query:error_ratio:rate5m',
             expr: |||
-              1 - (
-                activity:slo_audit_query:request_good:rate5m
-                /
-                clamp_min(activity:slo_audit_query:request_total:rate5m, 0.001)
-              )
+              (
+                1 - (
+                  activity:slo_audit_query:request_good:rate5m
+                  /
+                  activity:slo_audit_query:request_total:rate5m
+                )
+              ) and activity:slo_audit_query:request_total:rate5m > 0
             |||,
           },
 
@@ -199,6 +207,7 @@
                   verb="POST"
                 }[30m])), 0.001)
               )
+              * on() (activity:slo_audit_query:request_total:rate5m > bool 0)
             |||,
           },
 
@@ -219,6 +228,7 @@
                   verb="POST"
                 }[1h])), 0.001)
               )
+              * on() (activity:slo_audit_query:request_total:rate5m > bool 0)
             |||,
           },
 
@@ -239,6 +249,7 @@
                   verb="POST"
                 }[6h])), 0.001)
               )
+              * on() (activity:slo_audit_query:request_total:rate5m > bool 0)
             |||,
           },
 
@@ -259,6 +270,7 @@
                   verb="POST"
                 }[3d])), 0.001)
               )
+              * on() (activity:slo_audit_query:request_total:rate5m > bool 0)
             |||,
           },
 
@@ -293,11 +305,13 @@
           {
             record: 'activity:slo_activity_query:error_ratio:rate5m',
             expr: |||
-              1 - (
-                activity:slo_activity_query:request_good:rate5m
-                /
-                clamp_min(activity:slo_activity_query:request_total:rate5m, 0.001)
-              )
+              (
+                1 - (
+                  activity:slo_activity_query:request_good:rate5m
+                  /
+                  activity:slo_activity_query:request_total:rate5m
+                )
+              ) and activity:slo_activity_query:request_total:rate5m > 0
             |||,
           },
 
@@ -318,6 +332,7 @@
                   verb="POST"
                 }[30m])), 0.001)
               )
+              * on() (activity:slo_activity_query:request_total:rate5m > bool 0)
             |||,
           },
 
@@ -338,6 +353,7 @@
                   verb="POST"
                 }[1h])), 0.001)
               )
+              * on() (activity:slo_activity_query:request_total:rate5m > bool 0)
             |||,
           },
 
@@ -358,6 +374,7 @@
                   verb="POST"
                 }[6h])), 0.001)
               )
+              * on() (activity:slo_activity_query:request_total:rate5m > bool 0)
             |||,
           },
 
@@ -378,6 +395,7 @@
                   verb="POST"
                 }[3d])), 0.001)
               )
+              * on() (activity:slo_activity_query:request_total:rate5m > bool 0)
             |||,
           },
 
@@ -412,11 +430,13 @@
           {
             record: 'activity:slo_event_query:error_ratio:rate5m',
             expr: |||
-              1 - (
-                activity:slo_event_query:request_good:rate5m
-                /
-                clamp_min(activity:slo_event_query:request_total:rate5m, 0.001)
-              )
+              (
+                1 - (
+                  activity:slo_event_query:request_good:rate5m
+                  /
+                  activity:slo_event_query:request_total:rate5m
+                )
+              ) and activity:slo_event_query:request_total:rate5m > 0
             |||,
           },
 
@@ -437,6 +457,7 @@
                   verb="POST"
                 }[30m])), 0.001)
               )
+              * on() (activity:slo_event_query:request_total:rate5m > bool 0)
             |||,
           },
 
@@ -457,6 +478,7 @@
                   verb="POST"
                 }[1h])), 0.001)
               )
+              * on() (activity:slo_event_query:request_total:rate5m > bool 0)
             |||,
           },
 
@@ -477,6 +499,7 @@
                   verb="POST"
                 }[6h])), 0.001)
               )
+              * on() (activity:slo_event_query:request_total:rate5m > bool 0)
             |||,
           },
 
@@ -497,6 +520,7 @@
                   verb="POST"
                 }[3d])), 0.001)
               )
+              * on() (activity:slo_event_query:request_total:rate5m > bool 0)
             |||,
           },
 
@@ -529,11 +553,13 @@
           {
             record: 'activity:slo_availability:error_ratio:rate5m',
             expr: |||
-              1 - (
-                activity:slo_availability:request_good:rate5m
-                /
-                clamp_min(activity:slo_availability:request_total:rate5m, 0.001)
-              )
+              (
+                1 - (
+                  activity:slo_availability:request_good:rate5m
+                  /
+                  activity:slo_availability:request_total:rate5m
+                )
+              ) and activity:slo_availability:request_total:rate5m > 0
             |||,
           },
 
@@ -552,6 +578,7 @@
                   verb!="WATCH"
                 }[30m])), 0.001)
               )
+              * on() (activity:slo_availability:request_total:rate5m > bool 0)
             |||,
           },
 
@@ -570,6 +597,7 @@
                   verb!="WATCH"
                 }[1h])), 0.001)
               )
+              * on() (activity:slo_availability:request_total:rate5m > bool 0)
             |||,
           },
 
@@ -588,6 +616,7 @@
                   verb!="WATCH"
                 }[6h])), 0.001)
               )
+              * on() (activity:slo_availability:request_total:rate5m > bool 0)
             |||,
           },
 
@@ -606,6 +635,7 @@
                   verb!="WATCH"
                 }[3d])), 0.001)
               )
+              * on() (activity:slo_availability:request_total:rate5m > bool 0)
             |||,
           },
 
