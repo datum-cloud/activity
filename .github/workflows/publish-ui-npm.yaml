@@ -40,7 +40,7 @@ jobs:
             --json labels \
             --jq '.[0].labels[].name' 2>/dev/null || true)
 
-          if echo "$LABELS" | grep -q "^release"; then
+          if echo "$LABELS" | grep -qE "^release(:|$)"; then
             echo "mode=release" >> "$GITHUB_OUTPUT"
             if echo "$LABELS" | grep -q "release:major"; then
               echo "bump-type=major" >> "$GITHUB_OUTPUT"
