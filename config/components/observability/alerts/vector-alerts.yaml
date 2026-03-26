@@ -31,15 +31,15 @@ spec:
             runbook: "Restart vector-aggregator pods: kubectl rollout restart statefulset/vector-aggregator -n activity-system"
             issue_link: "https://github.com/datum-cloud/activity/issues/82"
 
-        # NATS Source Stalled with backlog confirmation (requires NATS metrics)
-        - alert: VectorNATSSourceStalledWithBacklog
+        # NATS Source Stalled with audit event backlog confirmation
+        - alert: VectorNATSAuditStalledWithBacklog
           expr: |
             (
               sum(rate(vector_component_received_events_total{component_type="nats"}[5m])) == 0
             )
             AND ON()
             (
-              sum(nats_jetstream_consumer_num_pending{consumer=~"clickhouse-ingest.*"}) > 100
+              sum(nats_jetstream_consumer_num_pending{stream="AUDIT_EVENTS"}) > 100
             )
           for: 5m
           labels:
@@ -47,8 +47,8 @@ spec:
             component: vector-aggregator
             issue: nats-reconnect
           annotations:
-            summary: "Vector NATS stalled with message backlog"
-            description: "Vector not receiving from NATS but messages are pending in JetStream. Confirms reconnection failure."
+            summary: "Vector NATS stalled with audit event backlog"
+            description: "Vector not receiving from NATS but audit events are pending in JetStream. Confirms reconnection failure."
             runbook: "Restart vector-aggregator pods: kubectl rollout restart statefulset/vector-aggregator -n activity-system"
 
         # Individual NATS source not receiving - more granular detection
@@ -65,31 +65,49 @@ spec:
             description: "The nats_audit_consumer source has not received events for 10+ minutes."
             impact: "Audit events not flowing to ClickHouse"
 
-        - alert: VectorNATSActivitiesSourceStopped
+        # Low-volume stream: only alert when messages are pending but not being consumed.
+        # Zero rate alone is expected — activities arrive at ~10/hour with multi-hour gaps of
+        # zero traffic being normal when no ActivityPolicy-matching events are occurring.
+        - alert: VectorNATSActivitiesConsumerStalled
           expr: |
-            rate(vector_component_received_events_total{component_id="nats_activities_consumer"}[10m]) == 0
-          for: 10m
+            (
+              rate(vector_component_received_events_total{component_id="nats_activities_consumer"}[30m]) == 0
+            )
+            AND ON()
+            (
+              sum(nats_jetstream_consumer_num_pending{stream="ACTIVITIES"}) > 0
+            )
+          for: 15m
           labels:
             severity: warning
             component: vector-aggregator
             source: nats_activities_consumer
           annotations:
-            summary: "Vector activities source stopped receiving"
-            description: "The nats_activities_consumer source has not received events for 10+ minutes."
-            impact: "Activities not flowing to ClickHouse"
+            summary: "Vector activities consumer stalled with pending messages"
+            description: "The nats_activities_consumer has not received events for 30+ minutes but messages are pending in the ACTIVITIES stream. Consumer may be stuck."
+            impact: "Activities backlogged in NATS — not flowing to ClickHouse"
 
-        - alert: VectorNATSEventsSourceStopped
+        # Low-volume stream: only alert when messages are pending but not being consumed.
+        # Zero rate alone is expected — k8s events arrive at ~5/hour with multi-hour gaps of
+        # zero traffic being normal.
+        - alert: VectorNATSEventsConsumerStalled
           expr: |
-            rate(vector_component_received_events_total{component_id="nats_events_consumer"}[10m]) == 0
-          for: 10m
+            (
+              rate(vector_component_received_events_total{component_id="nats_events_consumer"}[30m]) == 0
+            )
+            AND ON()
+            (
+              sum(nats_jetstream_consumer_num_pending{stream="EVENTS"}) > 0
+            )
+          for: 15m
           labels:
             severity: warning
             component: vector-aggregator
             source: nats_events_consumer
           annotations:
-            summary: "Vector events source stopped receiving"
-            description: "The nats_events_consumer source has not received events for 10+ minutes."
-            impact: "Kubernetes events not flowing to ClickHouse"
+            summary: "Vector events consumer stalled with pending messages"
+            description: "The nats_events_consumer has not received events for 30+ minutes but messages are pending in the EVENTS stream. Consumer may be stuck."
+            impact: "Kubernetes events backlogged in NATS — not flowing to ClickHouse"
 
         # Vector component errors - early warning
         - alert: VectorComponentErrors

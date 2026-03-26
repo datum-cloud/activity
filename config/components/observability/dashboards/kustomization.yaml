@@ -44,9 +44,18 @@ configMapGenerator:
         grafana_dashboard: "1"
       disableNameSuffixHash: true
 
+  - name: activity-slo-dashboard
+    files:
+      - generated/activity-slo.json
+    options:
+      labels:
+        grafana_dashboard: "1"
+      disableNameSuffixHash: true
+
 resources:
   - audit-pipeline-grafanadashboard.yaml
   - activity-apiserver-grafanadashboard.yaml
   - activity-processor-grafanadashboard.yaml
   - events-pipeline-grafanadashboard.yaml
   - activity-system-overview-grafanadashboard.yaml
+  - activity-slo-grafanadashboard.yaml

@@ -46,12 +46,14 @@ spec:
             impact: "Users experiencing failed audit log queries"
 
         # Query Latency SLI - Most Critical for User Experience
+        # Threshold lowered to 5s: investigation found real user impact at 4s p99 which the
+        # previous 10s threshold would never have caught.
         - alert: ActivityQueryLatencyHigh
           expr: |
             histogram_quantile(0.99,
               sum(rate(activity_clickhouse_query_duration_seconds_bucket{operation="total"}[5m]))
               by (le)
-            ) > 10
+            ) > 5
           for: 10m
           labels:
             severity: warning
@@ -59,7 +61,7 @@ spec:
             sli: latency
           annotations:
             summary: "Audit log queries are slow"
-            description: "p99 query latency is {{ $value }}s (target: <10s). Users experiencing slow responses."
+            description: "p99 query latency is {{ $value }}s (target: <5s). Users experiencing slow responses."
             impact: "Degraded user experience - queries taking too long"
 
         # Data Availability SLI - Backend Health
@@ -76,6 +78,34 @@ spec:
             description: "Cannot connect to ClickHouse ({{ $value }} errors/sec). Audit log data is inaccessible."
             impact: "Complete service degradation - no data can be retrieved"
 
+        # AuditLogQuery 504 timeout errors
+        - alert: AuditLogQuery504Errors
+          expr: |
+            rate(apiserver_request_total{job="activity-apiserver",code="504",resource="auditlogqueries"}[5m]) > 0.01
+          for: 5m
+          labels:
+            severity: warning
+            component: activity-apiserver
+            sli: availability
+          annotations:
+            summary: "Audit log queries returning timeout errors"
+            description: "{{ $value }} 504 errors/sec on auditlogqueries. Queries are timing out."
+            impact: "Users experiencing failed audit log queries"
+
+        # ClickHouse query row iteration errors
+        - alert: ClickHouseQueryIterationErrors
+          expr: |
+            rate(activity_clickhouse_query_errors_total{error_type="iteration"}[5m]) > 0.5
+          for: 5m
+          labels:
+            severity: warning
+            component: activity-apiserver
+            sli: availability
+          annotations:
+            summary: "ClickHouse query row iteration errors"
+            description: "{{ $value }} iteration errors/sec. May indicate client disconnects or ClickHouse issues."
+            impact: "Some queries failing during result streaming"
+
     # =========================================================================
     # Data Pipeline Health - Ensures Fresh Data
     # =========================================================================
@@ -83,9 +113,11 @@ spec:
       interval: 30s
       rules:
         # Data Freshness SLI - Critical for audit compliance
+        # Uses component_type="clickhouse" to match all three ClickHouse sinks rather than
+        # component_id="clickhouse" which does not match any Vector component name.
         - alert: ActivityDataPipelineStalled
           expr: |
-            rate(vector_events_out_total{component_id="clickhouse"}[5m]) == 0
+            sum(rate(vector_events_out_total{component_type="clickhouse"}[5m])) == 0
           for: 15m
           labels:
             severity: critical
@@ -93,8 +125,22 @@ spec:
             sli: data_freshness
           annotations:
             summary: "Audit event pipeline has stalled"
-            description: "No new audit events are being stored in ClickHouse. Data is becoming stale."
+            description: "No new audit events are being stored in ClickHouse across any sink. Data is becoming stale."
             impact: "Users querying outdated audit data - compliance risk"
+
+        # NATS Consumer Lag - Early warning before backlog becomes critical
+        - alert: NATSConsumerLagHigh
+          expr: |
+            nats_jetstream_consumer_num_pending{stream="AUDIT_EVENTS",consumer=~"clickhouse-ingest.*"} > 5000
+          for: 5m
+          labels:
+            severity: warning
+            component: nats
+            sli: data_freshness
+          annotations:
+            summary: "Audit event consumer backlog growing"
+            description: "{{ $value }} messages pending in AUDIT_EVENTS stream. Events not reaching ClickHouse."
+            impact: "Audit log queries may return incomplete results"
 
         # NATS Consumer Lag - Leading indicator of pipeline issues
         - alert: ActivityPipelineBacklogCritical
@@ -109,6 +155,22 @@ spec:
             summary: "Audit event backlog is critical"
             description: "{{ $value }} audit events pending. Risk of data loss if retention exceeded."
             impact: "Large delay in audit event availability - potential data loss"
+
+        # Vector write pipeline stopped while still receiving from NATS
+        - alert: VectorClickHouseWritesStopped
+          expr: |
+            sum(rate(vector_component_sent_events_total{component_type="clickhouse",namespace="activity-system"}[15m])) == 0
+            AND
+            sum(rate(vector_component_received_events_total{component_type="nats",namespace="activity-system"}[15m])) > 0
+          for: 15m
+          labels:
+            severity: warning
+            component: vector-aggregator
+            sli: data_freshness
+          annotations:
+            summary: "Vector receiving events but not writing to ClickHouse"
+            description: "Vector NATS sources are receiving data but ClickHouse sinks have zero output for 15+ minutes."
+            impact: "Audit events not being stored — queries returning stale data"
 
         # Event Exporter Availability
         - alert: EventExporterDown
@@ -165,18 +227,22 @@ spec:
             impact: "Activity generation stopped - events not being processed"
 
         # Activity Generation Stalled
+        # Window widened to 1h: the system generates ~10 activities/hour so a 5m window
+        # produces constant false positives during the normal multi-hour gaps between events.
+        # Using a 1h window with 30m for: duration ensures the alert only fires when the
+        # processor is genuinely stuck despite a sustained flow of incoming audit events.
         - alert: ActivityGenerationStalled
           expr: |
-            rate(activity_processor_activities_generated_total[5m]) == 0
+            rate(activity_processor_activities_generated_total[1h]) == 0
             AND
-            rate(activity_processor_audit_events_received_total[5m]) > 0
-          for: 10m
+            rate(activity_processor_audit_events_received_total[1h]) > 0
+          for: 30m
           labels:
-            severity: critical
+            severity: warning
             component: activity-processor
           annotations:
             summary: "Activity generation has stalled"
-            description: "Processor receiving events but not generating activities for 10+ minutes."
+            description: "Processor receiving events but not generating activities for 1h+ (sustained over 30m). CEL evaluation or policy lookup may be broken."
             impact: "Activity timeline not updating - users see stale data"
 
         # Error Rate Threshold
@@ -236,3 +302,26 @@ spec:
             summary: "ActivityPolicies not ready"
             description: "{{ $value }} ActivityPolicy resources not ready for 30+ minutes."
             impact: "Affected policies not being used by processor - activity generation incomplete"
+
+    # =========================================================================
+    # ClickHouse Storage Health - Keeper/ZooKeeper Session Integrity
+    # =========================================================================
+    - name: clickhouse-health
+      interval: 30s
+      rules:
+        # ClickHouse ZooKeeper/Keeper session health
+        # Discovered during incident investigation: a keeper outage produced a 7-hour
+        # KEEPER_EXCEPTION storm with no alert firing. Session expirations affect
+        # deduplication and replication correctness.
+        - alert: ClickHouseKeeperSessionErrors
+          expr: |
+            sum(rate(chi_clickhouse_event_ZooKeeperSessionExpired[10m])) > 0.1
+          for: 10m
+          labels:
+            severity: warning
+            component: clickhouse
+            sli: availability
+          annotations:
+            summary: "ClickHouse ZooKeeper sessions expiring"
+            description: "{{ $value }} ZooKeeper session expirations/sec. Keeper cluster may be degraded."
+            impact: "Potential data consistency risk - deduplication and replication may be affected"

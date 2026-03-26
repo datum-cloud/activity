@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { format } from 'date-fns';
 import { Copy, Check } from 'lucide-react';
 import type { Activity, TenantLinkResolver } from '../types/activity';
 import { TenantBadge } from './TenantBadge';
@@ -15,15 +14,18 @@ export interface ActivityExpandedDetailsProps {
   activity: Activity;
   /** Optional resolver function to make tenant badges clickable */
   tenantLinkResolver?: TenantLinkResolver;
+  /** When true, removes the top margin/border (caller handles the separator) */
+  compact?: boolean;
 }
 
 /**
- * Format timestamp for display (with timezone)
+ * Format timestamp for display (in UTC)
  */
 function formatTimestampFull(timestamp?: string): string {
   if (!timestamp) return 'Unknown time';
   try {
-    return format(new Date(timestamp), 'yyyy-MM-dd HH:mm:ss \'UTC\'');
+    const date = new Date(timestamp);
+    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')} ${String(date.getUTCHours()).padStart(2, '0')}:${String(date.getUTCMinutes()).padStart(2, '0')}:${String(date.getUTCSeconds()).padStart(2, '0')} UTC`;
   } catch {
     return timestamp;
   }
@@ -80,14 +82,14 @@ function CopyButton({ value, label }: { value: string; label: string }) {
  * 5. Resource - what resource was affected
  * 6. Origin - correlation to audit logs
  */
-export function ActivityExpandedDetails({ activity, tenantLinkResolver }: ActivityExpandedDetailsProps) {
+export function ActivityExpandedDetails({ activity, tenantLinkResolver, compact = false }: ActivityExpandedDetailsProps) {
   const { spec, metadata } = activity;
   const { actor, resource, origin, changes, tenant } = spec;
   const timestamp = metadata?.creationTimestamp;
 
   return (
     <TooltipProvider>
-      <div className="mt-4 pt-4 border-t border-border">
+      <div className={compact ? 'p-4 bg-muted/30' : 'mt-4 pt-4 border-t border-border'}>
         {/* Field Changes - Most actionable, shown first */}
         {changes && changes.length > 0 && (
           <div className="mb-3">

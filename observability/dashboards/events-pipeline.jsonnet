@@ -64,7 +64,8 @@ local queries = {
 
   // Activity API Server - EventQuery metrics (read path)
   eventQueryRate: 'sum(rate(apiserver_request_total{job="activity-apiserver",resource="eventqueries"}[5m])) or vector(0)',
-  eventQueryLatencyP99: 'histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket{job="activity-apiserver",resource="eventqueries"}[5m])) by (le))',
+  // WATCH requests excluded: long-lived connections skew latency percentiles.
+  eventQueryLatencyP99: 'histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket{job="activity-apiserver",resource="eventqueries",verb!="WATCH"}[5m])) by (le))',
   eventQueryErrors: 'sum(rate(apiserver_request_total{job="activity-apiserver",resource="eventqueries",code=~"5.."}[5m])) or vector(0)',
 
   // Combined pipeline health
