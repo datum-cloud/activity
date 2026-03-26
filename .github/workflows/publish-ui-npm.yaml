@@ -13,63 +13,27 @@ on:
         default: patch
 
 jobs:
-  # ── Detect release mode ──────────────────────────────────────────────────
-  # Reads the merged PR's labels to decide dev vs release, and which semver
-  # component to bump. workflow_dispatch always triggers a release.
-  detect-mode:
-    name: Detect release mode
-    runs-on: ubuntu-latest
-    outputs:
-      release-mode: ${{ steps.check.outputs.mode }}
-      bump-type: ${{ steps.check.outputs.bump-type }}
-    steps:
-      - name: Check trigger and PR labels
-        id: check
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # workflow_dispatch always triggers a release with the chosen bump type.
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "mode=release" >> "$GITHUB_OUTPUT"
-            echo "bump-type=${{ inputs.bump-type }}" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          # For push events, check the merged PR's labels to decide dev vs release.
-          # NOTE: relies on merge commits (not squash/rebase) so github.sha matches
-          # the PR's merge commit SHA in the search results.
-          LABELS=$(gh pr list \
-            --state merged \
-            --base main \
-            --search "${{ github.sha }}" \
-            --json labels \
-            --jq '.[0].labels[].name' 2>/dev/null || true)
-
-          # Match "release" or "release:<type>" but not unrelated labels like
-          # "release-blocker" or "release-notes".
-          if echo "$LABELS" | grep -qE "^release(:|$)"; then
-            echo "mode=release" >> "$GITHUB_OUTPUT"
-            if echo "$LABELS" | grep -q "release:major"; then
-              echo "bump-type=major" >> "$GITHUB_OUTPUT"
-            elif echo "$LABELS" | grep -q "release:minor"; then
-              echo "bump-type=minor" >> "$GITHUB_OUTPUT"
-            else
-              echo "bump-type=patch" >> "$GITHUB_OUTPUT"
-            fi
-          else
-            echo "mode=dev" >> "$GITHUB_OUTPUT"
-            echo "bump-type=patch" >> "$GITHUB_OUTPUT"
-          fi
+  # ── Dev publish ──────────────────────────────────────────────────────────
+  # Every push to main publishes a pre-release dev build. Releases are
+  # triggered manually via workflow_dispatch when the team is ready to ship.
+  publish-dev:
+    name: Publish dev build
+    if: github.event_name == 'push'
+    uses: datum-cloud/actions/.github/workflows/publish-npm-package.yaml@v1.13.0
+    with:
+      package-name: "@datum-cloud/activity-ui"
+      package-path: ui
+      release-mode: dev
+    secrets: inherit
 
   # ── Bump version ─────────────────────────────────────────────────────────
-  # Runs only for release mode. Bumps the version in package.json, commits,
+  # Runs only on manual dispatch. Bumps the version in package.json, commits,
   # creates the git tag, and pushes to main. All downstream jobs read the
   # version from this job's output — the npm publish workflow receives it
   # already set in package.json.
   bump-version:
     name: Bump version
-    needs: detect-mode
-    if: needs.detect-mode.outputs.release-mode == 'release'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -102,7 +66,7 @@ jobs:
         id: bump
         working-directory: ui
         env:
-          BUMP_TYPE: ${{ needs.detect-mode.outputs.bump-type }}
+          BUMP_TYPE: ${{ inputs.bump-type }}
         run: |
           if [[ "$BUMP_TYPE" != "major" && "$BUMP_TYPE" != "minor" && "$BUMP_TYPE" != "patch" ]]; then
             echo "::error::Invalid bump-type '$BUMP_TYPE'. Must be major, minor, or patch."
@@ -113,24 +77,22 @@ jobs:
           echo "new-version=${NEW_VERSION}" >> "$GITHUB_OUTPUT"
           git push origin main --follow-tags
 
-  # ── Publish to npm ───────────────────────────────────────────────────────
-  # For release: package.json already has the bumped version from bump-version.
-  # For dev: the reusable workflow computes a pre-release version from the SHA.
-  publish:
-    needs: [detect-mode, bump-version]
-    if: always() && !failure() && !cancelled() && needs.detect-mode.result == 'success'
+  # ── Publish release to npm ───────────────────────────────────────────────
+  # Runs after bump-version. package.json already has the bumped version.
+  publish-release:
+    name: Publish release
+    needs: bump-version
     uses: datum-cloud/actions/.github/workflows/publish-npm-package.yaml@v1.13.0
     with:
       package-name: "@datum-cloud/activity-ui"
       package-path: ui
-      release-mode: ${{ needs.detect-mode.outputs.release-mode }}
+      release-mode: release
     secrets: inherit
 
   # ── Create GitHub Release ────────────────────────────────────────────────
   create-release:
     name: Create GitHub Release
-    needs: [bump-version, publish]
-    if: needs.bump-version.result == 'success'
+    needs: [bump-version, publish-release]
     runs-on: ubuntu-latest
     permissions:
       contents: write
