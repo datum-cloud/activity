@@ -13,7 +13,16 @@
       "Bash(grep:*)",
       "Bash(gh pr checks:*)",
       "Bash(gh api:*)",
-      "Bash(git cherry-pick:*)"
+      "Bash(git cherry-pick:*)",
+      "Bash(find /Users/scotwells/repos/datum-cloud -name \"kustomization.yaml\" -path \"*/config/milo/iam*\" -exec head -10 {} + 2>/dev/null | head -30)",
+      "Bash(find /Users/scotwells/repos/datum-cloud/activity -type f -name *.rules.yaml -o -name *.rules.yml)",
+      "Bash(KUBECONFIG=~/.kube/gke-staging kubectl get pods -n telemetry-system)",
+      "Bash(KUBECONFIG=~/.kube/gke-staging kubectl get svc -n telemetry-system)",
+      "Bash(curl -s 'http://localhost:8082/api/v1/alerts')",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s http://localhost:8082/api/v1/alerts)",
+      "Bash(KUBECONFIG=~/.kube/gke-staging kubectl get pods -n activity-system -o custom-columns='NAME:.metadata.name,RESTARTS:.status.containerStatuses[*].restartCount,LAST_STATE:.status.containerStatuses[*].lastState' 2>&1)",
+      "Bash(KUBECONFIG=~/.kube/gke-staging kubectl get pods -n activity-system 2>&1)"
     ]
   }
 }

@@ -18,6 +18,8 @@ resources:
   - alerts/vector-alerts.yaml
   # Recording rules (generated from Jsonnet mixin)
   - alerts/generated/activity-recordings.yaml
+  # Alertmanager inhibition rules to suppress redundant alerts
+  - alerts/alertmanager-config.yaml
 
   # PrometheusRule resources for component-specific alerts
   - prometheusrules/clickhouse-alerts.yaml
