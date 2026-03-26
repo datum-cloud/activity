@@ -843,7 +843,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "activity:slo_metadata:error_ratio:raterate5m",
+               "expr": "activity:slo_metadata:error_ratio:rate5m",
                "legendFormat": "Metadata API"
             },
             {
@@ -851,7 +851,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "activity:slo_audit_query:error_ratio:raterate5m",
+               "expr": "activity:slo_audit_query:error_ratio:rate5m",
                "legendFormat": "Audit Query"
             },
             {
@@ -859,7 +859,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "activity:slo_activity_query:error_ratio:raterate5m",
+               "expr": "activity:slo_activity_query:error_ratio:rate5m",
                "legendFormat": "Activity Query"
             },
             {
@@ -867,7 +867,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "activity:slo_event_query:error_ratio:raterate5m",
+               "expr": "activity:slo_event_query:error_ratio:rate5m",
                "legendFormat": "Event Query"
             },
             {
@@ -875,7 +875,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "activity:slo_availability:error_ratio:raterate5m",
+               "expr": "activity:slo_availability:error_ratio:rate5m",
                "legendFormat": "Availability"
             }
          ],
@@ -948,7 +948,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "activity:slo_metadata:error_ratio:raterate1h",
+               "expr": "activity:slo_metadata:error_ratio:rate1h",
                "legendFormat": "Metadata API"
             },
             {
@@ -956,7 +956,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "activity:slo_audit_query:error_ratio:raterate1h",
+               "expr": "activity:slo_audit_query:error_ratio:rate1h",
                "legendFormat": "Audit Query"
             },
             {
@@ -964,7 +964,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "activity:slo_activity_query:error_ratio:raterate1h",
+               "expr": "activity:slo_activity_query:error_ratio:rate1h",
                "legendFormat": "Activity Query"
             },
             {
@@ -972,7 +972,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "activity:slo_event_query:error_ratio:raterate1h",
+               "expr": "activity:slo_event_query:error_ratio:rate1h",
                "legendFormat": "Event Query"
             },
             {
@@ -980,7 +980,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "activity:slo_availability:error_ratio:raterate1h",
+               "expr": "activity:slo_availability:error_ratio:rate1h",
                "legendFormat": "Availability"
             }
          ],
@@ -1053,7 +1053,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "activity:slo_metadata:error_ratio:raterate6h",
+               "expr": "activity:slo_metadata:error_ratio:rate6h",
                "legendFormat": "Metadata API"
             },
             {
@@ -1061,7 +1061,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "activity:slo_audit_query:error_ratio:raterate6h",
+               "expr": "activity:slo_audit_query:error_ratio:rate6h",
                "legendFormat": "Audit Query"
             },
             {
@@ -1069,7 +1069,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "activity:slo_activity_query:error_ratio:raterate6h",
+               "expr": "activity:slo_activity_query:error_ratio:rate6h",
                "legendFormat": "Activity Query"
             },
             {
@@ -1077,7 +1077,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "activity:slo_event_query:error_ratio:raterate6h",
+               "expr": "activity:slo_event_query:error_ratio:rate6h",
                "legendFormat": "Event Query"
             },
             {
@@ -1085,7 +1085,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "activity:slo_availability:error_ratio:raterate6h",
+               "expr": "activity:slo_availability:error_ratio:rate6h",
                "legendFormat": "Availability"
             }
          ],

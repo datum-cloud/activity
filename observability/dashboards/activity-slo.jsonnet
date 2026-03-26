@@ -134,7 +134,7 @@ local errorBudgetGaugePanel(slo) =
 local burnRateTarget(slo, window) =
   prometheus.new(
     datasource,
-    'activity:slo_%s:error_ratio:rate%s' % [slo.key, window]
+    'activity:slo_%s:error_ratio:%s' % [slo.key, window]
   )
   + prometheus.withLegendFormat(slo.name);
 
