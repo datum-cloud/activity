@@ -26,19 +26,19 @@
       "record": "activity:error_rate:5m"
     - "expr": |
         histogram_quantile(0.50,
-          sum(rate(apiserver_request_duration_seconds_bucket{job="activity-apiserver"}[5m]))
+          sum(rate(apiserver_request_duration_seconds_bucket{job="activity-apiserver",verb!="WATCH"}[5m]))
           by (le)
         )
       "record": "activity:apiserver_request_duration:p50"
     - "expr": |
         histogram_quantile(0.95,
-          sum(rate(apiserver_request_duration_seconds_bucket{job="activity-apiserver"}[5m]))
+          sum(rate(apiserver_request_duration_seconds_bucket{job="activity-apiserver",verb!="WATCH"}[5m]))
           by (le)
         )
       "record": "activity:apiserver_request_duration:p95"
     - "expr": |
         histogram_quantile(0.99,
-          sum(rate(apiserver_request_duration_seconds_bucket{job="activity-apiserver"}[5m]))
+          sum(rate(apiserver_request_duration_seconds_bucket{job="activity-apiserver",verb!="WATCH"}[5m]))
           by (le)
         )
       "record": "activity:apiserver_request_duration:p99"
