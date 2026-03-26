@@ -4,14 +4,62 @@ on:
   push:
     branches:
       - main
-  release:
-    types: [published]
+  workflow_dispatch:
+    inputs:
+      bump-type:
+        description: "Version bump type"
+        type: choice
+        options: [patch, minor, major]
+        default: patch
 
 jobs:
+  detect-mode:
+    name: Detect release mode
+    runs-on: ubuntu-latest
+    outputs:
+      release-mode: ${{ steps.check.outputs.mode }}
+      bump-type: ${{ steps.check.outputs.bump-type }}
+    steps:
+      - name: Check trigger and PR labels
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # workflow_dispatch always triggers a release with the chosen bump type.
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "mode=release" >> "$GITHUB_OUTPUT"
+            echo "bump-type=${{ inputs.bump-type }}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # For push events, check the merged PR's labels to decide dev vs release.
+          LABELS=$(gh pr list \
+            --state merged \
+            --base main \
+            --search "${{ github.sha }}" \
+            --json labels \
+            --jq '.[0].labels[].name' 2>/dev/null || true)
+
+          if echo "$LABELS" | grep -q "^release"; then
+            echo "mode=release" >> "$GITHUB_OUTPUT"
+            if echo "$LABELS" | grep -q "release:major"; then
+              echo "bump-type=major" >> "$GITHUB_OUTPUT"
+            elif echo "$LABELS" | grep -q "release:minor"; then
+              echo "bump-type=minor" >> "$GITHUB_OUTPUT"
+            else
+              echo "bump-type=patch" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "mode=dev" >> "$GITHUB_OUTPUT"
+            echo "bump-type=patch" >> "$GITHUB_OUTPUT"
+          fi
+
   publish:
-    uses: datum-cloud/actions/.github/workflows/publish-npm-package.yaml@v1.12.1
+    needs: detect-mode
+    uses: datum-cloud/actions/.github/workflows/publish-npm-package.yaml@v1.13.0
     with:
       package-name: "@datum-cloud/activity-ui"
       package-path: ui
-      release-mode: ${{ github.event_name == 'release' && 'release' || 'dev' }}
+      release-mode: ${{ needs.detect-mode.outputs.release-mode }}
+      bump-type: ${{ needs.detect-mode.outputs.bump-type }}
     secrets: inherit
