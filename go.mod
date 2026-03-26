@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.43.0
-	github.com/google/cel-go v0.26.0
+	github.com/google/cel-go v0.27.0
 	github.com/google/uuid v1.6.0
 	github.com/modelcontextprotocol/go-sdk v1.4.1
 	github.com/nats-io/nats.go v1.48.0
@@ -41,7 +41,7 @@ require (
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/NYTimes/gziphandler v1.1.1 // indirect
 	github.com/andybalholm/brotli v1.2.0 // indirect
-	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
+	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
@@ -124,7 +124,7 @@ require (
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/crypto v0.47.0 // indirect
-	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect
+	golang.org/x/exp v0.0.0-20240823005443-9b4947da3948 // indirect
 	golang.org/x/mod v0.32.0 // indirect
 	golang.org/x/net v0.49.0 // indirect
 	golang.org/x/oauth2 v0.34.0 // indirect
