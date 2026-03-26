@@ -16,6 +16,8 @@ resources:
   - alerts/dlq-alerts.yaml
   # Vector aggregator alerts (NATS reconnection detection)
   - alerts/vector-alerts.yaml
+  # SLO burn-rate alerts (multi-window, 5 SLOs x 3 urgencies)
+  - alerts/slo-alerts.yaml
   # Recording rules (generated from Jsonnet mixin)
   - alerts/generated/activity-recordings.yaml
   # Alertmanager inhibition rules to suppress redundant alerts

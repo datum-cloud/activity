@@ -43,11 +43,13 @@
           // =========================================================================
 
           // API server request latency percentiles (user-facing API performance)
+          // WATCH requests are excluded: they are long-lived connections (minutes to hours)
+          // and would skew latency percentiles far above real query latency.
           {
             record: 'activity:apiserver_request_duration:p50',
             expr: |||
               histogram_quantile(0.50,
-                sum(rate(apiserver_request_duration_seconds_bucket{job="activity-apiserver"}[5m]))
+                sum(rate(apiserver_request_duration_seconds_bucket{job="activity-apiserver",verb!="WATCH"}[5m]))
                 by (le)
               )
             |||,
@@ -57,7 +59,7 @@
             record: 'activity:apiserver_request_duration:p95',
             expr: |||
               histogram_quantile(0.95,
-                sum(rate(apiserver_request_duration_seconds_bucket{job="activity-apiserver"}[5m]))
+                sum(rate(apiserver_request_duration_seconds_bucket{job="activity-apiserver",verb!="WATCH"}[5m]))
                 by (le)
               )
             |||,
@@ -67,7 +69,7 @@
             record: 'activity:apiserver_request_duration:p99',
             expr: |||
               histogram_quantile(0.99,
-                sum(rate(apiserver_request_duration_seconds_bucket{job="activity-apiserver"}[5m]))
+                sum(rate(apiserver_request_duration_seconds_bucket{job="activity-apiserver",verb!="WATCH"}[5m]))
                 by (le)
               )
             |||,
