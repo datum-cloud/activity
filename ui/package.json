@@ -59,7 +59,7 @@
     "@monaco-editor/react": "^4.6.0",
     "@playwright/test": "^1.48.0",
     "@rollup/plugin-commonjs": "^25.0.7",
-    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-node-resolve": "^16.0.0",
     "@rollup/plugin-typescript": "^11.1.6",
     "@tailwindcss/postcss": "^4.2.1",
     "@types/react": "^18.0.0",
