@@ -1,98 +1,69 @@
-apiVersion: monitoring.coreos.com/v1alpha1
-kind: AlertmanagerConfig
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMAlertmanagerConfig
 metadata:
   name: activity-alert-inhibitions
   namespace: activity-system
   labels:
     app.kubernetes.io/part-of: activity
 spec:
-  route:
-    receiver: default
-    continue: true
-  receivers:
-    - name: default
-  inhibitRules:
+  inhibit_rules:
     # Severity-based: critical suppresses related warnings for same component
-    - sourceMatch:
-        - name: severity
-          value: critical
-      targetMatch:
-        - name: severity
-          value: warning
+    - source_matchers:
+        - "severity=critical"
+      target_matchers:
+        - "severity=warning"
       equal:
         - component
 
     # ActivityAPIServerDown suppresses error rate and latency alerts
-    - sourceMatch:
-        - name: alertname
-          value: ActivityAPIServerDown
-      targetMatch:
-        - name: alertname
-          matchType: "=~"
-          value: "ActivityHighErrorRate|ActivityQueryLatencyHigh"
+    - source_matchers:
+        - "alertname=ActivityAPIServerDown"
+      target_matchers:
+        - "alertname=~ActivityHighErrorRate|ActivityQueryLatencyHigh"
 
     # ClickHouse unavailable suppresses query latency and pipeline stall
-    - sourceMatch:
-        - name: alertname
-          value: ActivityClickHouseUnavailable
-      targetMatch:
-        - name: alertname
-          matchType: "=~"
-          value: "ActivityQueryLatencyHigh|ActivityDataPipelineStalled"
+    - source_matchers:
+        - "alertname=ActivityClickHouseUnavailable"
+      target_matchers:
+        - "alertname=~ActivityQueryLatencyHigh|ActivityDataPipelineStalled"
 
     # All NATS sources stalled suppresses individual consumer alerts
-    - sourceMatch:
-        - name: alertname
-          value: VectorAllNATSSourcesStalled
-      targetMatch:
-        - name: alertname
-          matchType: "=~"
-          value: "VectorNATSActivitiesConsumerStalled|VectorNATSEventsConsumerStalled|VectorNATSAuditStalledWithBacklog|VectorNATSAuditSourceStopped"
+    - source_matchers:
+        - "alertname=VectorAllNATSSourcesStalled"
+      target_matchers:
+        - "alertname=~VectorNATSActivitiesConsumerStalled|VectorNATSEventsConsumerStalled|VectorNATSAuditStalledWithBacklog|VectorNATSAuditSourceStopped"
 
     # Processor down suppresses generation stalled, error rate, and DLQ alerts
-    - sourceMatch:
-        - name: alertname
-          value: ActivityProcessorDown
-      targetMatch:
-        - name: alertname
-          matchType: "=~"
-          value: "ActivityGenerationStalled|ActivityProcessorHighErrorRate|ActivityProcessorNoPolicies|DLQPublishErrors|DLQRetryIneffective|DLQQueueGrowing|DLQSlowLeak"
+    - source_matchers:
+        - "alertname=ActivityProcessorDown"
+      target_matchers:
+        - "alertname=~ActivityGenerationStalled|ActivityProcessorHighErrorRate|ActivityProcessorNoPolicies|DLQPublishErrors|DLQRetryIneffective|DLQQueueGrowing|DLQSlowLeak"
 
     # NATS disconnected suppresses generation stalled
-    - sourceMatch:
-        - name: alertname
-          value: ActivityProcessorNATSDisconnected
-      targetMatch:
-        - name: alertname
-          value: ActivityGenerationStalled
+    - source_matchers:
+        - "alertname=ActivityProcessorNATSDisconnected"
+      target_matchers:
+        - "alertname=ActivityGenerationStalled"
 
     # Keeper session errors suppress ZooKeeper exceptions
-    - sourceMatch:
-        - name: alertname
-          value: ClickHouseKeeperSessionErrors
-      targetMatch:
-        - name: alertname
-          value: ClickHouseZooKeeperExceptions
+    - source_matchers:
+        - "alertname=ClickHouseKeeperSessionErrors"
+      target_matchers:
+        - "alertname=ClickHouseZooKeeperExceptions"
 
     # Critical pipeline backlog suppresses consumer lag warning
-    - sourceMatch:
-        - name: alertname
-          value: ActivityPipelineBacklogCritical
-      targetMatch:
-        - name: alertname
-          value: NATSConsumerLagHigh
+    - source_matchers:
+        - "alertname=ActivityPipelineBacklogCritical"
+      target_matchers:
+        - "alertname=NATSConsumerLagHigh"
 
     # SLO page-burn alerts suppress equivalent threshold alerts
-    - sourceMatch:
-        - name: alertname
-          value: ActivitySLOAvailabilityPageBurn
-      targetMatch:
-        - name: alertname
-          value: ActivityHighErrorRate
+    - source_matchers:
+        - "alertname=ActivitySLOAvailabilityPageBurn"
+      target_matchers:
+        - "alertname=ActivityHighErrorRate"
 
-    - sourceMatch:
-        - name: alertname
-          value: ActivitySLOAuditQueryPageBurn
-      targetMatch:
-        - name: alertname
-          value: ActivityQueryLatencyHigh
+    - source_matchers:
+        - "alertname=ActivitySLOAuditQueryPageBurn"
+      target_matchers:
+        - "alertname=ActivityQueryLatencyHigh"
