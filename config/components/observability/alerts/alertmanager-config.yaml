@@ -6,11 +6,6 @@ metadata:
   labels:
     app.kubernetes.io/part-of: activity
 spec:
-  route:
-    receiver: default
-    continue: true
-  receivers:
-    - name: default
   inhibitRules:
     # Severity-based: critical suppresses related warnings for same component
     - sourceMatch:
