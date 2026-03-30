@@ -16,7 +16,7 @@ require (
 	go.opentelemetry.io/otel v1.40.0
 	go.opentelemetry.io/otel/trace v1.40.0
 	golang.org/x/term v0.41.0
-	golang.org/x/time v0.9.0
+	golang.org/x/time v0.15.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20260319201613-d00831a3d3e7
 	k8s.io/api v0.35.3
 	k8s.io/apiextensions-apiserver v0.35.3
