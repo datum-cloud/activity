@@ -19,7 +19,7 @@ jobs:
   publish-dev:
     name: Publish dev build
     if: github.event_name == 'push'
-    uses: datum-cloud/actions/.github/workflows/publish-npm-package.yaml@v1.13.0
+    uses: datum-cloud/actions/.github/workflows/publish-npm-package.yaml@v1.13.1
     with:
       package-name: "@datum-cloud/activity-ui"
       package-path: ui
@@ -35,7 +35,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     permissions:
       contents: write
-    uses: datum-cloud/actions/.github/workflows/bump-npm-version.yaml@v1.13.0
+    uses: datum-cloud/actions/.github/workflows/bump-npm-version.yaml@v1.13.1
     with:
       package-path: ui
       package-name: "@datum-cloud/activity-ui"
@@ -46,7 +46,7 @@ jobs:
   publish-release:
     name: Publish release
     needs: bump-version
-    uses: datum-cloud/actions/.github/workflows/publish-npm-package.yaml@v1.13.0
+    uses: datum-cloud/actions/.github/workflows/publish-npm-package.yaml@v1.13.1
     with:
       package-name: "@datum-cloud/activity-ui"
       package-path: ui
