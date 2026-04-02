@@ -4,14 +4,69 @@ on:
   push:
     branches:
       - main
-  release:
-    types: [published]
+  workflow_dispatch:
+    inputs:
+      bump-type:
+        description: "Version bump type"
+        type: choice
+        options: [patch, minor, major]
+        default: patch
 
 jobs:
-  publish:
-    uses: datum-cloud/actions/.github/workflows/publish-npm-package.yaml@v1.12.1
+  # ── Dev publish ──────────────────────────────────────────────────────────
+  # Every push to main publishes a pre-release dev build. Releases are
+  # triggered manually via workflow_dispatch when the team is ready to ship.
+  publish-dev:
+    name: Publish dev build
+    if: github.event_name == 'push'
+    uses: datum-cloud/actions/.github/workflows/publish-npm-package.yaml@v1.13.0
     with:
       package-name: "@datum-cloud/activity-ui"
       package-path: ui
-      release-mode: ${{ github.event_name == 'release' && 'release' || 'dev' }}
+      release-mode: dev
     secrets: inherit
+
+  # ── Bump version ─────────────────────────────────────────────────────────
+  # Runs only on manual dispatch. Delegates to the shared bump-npm-version
+  # reusable workflow, which bumps package.json, commits, tags, and pushes.
+  # Downstream jobs read new-version from this job's outputs automatically.
+  bump-version:
+    name: Bump version
+    if: github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: write
+    uses: datum-cloud/actions/.github/workflows/bump-npm-version.yaml@v1.13.0
+    with:
+      package-path: ui
+      package-name: "@datum-cloud/activity-ui"
+      bump-type: ${{ inputs.bump-type }}
+
+  # ── Publish release to npm ───────────────────────────────────────────────
+  # Runs after bump-version. package.json already has the bumped version.
+  publish-release:
+    name: Publish release
+    needs: bump-version
+    uses: datum-cloud/actions/.github/workflows/publish-npm-package.yaml@v1.13.0
+    with:
+      package-name: "@datum-cloud/activity-ui"
+      package-path: ui
+      release-mode: release
+    secrets: inherit
+
+  # ── Create GitHub Release ────────────────────────────────────────────────
+  create-release:
+    name: Create GitHub Release
+    needs: [bump-version, publish-release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_VERSION: ${{ needs.bump-version.outputs.new-version }}
+        run: |
+          gh release create "$RELEASE_VERSION" \
+            --title "@datum-cloud/activity-ui $RELEASE_VERSION" \
+            --generate-notes \
+            --repo ${{ github.repository }}
