@@ -43,7 +43,7 @@
           {
             record: 'activity:slo_metadata:request_total:rate5m',
             expr: |||
-              sum(rate(apiserver_request_total{
+              sum(rate(apiserver_request_duration_seconds_count{
                 job="activity-apiserver",
                 resource="activitypolicies",
                 verb=~"GET|LIST|PATCH"
@@ -76,13 +76,17 @@
                   le="1"
                 }[30m]))
                 /
-                clamp_min(sum(rate(apiserver_request_total{
+                sum(rate(apiserver_request_duration_seconds_count{
                   job="activity-apiserver",
                   resource="activitypolicies",
                   verb=~"GET|LIST|PATCH"
-                }[30m])), 0.001)
+                }[30m]))
               )
-              * on() (activity:slo_metadata:request_total:rate5m > bool 0)
+              and sum(rate(apiserver_request_duration_seconds_count{
+                  job="activity-apiserver",
+                  resource="activitypolicies",
+                  verb=~"GET|LIST|PATCH"
+                }[30m])) > 0
             |||,
           },
 
@@ -97,13 +101,17 @@
                   le="1"
                 }[1h]))
                 /
-                clamp_min(sum(rate(apiserver_request_total{
+                sum(rate(apiserver_request_duration_seconds_count{
                   job="activity-apiserver",
                   resource="activitypolicies",
                   verb=~"GET|LIST|PATCH"
-                }[1h])), 0.001)
+                }[1h]))
               )
-              * on() (activity:slo_metadata:request_total:rate5m > bool 0)
+              and sum(rate(apiserver_request_duration_seconds_count{
+                  job="activity-apiserver",
+                  resource="activitypolicies",
+                  verb=~"GET|LIST|PATCH"
+                }[1h])) > 0
             |||,
           },
 
@@ -118,13 +126,17 @@
                   le="1"
                 }[6h]))
                 /
-                clamp_min(sum(rate(apiserver_request_total{
+                sum(rate(apiserver_request_duration_seconds_count{
                   job="activity-apiserver",
                   resource="activitypolicies",
                   verb=~"GET|LIST|PATCH"
-                }[6h])), 0.001)
+                }[6h]))
               )
-              * on() (activity:slo_metadata:request_total:rate5m > bool 0)
+              and sum(rate(apiserver_request_duration_seconds_count{
+                  job="activity-apiserver",
+                  resource="activitypolicies",
+                  verb=~"GET|LIST|PATCH"
+                }[6h])) > 0
             |||,
           },
 
@@ -139,13 +151,17 @@
                   le="1"
                 }[3d]))
                 /
-                clamp_min(sum(rate(apiserver_request_total{
+                sum(rate(apiserver_request_duration_seconds_count{
                   job="activity-apiserver",
                   resource="activitypolicies",
                   verb=~"GET|LIST|PATCH"
-                }[3d])), 0.001)
+                }[3d]))
               )
-              * on() (activity:slo_metadata:request_total:rate5m > bool 0)
+              and sum(rate(apiserver_request_duration_seconds_count{
+                  job="activity-apiserver",
+                  resource="activitypolicies",
+                  verb=~"GET|LIST|PATCH"
+                }[3d])) > 0
             |||,
           },
 
@@ -169,7 +185,7 @@
           {
             record: 'activity:slo_audit_query:request_total:rate5m',
             expr: |||
-              sum(rate(apiserver_request_total{
+              sum(rate(apiserver_request_duration_seconds_count{
                 job="activity-apiserver",
                 resource="auditlogqueries",
                 verb="POST"
@@ -201,13 +217,17 @@
                   le="5"
                 }[30m]))
                 /
-                clamp_min(sum(rate(apiserver_request_total{
+                sum(rate(apiserver_request_duration_seconds_count{
                   job="activity-apiserver",
                   resource="auditlogqueries",
                   verb="POST"
-                }[30m])), 0.001)
+                }[30m]))
               )
-              * on() (activity:slo_audit_query:request_total:rate5m > bool 0)
+              and sum(rate(apiserver_request_duration_seconds_count{
+                  job="activity-apiserver",
+                  resource="auditlogqueries",
+                  verb="POST"
+                }[30m])) > 0
             |||,
           },
 
@@ -222,13 +242,17 @@
                   le="5"
                 }[1h]))
                 /
-                clamp_min(sum(rate(apiserver_request_total{
+                sum(rate(apiserver_request_duration_seconds_count{
                   job="activity-apiserver",
                   resource="auditlogqueries",
                   verb="POST"
-                }[1h])), 0.001)
+                }[1h]))
               )
-              * on() (activity:slo_audit_query:request_total:rate5m > bool 0)
+              and sum(rate(apiserver_request_duration_seconds_count{
+                  job="activity-apiserver",
+                  resource="auditlogqueries",
+                  verb="POST"
+                }[1h])) > 0
             |||,
           },
 
@@ -243,13 +267,17 @@
                   le="5"
                 }[6h]))
                 /
-                clamp_min(sum(rate(apiserver_request_total{
+                sum(rate(apiserver_request_duration_seconds_count{
                   job="activity-apiserver",
                   resource="auditlogqueries",
                   verb="POST"
-                }[6h])), 0.001)
+                }[6h]))
               )
-              * on() (activity:slo_audit_query:request_total:rate5m > bool 0)
+              and sum(rate(apiserver_request_duration_seconds_count{
+                  job="activity-apiserver",
+                  resource="auditlogqueries",
+                  verb="POST"
+                }[6h])) > 0
             |||,
           },
 
@@ -264,13 +292,17 @@
                   le="5"
                 }[3d]))
                 /
-                clamp_min(sum(rate(apiserver_request_total{
+                sum(rate(apiserver_request_duration_seconds_count{
                   job="activity-apiserver",
                   resource="auditlogqueries",
                   verb="POST"
-                }[3d])), 0.001)
+                }[3d]))
               )
-              * on() (activity:slo_audit_query:request_total:rate5m > bool 0)
+              and sum(rate(apiserver_request_duration_seconds_count{
+                  job="activity-apiserver",
+                  resource="auditlogqueries",
+                  verb="POST"
+                }[3d])) > 0
             |||,
           },
 
@@ -294,7 +326,7 @@
           {
             record: 'activity:slo_activity_query:request_total:rate5m',
             expr: |||
-              sum(rate(apiserver_request_total{
+              sum(rate(apiserver_request_duration_seconds_count{
                 job="activity-apiserver",
                 resource=~"activityqueries|activityfacetqueries",
                 verb="POST"
@@ -326,13 +358,17 @@
                   le="5"
                 }[30m]))
                 /
-                clamp_min(sum(rate(apiserver_request_total{
+                sum(rate(apiserver_request_duration_seconds_count{
                   job="activity-apiserver",
                   resource=~"activityqueries|activityfacetqueries",
                   verb="POST"
-                }[30m])), 0.001)
+                }[30m]))
               )
-              * on() (activity:slo_activity_query:request_total:rate5m > bool 0)
+              and sum(rate(apiserver_request_duration_seconds_count{
+                  job="activity-apiserver",
+                  resource=~"activityqueries|activityfacetqueries",
+                  verb="POST"
+                }[30m])) > 0
             |||,
           },
 
@@ -347,13 +383,17 @@
                   le="5"
                 }[1h]))
                 /
-                clamp_min(sum(rate(apiserver_request_total{
+                sum(rate(apiserver_request_duration_seconds_count{
                   job="activity-apiserver",
                   resource=~"activityqueries|activityfacetqueries",
                   verb="POST"
-                }[1h])), 0.001)
+                }[1h]))
               )
-              * on() (activity:slo_activity_query:request_total:rate5m > bool 0)
+              and sum(rate(apiserver_request_duration_seconds_count{
+                  job="activity-apiserver",
+                  resource=~"activityqueries|activityfacetqueries",
+                  verb="POST"
+                }[1h])) > 0
             |||,
           },
 
@@ -368,13 +408,17 @@
                   le="5"
                 }[6h]))
                 /
-                clamp_min(sum(rate(apiserver_request_total{
+                sum(rate(apiserver_request_duration_seconds_count{
                   job="activity-apiserver",
                   resource=~"activityqueries|activityfacetqueries",
                   verb="POST"
-                }[6h])), 0.001)
+                }[6h]))
               )
-              * on() (activity:slo_activity_query:request_total:rate5m > bool 0)
+              and sum(rate(apiserver_request_duration_seconds_count{
+                  job="activity-apiserver",
+                  resource=~"activityqueries|activityfacetqueries",
+                  verb="POST"
+                }[6h])) > 0
             |||,
           },
 
@@ -389,13 +433,17 @@
                   le="5"
                 }[3d]))
                 /
-                clamp_min(sum(rate(apiserver_request_total{
+                sum(rate(apiserver_request_duration_seconds_count{
                   job="activity-apiserver",
                   resource=~"activityqueries|activityfacetqueries",
                   verb="POST"
-                }[3d])), 0.001)
+                }[3d]))
               )
-              * on() (activity:slo_activity_query:request_total:rate5m > bool 0)
+              and sum(rate(apiserver_request_duration_seconds_count{
+                  job="activity-apiserver",
+                  resource=~"activityqueries|activityfacetqueries",
+                  verb="POST"
+                }[3d])) > 0
             |||,
           },
 
@@ -419,7 +467,7 @@
           {
             record: 'activity:slo_event_query:request_total:rate5m',
             expr: |||
-              sum(rate(apiserver_request_total{
+              sum(rate(apiserver_request_duration_seconds_count{
                 job="activity-apiserver",
                 resource=~"eventqueries|eventfacetqueries",
                 verb="POST"
@@ -451,13 +499,17 @@
                   le="5"
                 }[30m]))
                 /
-                clamp_min(sum(rate(apiserver_request_total{
+                sum(rate(apiserver_request_duration_seconds_count{
                   job="activity-apiserver",
                   resource=~"eventqueries|eventfacetqueries",
                   verb="POST"
-                }[30m])), 0.001)
+                }[30m]))
               )
-              * on() (activity:slo_event_query:request_total:rate5m > bool 0)
+              and sum(rate(apiserver_request_duration_seconds_count{
+                  job="activity-apiserver",
+                  resource=~"eventqueries|eventfacetqueries",
+                  verb="POST"
+                }[30m])) > 0
             |||,
           },
 
@@ -472,13 +524,17 @@
                   le="5"
                 }[1h]))
                 /
-                clamp_min(sum(rate(apiserver_request_total{
+                sum(rate(apiserver_request_duration_seconds_count{
                   job="activity-apiserver",
                   resource=~"eventqueries|eventfacetqueries",
                   verb="POST"
-                }[1h])), 0.001)
+                }[1h]))
               )
-              * on() (activity:slo_event_query:request_total:rate5m > bool 0)
+              and sum(rate(apiserver_request_duration_seconds_count{
+                  job="activity-apiserver",
+                  resource=~"eventqueries|eventfacetqueries",
+                  verb="POST"
+                }[1h])) > 0
             |||,
           },
 
@@ -493,13 +549,17 @@
                   le="5"
                 }[6h]))
                 /
-                clamp_min(sum(rate(apiserver_request_total{
+                sum(rate(apiserver_request_duration_seconds_count{
                   job="activity-apiserver",
                   resource=~"eventqueries|eventfacetqueries",
                   verb="POST"
-                }[6h])), 0.001)
+                }[6h]))
               )
-              * on() (activity:slo_event_query:request_total:rate5m > bool 0)
+              and sum(rate(apiserver_request_duration_seconds_count{
+                  job="activity-apiserver",
+                  resource=~"eventqueries|eventfacetqueries",
+                  verb="POST"
+                }[6h])) > 0
             |||,
           },
 
@@ -514,13 +574,17 @@
                   le="5"
                 }[3d]))
                 /
-                clamp_min(sum(rate(apiserver_request_total{
+                sum(rate(apiserver_request_duration_seconds_count{
                   job="activity-apiserver",
                   resource=~"eventqueries|eventfacetqueries",
                   verb="POST"
-                }[3d])), 0.001)
+                }[3d]))
               )
-              * on() (activity:slo_event_query:request_total:rate5m > bool 0)
+              and sum(rate(apiserver_request_duration_seconds_count{
+                  job="activity-apiserver",
+                  resource=~"eventqueries|eventfacetqueries",
+                  verb="POST"
+                }[3d])) > 0
             |||,
           },
 
@@ -573,12 +637,15 @@
                   code!~"5.."
                 }[30m]))
                 /
-                clamp_min(sum(rate(apiserver_request_total{
+                sum(rate(apiserver_request_total{
                   job="activity-apiserver",
                   verb!="WATCH"
-                }[30m])), 0.001)
+                }[30m]))
               )
-              * on() (activity:slo_availability:request_total:rate5m > bool 0)
+              and sum(rate(apiserver_request_total{
+                  job="activity-apiserver",
+                  verb!="WATCH"
+                }[30m])) > 0
             |||,
           },
 
@@ -592,12 +659,15 @@
                   code!~"5.."
                 }[1h]))
                 /
-                clamp_min(sum(rate(apiserver_request_total{
+                sum(rate(apiserver_request_total{
                   job="activity-apiserver",
                   verb!="WATCH"
-                }[1h])), 0.001)
+                }[1h]))
               )
-              * on() (activity:slo_availability:request_total:rate5m > bool 0)
+              and sum(rate(apiserver_request_total{
+                  job="activity-apiserver",
+                  verb!="WATCH"
+                }[1h])) > 0
             |||,
           },
 
@@ -611,12 +681,15 @@
                   code!~"5.."
                 }[6h]))
                 /
-                clamp_min(sum(rate(apiserver_request_total{
+                sum(rate(apiserver_request_total{
                   job="activity-apiserver",
                   verb!="WATCH"
-                }[6h])), 0.001)
+                }[6h]))
               )
-              * on() (activity:slo_availability:request_total:rate5m > bool 0)
+              and sum(rate(apiserver_request_total{
+                  job="activity-apiserver",
+                  verb!="WATCH"
+                }[6h])) > 0
             |||,
           },
 
@@ -630,12 +703,15 @@
                   code!~"5.."
                 }[3d]))
                 /
-                clamp_min(sum(rate(apiserver_request_total{
+                sum(rate(apiserver_request_total{
                   job="activity-apiserver",
                   verb!="WATCH"
-                }[3d])), 0.001)
+                }[3d]))
               )
-              * on() (activity:slo_availability:request_total:rate5m > bool 0)
+              and sum(rate(apiserver_request_total{
+                  job="activity-apiserver",
+                  verb!="WATCH"
+                }[3d])) > 0
             |||,
           },
 

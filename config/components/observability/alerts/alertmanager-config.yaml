@@ -6,19 +6,23 @@ metadata:
   labels:
     app.kubernetes.io/part-of: activity
 spec:
-  route:
-    receiver: default
-    continue: true
-  receivers:
-    - name: default
   inhibitRules:
-    # Severity-based: critical suppresses related warnings for same component
+    # Severity-based: critical suppresses related warnings for same component.
+    # Both source and target must have a component label to match, scoping
+    # this rule to activity alerts and preventing it from suppressing
+    # unrelated warnings across the cluster.
     - sourceMatch:
         - name: severity
           value: critical
+        - name: component
+          matchType: "=~"
+          value: ".+"
       targetMatch:
         - name: severity
           value: warning
+        - name: component
+          matchType: "=~"
+          value: ".+"
       equal:
         - component
 
