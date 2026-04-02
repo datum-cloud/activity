@@ -27,55 +27,19 @@ jobs:
     secrets: inherit
 
   # ── Bump version ─────────────────────────────────────────────────────────
-  # Runs only on manual dispatch. Bumps the version in package.json, commits,
-  # creates the git tag, and pushes to main. All downstream jobs read the
-  # version from this job's output — the npm publish workflow receives it
-  # already set in package.json.
+  # Runs only on manual dispatch. Delegates to the shared bump-npm-version
+  # reusable workflow, which bumps package.json, commits, tags, and pushes.
+  # Downstream jobs read new-version from this job's outputs automatically.
   bump-version:
     name: Bump version
     if: github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
     permissions:
       contents: write
-    outputs:
-      new-version: ${{ steps.bump.outputs.new-version }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: main
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          package_json_file: ui/package.json
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: pnpm
-          cache-dependency-path: ui/pnpm-lock.yaml
-
-      - name: Configure git
-        run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Bump version and push tag
-        id: bump
-        working-directory: ui
-        env:
-          BUMP_TYPE: ${{ inputs.bump-type }}
-        run: |
-          if [[ "$BUMP_TYPE" != "major" && "$BUMP_TYPE" != "minor" && "$BUMP_TYPE" != "patch" ]]; then
-            echo "::error::Invalid bump-type '$BUMP_TYPE'. Must be major, minor, or patch."
-            exit 1
-          fi
-          NEW_VERSION=$(npm version "$BUMP_TYPE" \
-            --message "chore: release @datum-cloud/activity-ui v%s [skip ci]")
-          echo "new-version=${NEW_VERSION}" >> "$GITHUB_OUTPUT"
-          git push origin main --follow-tags
+    uses: datum-cloud/actions/.github/workflows/bump-npm-version.yaml@v1.13.0
+    with:
+      package-path: ui
+      package-name: "@datum-cloud/activity-ui"
+      bump-type: ${{ inputs.bump-type }}
 
   # ── Publish release to npm ───────────────────────────────────────────────
   # Runs after bump-version. package.json already has the bumped version.
