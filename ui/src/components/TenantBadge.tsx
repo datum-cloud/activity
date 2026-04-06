@@ -83,7 +83,7 @@ export function TenantBadge({
     <Badge
       variant={variant}
       className={cn(
-        'inline-flex items-center gap-1',
+        'inline-flex items-center gap-1 whitespace-nowrap max-w-full',
         size === 'compact' ? 'text-xs h-4 py-0 px-1.5' : 'text-xs h-5 px-2',
         url && 'cursor-pointer hover:opacity-80 transition-opacity',
         className
@@ -94,7 +94,7 @@ export function TenantBadge({
       {tenant.type !== 'platform' && (
         <>
           <span className="text-muted-foreground">/</span>
-          <span>{tenant.name}</span>
+          <span className="overflow-hidden text-ellipsis">{tenant.name}</span>
         </>
       )}
     </Badge>
