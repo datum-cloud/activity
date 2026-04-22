@@ -41,15 +41,26 @@ export interface ActivityFeedItemProps {
 }
 
 /**
- * Format timestamp for display
+ * Format timestamp for display.
+ * Returns both a full string ("about 5 hours ago") and a compact one ("5hrs ago").
  */
-function formatTimestamp(timestamp?: string): string {
-  if (!timestamp) return 'Unknown time';
+function formatTimestamp(timestamp?: string): { full: string; compact: string } {
+  if (!timestamp) return { full: 'Unknown time', compact: 'Unknown' };
   try {
     const date = new Date(timestamp);
-    return formatDistanceToNow(date, { addSuffix: true });
+    const full = formatDistanceToNow(date, { addSuffix: true });
+    // Compact: strip "about ", "less than ", "over ", abbreviate units
+    const compact = full
+      .replace(/^(about|less than|over|almost)\s+/i, '')
+      .replace(/\bminutes?\b/g, 'min')
+      .replace(/\bhours?\b/g, 'hrs')
+      .replace(/\bdays?\b/g, 'd')
+      .replace(/\bmonths?\b/g, 'mo')
+      .replace(/\byears?\b/g, 'yr')
+      .replace(/\s+ago$/, ' ago');
+    return { full, compact };
   } catch {
-    return timestamp;
+    return { full: timestamp, compact: timestamp };
   }
 }
 
@@ -204,7 +215,7 @@ export function ActivityFeedItem({
       <div className={cn(!isLast && !isExpanded && 'border-b border-border', className)}>
         <div
           className={cn(
-            'flex items-center gap-3 py-3 pl-4 cursor-pointer group',
+            'flex items-start gap-3 py-3 pl-4 cursor-pointer group flex-wrap sm:flex-nowrap sm:items-center',
             isSelected && 'bg-muted/40',
           )}
           onClick={toggleExpand}
@@ -212,7 +223,7 @@ export function ActivityFeedItem({
           {/* Action icon square */}
           <div
             className={cn(
-              'w-8 h-8 rounded-md shrink-0 flex items-center justify-center',
+              'w-8 h-8 rounded-md shrink-0 flex items-center justify-center mt-0.5 sm:mt-0',
               iconBg, iconColor
             )}
           >
@@ -220,7 +231,7 @@ export function ActivityFeedItem({
           </div>
 
           {/* Summary */}
-          <div className="flex-1 min-w-0 text-sm text-foreground leading-snug">
+          <div className="w-[calc(100%-3.25rem)] sm:w-auto sm:flex-1 min-w-0 text-sm text-foreground leading-snug">
             <ActivityFeedSummary
               summary={summary}
               links={links}
@@ -230,31 +241,43 @@ export function ActivityFeedItem({
             />
           </div>
 
-          {/* Tenant badge */}
-          {tenant && (
-            <div className="shrink-0">
-              {tenantRenderer ? tenantRenderer(tenant) : <TenantBadge tenant={tenant} tenantLinkResolver={tenantLinkResolver} size="compact" />}
-            </div>
-          )}
+          {/* Metadata row — sits below summary on mobile, inline on desktop */}
+          <div className="flex items-center gap-2 w-full sm:w-auto sm:shrink-0 pl-11 sm:pl-0">
+            {/* Tenant badge — truncates on narrow screens */}
+            {tenant && (
+              <div className="min-w-0 sm:shrink-0">
+                {tenantRenderer ? tenantRenderer(tenant) : <TenantBadge tenant={tenant} tenantLinkResolver={tenantLinkResolver} size="compact" />}
+              </div>
+            )}
 
-          {/* Timestamp */}
-          <span
-            className="text-xs text-muted-foreground whitespace-nowrap shrink-0"
-            title={formatTimestampFull(timestamp)}
-          >
-            {formatTimestamp(timestamp)}
-          </span>
+            {/* Timestamp — compact on mobile, full on desktop */}
+            <span
+              className="text-xs text-muted-foreground whitespace-nowrap shrink-0 sm:hidden"
+              title={formatTimestampFull(timestamp)}
+            >
+              {formatTimestamp(timestamp).compact}
+            </span>
+            <span
+              className="text-xs text-muted-foreground whitespace-nowrap shrink-0 hidden sm:inline"
+              title={formatTimestampFull(timestamp)}
+            >
+              {formatTimestamp(timestamp).full}
+            </span>
 
-          {/* Expand toggle */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-5 py-0 px-1 text-base text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-            onClick={toggleExpand}
-            aria-expanded={isExpanded}
-          >
-            {isExpanded ? '−' : '+'}
-          </Button>
+            {/* Spacer pushes expand button to far right */}
+            <div className="flex-1" />
+
+            {/* Expand toggle — always bottom-right */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-5 py-0 px-1 text-base text-muted-foreground sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0"
+              onClick={toggleExpand}
+              aria-expanded={isExpanded}
+            >
+              {isExpanded ? '−' : '+'}
+            </Button>
+          </div>
         </div>
 
         {/* Expanded Details */}
@@ -279,12 +302,13 @@ export function ActivityFeedItem({
       )}
       onClick={handleClick}
     >
-      {/* Single row layout */}
-      <div className="flex items-center gap-2">
+      {/* Feed row layout — wraps on mobile so summary gets full width */}
+      <div className="flex items-start gap-2 flex-wrap sm:flex-nowrap sm:items-center">
         {/* Actor Avatar */}
         <div
           className={cn(
             getActorAvatarClasses(actor.type, compact),
+            'mt-0.5 sm:mt-0',
             onActorClick && 'cursor-pointer hover:opacity-80 transition-opacity'
           )}
           title={actor.name}
@@ -299,8 +323,8 @@ export function ActivityFeedItem({
           )}
         </div>
 
-        {/* Summary - takes remaining space */}
-        <div className="flex-1 min-w-0 text-xs leading-snug">
+        {/* Summary - full width on mobile, flex-1 on desktop */}
+        <div className="w-[calc(100%-2.5rem)] sm:w-auto sm:flex-1 min-w-0 text-xs leading-snug order-none">
           <ActivityFeedSummary
             summary={summary}
             links={links}
@@ -310,31 +334,43 @@ export function ActivityFeedItem({
           />
         </div>
 
-        {/* Tenant badge */}
-        {tenant && (
-          <div className="shrink-0">
-            {tenantRenderer ? tenantRenderer(tenant) : <TenantBadge tenant={tenant} tenantLinkResolver={tenantLinkResolver} size="compact" />}
-          </div>
-        )}
+        {/* Metadata row — sits below summary on mobile, inline on desktop */}
+        <div className="flex items-center gap-2 w-full sm:w-auto sm:shrink-0 pl-8 sm:pl-0">
+          {/* Tenant badge — truncates on narrow screens */}
+          {tenant && (
+            <div className="min-w-0 sm:shrink-0">
+              {tenantRenderer ? tenantRenderer(tenant) : <TenantBadge tenant={tenant} tenantLinkResolver={tenantLinkResolver} size="compact" />}
+            </div>
+          )}
 
-        {/* Timestamp */}
-        <span
-          className="text-xs text-muted-foreground whitespace-nowrap shrink-0"
-          title={formatTimestampFull(timestamp)}
-        >
-          {formatTimestamp(timestamp)}
-        </span>
+          {/* Timestamp — compact on mobile, full on desktop */}
+          <span
+            className="text-xs text-muted-foreground whitespace-nowrap shrink-0 sm:hidden"
+            title={formatTimestampFull(timestamp)}
+          >
+            {formatTimestamp(timestamp).compact}
+          </span>
+          <span
+            className="text-xs text-muted-foreground whitespace-nowrap shrink-0 hidden sm:inline"
+            title={formatTimestampFull(timestamp)}
+          >
+            {formatTimestamp(timestamp).full}
+          </span>
 
-        {/* Expand button */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-5 py-0 px-1 text-base text-muted-foreground hover:text-foreground shrink-0"
-          onClick={toggleExpand}
-          aria-expanded={isExpanded}
-        >
-          {isExpanded ? '−' : '+'}
-        </Button>
+          {/* Spacer pushes expand button to far right */}
+          <div className="flex-1" />
+
+          {/* Expand button — always bottom-right */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-5 py-0 px-1 text-base text-muted-foreground hover:text-foreground shrink-0"
+            onClick={toggleExpand}
+            aria-expanded={isExpanded}
+          >
+            {isExpanded ? '−' : '+'}
+          </Button>
+        </div>
       </div>
 
       {/* Expanded Details */}
