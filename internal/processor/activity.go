@@ -1,10 +1,12 @@
 package processor
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,6 +16,10 @@ import (
 	"go.miloapis.com/activity/internal/cel"
 	"go.miloapis.com/activity/pkg/apis/activity/v1alpha1"
 )
+
+// iamGroup is the API group for Milo IAM resources we enrich with user
+// display names.
+const iamGroup = "iam.miloapis.com"
 
 // activityName generates a deterministic activity name from the origin event
 // identifier and the policy's resource target. The same input always produces
@@ -35,6 +41,10 @@ type ActivityBuilder struct {
 	// Resource information from the policy
 	APIGroup string
 	Kind     string
+
+	// UserResolver is consulted (when non-nil) to enrich the actor and any
+	// User-typed link targets with human-readable display names.
+	UserResolver UserResolver
 }
 
 // BuildFromAudit constructs an Activity from an audit event.
@@ -64,8 +74,9 @@ func (b *ActivityBuilder) BuildFromAudit(
 	resourceUID := extractResponseUID(audit.ResponseObject)
 
 	// Classify change source and resolve actor
+	ctx := context.Background()
 	changeSource := ClassifyChangeSource(audit.User)
-	actor := ResolveActor(audit.User)
+	actor := ResolveActorWithResolver(ctx, audit.User, b.UserResolver)
 	tenant := ExtractTenant(audit.User)
 
 	// Generate activity name
@@ -76,6 +87,10 @@ func (b *ActivityBuilder) BuildFromAudit(
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrActivityBuild, err)
 	}
+
+	// Enrich: replace actor email with display name in summary, attach actor
+	// link, and hydrate any User-typed link targets with display names.
+	summary, activityLinks = enrichSummaryWithDisplayNames(ctx, summary, actor, activityLinks, b.UserResolver)
 
 	return &v1alpha1.Activity{
 		TypeMeta: metav1.TypeMeta{
@@ -113,6 +128,101 @@ func (b *ActivityBuilder) BuildFromAudit(
 			},
 		},
 	}, nil
+}
+
+// enrichSummaryWithDisplayNames rewrites the summary to use human-readable
+// display names for the actor and any User-typed link targets, and appends
+// link metadata so the UI can render an email/UID tooltip.
+//
+// Behavior:
+//   - When the actor has a DisplayName, the first occurrence of the actor's
+//     Name (typically an email) in the summary is replaced with the
+//     DisplayName, and a synthetic actor link is appended carrying the
+//     DisplayName, Email, and UID.
+//   - For each existing link whose resource is an iam User, the resolver is
+//     queried by the link's resource name; on hit, the link's Marker is
+//     replaced in the summary with the user's DisplayName and the link's
+//     DisplayName/Email fields are populated.
+//
+// Returns the rewritten summary and links. When resolver is nil or no
+// matches occur, the inputs are returned unchanged.
+func enrichSummaryWithDisplayNames(
+	ctx context.Context,
+	summary string,
+	actor v1alpha1.ActivityActor,
+	links []v1alpha1.ActivityLink,
+	resolver UserResolver,
+) (string, []v1alpha1.ActivityLink) {
+	// Actor: if we have a display name distinct from the name, swap it into
+	// the summary. If the policy template already wrapped the actor with
+	// link() (so a link entry exists with marker == actor.Name), upgrade
+	// that entry in place; otherwise append a synthetic actor link so the
+	// UI can render the hover tooltip.
+	if actor.DisplayName != "" && actor.DisplayName != actor.Name && actor.Name != "" {
+		summaryHadActor := strings.Contains(summary, actor.Name)
+		if summaryHadActor {
+			summary = strings.Replace(summary, actor.Name, actor.DisplayName, 1)
+		}
+
+		upgraded := false
+		for i := range links {
+			if links[i].Marker == actor.Name {
+				links[i].Marker = actor.DisplayName
+				links[i].DisplayName = actor.DisplayName
+				if links[i].Email == "" {
+					links[i].Email = actor.Email
+				}
+				upgraded = true
+				break
+			}
+		}
+		if !upgraded && summaryHadActor {
+			links = append(links, v1alpha1.ActivityLink{
+				Marker: actor.DisplayName,
+				Resource: v1alpha1.ActivityResource{
+					APIGroup: iamGroup,
+					Kind:     "User",
+					UID:      actor.UID,
+				},
+				DisplayName: actor.DisplayName,
+				Email:       actor.Email,
+			})
+		}
+	}
+
+	// User-typed link targets: hydrate via resolver and rewrite the summary.
+	if resolver != nil {
+		for i := range links {
+			link := &links[i]
+			if !isUserLink(link.Resource) {
+				continue
+			}
+			if link.Resource.Name == "" || link.DisplayName != "" {
+				continue
+			}
+			info, ok, err := resolver.LookupByName(ctx, link.Resource.Name)
+			if err != nil || !ok {
+				continue
+			}
+			displayName := info.DisplayName()
+			if displayName == "" {
+				continue
+			}
+			if link.Marker != "" && link.Marker != displayName {
+				summary = strings.Replace(summary, link.Marker, displayName, 1)
+				link.Marker = displayName
+			}
+			link.DisplayName = displayName
+			link.Email = info.Email
+		}
+	}
+
+	return summary, links
+}
+
+// isUserLink reports whether the resource targets an iam User CR.
+func isUserLink(r v1alpha1.ActivityResource) bool {
+	return r.APIGroup == iamGroup && r.Kind == "User"
 }
 
 // extractResponseUID extracts the UID from an audit response object's metadata.
@@ -201,6 +311,10 @@ func (b *ActivityBuilder) BuildFromEvent(
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrActivityBuild, err)
 	}
+
+	// Hydrate User-typed links with display names (event actors are system
+	// components, so no actor enrichment is needed).
+	summary, activityLinks = enrichSummaryWithDisplayNames(context.Background(), summary, actor, activityLinks, b.UserResolver)
 
 	return &v1alpha1.Activity{
 		TypeMeta: metav1.TypeMeta{

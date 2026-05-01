@@ -28,10 +28,24 @@ type EvaluationResult struct {
 // EvaluateAuditRules evaluates audit rules against an audit log input.
 // Returns the generated Activity if a rule matches, or nil if no rule matched.
 // If resolveKind is provided, it will be used to resolve resource names to Kind in links.
+//
+// Use EvaluateAuditRulesWithResolver to also enrich activities with user
+// display names; this convenience wrapper forwards a nil resolver.
 func EvaluateAuditRules(
 	spec *v1alpha1.ActivityPolicySpec,
 	audit *auditv1.Event,
 	resolveKind KindResolver,
+) (*EvaluationResult, error) {
+	return EvaluateAuditRulesWithResolver(spec, audit, resolveKind, nil)
+}
+
+// EvaluateAuditRulesWithResolver is like EvaluateAuditRules but additionally
+// enriches the resulting Activity with display names looked up via resolver.
+func EvaluateAuditRulesWithResolver(
+	spec *v1alpha1.ActivityPolicySpec,
+	audit *auditv1.Event,
+	resolveKind KindResolver,
+	resolver UserResolver,
 ) (*EvaluationResult, error) {
 	// Convert to map for CEL evaluation
 	auditMap, err := toMap(audit)
@@ -41,8 +55,9 @@ func EvaluateAuditRules(
 
 	// Create activity builder
 	builder := &ActivityBuilder{
-		APIGroup: spec.Resource.APIGroup,
-		Kind:     spec.Resource.Kind,
+		APIGroup:     spec.Resource.APIGroup,
+		Kind:         spec.Resource.Kind,
+		UserResolver: resolver,
 	}
 
 	// Try each audit rule in order
@@ -83,10 +98,24 @@ func EvaluateAuditRules(
 // EvaluateEventRules evaluates event rules against a Kubernetes event input.
 // Returns the generated Activity if a rule matches, or nil if no rule matched.
 // If resolveKind is provided, it will be used to resolve resource names to Kind in links.
+//
+// Use EvaluateEventRulesWithResolver to also enrich activities with user
+// display names; this convenience wrapper forwards a nil resolver.
 func EvaluateEventRules(
 	spec *v1alpha1.ActivityPolicySpec,
 	eventData interface{},
 	resolveKind KindResolver,
+) (*EvaluationResult, error) {
+	return EvaluateEventRulesWithResolver(spec, eventData, resolveKind, nil)
+}
+
+// EvaluateEventRulesWithResolver is like EvaluateEventRules but additionally
+// enriches User-typed link targets with display names looked up via resolver.
+func EvaluateEventRulesWithResolver(
+	spec *v1alpha1.ActivityPolicySpec,
+	eventData interface{},
+	resolveKind KindResolver,
+	resolver UserResolver,
 ) (*EvaluationResult, error) {
 	// Convert event data to map if needed
 	eventMap, err := toMap(eventData)
@@ -96,8 +125,9 @@ func EvaluateEventRules(
 
 	// Create activity builder
 	builder := &ActivityBuilder{
-		APIGroup: spec.Resource.APIGroup,
-		Kind:     spec.Resource.Kind,
+		APIGroup:     spec.Resource.APIGroup,
+		Kind:         spec.Resource.Kind,
+		UserResolver: resolver,
 	}
 
 	// Try each event rule in order

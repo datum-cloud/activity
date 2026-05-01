@@ -294,6 +294,10 @@ type Processor struct {
 	// dlqRetryController handles automatic retry of DLQ events.
 	dlqRetryController *DLQRetryController
 
+	// userResolver enriches activities with iam User display names. nil
+	// disables enrichment; activities are emitted with raw emails/IDs.
+	userResolver processor.UserResolver
+
 	wg     sync.WaitGroup
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -392,6 +396,10 @@ func (p *Processor) Start(ctx context.Context) error {
 
 	// Create event emitter for health reporting
 	p.eventEmitter = NewEventEmitter(k8sClient, recorder)
+
+	// Wire a cached iam User resolver so activities are enriched with
+	// human-readable display names. Failures fall back to email/UID.
+	p.userResolver = processor.NewCachedUserResolver(NewIAMUserResolver(k8sClient), 0, 0)
 
 	// Build NATS connection options
 	natsOpts := []nats.Option{
@@ -1034,7 +1042,7 @@ func (p *Processor) processMessage(msg *nats.Msg) error {
 
 // evaluateCompiledAuditRules evaluates audit rules using pre-compiled CEL programs.
 func (p *Processor) evaluateCompiledAuditRules(policy *CompiledPolicy, auditMap map[string]any, audit *auditv1.Event) (*v1alpha1.Activity, int, error) {
-	return EvaluateCompiledAuditRules(policy, auditMap, audit, p.resourceToKind)
+	return EvaluateCompiledAuditRulesWithResolver(policy, auditMap, audit, p.resourceToKind, p.userResolver)
 }
 
 // auditToMap converts an audit event to a map for CEL evaluation.
