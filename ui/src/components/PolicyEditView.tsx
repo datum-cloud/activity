@@ -5,13 +5,13 @@ import { ActivityApiClient } from '../api/client';
 import { usePolicyEditor, type UsePolicyEditorResult } from '../hooks/usePolicyEditor';
 import { PolicyResourceForm } from './PolicyResourceForm';
 import { PolicyRuleList } from './PolicyRuleList';
-import { Input } from './ui/input';
+import { Input } from '@datum-cloud/datum-ui/input';
 import { Button } from './ui/button';
-import { Card, CardHeader, CardContent } from './ui/card';
+import { Card, CardHeader, CardContent } from '@datum-cloud/datum-ui/card';
 import { Badge } from './ui/badge';
-import { Label } from './ui/label';
+import { Label } from '@datum-cloud/datum-ui/label';
 import { ApiErrorAlert } from './ApiErrorAlert';
-import { Alert, AlertDescription } from './ui/alert';
+import { Alert, AlertDescription } from '@datum-cloud/datum-ui/alert';
 import { AlertTriangle, AlertCircle, Trash2, Copy, Check } from 'lucide-react';
 import {
   Dialog,
@@ -253,7 +253,7 @@ export function PolicyEditView({
             size="sm"
             onClick={() => handleSave(false)}
             disabled={!canSave || editor.isSaving || !editor.isDirty}
-            className="bg-[#BF9595] text-[#0C1D31] border-[#BF9595] hover:bg-[#A88080] hover:border-[#A88080] h-7 text-xs"
+            className="bg-primary text-primary-foreground border-primary hover:bg-primary/90 hover:border-primary/90 h-7 text-xs"
           >
             {editor.isSaving ? (
               <>

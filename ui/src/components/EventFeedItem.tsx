@@ -1,17 +1,20 @@
 import { useState } from 'react';
-import { format, formatDistanceToNow } from 'date-fns';
 import { Copy, Check, ChevronDown, ChevronRight } from 'lucide-react';
 import type { K8sEvent } from '../types/k8s-event';
 import { EventExpandedDetails } from './EventExpandedDetails';
 import { cn } from '../lib/utils';
 import { Button } from './ui/button';
-import { Card } from './ui/card';
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from './ui/tooltip';
+import { TableCell, TableRow } from '@datum-cloud/datum-ui/table';
+import { Timestamp } from './Timestamp';
+
+// Number of columns rendered for the events table. Used by the colSpan
+// on the expanded-detail row so it spans the full width.
+export const EVENT_COLUMN_COUNT = 6;
 
 export interface EventFeedItemProps {
   /** The event to render */
@@ -87,34 +90,7 @@ function getTimestamp(event: K8sEvent): string | undefined {
 }
 
 /**
- * Format timestamp for display
- */
-function formatTimestamp(timestamp?: string): string {
-  if (!timestamp) return 'Unknown time';
-  try {
-    const date = new Date(timestamp);
-    return formatDistanceToNow(date, { addSuffix: true });
-  } catch {
-    return timestamp;
-  }
-}
-
-/**
- * Format timestamp for tooltip (human-friendly UTC format with timezone)
- */
-function formatTimestampFull(timestamp?: string): string {
-  if (!timestamp) return 'Unknown time';
-  try {
-    const date = new Date(timestamp);
-    return format(date, "MMMM d, yyyy 'at' h:mm:ss a 'UTC'");
-  } catch {
-    return timestamp;
-  }
-}
-
-
-/**
- * EventFeedItem renders a single Kubernetes event in the feed
+ * EventFeedItem renders a single Kubernetes event as a table row.
  */
 export function EventFeedItem({
   event,
@@ -172,140 +148,128 @@ export function EventFeedItem({
   };
 
   const isWarning = type === 'Warning';
+  const noteWithCount = note
+    ? `${note}${count && count > 1 ? ` (x${count})` : ''}`
+    : '';
 
   return (
-    <TooltipProvider delayDuration={0}>
-      <Card
+    <>
+      <TableRow
+        data-state={isSelected ? 'selected' : undefined}
         className={cn(
-          'cursor-pointer transition-all duration-200',
-          'hover:border-gray-300 hover:shadow-sm hover:-translate-y-px dark:hover:border-gray-600',
-          compact ? 'p-2 mb-1.5' : 'p-2.5 mb-2',
-          isSelected && 'border-rose-300 bg-rose-50 shadow-md dark:border-rose-600 dark:bg-rose-950/50',
-          isNew && 'border-l-4 border-l-green-500 bg-green-50/50 dark:border-l-green-400 dark:bg-green-950/30',
-          isWarning && !isSelected && 'border-red-300 dark:border-red-600',
+          'cursor-pointer',
+          isNew && 'bg-green-50/40 dark:bg-green-950/20',
+          isWarning && !isSelected && 'border-l-2 border-l-red-400',
           className
         )}
-        onClick={handleClick}
+        onClick={(e) => {
+          toggleExpand(e);
+          handleClick();
+        }}
+        aria-expanded={isExpanded}
       >
-        <div className="flex gap-2">
-          {/* Main Content */}
-          <div className="flex-1 min-w-0">
-            {/* Header row: Type badge + Reason + Kind + Timestamp */}
-            <div className="flex items-center gap-1.5 mb-1">
-              {/* Type badge */}
-              <span
-                className={cn(
-                  "inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium whitespace-nowrap",
-                  isWarning
-                    ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
-                    : "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
-                )}
-              >
-                {type || 'Unknown'}
-              </span>
-
-              {/* Reason */}
-              {reason && (
-                <span className="text-xs font-medium text-foreground">
-                  {reason}
+        <TableCell className="py-2 align-middle whitespace-nowrap">
+          <span
+            className={cn(
+              'inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium',
+              isWarning
+                ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+            )}
+          >
+            {type || 'Unknown'}
+          </span>
+        </TableCell>
+        <TableCell className="py-2 align-middle whitespace-nowrap text-sm font-medium">
+          {reason || ''}
+        </TableCell>
+        <TableCell
+          className="py-2 align-middle"
+          style={{ width: '100%', maxWidth: 0, overflow: 'hidden' }}
+        >
+          {note ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div
+                  className="text-sm text-muted-foreground leading-snug"
+                  style={{
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {noteWithCount}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-[480px] whitespace-normal break-words">
+                {noteWithCount}
+              </TooltipContent>
+            </Tooltip>
+          ) : null}
+        </TableCell>
+        <TableCell className="py-2 align-middle">
+          <div className="flex items-center gap-1 min-w-0">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  className={cn(
+                    'text-sm font-medium text-foreground truncate',
+                    onResourceClick && 'cursor-pointer hover:underline hover:text-primary'
+                  )}
+                  onClick={onResourceClick ? handleResourceClick : undefined}
+                  style={{ maxWidth: 200 }}
+                >
+                  {regarding.name || 'Unknown'}
                 </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                {regarding.namespace
+                  ? `${regarding.kind || 'Unknown'} · ${regarding.namespace}/${regarding.name}`
+                  : `${regarding.kind || 'Unknown'} · ${regarding.name}`}
+              </TooltipContent>
+            </Tooltip>
+            <button
+              onClick={handleCopyResourceName}
+              className="inline-flex items-center justify-center p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
+              aria-label="Copy resource name"
+              type="button"
+            >
+              {isCopied ? (
+                <Check className="h-3 w-3 text-green-600 dark:text-green-400" />
+              ) : (
+                <Copy className="h-3 w-3 text-gray-500 dark:text-gray-400" />
               )}
-
-              {/* Involved Kind */}
-              {regarding.kind && (
-                <span className="text-xs text-muted-foreground">
-                  {regarding.kind}
-                </span>
-              )}
-
-              {/* Spacer to push timestamp to the right */}
-              <span className="flex-1" />
-
-              {/* Timestamp with tooltip */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="text-xs text-muted-foreground whitespace-nowrap cursor-default">
-                    {formatTimestamp(timestamp)}
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p className="text-xs">{formatTimestampFull(timestamp)}</p>
-                </TooltipContent>
-              </Tooltip>
-            </div>
-
-            {/* Content row: Message + Object + Timestamp + Expand */}
-            <div className="flex items-center gap-2">
-              {/* Note with count - takes remaining space */}
-              {note && (
-                <p className="text-xs text-muted-foreground leading-snug m-0 flex-1 min-w-0 truncate" title={note}>
-                  {note}{count && count > 1 && <span className="text-xs text-muted-foreground"> (x{count})</span>}
-                </p>
-              )}
-
-              {/* Regarding Object with Tooltip and Copy Button */}
-              <div className="group flex items-center gap-1 min-w-0">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span
-                      className={cn(
-                        "text-xs font-medium text-foreground whitespace-nowrap truncate min-w-0 max-w-[120px]",
-                        onResourceClick && "cursor-pointer hover:underline hover:text-primary transition-colors"
-                      )}
-                      onClick={onResourceClick ? handleResourceClick : undefined}
-                    >
-                      {regarding.name || 'Unknown'}
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="text-xs">
-                      {regarding.namespace
-                        ? `${regarding.kind || 'Unknown'} in namespace ${regarding.namespace}`
-                        : regarding.kind || 'Unknown'}
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-                <Tooltip delayDuration={500}>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={handleCopyResourceName}
-                      className="inline-flex items-center justify-center p-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-opacity cursor-pointer"
-                      aria-label="Copy resource name"
-                    >
-                      {isCopied ? (
-                        <Check className="h-3 w-3 text-green-600 dark:text-green-400" />
-                      ) : (
-                        <Copy className="h-3 w-3 text-gray-500 dark:text-gray-400" />
-                      )}
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="text-xs">Click to copy</p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-
-              {/* Expand button - larger and positioned at the end */}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-5 py-0 px-1 text-muted-foreground hover:text-foreground shrink-0"
-                onClick={toggleExpand}
-                aria-expanded={isExpanded}
-              >
-                {isExpanded ? (
-                  <ChevronDown className="h-4 w-4" />
-                ) : (
-                  <ChevronRight className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
+            </button>
           </div>
-        </div>
-
-        {/* Expanded Details */}
-        {isExpanded && <EventExpandedDetails event={event} />}
-      </Card>
-    </TooltipProvider>
+        </TableCell>
+        <TableCell className="py-2 align-middle whitespace-nowrap text-sm text-muted-foreground">
+          <Timestamp value={timestamp} />
+        </TableCell>
+        <TableCell className="py-2 align-middle w-10">
+          <Button
+            variant="ghost"
+            size="sm"
+            type="button"
+            className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+            onClick={toggleExpand}
+            aria-expanded={isExpanded}
+            aria-label={isExpanded ? 'Collapse details' : 'Expand details'}
+          >
+            {isExpanded ? (
+              <ChevronDown className="h-4 w-4" />
+            ) : (
+              <ChevronRight className="h-4 w-4" />
+            )}
+          </Button>
+        </TableCell>
+      </TableRow>
+      {isExpanded ? (
+        <TableRow className="bg-muted/30 hover:bg-muted/30">
+          <TableCell colSpan={EVENT_COLUMN_COUNT} className="p-0">
+            <EventExpandedDetails event={event} />
+          </TableCell>
+        </TableRow>
+      ) : null}
+    </>
   );
 }

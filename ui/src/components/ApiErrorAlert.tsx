@@ -1,5 +1,5 @@
 import { AlertCircle, AlertTriangle, RotateCw } from 'lucide-react';
-import { Alert, AlertDescription } from './ui/alert';
+import { Alert, AlertDescription } from '@datum-cloud/datum-ui/alert';
 import { Button } from './ui/button';
 import { defaultErrorFormatter } from '../lib/errors';
 import type { ErrorFormatter } from '../types/activity';

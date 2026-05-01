@@ -1,54 +1,98 @@
+// Adapter: maps the legacy shadcn-style `variant`/`size` props used by
+// activity-ui call sites onto datum-ui's `type`/`theme`/`size` API.
+//
+// Notes on the `type` collision:
+//   - shadcn Button leaves `type` as the native HTML button attribute
+//     ("button" | "submit" | "reset").
+//   - datum-ui Button repurposes `type` for the visual variant (primary,
+//     secondary, danger, …) and exposes `htmlType` for the native attr.
+// Existing call sites pass `type="button"` (native), so this shim accepts
+// the native attribute and forwards it as `htmlType` to datum-ui.
 import * as React from 'react';
-import { cva, type VariantProps } from 'class-variance-authority';
+import {
+  Button as DUIButton,
+  buttonVariants as duiButtonVariants,
+} from '@datum-cloud/datum-ui/button';
+import type { ButtonProps as DUIButtonProps } from '@datum-cloud/datum-ui/button';
 
-import { cn } from '../../lib/utils';
-
-const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
-  {
-    variants: {
-      variant: {
-        default: 'bg-primary text-primary-foreground hover:bg-primary/90',
-        destructive:
-          'bg-destructive text-destructive-foreground hover:bg-destructive/90',
-        outline:
-          'border border-input bg-background hover:bg-accent hover:text-accent-foreground',
-        secondary:
-          'bg-secondary text-secondary-foreground hover:bg-secondary/80',
-        ghost: 'hover:bg-accent hover:text-accent-foreground',
-        link: 'text-primary underline-offset-4 hover:underline',
-      },
-      size: {
-        default: 'h-10 px-4 py-2',
-        sm: 'h-9 rounded-md px-3',
-        lg: 'h-11 rounded-md px-8',
-        icon: 'h-10 w-10',
-      },
-    },
-    defaultVariants: {
-      variant: 'default',
-      size: 'default',
-    },
-  }
-);
+type LegacyVariant =
+  | 'default'
+  | 'destructive'
+  | 'outline'
+  | 'secondary'
+  | 'ghost'
+  | 'link';
+type LegacySize = 'default' | 'sm' | 'lg' | 'icon';
 
 export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {
+  extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'type'> {
+  variant?: LegacyVariant;
+  size?: LegacySize;
+  /** Native HTML button type — same semantics as on a plain <button>. */
+  type?: 'button' | 'submit' | 'reset';
   asChild?: boolean;
+  loading?: boolean;
+  icon?: React.ReactNode;
+  iconPosition?: 'left' | 'right';
+  block?: boolean;
 }
 
-const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, ...props }, ref) => {
-    return (
-      <button
-        className={cn(buttonVariants({ variant, size, className }))}
-        ref={ref}
-        {...props}
-      />
-    );
+function mapVariant(variant: LegacyVariant | undefined): {
+  type: DUIButtonProps['type'];
+  theme: DUIButtonProps['theme'];
+} {
+  switch (variant) {
+    case 'destructive':
+      return { type: 'danger', theme: 'solid' };
+    case 'outline':
+      return { type: 'tertiary', theme: 'outline' };
+    case 'secondary':
+      return { type: 'secondary', theme: 'solid' };
+    case 'ghost':
+      return { type: 'quaternary', theme: 'borderless' };
+    case 'link':
+      return { type: 'primary', theme: 'link' };
+    case 'default':
+    case undefined:
+    default:
+      return { type: 'primary', theme: 'solid' };
   }
-);
+}
+
+function mapSize(size: LegacySize | undefined): DUIButtonProps['size'] {
+  switch (size) {
+    case 'sm':
+      return 'small';
+    case 'lg':
+      return 'large';
+    case 'icon':
+      return 'icon';
+    default:
+      return 'default';
+  }
+}
+
+function Button({
+  variant,
+  size,
+  type,
+  ref,
+  ...rest
+}: ButtonProps & { ref?: React.RefObject<HTMLButtonElement | null> }) {
+  const { type: duiType, theme } = mapVariant(variant);
+  return (
+    <DUIButton
+      ref={ref}
+      type={duiType}
+      theme={theme}
+      size={mapSize(size)}
+      htmlType={type}
+      {...rest}
+    />
+  );
+}
 Button.displayName = 'Button';
+
+const buttonVariants: typeof duiButtonVariants = duiButtonVariants;
 
 export { Button, buttonVariants };

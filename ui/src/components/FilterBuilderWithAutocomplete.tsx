@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import type { AuditLogQuerySpec } from '../types';
 import { FILTER_FIELDS } from '../types';
-import { Input } from './ui/input';
-import { Textarea } from './ui/textarea';
+import { Input } from '@datum-cloud/datum-ui/input';
+import { Textarea } from '@datum-cloud/datum-ui/textarea';
 import { Button } from './ui/button';
-import { Label } from './ui/label';
-import { Card, CardHeader, CardContent } from './ui/card';
+import { Label } from '@datum-cloud/datum-ui/label';
+import { Card, CardHeader, CardContent } from '@datum-cloud/datum-ui/card';
 import { Badge } from './ui/badge';
 
 export interface FilterBuilderWithAutocompleteProps {

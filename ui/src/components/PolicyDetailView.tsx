@@ -5,12 +5,12 @@ import { ActivityApiClient } from '../api/client';
 import { PolicyActivityView } from './PolicyActivityView';
 import { PolicyActivityViewSkeleton } from './PolicyActivityViewSkeleton';
 import { Button } from './ui/button';
-import { Card, CardHeader, CardContent } from './ui/card';
+import { Card, CardHeader, CardContent } from '@datum-cloud/datum-ui/card';
 import { Badge } from './ui/badge';
 import { ApiErrorAlert } from './ApiErrorAlert';
-import { Alert, AlertDescription } from './ui/alert';
+import { Alert, AlertDescription } from '@datum-cloud/datum-ui/alert';
 import { AlertTriangle, AlertCircle, Copy, Check, Edit } from 'lucide-react';
-import { Skeleton } from './ui/skeleton';
+import { Skeleton } from '@datum-cloud/datum-ui/skeleton';
 import {
   Tooltip,
   TooltipContent,
@@ -205,7 +205,7 @@ export function PolicyDetailView({
                 type="button"
                 size="sm"
                 onClick={onEdit}
-                className="bg-[#BF9595] text-[#0C1D31] border-[#BF9595] hover:bg-[#A88080] hover:border-[#A88080] h-7 text-xs"
+                className="bg-primary text-primary-foreground border-primary hover:bg-primary/90 hover:border-primary/90 h-7 text-xs"
               >
                 <Edit className="h-3.5 w-3.5 mr-1.5" />
                 Edit Policy

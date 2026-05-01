@@ -3,8 +3,8 @@ import { Calendar, ChevronDown } from 'lucide-react';
 import * as Popover from '@radix-ui/react-popover';
 import { cn } from '../../lib/utils';
 import { Button } from './button';
-import { Input } from './input';
-import { Label } from './label';
+import { Input } from '@datum-cloud/datum-ui/input';
+import { Label } from '@datum-cloud/datum-ui/label';
 
 export interface TimeRangePreset {
   key: string;

@@ -6,7 +6,7 @@ import { ActivityFeedItem } from './ActivityFeedItem';
 import { ResourceLinkClickHandler } from './ActivityFeedSummary';
 import { ActivityApiClient } from '../api/client';
 import { Button } from './ui/button';
-import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
+import { Card, CardHeader, CardTitle, CardContent } from '@datum-cloud/datum-ui/card';
 import { cn } from '../lib/utils';
 import { ApiErrorAlert } from './ApiErrorAlert';
 

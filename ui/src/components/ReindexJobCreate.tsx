@@ -3,7 +3,7 @@ import type { ReindexJobSpec } from '../types/reindex';
 import type { ErrorFormatter } from '../types/activity';
 import { ActivityApiClient } from '../api/client';
 import { Button } from './ui/button';
-import { Card, CardHeader, CardContent } from './ui/card';
+import { Card, CardHeader, CardContent } from '@datum-cloud/datum-ui/card';
 import { ApiErrorAlert } from './ApiErrorAlert';
 import { Loader2, RefreshCw } from 'lucide-react';
 

@@ -464,11 +464,27 @@ func (r *CompiledRule) EvaluateEventMatch(eventMap map[string]any) (bool, error)
 // EvaluateCompiledAuditRules evaluates pre-compiled audit rules against an audit event.
 // Returns the generated Activity, the matching rule index, and any error.
 // Returns (nil, -1, nil) if no rule matched.
+//
+// Use EvaluateCompiledAuditRulesWithResolver to also enrich the resulting
+// activity with user display names; this convenience wrapper passes nil.
 func EvaluateCompiledAuditRules(
 	policy *CompiledPolicy,
 	auditMap map[string]any,
 	audit *auditv1.Event,
 	resolveKind processor.KindResolver,
+) (*v1alpha1.Activity, int, error) {
+	return EvaluateCompiledAuditRulesWithResolver(policy, auditMap, audit, resolveKind, nil)
+}
+
+// EvaluateCompiledAuditRulesWithResolver is like EvaluateCompiledAuditRules
+// but enriches the activity actor and any User-typed link targets with
+// display names looked up via resolver.
+func EvaluateCompiledAuditRulesWithResolver(
+	policy *CompiledPolicy,
+	auditMap map[string]any,
+	audit *auditv1.Event,
+	resolveKind processor.KindResolver,
+	resolver processor.UserResolver,
 ) (*v1alpha1.Activity, int, error) {
 	for i := range policy.AuditRules {
 		rule := &policy.AuditRules[i]
@@ -491,8 +507,9 @@ func EvaluateCompiledAuditRules(
 			}
 
 			builder := &processor.ActivityBuilder{
-				APIGroup: policy.APIGroup,
-				Kind:     policy.Kind,
+				APIGroup:     policy.APIGroup,
+				Kind:         policy.Kind,
+				UserResolver: resolver,
 			}
 			activity, err := builder.BuildFromAudit(audit, summary, links, resolveKind)
 			if err != nil {

@@ -9,9 +9,9 @@ import {
   formatISO
 } from 'date-fns';
 import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Card, CardContent } from './ui/card';
+import { Input } from '@datum-cloud/datum-ui/input';
+import { Label } from '@datum-cloud/datum-ui/label';
+import { Card, CardContent } from '@datum-cloud/datum-ui/card';
 
 export interface DateTimeRange {
   start: string; // ISO 8601 timestamp

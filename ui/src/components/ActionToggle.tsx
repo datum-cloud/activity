@@ -79,7 +79,7 @@ export function ActionToggle({
             'rounded-none px-2 h-7 text-xs font-medium transition-all duration-200',
             index < OPTIONS.length - 1 && 'border-r border-input',
             value === option.value
-              ? 'bg-[#BF9595] text-[#0C1D31] hover:bg-[#BF9595]/90'
+              ? 'bg-primary text-primary-foreground hover:bg-primary/90'
               : 'bg-muted text-foreground hover:bg-muted/80'
           )}
           onClick={() => onChange(option.value)}

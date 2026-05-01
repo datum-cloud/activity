@@ -2,11 +2,11 @@ import { useState } from 'react';
 import type { AuditLogQuerySpec } from '../types';
 import { FILTER_FIELDS } from '../types';
 import { Button } from './ui/button';
-import { Card, CardContent, CardHeader } from './ui/card';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Separator } from './ui/separator';
-import { Textarea } from './ui/textarea';
+import { Card, CardContent, CardHeader } from '@datum-cloud/datum-ui/card';
+import { Input } from '@datum-cloud/datum-ui/input';
+import { Label } from '@datum-cloud/datum-ui/label';
+import { Separator } from '@datum-cloud/datum-ui/separator';
+import { Textarea } from '@datum-cloud/datum-ui/textarea';
 
 export interface FilterBuilderProps {
   onFilterChange: (spec: AuditLogQuerySpec) => void;

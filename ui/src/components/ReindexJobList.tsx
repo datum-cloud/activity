@@ -2,10 +2,10 @@ import type { ErrorFormatter } from '../types/activity';
 import { ActivityApiClient } from '../api/client';
 import { useReindexJobs } from '../hooks/useReindexJobs';
 import { Button } from './ui/button';
-import { Card, CardContent, CardHeader } from './ui/card';
+import { Card, CardContent, CardHeader } from '@datum-cloud/datum-ui/card';
 import { Badge } from './ui/badge';
-import { Separator } from './ui/separator';
-import { Skeleton } from './ui/skeleton';
+import { Separator } from '@datum-cloud/datum-ui/separator';
+import { Skeleton } from '@datum-cloud/datum-ui/skeleton';
 import { ApiErrorAlert } from './ApiErrorAlert';
 import { getReindexJobDuration } from '../types/reindex';
 import { Clock, CheckCircle2, XCircle, Loader2, Eye } from 'lucide-react';
@@ -147,7 +147,7 @@ export function ReindexJobList({
               <Button
                 size="sm"
                 onClick={onCreateJob}
-                className="bg-[#BF9595] text-[#0C1D31] hover:bg-[#A88080] h-7 text-xs"
+                className="bg-primary text-primary-foreground hover:bg-primary/90 h-7 text-xs"
               >
                 + Create Job
               </Button>
@@ -211,7 +211,7 @@ export function ReindexJobList({
               <Button
                 size="sm"
                 onClick={onCreateJob}
-                className="bg-[#BF9595] text-[#0C1D31] hover:bg-[#A88080] h-7 text-xs"
+                className="bg-primary text-primary-foreground hover:bg-primary/90 h-7 text-xs"
               >
                 Create your first reindex job
               </Button>

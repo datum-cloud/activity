@@ -9,10 +9,10 @@ import {
   SheetFooter,
   SheetHeader,
   SheetTitle,
-} from './ui/sheet';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Textarea } from './ui/textarea';
+} from '@datum-cloud/datum-ui/sheet';
+import { Input } from '@datum-cloud/datum-ui/input';
+import { Label } from '@datum-cloud/datum-ui/label';
+import { Textarea } from '@datum-cloud/datum-ui/textarea';
 import { PolicyPreviewPanel } from './PolicyPreviewPanel';
 import { CelEditor } from './CelEditor';
 import { extractFieldPathsFromMany } from '../lib/extractFieldPaths';

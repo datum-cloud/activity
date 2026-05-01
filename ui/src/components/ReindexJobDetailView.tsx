@@ -3,10 +3,10 @@ import type { ReindexJob } from '../types/reindex';
 import type { ErrorFormatter, WatchEvent } from '../types/activity';
 import { ActivityApiClient } from '../api/client';
 import { Button } from './ui/button';
-import { Card, CardHeader, CardContent } from './ui/card';
+import { Card, CardHeader, CardContent } from '@datum-cloud/datum-ui/card';
 import { Badge } from './ui/badge';
 import { ApiErrorAlert } from './ApiErrorAlert';
-import { Skeleton } from './ui/skeleton';
+import { Skeleton } from '@datum-cloud/datum-ui/skeleton';
 import {
   getReindexJobDuration,
   getReindexJobStatusMessage,

@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import type { ActivityPolicyRule } from '../types/policy';
 import { Button } from './ui/button';
-import { Card, CardContent, CardHeader } from './ui/card';
-import { Label } from './ui/label';
-import { Textarea } from './ui/textarea';
+import { Card, CardContent, CardHeader } from '@datum-cloud/datum-ui/card';
+import { Label } from '@datum-cloud/datum-ui/label';
+import { Textarea } from '@datum-cloud/datum-ui/textarea';
 
 export interface PolicyRuleEditorProps {
   /** The rule being edited */
@@ -191,7 +191,7 @@ export function PolicyRuleEditor({
                       <Button
                         type="button"
                         size="sm"
-                        className="px-2 py-0.5 h-auto bg-[#E6F59F] border-none text-xs font-medium text-[#0C1D31] uppercase hover:bg-[#d9e88c]"
+                        className="px-2 py-0.5 h-auto bg-primary text-primary-foreground border-none text-xs font-medium uppercase hover:bg-primary/90"
                         onClick={() => insertMatchExample(ex)}
                       >
                         Use
@@ -250,7 +250,7 @@ export function PolicyRuleEditor({
                       <Button
                         type="button"
                         size="sm"
-                        className="px-2 py-0.5 h-auto bg-[#E6F59F] border-none text-xs font-medium text-[#0C1D31] uppercase hover:bg-[#d9e88c]"
+                        className="px-2 py-0.5 h-auto bg-primary text-primary-foreground border-none text-xs font-medium uppercase hover:bg-primary/90"
                         onClick={() => insertSummaryExample(ex)}
                       >
                         Use

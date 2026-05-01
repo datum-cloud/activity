@@ -4,10 +4,10 @@ import type { ErrorFormatter } from '../types/activity';
 import { ActivityApiClient } from '../api/client';
 import { usePolicyList, type UsePolicyListResult } from '../hooks/usePolicyList';
 import { Button } from './ui/button';
-import { Card, CardContent, CardHeader } from './ui/card';
+import { Card, CardContent, CardHeader } from '@datum-cloud/datum-ui/card';
 import { Badge } from './ui/badge';
-import { Separator } from './ui/separator';
-import { Skeleton } from './ui/skeleton';
+import { Separator } from '@datum-cloud/datum-ui/separator';
+import { Skeleton } from '@datum-cloud/datum-ui/skeleton';
 import { ApiErrorAlert } from './ApiErrorAlert';
 import { AlertTriangle } from 'lucide-react';
 
@@ -190,7 +190,7 @@ export function PolicyList({
               <Button
                 size="sm"
                 onClick={onCreatePolicy}
-                className="bg-[#BF9595] text-[#0C1D31] hover:bg-[#A88080] h-7 text-xs"
+                className="bg-primary text-primary-foreground hover:bg-primary/90 h-7 text-xs"
               >
                 + Create Policy
               </Button>
@@ -227,7 +227,7 @@ export function PolicyList({
                 <Button
                   size="sm"
                   onClick={onCreatePolicy}
-                  className="bg-[#BF9595] text-[#0C1D31] hover:bg-[#A88080] h-7 text-xs"
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 h-7 text-xs"
                 >
                   Create your first policy
                 </Button>

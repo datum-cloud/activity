@@ -16,7 +16,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from './ui/select';
+} from '@datum-cloud/datum-ui/select';
 import { ApiErrorAlert } from './ApiErrorAlert';
 import { Loader2, RefreshCw } from 'lucide-react';
 

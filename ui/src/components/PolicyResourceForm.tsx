@@ -7,9 +7,9 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from './ui/select';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
+} from '@datum-cloud/datum-ui/select';
+import { Input } from '@datum-cloud/datum-ui/input';
+import { Label } from '@datum-cloud/datum-ui/label';
 import { Button } from './ui/button';
 
 export interface PolicyResourceFormProps {
