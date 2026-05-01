@@ -12,11 +12,12 @@ import { useEventsFeed } from "../hooks/useEventsFeed";
 import { EventFeedItem, EVENT_COLUMN_COUNT } from "./EventFeedItem";
 import { EventsFeedFilters } from "./EventsFeedFilters";
 import { ActivityApiClient } from "../api/client";
-import { Button } from "./ui/button";
+import { Button } from "@datum-cloud/datum-ui/button";
 import { Card } from "@datum-cloud/datum-ui/card";
 import { Badge } from "./ui/badge";
 import { Skeleton } from "@datum-cloud/datum-ui/skeleton";
 import { ApiErrorAlert } from "./ApiErrorAlert";
+import { cn } from "../lib/utils";
 import {
   Table,
   TableBody,
@@ -79,6 +80,8 @@ export interface EventsFeedProps {
   errorFormatter?: ErrorFormatter;
   /** Callback invoked when filters or time range change (useful for URL state management) */
   onFiltersChange?: (filters: FilterState, timeRange: TimeRange) => void;
+  /** Layout variant: 'feed' (table, default) or 'timeline' (icon-list rows) */
+  variant?: 'feed' | 'timeline';
 }
 
 /**
@@ -100,6 +103,7 @@ export function EventsFeed({
   enableStreaming = false,
   errorFormatter,
   onFiltersChange: onFiltersChangeProp,
+  variant = 'feed',
 }: EventsFeedProps) {
   // Merge namespace into initial filters if provided
   const mergedInitialFilters: FilterState = {
@@ -225,7 +229,7 @@ export function EventsFeed({
               </Badge>
             ) : null}
           </div>
-          <Button variant="outline" size="sm" onClick={handleStreamingToggle}>
+          <Button type="tertiary" theme="outline" size="small" onClick={handleStreamingToggle}>
             {isStreaming ? (
               <>
                 <svg
@@ -281,54 +285,37 @@ export function EventsFeed({
       {/* Event List */}
       <div className={listClasses} ref={scrollContainerRef}>
         <TooltipProvider delayDuration={200}>
-          <Table className="w-full">
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[90px]">Type</TableHead>
-                <TableHead className="w-[160px]">Reason</TableHead>
-                <TableHead>Note</TableHead>
-                <TableHead className="w-[220px]">Object</TableHead>
-                <TableHead className="w-[170px]">When</TableHead>
-                <TableHead className="w-10" aria-label="Expand" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          {variant === 'timeline' ? (
+            <div>
               {(isLoading || isRefreshing) && events.length === 0
                 ? Array.from({ length: 8 }).map((_, index) => (
-                    <TableRow key={`sk-${index}`}>
-                      <TableCell className="py-2">
-                        <Skeleton className="h-5 w-14 rounded" />
-                      </TableCell>
-                      <TableCell className="py-2">
-                        <Skeleton className="h-4 w-24" />
-                      </TableCell>
-                      <TableCell className="py-2">
-                        <Skeleton className="h-4 w-3/4" />
-                      </TableCell>
-                      <TableCell className="py-2">
-                        <Skeleton className="h-4 w-32" />
-                      </TableCell>
-                      <TableCell className="py-2">
-                        <Skeleton className="h-4 w-24" />
-                      </TableCell>
-                      <TableCell className="py-2">
-                        <Skeleton className="h-6 w-6" />
-                      </TableCell>
-                    </TableRow>
+                    <div
+                      key={`sk-${index}`}
+                      className={cn(
+                        index < 7 && 'border-b border-border',
+                        compact ? 'py-2' : 'py-3'
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Skeleton className="w-8 h-8 rounded-md shrink-0" />
+                        <div className="flex-1 min-w-0 flex flex-col gap-1">
+                          <Skeleton className="h-4 w-24" />
+                          <Skeleton className="h-3 w-3/4" />
+                        </div>
+                        <Skeleton className="h-4 w-32 shrink-0" />
+                        <Skeleton className="h-4 w-24 shrink-0" />
+                        <Skeleton className="h-5 w-5 shrink-0" />
+                      </div>
+                    </div>
                   ))
                 : null}
               {!isLoading && !isRefreshing && events.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={EVENT_COLUMN_COUNT}
-                    className="text-center py-12 text-muted-foreground"
-                  >
-                    <div>No events found</div>
-                    <div className="text-sm mt-2">
-                      Try adjusting your filters or time range
-                    </div>
-                  </TableCell>
-                </TableRow>
+                <div className="py-12 text-center text-muted-foreground">
+                  <div>No events found</div>
+                  <div className="text-sm mt-2">
+                    Try adjusting your filters or time range
+                  </div>
+                </div>
               ) : null}
               {events.map((event, index) => (
                 <EventFeedItem
@@ -338,10 +325,74 @@ export function EventsFeed({
                   onResourceClick={onResourceClick}
                   compact={compact}
                   isNew={enableStreaming && index < newEventsCount}
+                  variant="timeline"
+                  isLast={index === events.length - 1}
                 />
               ))}
-            </TableBody>
-          </Table>
+            </div>
+          ) : (
+            <Table className="w-full">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[90px]">Type</TableHead>
+                  <TableHead className="w-[160px]">Reason</TableHead>
+                  <TableHead>Note</TableHead>
+                  <TableHead className="w-[220px]">Object</TableHead>
+                  <TableHead className="w-[170px]">When</TableHead>
+                  <TableHead className="w-10" aria-label="Expand" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(isLoading || isRefreshing) && events.length === 0
+                  ? Array.from({ length: 8 }).map((_, index) => (
+                      <TableRow key={`sk-${index}`}>
+                        <TableCell className="py-2">
+                          <Skeleton className="h-5 w-14 rounded" />
+                        </TableCell>
+                        <TableCell className="py-2">
+                          <Skeleton className="h-4 w-24" />
+                        </TableCell>
+                        <TableCell className="py-2">
+                          <Skeleton className="h-4 w-3/4" />
+                        </TableCell>
+                        <TableCell className="py-2">
+                          <Skeleton className="h-4 w-32" />
+                        </TableCell>
+                        <TableCell className="py-2">
+                          <Skeleton className="h-4 w-24" />
+                        </TableCell>
+                        <TableCell className="py-2">
+                          <Skeleton className="h-6 w-6" />
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  : null}
+                {!isLoading && !isRefreshing && events.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={EVENT_COLUMN_COUNT}
+                      className="text-center py-12 text-muted-foreground"
+                    >
+                      <div>No events found</div>
+                      <div className="text-sm mt-2">
+                        Try adjusting your filters or time range
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : null}
+                {events.map((event, index) => (
+                  <EventFeedItem
+                    key={event.metadata?.uid || event.metadata?.name}
+                    event={event}
+                    onEventClick={onEventClick}
+                    onResourceClick={onResourceClick}
+                    compact={compact}
+                    isNew={enableStreaming && index < newEventsCount}
+                  />
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </TooltipProvider>
 
         {/* Manual pagination footer */}
@@ -353,9 +404,9 @@ export function EventsFeed({
             </span>
             {hasMore ? (
               <Button
-                variant="outline"
-                size="sm"
-                type="button"
+                type="tertiary" theme="outline"
+                size="small"
+                htmlType="button"
                 onClick={handleLoadMoreClick}
                 disabled={isLoading}
               >

@@ -1,9 +1,16 @@
 import { useState } from 'react';
-import { Copy, Check, ChevronDown, ChevronRight } from 'lucide-react';
+import {
+  AlertTriangle,
+  Bell,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Copy,
+} from 'lucide-react';
 import type { K8sEvent } from '../types/k8s-event';
 import { EventExpandedDetails } from './EventExpandedDetails';
 import { cn } from '../lib/utils';
-import { Button } from './ui/button';
+import { Button } from '@datum-cloud/datum-ui/button';
 import {
   Tooltip,
   TooltipContent,
@@ -38,6 +45,10 @@ export interface EventFeedItemProps {
   isNew?: boolean;
   /** Whether the item starts expanded */
   defaultExpanded?: boolean;
+  /** Layout variant: 'feed' (table row, default) or 'timeline' (flat list row) */
+  variant?: 'feed' | 'timeline';
+  /** Whether this is the last item in the list (only used in timeline variant) */
+  isLast?: boolean;
 }
 
 /**
@@ -101,6 +112,8 @@ export function EventFeedItem({
   compact = false,
   isNew = false,
   defaultExpanded = false,
+  variant = 'feed',
+  isLast = false,
 }: EventFeedItemProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [isCopied, setIsCopied] = useState(false);
@@ -151,6 +164,98 @@ export function EventFeedItem({
   const noteWithCount = note
     ? `${note}${count && count > 1 ? ` (x${count})` : ''}`
     : '';
+
+  // Timeline variant — flat list row mirroring ActivityFeedItem timeline:
+  // an icon square keyed off event type + reason/object summary +
+  // timestamp + expand toggle.
+  if (variant === 'timeline') {
+    const TypeIcon = isWarning ? AlertTriangle : Bell;
+    const iconBg = isWarning
+      ? 'bg-red-50 dark:bg-red-950'
+      : 'bg-blue-50 dark:bg-blue-950';
+    const iconColor = isWarning
+      ? 'text-red-500 dark:text-red-400'
+      : 'text-blue-500 dark:text-blue-400';
+    const objectLabel = regarding.namespace
+      ? `${regarding.kind || 'Unknown'} · ${regarding.namespace}/${regarding.name || ''}`
+      : `${regarding.kind || 'Unknown'} · ${regarding.name || ''}`;
+    const summary = noteWithCount || `${reason || 'Event'} on ${regarding.name || 'unknown'}`;
+
+    return (
+      <div className={cn(!isLast && !isExpanded && 'border-b border-border', className)}>
+        <div
+          className={cn(
+            'flex items-center gap-3 cursor-pointer group',
+            compact ? 'py-2' : 'py-3',
+            isSelected && 'bg-muted/40'
+          )}
+          onClick={toggleExpand}
+        >
+          {/* Type icon square */}
+          <div
+            className={cn(
+              'w-8 h-8 rounded-md shrink-0 flex items-center justify-center',
+              iconBg,
+              iconColor
+            )}
+            title={type || 'Event'}
+          >
+            <TypeIcon size={16} strokeWidth={2} />
+          </div>
+
+          {/* Reason + summary text */}
+          <div className="flex-1 min-w-0 text-sm leading-snug" style={{ minWidth: 0 }}>
+            <div className="font-medium text-foreground truncate">
+              {reason || 'Event'}
+            </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div
+                  className="text-xs text-muted-foreground"
+                  style={{
+                    display: 'block',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    cursor: 'help',
+                  }}
+                >
+                  {summary}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-[480px] whitespace-normal break-words">
+                {summary}
+              </TooltipContent>
+            </Tooltip>
+          </div>
+
+          {/* Object label */}
+          <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0 max-w-[200px] truncate" title={objectLabel}>
+            {regarding.name}
+          </span>
+
+          {/* Timestamp */}
+          <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
+            <Timestamp value={timestamp} />
+          </span>
+
+          {/* Expand toggle */}
+          <Button
+            type="quaternary"
+            theme="borderless"
+            size="small"
+            htmlType="button"
+            className="h-5 py-0 px-1 text-muted-foreground hover:text-foreground shrink-0"
+            onClick={toggleExpand}
+            aria-expanded={isExpanded}
+          >
+            {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          </Button>
+        </div>
+        {isExpanded ? <EventExpandedDetails event={event} /> : null}
+      </div>
+    );
+  }
 
   return (
     <>
@@ -247,9 +352,9 @@ export function EventFeedItem({
         </TableCell>
         <TableCell className="py-2 align-middle w-10">
           <Button
-            variant="ghost"
-            size="sm"
-            type="button"
+            type="quaternary" theme="borderless"
+            size="small"
+            htmlType="button"
             className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
             onClick={toggleExpand}
             aria-expanded={isExpanded}

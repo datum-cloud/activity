@@ -21,7 +21,7 @@ import { ActivityFeedItemSkeleton } from "./ActivityFeedItemSkeleton";
 import { Skeleton } from "@datum-cloud/datum-ui/skeleton";
 import { ActivityFeedFilters } from "./ActivityFeedFilters";
 import { ActivityApiClient } from "../api/client";
-import { Button } from "./ui/button";
+import { Button } from "@datum-cloud/datum-ui/button";
 import { Card } from "@datum-cloud/datum-ui/card";
 import { Badge } from "./ui/badge";
 import { ApiErrorAlert } from "./ApiErrorAlert";
@@ -346,7 +346,7 @@ export function ActivityFeed({
                 </Badge>
               )}
             </div>
-            <Button variant="outline" size="sm" onClick={handleStreamingToggle}>
+            <Button type="tertiary" theme="outline" size="small" onClick={handleStreamingToggle}>
               {watchError ? (
                 <>
                   <svg
@@ -581,13 +581,11 @@ export function ActivityFeed({
             <div ref={loadMoreTriggerRef} className="h-px mt-4" />
           )}
 
-          {/* Manual pagination footer: shown for the table variant when
-              infinite scroll is disabled. Mirrors the look of other
-              staff-portal data tables — count on the left, action on the
-              right. */}
-          {!infiniteScroll &&
-          variant !== "timeline" &&
-          activities.length > 0 ? (
+          {/* Manual pagination footer: shown for both table and timeline
+              variants when infinite scroll is disabled. Mirrors the look
+              of other staff-portal data tables — count on the left,
+              action on the right. */}
+          {!infiniteScroll && activities.length > 0 ? (
             <div className="flex items-center justify-between gap-4 px-4 py-3 border-t border-border text-sm text-muted-foreground">
               <span>
                 {activities.length}{" "}
@@ -596,9 +594,9 @@ export function ActivityFeed({
               </span>
               {hasMore ? (
                 <Button
-                  variant="outline"
-                  size="sm"
-                  type="button"
+                  type="tertiary" theme="outline"
+                  size="small"
+                  htmlType="button"
                   onClick={handleLoadMoreClick}
                   disabled={isLoading}
                 >
@@ -610,15 +608,6 @@ export function ActivityFeed({
             </div>
           ) : null}
 
-          {/* Legacy end-of-results indicator for the timeline variant */}
-          {variant === "timeline" &&
-          !hasMore &&
-          activities.length > 0 &&
-          !isLoading ? (
-            <div className="text-center py-6 text-muted-foreground text-sm border-t border-border mt-4">
-              No more activities to load
-            </div>
-          ) : null}
         </div>
       </Card>
     </TooltipProvider>

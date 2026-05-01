@@ -71,6 +71,7 @@ export function AuditLogExpandedDetails({ event, compact = true }: AuditLogExpan
             value={<Timestamp value={timestamp} variant="iso-utc" />}
             copyValue={timestamp || ''}
             copyLabel="timestamp"
+            disableTooltip
           />
         </Section>
 

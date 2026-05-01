@@ -12,7 +12,7 @@ import {
 import { ActivityExpandedDetails } from "./ActivityExpandedDetails";
 import { TenantBadge } from "./TenantBadge";
 import { cn } from "../lib/utils";
-import { Button } from "./ui/button";
+import { Button } from "@datum-cloud/datum-ui/button";
 import { Plus, Pencil, Trash2, Activity as ActivityIcon } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import { TableCell, TableRow } from "@datum-cloud/datum-ui/table";
@@ -216,7 +216,7 @@ export function ActivityFeedItem({
       >
         <div
           className={cn(
-            "flex items-center gap-3 py-3 pl-4 cursor-pointer group",
+            "flex items-center gap-3 py-3 cursor-pointer group",
             isSelected && "bg-muted/40",
           )}
           onClick={toggleExpand}
@@ -265,8 +265,8 @@ export function ActivityFeedItem({
 
           {/* Expand toggle */}
           <Button
-            variant="ghost"
-            size="sm"
+            type="quaternary" theme="borderless"
+            size="small"
             className="h-5 py-0 px-1 text-base text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
             onClick={toggleExpand}
             aria-expanded={isExpanded}
@@ -405,9 +405,9 @@ export function ActivityFeedItem({
         </TableCell>
         <TableCell className="py-2 align-middle w-10">
           <Button
-            variant="ghost"
-            size="sm"
-            type="button"
+            type="quaternary" theme="borderless"
+            size="small"
+            htmlType="button"
             className="h-6 w-6 p-0 text-base text-muted-foreground hover:text-foreground"
             onClick={toggleExpand}
             aria-expanded={isExpanded}

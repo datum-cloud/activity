@@ -1,5 +1,5 @@
 import type { ChangeSource } from "../types/activity";
-import { Button } from "./ui/button";
+import { Button } from "@datum-cloud/datum-ui/button";
 import { cn } from "../lib/utils";
 
 export type ChangeSourceOption = ChangeSource | "all";
@@ -58,26 +58,34 @@ export function ChangeSourceToggle({
       role="group"
       aria-label="Filter by change source"
     >
-      {OPTIONS.map((option, index) => (
-        <Button
-          key={option.value}
-          type="button"
-          variant="ghost"
-          className={cn(
-            "rounded-none px-2 h-7 text-xs font-medium transition-all duration-200",
-            index < OPTIONS.length - 1 && "border-r border-input",
-            value === option.value
-              ? "bg-primary text-primary-foreground hover:bg-primary/90"
-              : "bg-muted text-foreground hover:bg-muted/80",
-          )}
-          onClick={() => onChange(option.value)}
-          disabled={disabled}
-          aria-pressed={value === option.value}
-          title={option.description}
-        >
-          {option.label}
-        </Button>
-      ))}
+      {OPTIONS.map((option, index) => {
+        const active = value === option.value;
+        return (
+          <Button
+            key={option.value}
+            htmlType="button"
+            type={active ? 'primary' : 'quaternary'}
+            theme={active ? 'solid' : 'borderless'}
+            className={cn(
+              'px-2 h-7 text-xs font-medium transition-all duration-200',
+              index < OPTIONS.length - 1 && 'border-r border-input',
+              !active && 'bg-muted text-foreground hover:bg-muted/80',
+            )}
+            // Inline styles win over datum-ui's baked-in `rounded-lg` and
+            // (for the primary/solid active button) its own `border`. The
+            // outer wrapper's rounded-md + overflow-hidden draws the
+            // segmented control's outer corners; per-button border-right
+            // (className) draws the separators between inactive buttons.
+            style={active ? { borderRadius: 0, border: 0 } : { borderRadius: 0 }}
+            onClick={() => onChange(option.value)}
+            disabled={disabled}
+            aria-pressed={active}
+            title={option.description}
+          >
+            {option.label}
+          </Button>
+        );
+      })}
     </div>
   );
 }

@@ -4,7 +4,7 @@ import type { ResourceRef, ErrorFormatter } from '../types/activity';
 import { ActivityApiClient } from '../api/client';
 import { PolicyActivityView } from './PolicyActivityView';
 import { PolicyActivityViewSkeleton } from './PolicyActivityViewSkeleton';
-import { Button } from './ui/button';
+import { Button } from '@datum-cloud/datum-ui/button';
 import { Card, CardHeader, CardContent } from '@datum-cloud/datum-ui/card';
 import { Badge } from './ui/badge';
 import { ApiErrorAlert } from './ApiErrorAlert';
@@ -202,8 +202,8 @@ export function PolicyDetailView({
           <div className="flex gap-3">
             {onEdit && (
               <Button
-                type="button"
-                size="sm"
+                htmlType="button"
+                size="small"
                 onClick={onEdit}
                 className="bg-primary text-primary-foreground border-primary hover:bg-primary/90 hover:border-primary/90 h-7 text-xs"
               >

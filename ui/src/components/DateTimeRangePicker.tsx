@@ -8,7 +8,7 @@ import {
   endOfDay,
   formatISO
 } from 'date-fns';
-import { Button } from './ui/button';
+import { Button } from '@datum-cloud/datum-ui/button';
 import { Input } from '@datum-cloud/datum-ui/input';
 import { Label } from '@datum-cloud/datum-ui/label';
 import { Card, CardContent } from '@datum-cloud/datum-ui/card';
@@ -180,8 +180,9 @@ export function DateTimeRangePicker({
         {(Object.keys(PRESETS) as PresetKey[]).map((key) => (
           <Button
             key={key}
-            type="button"
-            variant={selectedPreset === key ? 'default' : 'outline'}
+            htmlType="button"
+            type={selectedPreset === key ? 'primary' : 'tertiary'}
+            theme={selectedPreset === key ? 'solid' : 'outline'}
             className="max-sm:w-full"
             onClick={() => handlePresetChange(key)}
           >
@@ -218,7 +219,7 @@ export function DateTimeRangePicker({
             </div>
 
             <Button
-              type="button"
+              htmlType="button"
               onClick={handleCustomApply}
               className="self-start"
               disabled={!customStart || !customEnd}

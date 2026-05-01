@@ -87,6 +87,7 @@ export function EventExpandedDetails({ event, compact = true }: EventExpandedDet
             value={<Timestamp value={eventTime} variant="iso-utc" />}
             copyValue={eventTime}
             copyLabel="event time"
+            disableTooltip
           />
         ) : null}
         {firstTimestamp ? (
@@ -95,6 +96,7 @@ export function EventExpandedDetails({ event, compact = true }: EventExpandedDet
             value={<Timestamp value={firstTimestamp} variant="iso-utc" />}
             copyValue={firstTimestamp}
             copyLabel="first seen"
+            disableTooltip
           />
         ) : null}
         {lastTimestamp ? (
@@ -103,6 +105,7 @@ export function EventExpandedDetails({ event, compact = true }: EventExpandedDet
             value={<Timestamp value={lastTimestamp} variant="iso-utc" />}
             copyValue={lastTimestamp}
             copyLabel="last seen"
+            disableTooltip
           />
         ) : null}
         {count && count > 1 ? (

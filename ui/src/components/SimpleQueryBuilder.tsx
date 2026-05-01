@@ -10,7 +10,7 @@ import {
 } from 'date-fns';
 import { Input } from '@datum-cloud/datum-ui/input';
 import { Textarea } from '@datum-cloud/datum-ui/textarea';
-import { Button } from './ui/button';
+import { Button } from '@datum-cloud/datum-ui/button';
 import { Label } from '@datum-cloud/datum-ui/label';
 import { Combobox } from './ui/combobox';
 import { Checkbox } from '@datum-cloud/datum-ui/checkbox';
@@ -409,9 +409,9 @@ export function SimpleQueryBuilder({
 
         {/* Toggle Advanced Filters */}
         <Button
-          type="button"
-          variant="ghost"
-          size="sm"
+          htmlType="button"
+          type="quaternary" theme="borderless"
+          size="small"
           className="whitespace-nowrap text-muted-foreground hover:text-foreground"
           onClick={handleAdvancedToggle}
           aria-expanded={isAdvancedExpanded}

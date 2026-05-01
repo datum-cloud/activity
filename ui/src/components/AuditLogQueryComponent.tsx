@@ -12,9 +12,10 @@ import type { AuditLogQuerySpec, Event } from "../types";
 import type { ActivityApiClient } from "../api/client";
 import type { ErrorFormatter } from "../types/activity";
 import { Card } from "@datum-cloud/datum-ui/card";
-import { Button } from "./ui/button";
+import { Button } from "@datum-cloud/datum-ui/button";
 import { Skeleton } from "@datum-cloud/datum-ui/skeleton";
 import { ApiErrorAlert } from "./ApiErrorAlert";
+import { cn } from "../lib/utils";
 import {
   Table,
   TableBody,
@@ -39,6 +40,8 @@ export interface AuditLogQueryComponentProps {
   initialTimeRange?: TimeRange;
   /** Custom error formatter for customizing error messages */
   errorFormatter?: ErrorFormatter;
+  /** Layout variant: 'feed' (table, default) or 'timeline' (icon-list rows) */
+  variant?: 'feed' | 'timeline';
 }
 
 /**
@@ -54,6 +57,7 @@ export function AuditLogQueryComponent({
     end: formatISO(new Date()),
   },
   errorFormatter,
+  variant = 'feed',
 }: AuditLogQueryComponentProps) {
   const [filters, setFilters] = useState<AuditLogFilterState>(initialFilters);
   const [timeRange, setTimeRange] = useState<TimeRange>(initialTimeRange);
@@ -190,60 +194,98 @@ export function AuditLogQueryComponent({
         ref={scrollContainerRef}
       >
         <TooltipProvider delayDuration={200}>
-          <Table className="w-full">
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[110px]">Verb</TableHead>
-                <TableHead>Summary</TableHead>
-                <TableHead className="w-[90px]">Status</TableHead>
-                <TableHead className="w-[170px]">When</TableHead>
-                <TableHead className="w-10" aria-label="Expand" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          {variant === 'timeline' ? (
+            <div>
               {isLoading && events.length === 0
                 ? Array.from({ length: 8 }).map((_, index) => (
-                    <TableRow key={`sk-${index}`}>
-                      <TableCell className="py-2">
-                        <Skeleton className="h-5 w-16 rounded-full" />
-                      </TableCell>
-                      <TableCell className="py-2">
-                        <Skeleton className="h-4 w-3/4" />
-                      </TableCell>
-                      <TableCell className="py-2">
-                        <Skeleton className="h-4 w-12" />
-                      </TableCell>
-                      <TableCell className="py-2">
-                        <Skeleton className="h-4 w-24" />
-                      </TableCell>
-                      <TableCell className="py-2">
-                        <Skeleton className="h-6 w-6" />
-                      </TableCell>
-                    </TableRow>
+                    <div
+                      key={`sk-${index}`}
+                      className={cn(index < 7 && 'border-b border-border', 'py-3')}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Skeleton className="w-8 h-8 rounded-md shrink-0" />
+                        <Skeleton className="h-4 flex-1 min-w-0" />
+                        <Skeleton className="h-4 w-12 shrink-0" />
+                        <Skeleton className="h-4 w-24 shrink-0" />
+                        <Skeleton className="h-5 w-5 shrink-0" />
+                      </div>
+                    </div>
                   ))
                 : null}
               {!isLoading && events.length === 0 && !error ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={AUDIT_LOG_COLUMN_COUNT}
-                    className="text-center py-12 text-muted-foreground"
-                  >
-                    <div>No audit events found</div>
-                    <div className="text-sm mt-2">
-                      Try adjusting your filters or time range
-                    </div>
-                  </TableCell>
-                </TableRow>
+                <div className="py-12 text-center text-muted-foreground">
+                  <div>No audit events found</div>
+                  <div className="text-sm mt-2">
+                    Try adjusting your filters or time range
+                  </div>
+                </div>
               ) : null}
               {events.map((event, index) => (
                 <AuditLogFeedItem
                   key={event.auditID || `event-${index}`}
                   event={event}
                   onEventClick={onEventSelect}
+                  variant="timeline"
+                  isLast={index === events.length - 1}
                 />
               ))}
-            </TableBody>
-          </Table>
+            </div>
+          ) : (
+            <Table className="w-full">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[110px]">Verb</TableHead>
+                  <TableHead>Summary</TableHead>
+                  <TableHead className="w-[90px]">Status</TableHead>
+                  <TableHead className="w-[170px]">When</TableHead>
+                  <TableHead className="w-10" aria-label="Expand" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading && events.length === 0
+                  ? Array.from({ length: 8 }).map((_, index) => (
+                      <TableRow key={`sk-${index}`}>
+                        <TableCell className="py-2">
+                          <Skeleton className="h-5 w-16 rounded-full" />
+                        </TableCell>
+                        <TableCell className="py-2">
+                          <Skeleton className="h-4 w-3/4" />
+                        </TableCell>
+                        <TableCell className="py-2">
+                          <Skeleton className="h-4 w-12" />
+                        </TableCell>
+                        <TableCell className="py-2">
+                          <Skeleton className="h-4 w-24" />
+                        </TableCell>
+                        <TableCell className="py-2">
+                          <Skeleton className="h-6 w-6" />
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  : null}
+                {!isLoading && events.length === 0 && !error ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={AUDIT_LOG_COLUMN_COUNT}
+                      className="text-center py-12 text-muted-foreground"
+                    >
+                      <div>No audit events found</div>
+                      <div className="text-sm mt-2">
+                        Try adjusting your filters or time range
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : null}
+                {events.map((event, index) => (
+                  <AuditLogFeedItem
+                    key={event.auditID || `event-${index}`}
+                    event={event}
+                    onEventClick={onEventSelect}
+                  />
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </TooltipProvider>
 
         {/* Manual pagination footer */}
@@ -255,9 +297,9 @@ export function AuditLogQueryComponent({
             </span>
             {hasMore ? (
               <Button
-                variant="outline"
-                size="sm"
-                type="button"
+                type="tertiary" theme="outline"
+                size="small"
+                htmlType="button"
                 onClick={() => loadMore()}
                 disabled={isLoading}
               >

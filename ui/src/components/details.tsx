@@ -58,16 +58,23 @@ export function Field({
   copyValue,
   copyLabel,
   mono = false,
+  disableTooltip = false,
 }: {
   label: string;
   value: React.ReactNode;
   copyValue?: string;
   copyLabel?: string;
   mono?: boolean;
+  /**
+   * Skip Field's hover tooltip. Use when the rendered `value` already
+   * provides its own tooltip (e.g. <Timestamp>) so the two don't stack.
+   */
+  disableTooltip?: boolean;
 }) {
   // Tooltip body — copyValue if given, else the value itself when string.
-  const tooltipBody: React.ReactNode =
-    copyValue ?? (typeof value === 'string' ? value : null);
+  const tooltipBody: React.ReactNode = disableTooltip
+    ? null
+    : copyValue ?? (typeof value === 'string' ? value : null);
 
   // Inner block that actually does the single-line truncation. `display:
   // block` + parent overflow:hidden + width:100% gives ellipsis a definite

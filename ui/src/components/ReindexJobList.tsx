@@ -1,7 +1,7 @@
 import type { ErrorFormatter } from '../types/activity';
 import { ActivityApiClient } from '../api/client';
 import { useReindexJobs } from '../hooks/useReindexJobs';
-import { Button } from './ui/button';
+import { Button } from '@datum-cloud/datum-ui/button';
 import { Card, CardContent, CardHeader } from '@datum-cloud/datum-ui/card';
 import { Badge } from './ui/badge';
 import { Separator } from '@datum-cloud/datum-ui/separator';
@@ -130,8 +130,8 @@ export function ReindexJobList({
           </div>
           <div className="flex gap-1.5">
             <Button
-              variant="outline"
-              size="sm"
+              type="tertiary" theme="outline"
+              size="small"
               onClick={refresh}
               disabled={isLoading}
               title="Refresh job list"
@@ -145,7 +145,7 @@ export function ReindexJobList({
             </Button>
             {onCreateJob && (
               <Button
-                size="sm"
+                size="small"
                 onClick={onCreateJob}
                 className="bg-primary text-primary-foreground hover:bg-primary/90 h-7 text-xs"
               >
@@ -209,7 +209,7 @@ export function ReindexJobList({
             </p>
             {onCreateJob && (
               <Button
-                size="sm"
+                size="small"
                 onClick={onCreateJob}
                 className="bg-primary text-primary-foreground hover:bg-primary/90 h-7 text-xs"
               >
@@ -284,8 +284,8 @@ export function ReindexJobList({
                       <td className="px-3 py-2 border-b border-border last:border-b-0 text-center">
                         {onViewJob && (
                           <Button
-                            variant="ghost"
-                            size="sm"
+                            type="quaternary" theme="borderless"
+                            size="small"
                             onClick={() => onViewJob(job.metadata?.name || '')}
                             className="h-7 px-2"
                             title="View job details"

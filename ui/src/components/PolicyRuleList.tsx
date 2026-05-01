@@ -4,7 +4,7 @@ import type { ActivityApiClient } from '../api/client';
 import { PolicyRuleListItem } from './PolicyRuleListItem';
 import { PolicyRuleEditorDialog } from './PolicyRuleEditorDialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@datum-cloud/datum-ui/tabs';
-import { Button } from './ui/button';
+import { Button } from '@datum-cloud/datum-ui/button';
 import { Badge } from './ui/badge';
 
 export interface PolicyRuleListProps {
@@ -186,9 +186,9 @@ export function PolicyRuleList({
               </div>
             )}
             <Button
-              type="button"
-              variant="outline"
-              size="sm"
+              htmlType="button"
+              type="tertiary" theme="outline"
+              size="small"
               className="w-full mt-2 border-2 border-dashed border-input bg-muted hover:bg-accent hover:border-primary hover:text-foreground text-xs"
               onClick={() => handleAddRule('audit')}
             >
@@ -222,9 +222,9 @@ export function PolicyRuleList({
               </div>
             )}
             <Button
-              type="button"
-              variant="outline"
-              size="sm"
+              htmlType="button"
+              type="tertiary" theme="outline"
+              size="small"
               className="w-full mt-2 border-2 border-dashed border-input bg-muted hover:bg-accent hover:border-primary hover:text-foreground text-xs"
               onClick={() => handleAddRule('event')}
             >

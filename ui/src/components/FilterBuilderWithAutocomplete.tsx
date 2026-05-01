@@ -3,7 +3,7 @@ import type { AuditLogQuerySpec } from '../types';
 import { FILTER_FIELDS } from '../types';
 import { Input } from '@datum-cloud/datum-ui/input';
 import { Textarea } from '@datum-cloud/datum-ui/textarea';
-import { Button } from './ui/button';
+import { Button } from '@datum-cloud/datum-ui/button';
 import { Label } from '@datum-cloud/datum-ui/label';
 import { Card, CardHeader, CardContent } from '@datum-cloud/datum-ui/card';
 import { Badge } from './ui/badge';
@@ -278,18 +278,18 @@ export function FilterBuilderWithAutocomplete({
         <div className="flex gap-2">
           <Button
             onClick={() => setShowShortcuts(!showShortcuts)}
-            variant="outline"
-            size="sm"
-            type="button"
+            type="tertiary" theme="outline"
+            size="small"
+            htmlType="button"
             title="View keyboard shortcuts"
           >
             Shortcuts
           </Button>
           <Button
             onClick={() => setShowHelp(!showHelp)}
-            variant="outline"
-            size="sm"
-            type="button"
+            type="tertiary" theme="outline"
+            size="small"
+            htmlType="button"
             title="View available filter fields and examples"
           >
             Field Guide
@@ -352,9 +352,9 @@ export function FilterBuilderWithAutocomplete({
                           <code className="flex-1 px-2 py-1 bg-background rounded text-sm font-mono">{example}</code>
                           <Button
                             onClick={() => insertExample(example)}
-                            variant="default"
-                            size="sm"
-                            type="button"
+                            type="primary" theme="solid"
+                            size="small"
+                            htmlType="button"
                             className="bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600"
                           >
                             Insert

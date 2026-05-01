@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { ReindexJobSpec } from '../types/reindex';
 import type { ErrorFormatter } from '../types/activity';
 import { ActivityApiClient } from '../api/client';
-import { Button } from './ui/button';
+import { Button } from '@datum-cloud/datum-ui/button';
 import {
   Dialog,
   DialogContent,
@@ -136,15 +136,15 @@ export function ReindexJobDialog({
 
         <div className="flex justify-end gap-2">
           <Button
-            type="button"
-            variant="outline"
+            htmlType="button"
+            type="tertiary" theme="outline"
             onClick={() => onOpenChange(false)}
             disabled={isSubmitting}
           >
             Cancel
           </Button>
           <Button
-            type="button"
+            htmlType="button"
             onClick={handleSubmit}
             disabled={isSubmitting}
           >

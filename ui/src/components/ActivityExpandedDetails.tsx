@@ -66,6 +66,7 @@ export function ActivityExpandedDetails({
             value={<Timestamp value={timestamp} variant="iso-utc" />}
             copyValue={timestamp ?? ''}
             copyLabel="timestamp"
+            disableTooltip
           />
         </Section>
 

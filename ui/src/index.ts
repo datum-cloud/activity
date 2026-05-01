@@ -109,8 +109,8 @@ export {
   SelectSeparator,
 } from '@datum-cloud/datum-ui/select';
 
-export { Button, buttonVariants } from './components/ui/button';
-export type { ButtonProps } from './components/ui/button';
+export { Button, buttonVariants } from '@datum-cloud/datum-ui/button';
+export type { ButtonProps } from '@datum-cloud/datum-ui/button';
 
 export {
   Card,

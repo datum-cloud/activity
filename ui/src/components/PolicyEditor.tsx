@@ -7,7 +7,7 @@ import { PolicyResourceForm } from './PolicyResourceForm';
 import { PolicyRuleList } from './PolicyRuleList';
 import { PolicyActivityView } from './PolicyActivityView';
 import { Input } from '@datum-cloud/datum-ui/input';
-import { Button } from './ui/button';
+import { Button } from '@datum-cloud/datum-ui/button';
 import { Card, CardHeader, CardContent } from '@datum-cloud/datum-ui/card';
 import { Badge } from './ui/badge';
 import { Label } from '@datum-cloud/datum-ui/label';
@@ -247,19 +247,14 @@ export function PolicyEditor({
                 </div>
               </div>
             )}
-            {editor.isDirty && (
-              <Badge variant="warning">
-                Unsaved changes
-              </Badge>
-            )}
           </div>
 
         <div className="flex gap-2">
           {onCancel && (
             <Button
-              type="button"
-              variant="outline"
-              size="sm"
+              htmlType="button"
+              type="tertiary" theme="outline"
+              size="small"
               onClick={onCancel}
               disabled={editor.isSaving}
               className="h-7 text-xs"
@@ -268,9 +263,9 @@ export function PolicyEditor({
             </Button>
           )}
           <Button
-            type="button"
-            variant="outline"
-            size="sm"
+            htmlType="button"
+            type="tertiary" theme="outline"
+            size="small"
             onClick={() => handleSave(true)}
             disabled={!canSave || editor.isSaving}
             title="Validate without saving"
@@ -279,8 +274,8 @@ export function PolicyEditor({
             Validate
           </Button>
           <Button
-            type="button"
-            size="sm"
+            htmlType="button"
+            size="small"
             onClick={() => handleSave(false)}
             disabled={!canSave || editor.isSaving || !editor.isDirty}
             className="bg-primary text-primary-foreground border-primary hover:bg-primary/90 hover:border-primary/90 h-7 text-xs"
@@ -365,8 +360,8 @@ export function PolicyEditor({
                             resources. Existing activities will be preserved, but no new activities will be generated.
                           </p>
                           <Button
-                            variant="destructive"
-                            size="sm"
+                            type="danger" theme="solid"
+                            size="small"
                             onClick={() => setShowDeleteDialog(true)}
                             className="h-8 text-xs"
                           >
@@ -405,8 +400,8 @@ export function PolicyEditor({
           </Alert>
           <DialogFooter>
             <Button
-              variant="outline"
-              size="sm"
+              type="tertiary" theme="outline"
+              size="small"
               onClick={() => setShowDeleteDialog(false)}
               disabled={isDeleting}
               className="h-8 text-xs"
@@ -414,8 +409,8 @@ export function PolicyEditor({
               Cancel
             </Button>
             <Button
-              variant="destructive"
-              size="sm"
+              type="danger" theme="solid"
+              size="small"
               onClick={handleDelete}
               disabled={isDeleting}
               className="h-8 text-xs"

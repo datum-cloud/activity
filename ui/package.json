@@ -82,7 +82,6 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
-    "js-yaml": "^4.1.1",
     "lucide-react": "^0.577.0",
     "tailwind-merge": "^3.4.0"
   }

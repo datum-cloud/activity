@@ -3,7 +3,7 @@ import { format } from "date-fns";
 import type { Event } from "../types";
 import type { Tenant, TenantLinkResolver, TenantType } from "../types/activity";
 import { TenantBadge } from "./TenantBadge";
-import { Button } from "./ui/button";
+import { Button } from "@datum-cloud/datum-ui/button";
 import { Card } from "@datum-cloud/datum-ui/card";
 import { Badge } from "./ui/badge";
 
@@ -173,8 +173,8 @@ export function AuditEventViewer({
                     {formatTimestamp(event.stageTimestamp)}
                   </span>
                   <Button
-                    variant="ghost"
-                    size="sm"
+                    type="quaternary" theme="borderless"
+                    size="small"
                     onClick={(e) => {
                       e.stopPropagation();
                       toggleEventExpansion(auditId);

@@ -1,8 +1,9 @@
 import { useState } from 'react';
+import { Activity as ActivityIcon, Pencil, Plus, Trash2 } from 'lucide-react';
 import type { Event } from '../types';
 import { AuditLogExpandedDetails } from './AuditLogExpandedDetails';
 import { cn } from '../lib/utils';
-import { Button } from './ui/button';
+import { Button } from '@datum-cloud/datum-ui/button';
 import { Badge } from './ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { TableCell, TableRow } from '@datum-cloud/datum-ui/table';
@@ -27,6 +28,10 @@ export interface AuditLogFeedItemProps {
   isNew?: boolean;
   /** Whether the item starts expanded */
   defaultExpanded?: boolean;
+  /** Layout variant: 'feed' (table row, default) or 'timeline' (flat list row) */
+  variant?: 'feed' | 'timeline';
+  /** Whether this is the last item (only used in timeline variant) */
+  isLast?: boolean;
 }
 
 /**
@@ -96,6 +101,8 @@ export function AuditLogFeedItem({
   compact = false,
   isNew = false,
   defaultExpanded = false,
+  variant = 'feed',
+  isLast = false,
 }: AuditLogFeedItemProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
@@ -111,6 +118,95 @@ export function AuditLogFeedItem({
   const timestamp = event.stageTimestamp || event.requestReceivedTimestamp;
   const summary = buildAuditSummary(event);
   const statusIndicator = getResponseStatusIndicator(event.responseStatus?.code);
+
+  if (variant === 'timeline') {
+    const verb = event.verb?.toLowerCase() || '';
+    const Icon =
+      verb === 'create' ? Plus :
+      verb === 'delete' ? Trash2 :
+      verb === 'update' || verb === 'patch' ? Pencil :
+      ActivityIcon;
+    const iconBg =
+      verb === 'create' ? 'bg-green-50 dark:bg-green-950' :
+      verb === 'delete' ? 'bg-red-50 dark:bg-red-950' :
+      verb === 'update' || verb === 'patch' ? 'bg-amber-50 dark:bg-amber-950' :
+      'bg-slate-100 dark:bg-slate-800';
+    const iconColor =
+      verb === 'create' ? 'text-green-600 dark:text-green-400' :
+      verb === 'delete' ? 'text-red-500 dark:text-red-400' :
+      verb === 'update' || verb === 'patch' ? 'text-amber-600 dark:text-amber-400' :
+      'text-slate-500 dark:text-slate-400';
+
+    return (
+      <div className={cn(!isLast && !isExpanded && 'border-b border-border', className)}>
+        <div
+          className={cn(
+            'flex items-center gap-3 cursor-pointer group',
+            compact ? 'py-2' : 'py-3',
+            isSelected && 'bg-muted/40'
+          )}
+          onClick={toggleExpand}
+        >
+          <div
+            className={cn(
+              'w-8 h-8 rounded-md shrink-0 flex items-center justify-center',
+              iconBg,
+              iconColor
+            )}
+            title={event.verb}
+          >
+            <Icon size={16} strokeWidth={2} />
+          </div>
+          <div className="flex-1 min-w-0 text-sm leading-snug" style={{ minWidth: 0 }}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div
+                  className="text-foreground"
+                  style={{
+                    display: 'block',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    cursor: 'help',
+                  }}
+                >
+                  {summary}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-[480px] whitespace-normal break-words">
+                {summary}
+              </TooltipContent>
+            </Tooltip>
+          </div>
+          <span
+            className={cn(
+              'inline-flex items-center gap-1 text-xs font-semibold shrink-0',
+              statusIndicator.className
+            )}
+          >
+            <span>{statusIndicator.icon}</span>
+            {event.responseStatus?.code ? <span>{event.responseStatus.code}</span> : null}
+          </span>
+          <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
+            <Timestamp value={timestamp} />
+          </span>
+          <Button
+            type="quaternary"
+            theme="borderless"
+            size="small"
+            htmlType="button"
+            className="h-5 py-0 px-1 text-base text-muted-foreground hover:text-foreground shrink-0"
+            onClick={toggleExpand}
+            aria-expanded={isExpanded}
+            aria-label={isExpanded ? 'Collapse details' : 'Expand details'}
+          >
+            {isExpanded ? '−' : '+'}
+          </Button>
+        </div>
+        {isExpanded ? <AuditLogExpandedDetails event={event} /> : null}
+      </div>
+    );
+  }
 
   return (
     <>
@@ -170,9 +266,9 @@ export function AuditLogFeedItem({
         </TableCell>
         <TableCell className="py-2 align-middle w-10">
           <Button
-            variant="ghost"
-            size="sm"
-            type="button"
+            type="quaternary" theme="borderless"
+            size="small"
+            htmlType="button"
             className="h-6 w-6 p-0 text-base text-muted-foreground hover:text-foreground"
             onClick={toggleExpand}
             aria-expanded={isExpanded}
