@@ -1,0 +1,30 @@
+apiVersion: discovery.miloapis.com/v1alpha1
+kind: DiscoveryContextPolicy
+metadata:
+  name: activity-service
+spec:
+  rules:
+    # Activity data resources are visible wherever the tenant model supports:
+    # organizations, projects, and individual users.
+    - group: activity.miloapis.com
+      resources:
+        - activities
+        - activityfacetqueries
+        - activityqueries
+        - auditlogfacetsqueries
+        - auditlogqueries
+        - eventfacetqueries
+        - eventqueries
+        - policypreviews
+      contexts:
+        - Organization
+        - Project
+        - User
+    # Administrative resources have no parent resource scoping and are
+    # only relevant to platform operators.
+    - group: activity.miloapis.com
+      resources:
+        - activitypolicies
+        - reindexjobs
+      contexts:
+        - Platform
