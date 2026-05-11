@@ -128,6 +128,17 @@ type ActivityActor struct {
 	//
 	// +optional
 	Email string `json:"email,omitempty"`
+
+	// DisplayName is the actor's human-readable name (e.g., "Smith Nelson").
+	// For user actors, populated from the iam User's spec.givenName and
+	// spec.familyName when available. Empty if no User record is found or the
+	// actor is not a human user.
+	//
+	// UIs SHOULD prefer DisplayName for visible text and use Name/Email/UID
+	// only when DisplayName is empty.
+	//
+	// +optional
+	DisplayName string `json:"displayName,omitempty"`
 }
 
 // ActivityResource identifies the Kubernetes resource affected by an activity.
@@ -179,6 +190,21 @@ type ActivityLink struct {
 	//
 	// +required
 	Resource ActivityResource `json:"resource"`
+
+	// DisplayName is the human-readable name for the linked entity, when one
+	// is available. Populated server-side for User-typed links from the iam
+	// User's givenName + familyName so the UI can render names instead of
+	// raw UIDs in the summary.
+	//
+	// +optional
+	DisplayName string `json:"displayName,omitempty"`
+
+	// Email is the email address for the linked entity, when one is
+	// available. Populated server-side for User-typed links so the UI can
+	// surface the email on hover.
+	//
+	// +optional
+	Email string `json:"email,omitempty"`
 }
 
 // ActivityTenant identifies the scope for multi-tenant isolation.

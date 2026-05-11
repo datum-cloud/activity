@@ -1,6 +1,7 @@
 package processor
 
 import (
+	"context"
 	"strings"
 
 	authnv1 "k8s.io/api/authentication/v1"
@@ -38,6 +39,14 @@ const (
 //   - user: Human users authenticated via OIDC or other providers
 //   - system: Kubernetes controllers, service accounts, and other system components
 func ResolveActor(user authnv1.UserInfo) v1alpha1.ActivityActor {
+	return ResolveActorWithResolver(context.Background(), user, nil)
+}
+
+// ResolveActorWithResolver behaves like ResolveActor but additionally
+// populates ActivityActor.DisplayName for human users when resolver is non-nil
+// and a matching User record is found. Resolver errors are silently ignored:
+// the activity is still emitted with whatever data is available.
+func ResolveActorWithResolver(ctx context.Context, user authnv1.UserInfo, resolver UserResolver) v1alpha1.ActivityActor {
 	actor := v1alpha1.ActivityActor{
 		UID: user.UID,
 	}
@@ -60,6 +69,15 @@ func ResolveActor(user authnv1.UserInfo) v1alpha1.ActivityActor {
 
 	if actor.Name == "" {
 		actor.Name = "unknown"
+	}
+
+	// Enrich with display name for human users when a resolver is available.
+	if resolver != nil && actor.Type == ActorTypeUser && actor.Email != "" {
+		if info, ok, err := resolver.LookupByEmail(ctx, actor.Email); err == nil && ok {
+			if dn := info.DisplayName(); dn != "" {
+				actor.DisplayName = dn
+			}
+		}
 	}
 
 	return actor
