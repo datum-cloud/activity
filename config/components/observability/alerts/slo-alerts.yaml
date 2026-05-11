@@ -50,7 +50,7 @@ spec:
               Error ratio is {{ $value | humanizePercentage }} over the last hour
               (threshold: 14.4%). At this rate the 99% latency SLO error budget
               will be exhausted within hours. Investigate activitypolicies GET/LIST/APPLY latency.
-            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/slo-burn.md"
+            runbook_url: "https://github.com/milo-os/activity/blob/main/docs/runbooks/slo-burn.md"
 
         - alert: ActivitySLOMetadataTicketBurn
           expr: |
@@ -69,7 +69,7 @@ spec:
               Error ratio is {{ $value | humanizePercentage }} over the last 6 hours
               (threshold: 6%). The 99% latency SLO error budget is draining at an
               elevated rate. Review activitypolicies request latency trends.
-            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/slo-burn.md"
+            runbook_url: "https://github.com/milo-os/activity/blob/main/docs/runbooks/slo-burn.md"
 
         - alert: ActivitySLOMetadataLowBurn
           expr: |
@@ -88,7 +88,7 @@ spec:
               Error ratio is {{ $value | humanizePercentage }} over the last 3 days
               (threshold: 3%). The SLO error budget is slowly eroding.
               No immediate action required but worth investigating.
-            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/slo-burn.md"
+            runbook_url: "https://github.com/milo-os/activity/blob/main/docs/runbooks/slo-burn.md"
 
         # =====================================================================
         # SLO: Audit Queries (auditlogqueries POST, latency < 3s)
@@ -111,7 +111,7 @@ spec:
               Error ratio is {{ $value | humanizePercentage }} over the last hour
               (threshold: 14.4%). AuditLogQuery POST latency is breaching the 3s
               target at a rate that will exhaust the error budget within hours.
-            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/slo-burn.md"
+            runbook_url: "https://github.com/milo-os/activity/blob/main/docs/runbooks/slo-burn.md"
 
         - alert: ActivitySLOAuditQueryTicketBurn
           expr: |
@@ -130,7 +130,7 @@ spec:
               Error ratio is {{ $value | humanizePercentage }} over the last 6 hours
               (threshold: 6%). AuditLogQuery latency SLO error budget draining at
               elevated rate.
-            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/slo-burn.md"
+            runbook_url: "https://github.com/milo-os/activity/blob/main/docs/runbooks/slo-burn.md"
 
         - alert: ActivitySLOAuditQueryLowBurn
           expr: |
@@ -148,7 +148,7 @@ spec:
             description: >-
               Error ratio is {{ $value | humanizePercentage }} over the last 3 days
               (threshold: 3%). Audit query latency SLO slowly eroding.
-            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/slo-burn.md"
+            runbook_url: "https://github.com/milo-os/activity/blob/main/docs/runbooks/slo-burn.md"
 
         # =====================================================================
         # SLO: Activity Queries (activityqueries + activityfacetqueries POST,
@@ -173,7 +173,7 @@ spec:
               (threshold: 14.4%). ActivityQuery/ActivityFacetQuery POST latency is
               breaching the 3s target at a rate that will exhaust the error budget
               within hours.
-            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/slo-burn.md"
+            runbook_url: "https://github.com/milo-os/activity/blob/main/docs/runbooks/slo-burn.md"
 
         - alert: ActivitySLOActivityQueryTicketBurn
           expr: |
@@ -192,7 +192,7 @@ spec:
               Error ratio is {{ $value | humanizePercentage }} over the last 6 hours
               (threshold: 6%). Activity query latency SLO error budget draining at
               elevated rate.
-            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/slo-burn.md"
+            runbook_url: "https://github.com/milo-os/activity/blob/main/docs/runbooks/slo-burn.md"
 
         - alert: ActivitySLOActivityQueryLowBurn
           expr: |
@@ -210,7 +210,7 @@ spec:
             description: >-
               Error ratio is {{ $value | humanizePercentage }} over the last 3 days
               (threshold: 3%). Activity query latency SLO slowly eroding.
-            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/slo-burn.md"
+            runbook_url: "https://github.com/milo-os/activity/blob/main/docs/runbooks/slo-burn.md"
 
         # =====================================================================
         # SLO: Event Queries (eventqueries + eventfacetqueries POST, latency < 3s)
@@ -234,7 +234,7 @@ spec:
               (threshold: 14.4%). EventQuery/EventFacetQuery POST latency is
               breaching the 3s target at a rate that will exhaust the error budget
               within hours.
-            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/slo-burn.md"
+            runbook_url: "https://github.com/milo-os/activity/blob/main/docs/runbooks/slo-burn.md"
 
         - alert: ActivitySLOEventQueryTicketBurn
           expr: |
@@ -253,7 +253,7 @@ spec:
               Error ratio is {{ $value | humanizePercentage }} over the last 6 hours
               (threshold: 6%). Event query latency SLO error budget draining at
               elevated rate.
-            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/slo-burn.md"
+            runbook_url: "https://github.com/milo-os/activity/blob/main/docs/runbooks/slo-burn.md"
 
         - alert: ActivitySLOEventQueryLowBurn
           expr: |
@@ -271,7 +271,7 @@ spec:
             description: >-
               Error ratio is {{ $value | humanizePercentage }} over the last 3 days
               (threshold: 3%). Event query latency SLO slowly eroding.
-            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/slo-burn.md"
+            runbook_url: "https://github.com/milo-os/activity/blob/main/docs/runbooks/slo-burn.md"
 
         # =====================================================================
         # SLO: Availability (all verb!="WATCH", non-5xx responses)
@@ -294,7 +294,7 @@ spec:
               5xx error ratio is {{ $value | humanizePercentage }} over the last hour
               (threshold: 14.4%). The 99% availability SLO error budget will be
               exhausted within hours. Investigate apiserver error logs immediately.
-            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/slo-burn.md"
+            runbook_url: "https://github.com/milo-os/activity/blob/main/docs/runbooks/slo-burn.md"
 
         - alert: ActivitySLOAvailabilityTicketBurn
           expr: |
@@ -312,7 +312,7 @@ spec:
             description: >-
               5xx error ratio is {{ $value | humanizePercentage }} over the last 6 hours
               (threshold: 6%). Availability SLO error budget draining at elevated rate.
-            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/slo-burn.md"
+            runbook_url: "https://github.com/milo-os/activity/blob/main/docs/runbooks/slo-burn.md"
 
         - alert: ActivitySLOAvailabilityLowBurn
           expr: |
@@ -330,4 +330,4 @@ spec:
             description: >-
               5xx error ratio is {{ $value | humanizePercentage }} over the last 3 days
               (threshold: 3%). Availability SLO slowly eroding.
-            runbook_url: "https://github.com/datum-cloud/activity/blob/main/docs/runbooks/slo-burn.md"
+            runbook_url: "https://github.com/milo-os/activity/blob/main/docs/runbooks/slo-burn.md"

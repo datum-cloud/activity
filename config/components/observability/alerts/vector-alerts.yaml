@@ -29,7 +29,7 @@ spec:
             summary: "All Vector NATS sources stopped - likely lame duck reconnection failure"
             description: "No NATS sources are receiving events. This typically indicates Vector's NATS connection did not recover after server entered lame duck mode."
             runbook: "Restart vector-aggregator pods: kubectl rollout restart statefulset/vector-aggregator -n activity-system"
-            issue_link: "https://github.com/datum-cloud/activity/issues/82"
+            issue_link: "https://github.com/milo-os/activity/issues/82"
 
         # NATS Source Stalled with audit event backlog confirmation
         - alert: VectorNATSAuditStalledWithBacklog

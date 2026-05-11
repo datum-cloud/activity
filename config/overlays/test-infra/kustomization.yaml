@@ -26,8 +26,8 @@ components:
 
 # Image overrides for test-infra environment
 images:
-  - name: ghcr.io/datum-cloud/activity
-    newName: ghcr.io/datum-cloud/activity
+  - name: ghcr.io/milo-os/activity
+    newName: ghcr.io/milo-os/activity
     newTag: dev
 
 # Sync ACTIVITY_IMAGE env var with the overlay's image tag.

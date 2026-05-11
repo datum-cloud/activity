@@ -139,7 +139,7 @@ func TestMergeJobTemplate(t *testing.T) {
 		opts := JobBuildOptions{
 			ReindexJobName: "test-reindex",
 			JobNamespace:   "activity-system",
-			ActivityImage:  "ghcr.io/datum-cloud/activity:test",
+			ActivityImage:  "ghcr.io/milo-os/activity:test",
 			ControllerArgs: []string{"reindex-worker", "test-reindex", "--nats-url=nats://localhost:4222"},
 		}
 
@@ -159,7 +159,7 @@ func TestMergeJobTemplate(t *testing.T) {
 		require.Len(t, job.Spec.Template.Spec.Containers, 1)
 		container := job.Spec.Template.Spec.Containers[0]
 		assert.Equal(t, "reindex", container.Name)
-		assert.Equal(t, "ghcr.io/datum-cloud/activity:test", container.Image)
+		assert.Equal(t, "ghcr.io/milo-os/activity:test", container.Image)
 		assert.Equal(t, []string{"reindex-worker", "test-reindex", "--nats-url=nats://localhost:4222"}, container.Args)
 	})
 
@@ -178,7 +178,7 @@ func TestMergeJobTemplate(t *testing.T) {
 		opts := JobBuildOptions{
 			ReindexJobName: "test-reindex",
 			JobNamespace:   "activity-system",
-			ActivityImage:  "ghcr.io/datum-cloud/activity:test",
+			ActivityImage:  "ghcr.io/milo-os/activity:test",
 			ControllerArgs: []string{"reindex-worker", "test-reindex", "--nats-url=nats://localhost:4222"},
 		}
 
@@ -226,7 +226,7 @@ func TestMergeJobTemplate(t *testing.T) {
 		opts := JobBuildOptions{
 			ReindexJobName: "test-reindex",
 			JobNamespace:   "activity-system",
-			ActivityImage:  "ghcr.io/datum-cloud/activity:test",
+			ActivityImage:  "ghcr.io/milo-os/activity:test",
 			ControllerArgs: []string{"reindex-worker", "test-reindex"},
 		}
 
@@ -263,7 +263,7 @@ func TestMergeJobTemplate(t *testing.T) {
 		opts := JobBuildOptions{
 			ReindexJobName: "test-reindex",
 			JobNamespace:   "activity-system",
-			ActivityImage:  "ghcr.io/datum-cloud/activity:test",
+			ActivityImage:  "ghcr.io/milo-os/activity:test",
 			ControllerArgs: []string{"reindex-worker", "test-reindex"},
 			ResourceRequirements: corev1.ResourceRequirements{
 				Limits: corev1.ResourceList{
@@ -298,7 +298,7 @@ func TestMergeJobTemplate(t *testing.T) {
 		opts := JobBuildOptions{
 			ReindexJobName:     "test-reindex",
 			JobNamespace:       "activity-system",
-			ActivityImage:      "ghcr.io/datum-cloud/activity:test",
+			ActivityImage:      "ghcr.io/milo-os/activity:test",
 			ControllerArgs:     []string{"reindex-worker", "test-reindex"},
 			ServiceAccountName: "controller-sa",
 		}
@@ -322,7 +322,7 @@ func TestMergeJobTemplate(t *testing.T) {
 		opts := JobBuildOptions{
 			ReindexJobName: "test-reindex",
 			JobNamespace:   "activity-system",
-			ActivityImage:  "ghcr.io/datum-cloud/activity:test",
+			ActivityImage:  "ghcr.io/milo-os/activity:test",
 			ControllerArgs: []string{"reindex-worker", "test-reindex"},
 			// No ServiceAccountName set
 		}
@@ -345,7 +345,7 @@ func TestMergeJobTemplate(t *testing.T) {
 		opts := JobBuildOptions{
 			ReindexJobName: "test-reindex",
 			JobNamespace:   "activity-system",
-			ActivityImage:  "ghcr.io/datum-cloud/activity:test",
+			ActivityImage:  "ghcr.io/milo-os/activity:test",
 			ControllerArgs: []string{"reindex-worker", "test-reindex"},
 		}
 
@@ -363,7 +363,7 @@ func TestMergeJobTemplate(t *testing.T) {
 			}
 		}
 		require.NotNil(t, reindexContainer)
-		assert.Equal(t, "ghcr.io/datum-cloud/activity:test", reindexContainer.Image)
+		assert.Equal(t, "ghcr.io/milo-os/activity:test", reindexContainer.Image)
 	})
 
 	t.Run("merges labels from template", func(t *testing.T) {
@@ -384,7 +384,7 @@ func TestMergeJobTemplate(t *testing.T) {
 		opts := JobBuildOptions{
 			ReindexJobName: "test-reindex",
 			JobNamespace:   "activity-system",
-			ActivityImage:  "ghcr.io/datum-cloud/activity:test",
+			ActivityImage:  "ghcr.io/milo-os/activity:test",
 			ControllerArgs: []string{"reindex-worker", "test-reindex"},
 		}
 

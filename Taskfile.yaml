@@ -3,8 +3,8 @@ version: '3'
 vars:
   TOOL_DIR: "{{.USER_WORKING_DIR}}/bin"
   # Container image configuration
-  ACTIVITY_IMAGE_NAME: "ghcr.io/datum-cloud/activity"
-  ACTIVITY_UI_IMAGE_NAME: "ghcr.io/datum-cloud/activity-ui"
+  ACTIVITY_IMAGE_NAME: "ghcr.io/milo-os/activity"
+  ACTIVITY_UI_IMAGE_NAME: "ghcr.io/milo-os/activity-ui"
   ACTIVITY_IMAGE_TAG: "dev"
   TEST_INFRA_CLUSTER_NAME: "test-infra"
   # Test infra repository configuration - can be overridden with environment variable

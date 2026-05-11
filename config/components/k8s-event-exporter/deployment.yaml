@@ -27,7 +27,7 @@ spec:
       containers:
         - name: event-exporter
           # Uses the same activity image with the event-exporter subcommand
-          image: ghcr.io/datum-cloud/activity:dev
+          image: ghcr.io/milo-os/activity:dev
           imagePullPolicy: IfNotPresent
           args:
             - event-exporter

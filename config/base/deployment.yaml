@@ -23,7 +23,7 @@ spec:
           type: RuntimeDefault
       containers:
       - name: apiserver
-        image: ghcr.io/datum-cloud/activity:latest
+        image: ghcr.io/milo-os/activity:latest
         imagePullPolicy: IfNotPresent
         securityContext:
           allowPrivilegeEscalation: false

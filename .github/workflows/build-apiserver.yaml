@@ -22,6 +22,7 @@ jobs:
     uses: datum-cloud/actions/.github/workflows/publish-docker.yaml@v1.12.1
     with:
       image-name: activity
+      registry-organization: milo-os
     secrets: inherit
 
   publish-ui-container-image:
@@ -38,6 +39,7 @@ jobs:
       image-name: activity-ui
       context: ui
       dockerfile-path: ui/Dockerfile
+      registry-organization: milo-os
     secrets: inherit
 
   publish-kustomize-bundles:
@@ -53,10 +55,10 @@ jobs:
       packages: write
     uses: datum-cloud/actions/.github/workflows/publish-kustomize-bundle.yaml@v1.12.1
     with:
-      bundle-name: ghcr.io/datum-cloud/activity-kustomize
+      bundle-name: ghcr.io/milo-os/activity-kustomize
       bundle-path: config
       image-overlays: config/base
-      image-name: ghcr.io/datum-cloud/activity
+      image-name: ghcr.io/milo-os/activity
     secrets: inherit
 
   publish-ui-kustomize-bundle:
@@ -70,8 +72,8 @@ jobs:
       packages: write
     uses: datum-cloud/actions/.github/workflows/publish-kustomize-bundle.yaml@v1.12.1
     with:
-      bundle-name: ghcr.io/datum-cloud/activity-ui-kustomize
+      bundle-name: ghcr.io/milo-os/activity-ui-kustomize
       bundle-path: config/components/ui
       image-overlays: config/components/ui
-      image-name: ghcr.io/datum-cloud/activity-ui
+      image-name: ghcr.io/milo-os/activity-ui
     secrets: inherit

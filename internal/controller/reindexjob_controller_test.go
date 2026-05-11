@@ -27,7 +27,7 @@ func TestBuildJobForReindexJob(t *testing.T) {
 
 	reconciler := &ReindexJobReconciler{
 		JobNamespace:          "activity-system",
-		ActivityImage:         "ghcr.io/datum-cloud/activity:test",
+		ActivityImage:         "ghcr.io/milo-os/activity:test",
 		ReindexServiceAccount: "activity-reindex-worker",
 		ReindexMemoryLimit:    "2Gi",
 		ReindexCPULimit:       "1000m",
@@ -66,7 +66,7 @@ func TestBuildJobForReindexJob(t *testing.T) {
 	require.Len(t, job.Spec.Template.Spec.Containers, 1)
 	container := job.Spec.Template.Spec.Containers[0]
 	assert.Equal(t, "reindex", container.Name)
-	assert.Equal(t, "ghcr.io/datum-cloud/activity:test", container.Image)
+	assert.Equal(t, "ghcr.io/milo-os/activity:test", container.Image)
 
 	// Verify args
 	expectedArgs := []string{
@@ -113,7 +113,7 @@ func TestBuildJobForReindexJob_WithTLS(t *testing.T) {
 
 	reconciler := &ReindexJobReconciler{
 		JobNamespace:          "activity-system",
-		ActivityImage:         "ghcr.io/datum-cloud/activity:test",
+		ActivityImage:         "ghcr.io/milo-os/activity:test",
 		ReindexServiceAccount: "activity-reindex-worker",
 		ReindexMemoryLimit:    "2Gi",
 		ReindexCPULimit:       "1000m",
