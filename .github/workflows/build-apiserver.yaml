@@ -19,7 +19,7 @@ jobs:
       contents: read
       packages: write
       attestations: write
-    uses: datum-cloud/actions/.github/workflows/publish-docker.yaml@v1.12.1
+    uses: datum-cloud/actions/.github/workflows/publish-docker.yaml@v1.14.0
     with:
       image-name: activity
       registry-organization: milo-os
@@ -34,7 +34,7 @@ jobs:
       contents: read
       packages: write
       attestations: write
-    uses: datum-cloud/actions/.github/workflows/publish-docker.yaml@v1.12.1
+    uses: datum-cloud/actions/.github/workflows/publish-docker.yaml@v1.14.0
     with:
       image-name: activity-ui
       context: ui
@@ -53,7 +53,7 @@ jobs:
       id-token: write
       contents: read
       packages: write
-    uses: datum-cloud/actions/.github/workflows/publish-kustomize-bundle.yaml@v1.12.1
+    uses: datum-cloud/actions/.github/workflows/publish-kustomize-bundle.yaml@v1.14.0
     with:
       bundle-name: ghcr.io/milo-os/activity-kustomize
       bundle-path: config
@@ -70,7 +70,7 @@ jobs:
       id-token: write
       contents: read
       packages: write
-    uses: datum-cloud/actions/.github/workflows/publish-kustomize-bundle.yaml@v1.12.1
+    uses: datum-cloud/actions/.github/workflows/publish-kustomize-bundle.yaml@v1.14.0
     with:
       bundle-name: ghcr.io/milo-os/activity-ui-kustomize
       bundle-path: config/components/ui
