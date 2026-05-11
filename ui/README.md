@@ -330,5 +330,5 @@ Apache-2.0
 ## Support
 
 For issues and questions:
-- GitHub Issues: https://github.com/datum-cloud/activity/issues
+- GitHub Issues: https://github.com/milo-os/activity/issues
 - Documentation: See the main [Activity README](../README.md)

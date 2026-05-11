@@ -82,7 +82,7 @@ All development tasks use [Task](https://taskfile.dev). Run `task --list` to see
 
 ```bash
 task build                    # Build the activity binary to bin/activity
-task dev:build                # Build container image (ghcr.io/datum-cloud/activity:dev)
+task dev:build                # Build container image (ghcr.io/milo-os/activity:dev)
 ```
 
 ### Testing

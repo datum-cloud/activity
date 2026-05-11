@@ -66,7 +66,7 @@ func NewControllerManagerOptions() *ControllerManagerOptions {
 		ReindexMemoryLimit:       "2Gi",
 		ReindexCPULimit:          "1000m",
 		MaxConcurrentReindexJobs: 1,
-		ActivityImage:            "ghcr.io/datum-cloud/activity:latest",
+		ActivityImage:            "ghcr.io/milo-os/activity:latest",
 	}
 }
 

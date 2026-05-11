@@ -29,7 +29,7 @@ labels:
 
 # Images (will be replaced by overlays for different environments)
 images:
-  - name: ghcr.io/datum-cloud/activity
+  - name: ghcr.io/milo-os/activity
     newTag: latest
 
 # Sync ACTIVITY_IMAGE env var with the container image after image transformation.
