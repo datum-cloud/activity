@@ -28,6 +28,7 @@ export { ActivityFeedItemSkeleton } from './components/ActivityFeedItemSkeleton'
 export type { ActivityFeedItemSkeletonProps } from './components/ActivityFeedItemSkeleton';
 export { ActivityFeedSummary } from './components/ActivityFeedSummary';
 export type { ActivityFeedSummaryProps, ResourceLinkClickHandler } from './components/ActivityFeedSummary';
+export { ActivityFeedFilters } from './components/ActivityFeedFilters';
 export type { ActivityFeedFiltersProps } from './components/ActivityFeedFilters';
 export { ChangeSourceToggle } from './components/ChangeSourceToggle';
 export type { ChangeSourceToggleProps, ChangeSourceOption } from './components/ChangeSourceToggle';
@@ -213,7 +214,6 @@ export { useActivityFeed } from './hooks/useActivityFeed';
 export type {
   UseActivityFeedOptions,
   UseActivityFeedResult,
-  ActivityFeedFilters,
   ActivityFeedFilters as ActivityFeedFilterState,
   TimeRange,
 } from './hooks/useActivityFeed';
