@@ -37,6 +37,14 @@ export interface ActivityFeedFiltersProps {
   >;
   /** Additional CSS class */
   className?: string;
+  /**
+   * Optional node rendered inline in the filter row, immediately after the
+   * built-in filter controls (Search / Change Source / Add Filters) and before
+   * the time range dropdown. Use this to inject consumer-specific filter
+   * affordances (e.g. a multi-source selector) that need to live in the same
+   * row as the library's controls.
+   */
+  extraFilters?: React.ReactNode;
 }
 
 /**
@@ -140,6 +148,7 @@ export function ActivityFeedFilters({
   disabled = false,
   hiddenFilters = [],
   className = "",
+  extraFilters,
 }: ActivityFeedFiltersProps) {
   const {
     resourceKinds,
@@ -480,6 +489,9 @@ export function ActivityFeedFilters({
           hasActiveFilters={activeFilterIds.length > 0}
           disabled={disabled}
         />
+
+        {/* Consumer-injected filter controls, rendered inline before the time range */}
+        {extraFilters}
 
         {/* Spacer */}
         <div className="flex-1 min-w-[20px]" />
