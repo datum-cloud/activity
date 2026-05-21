@@ -22,7 +22,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: datum-cloud/actions/.github/workflows/publish-npm-package.yaml@v1.14.0
+    uses: datum-cloud/actions/.github/workflows/publish-npm-package.yaml@v1.15.0
     with:
       package-name: "@datum-cloud/activity-ui"
       package-path: ui
@@ -38,7 +38,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     permissions:
       contents: write
-    uses: datum-cloud/actions/.github/workflows/bump-npm-version.yaml@v1.14.0
+    uses: datum-cloud/actions/.github/workflows/bump-npm-version.yaml@v1.15.0
     with:
       package-path: ui
       package-name: "@datum-cloud/activity-ui"
@@ -52,7 +52,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: datum-cloud/actions/.github/workflows/publish-npm-package.yaml@v1.14.0
+    uses: datum-cloud/actions/.github/workflows/publish-npm-package.yaml@v1.15.0
     with:
       package-name: "@datum-cloud/activity-ui"
       package-path: ui
