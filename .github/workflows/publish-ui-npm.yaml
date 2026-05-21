@@ -19,6 +19,9 @@ jobs:
   publish-dev:
     name: Publish dev build
     if: github.event_name == 'push'
+    permissions:
+      contents: read
+      id-token: write
     uses: datum-cloud/actions/.github/workflows/publish-npm-package.yaml@v1.14.0
     with:
       package-name: "@datum-cloud/activity-ui"
@@ -46,6 +49,9 @@ jobs:
   publish-release:
     name: Publish release
     needs: bump-version
+    permissions:
+      contents: read
+      id-token: write
     uses: datum-cloud/actions/.github/workflows/publish-npm-package.yaml@v1.14.0
     with:
       package-name: "@datum-cloud/activity-ui"
