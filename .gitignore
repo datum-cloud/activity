@@ -66,4 +66,5 @@ observability/jsonnetfile.lock.json
 node_modules/
 .pnpm-store/
 .claude/settings.local.json
-config.bat
+.env
+.env.local
