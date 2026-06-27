@@ -92,12 +92,15 @@ kubectl edit activitypolicy <policy-name>
 # After:  has(audit.verb) && audit.verb == 'create'
 
 # 2. Add null checks for nested fields
+#    Guard the full leaf path, not just the root object: responseObject can be
+#    present while metadata.name is absent (DELETE, status subresource, error
+#    responses), which still raises "no such key: name".
 # Before: audit.responseObject.metadata.name
-# After:  has(audit.responseObject) ? audit.responseObject.metadata.name : audit.objectRef.name
+# After:  has(audit.responseObject.metadata.name) ? audit.responseObject.metadata.name : audit.objectRef.name
 
 # 3. Handle DELETE operations (no responseObject)
 # Before: {{ audit.responseObject.spec.type }}
-# After:  {{ has(audit.responseObject) ? audit.responseObject.spec.type : 'deleted' }}
+# After:  {{ has(audit.responseObject.spec.type) ? audit.responseObject.spec.type : 'deleted' }}
 ```
 
 Policy update triggers immediate retry of all failed events.
