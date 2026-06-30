@@ -92,6 +92,11 @@ func validateMatchExpression(env *cel.Env, expression string) error {
 		return fmt.Errorf("match expression must return a boolean, got %v", ast.OutputType())
 	}
 
+	// Reject unguarded deep dereferences of audit.responseObject/requestObject.
+	if err := ValidateGuardedDerefs(ast); err != nil {
+		return fmt.Errorf("invalid match expression: %w", err)
+	}
+
 	return nil
 }
 
@@ -134,6 +139,11 @@ func validateSummaryExpression(env *cel.Env, expression string) error {
 		// The link() function returns a string, so check for string type
 		if !ast.OutputType().IsExactType(cel.StringType) && !ast.OutputType().IsExactType(cel.DynType) {
 			return fmt.Errorf("expression '{{ %s }}' in summary must return a string, got %v", embeddedExpr, ast.OutputType())
+		}
+
+		// Reject unguarded deep dereferences of audit.responseObject/requestObject.
+		if err := ValidateGuardedDerefs(ast); err != nil {
+			return fmt.Errorf("invalid summary expression '{{ %s }}': %w", embeddedExpr, err)
 		}
 	}
 
