@@ -38,7 +38,8 @@ Go to [Resolution](#maximum-payload-violation).
 
 ```bash
 kubectl -n nats-system get pods
-kubectl -n nats-system exec deploy/nats-box -- nats stream info AUDIT_EVENTS
+kubectl -n nats-system exec nats-0 -c nats -- \
+  wget -qO- 'http://localhost:8222/jsz?streams=1&config=1'
 ```
 
 Publish-ack timeouts alone mean a degraded or unreachable NATS, or a stream at a
@@ -57,13 +58,17 @@ Check the current limit, then raise it. `max_payload` is reloadable — SIGHUP, 
 pod restart, no loss of buffered messages:
 
 ```bash
-kubectl -n nats-system exec deploy/nats-box -- nats server info | grep -i payload
-kubectl -n nats-system exec nats-0 -- nats-server --signal reload
+# Current limit, per server — repeat for nats-1 and nats-2
+kubectl -n nats-system exec nats-0 -c nats -- wget -qO- http://localhost:8222/varz \
+  | grep -o '"max_payload":[0-9]*'
+
+# The reloader sidecar picks the new config up on its own. Only if it does not:
+kubectl -n nats-system exec nats-0 -c nats -- nats-server --signal reload
 ```
 
 The 1 MiB default is below the size of a large audit event. Land the change in
 the deployment repo so it survives the next reconcile, and confirm every server
-picked it up with the `nats server info` command above.
+picked it up with the `varz` command above.
 
 ## Confirming recovery
 

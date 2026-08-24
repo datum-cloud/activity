@@ -31,9 +31,11 @@ rate(vector_component_received_events_total{namespace="activity-system",componen
 
 ```bash
 kubectl -n nats-system get pods
-kubectl -n nats-system exec deploy/nats-box -- nats stream info AUDIT_EVENTS
+kubectl -n nats-system exec nats-0 -c nats -- \
+  wget -qO- 'http://localhost:8222/jsz?streams=1&config=1'
 kubectl -n activity-system logs <pod> --tail=200 | grep -i "nats\|timed out"
-kubectl -n activity-system exec <pod> -- df -h /var/lib/vector
+# Buffer size comes from metrics; the vector image has no shell or df:
+#   vector_buffer_byte_size{namespace="activity-system", pod="<pod>"}
 ```
 
 Publish-ack timeouts without payload violations point at a degraded NATS cluster.
