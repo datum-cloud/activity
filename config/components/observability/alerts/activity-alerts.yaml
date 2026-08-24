@@ -142,10 +142,15 @@ spec:
             description: "{{ $value }} messages pending in AUDIT_EVENTS stream. Events not reaching ClickHouse."
             impact: "Audit log queries may return incomplete results"
 
-        # NATS Consumer Lag - Leading indicator of pipeline issues
+        # NATS Consumer Lag - Leading indicator of pipeline issues.
+        # 50k is ~8 minutes of a fully stopped consumer at this stream's ~100
+        # events/s. The previous 500k was ~83 minutes, set against a metric that
+        # never existed and so never calibrated against real throughput. Sits a
+        # decade above the observed 30-day maximum of 2 pending, and one order
+        # above the 5k warning.
         - alert: ActivityPipelineBacklogCritical
           expr: |
-            max by (consumer_name) (nats_consumer_num_pending{stream_name="AUDIT_EVENTS"}) > 500000
+            max by (consumer_name) (nats_consumer_num_pending{stream_name="AUDIT_EVENTS"}) > 50000
           for: 10m
           labels:
             severity: critical
