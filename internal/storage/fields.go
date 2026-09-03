@@ -78,6 +78,10 @@ var ActivityFacetFields = map[string]string{
 	"spec.resource.kind":      "The kind of the target resource",
 	"spec.resource.namespace": "The namespace of the target resource",
 	"spec.changeSource":       "The source of the change (human, automation, system)",
+	"spec.source.planeType":   "The plane the underlying event originated from (management, edge)",
+	"spec.source.cluster":     "The cluster the underlying event originated from",
+	"spec.source.region":      "The region the underlying event originated from",
+	"spec.source.city":        "The city the underlying event originated from",
 }
 
 // IsValidActivityFacetField checks if a field is supported for activity faceting.
@@ -100,6 +104,10 @@ var activityFacetColumnMapping = map[string]string{
 	"spec.resource.kind":      "resource_kind",
 	"spec.resource.namespace": "resource_namespace",
 	"spec.changeSource":       "change_source",
+	"spec.source.planeType":   "source_plane_type",
+	"spec.source.cluster":     "source_cluster",
+	"spec.source.region":      "source_region",
+	"spec.source.city":        "source_city",
 }
 
 // GetActivityFacetColumn returns the ClickHouse column name for an activity facet field.
@@ -123,6 +131,10 @@ var EventFacetFields = map[string]string{
 	"type":                "The event type (Normal, Warning)",
 	"source.component":    "The component that generated the event (kubelet, scheduler, etc.)",
 	"namespace":           "The namespace of the event itself",
+	"sourcePlaneType":     "The plane the event originated from (management, edge)",
+	"sourceCluster":       "The cluster the event originated from",
+	"sourceRegion":        "The region the event originated from",
+	"sourceCity":          "The city the event originated from",
 }
 
 // IsValidEventFacetField checks if a field is supported for event faceting.
@@ -146,6 +158,10 @@ var eventFacetColumnMapping = map[string]string{
 	"type":                "type",
 	"source.component":    "source_component",
 	"namespace":           "namespace",
+	"sourcePlaneType":     "source_plane_type",
+	"sourceCluster":       "source_cluster",
+	"sourceRegion":        "source_region",
+	"sourceCity":          "source_city",
 }
 
 // GetEventFacetColumn returns the ClickHouse column name for an event facet field.
@@ -158,6 +174,16 @@ func GetEventFacetColumn(field string) (string, error) {
 	return col, nil
 }
 
+
+// Annotation keys the federated event-exporter attaches to tag an event with
+// where it originated. Not yet written by any exporter as of this change -
+// see docs/enhancements/federated-event-ingestion.md.
+const (
+	sourcePlaneTypeAnnotation = "activity.miloapis.com/source-plane-type"
+	sourceClusterAnnotation   = "activity.miloapis.com/source-cluster"
+	sourceRegionAnnotation    = "activity.miloapis.com/source-region"
+	sourceCityAnnotation      = "activity.miloapis.com/source-city"
+)
 
 // GetEventFieldValue extracts a field value from a Kubernetes Event object
 // given a ClickHouse column name. This is the shared implementation used by
@@ -210,6 +236,14 @@ func GetEventFieldValue(event *corev1.Event, column string) string {
 		return event.Source.Component
 	case "source_host":
 		return event.Source.Host
+	case "source_plane_type":
+		return event.Annotations[sourcePlaneTypeAnnotation]
+	case "source_cluster":
+		return event.Annotations[sourceClusterAnnotation]
+	case "source_region":
+		return event.Annotations[sourceRegionAnnotation]
+	case "source_city":
+		return event.Annotations[sourceCityAnnotation]
 	default:
 		return ""
 	}

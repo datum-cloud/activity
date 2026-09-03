@@ -64,11 +64,17 @@ func NewEventEnvironment(collector *linkCollector) (*cel.Env, error) {
 	eventType := cel.MapType(cel.StringType, cel.DynType)
 	// The actorRef variable is a map with {type, name} for linking
 	actorRefType := cel.MapType(cel.StringType, cel.DynType)
+	// The source variable is a map with {planeType, cluster, region, city}
+	// describing where the event originated. Populated from the exporter's
+	// source-* annotations (see BuildEventSourceVars) - not yet emitted by any
+	// exporter, so today every event evaluates this as all-empty strings.
+	sourceType := cel.MapType(cel.StringType, cel.StringType)
 
 	return cel.NewEnv(
 		cel.Variable("event", eventType),
 		cel.Variable("actor", cel.StringType),
 		cel.Variable("actorRef", actorRefType),
+		cel.Variable("source", sourceType),
 
 		// link function declaration with implementation: link(displayText string, resourceRef map) -> string
 		// Returns the display text and optionally captures link info in the collector.
@@ -139,6 +145,37 @@ func BuildEventVars(eventMap map[string]interface{}) map[string]interface{} {
 		"event":    eventMap,
 		"actor":    ExtractEventActor(eventMap),
 		"actorRef": BuildEventActorRef(eventMap),
+		"source":   BuildEventSourceVars(eventMap),
+	}
+}
+
+// Annotation keys the federated event-exporter attaches to tag an event with
+// where it originated. Not yet written by any exporter as of this change -
+// see docs/enhancements/federated-event-ingestion.md.
+const (
+	sourcePlaneTypeAnnotation = "activity.miloapis.com/source-plane-type"
+	sourceClusterAnnotation   = "activity.miloapis.com/source-cluster"
+	sourceRegionAnnotation    = "activity.miloapis.com/source-region"
+	sourceCityAnnotation      = "activity.miloapis.com/source-city"
+)
+
+// BuildEventSourceVars builds the "source" CEL variable map from an event's
+// source-* annotations.
+//
+// It always returns all four keys, defaulting to "" when the annotation (or
+// the annotations map itself) is absent - the source variable must never be
+// omitted from the activation. CEL errors on an undefined variable rather
+// than evaluating false, so a builder that only emitted "source" when
+// annotations were present would break every ActivityPolicy event rule that
+// references source.* the moment this variable was declared, since no
+// exporter emits these annotations yet.
+func BuildEventSourceVars(eventMap map[string]interface{}) map[string]interface{} {
+	annotations := ExtractMap(eventMap, "metadata", "annotations")
+	return map[string]interface{}{
+		"planeType": ExtractString(annotations, sourcePlaneTypeAnnotation),
+		"cluster":   ExtractString(annotations, sourceClusterAnnotation),
+		"region":    ExtractString(annotations, sourceRegionAnnotation),
+		"city":      ExtractString(annotations, sourceCityAnnotation),
 	}
 }
 
